@@ -2,8 +2,8 @@ main_dir=Peract2
 
 DATA_PATH=/data/user_data/ngkanats
 
-train_data_dir=$DATA_PATH/zarr_datasets/peract2/train.zarr
-eval_data_dir=$DATA_PATH/zarr_datasets/peract2/val.zarr
+train_data_dir=$DATA_PATH/zarr_datasets/peract2/Peract2_zarr/train.zarr
+eval_data_dir=$DATA_PATH/zarr_datasets/peract2/Peract2_zarr/val.zarr
 train_instructions=instructions/peract2/instructions.json
 val_instructions=instructions/peract2/instructions.json
 

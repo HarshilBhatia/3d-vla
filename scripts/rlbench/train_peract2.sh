@@ -1,9 +1,9 @@
 main_dir=Peract2
 
-DATA_PATH=/data/user_data/ngkanats
+DATA_PATH=$(pwd)
 
-train_data_dir=$DATA_PATH/zarr_datasets/peract2/train.zarr
-eval_data_dir=$DATA_PATH/zarr_datasets/peract2/val.zarr
+train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
 train_instructions=instructions/peract2/instructions.json
 val_instructions=instructions/peract2/instructions.json
 
@@ -18,7 +18,7 @@ memory_limit=8  # this means 8GB CPU RAM per worker per GPU,
 
 # Training/testing arguments
 val_freq=4000
-eval_only=false
+eval_only=true # this toggles eval and train
 lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune
 lr_scheduler=constant
