@@ -31,7 +31,7 @@ collision_checking=false
 seed=0
 
 # Dataset arguments
-data_dir=/data/group_data/katefgroup/VLA/peract_raw/test
+data_dir=$(python3 paths.py RAW_ROOT)/peract_raw/test
 dataset=Peract
 image_size=256,256
 

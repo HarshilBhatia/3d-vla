@@ -169,18 +169,61 @@ def _store_instructions(root, task, splits):
     # both root and path are strings
     var2text = {}
     for split in splits:
-        folder = f'{root}/{split}/{task}/all_variations/episodes'
+        # Try different path structures
+        possible_folders = [
+            f'{root}/{split}/{task}/all_variations/episodes',
+            f'{root}/{task}/all_variations/episodes',
+        ]
+        
+        folder = None
+        for f in possible_folders:
+            if os.path.exists(f):
+                folder = f
+                break
+        
+        if folder is None:
+            # Try variation structure: root/task/variation0/episodes
+            task_base = f'{root}/{task}'
+            if not os.path.exists(task_base):
+                task_base = f'{root}/{split}/{task}'
+            
+            if os.path.exists(task_base):
+                variation_folders = [
+                    f for f in os.listdir(task_base) 
+                    if f.startswith('variation')
+                ]
+                for var_dir in variation_folders:
+                    v_folder = f'{task_base}/{var_dir}/episodes'
+                    if os.path.exists(v_folder):
+                        eps = {ep for ep in os.listdir(v_folder) if ep.startswith('ep')}
+                        for ep in eps:
+                            _process_ep(v_folder, ep, var2text)
+            continue
+
         eps = {ep for ep in os.listdir(folder) if ep.startswith('ep')}
         for ep in eps:
-            # Load variation
-            with open(f'{folder}/{ep}/variation_number.pkl', 'rb') as f:
-                var_ = pickle.load(f)
-            if var_ in var2text:
-                continue
-            # Read different descriptions
-            with open(f'{folder}/{ep}/variation_descriptions.pkl', 'rb') as f:
-                var2text[var_] = pickle.load(f)
+            _process_ep(folder, ep, var2text)
     return var2text
+
+
+def _process_ep(folder, ep, var2text):
+    # Load variation
+    var_file = f'{folder}/{ep}/variation_number.pkl'
+    if os.path.exists(var_file):
+        with open(var_file, 'rb') as f:
+            var_ = pickle.load(f)
+    else:
+        import re
+        match = re.search(r'variation(\d+)', folder)
+        var_ = int(match.group(1)) if match else 0
+
+    if var_ in var2text:
+        return
+    # Read different descriptions
+    desc_file = f'{folder}/{ep}/variation_descriptions.pkl'
+    if os.path.exists(desc_file):
+        with open(desc_file, 'rb') as f:
+            var2text[var_] = pickle.load(f)
 
 
 def store_instructions(root, task_list, splits=['train', 'val']):

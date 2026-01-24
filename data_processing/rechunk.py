@@ -5,7 +5,7 @@ import numpy as np
 import zarr
 from numcodecs import Blosc
 from tqdm import tqdm
-
+from paths import ZARR_ROOT
 from utils.common_utils import str2bool
 
 
@@ -14,8 +14,8 @@ def parse_arguments():
     # Tuples: (name, type, default)
     arguments = [
         # Dataset/loader arguments
-        ('src', str, '/data/user_data/ngkanats/zarr_datasets/Peract2_dense_zarr/train.zarr'),
-        ('tgt', str, '/data/user_data/ngkanats/zarr_datasets/Peract2_dense_zarr/train_rechunked4.zarr'),
+        ('src', str, f'{ZARR_ROOT}/Peract2_dense_zarr/train.zarr'),
+        ('tgt', str, f'{ZARR_ROOT}/Peract2_dense_zarr/train_rechunked4.zarr'),
         ('chunk_size', int, 4),
         ('shuffle', str2bool, False)
     ]

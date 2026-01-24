@@ -11,6 +11,7 @@ import numpy as np
 import torch
 from tqdm import tqdm
 
+from paths import RAW_ROOT, ZARR_ROOT
 from data_processing.rlbench_utils import store_instructions
 
 
@@ -24,8 +25,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     # Tuples: (name, type, default)
     arguments = [
-        ('root', str, '/data/group_data/katefgroup/VLA/Peract_packaged/'),
-        ('tgt', str, '/data/user_data/ngkanats/zarr_datasets/Peract_dat_zarr/')
+        ('root', str, RAW_ROOT),
+        ('tgt', str, ZARR_ROOT)
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

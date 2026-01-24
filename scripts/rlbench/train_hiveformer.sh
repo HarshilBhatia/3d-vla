@@ -1,11 +1,12 @@
 main_dir=hiveformer
 
-DATA_PATH=/data/user_data/ngkanats
+# Load paths from paths.py
+USER_DATA=$(python3 paths.py USER_DATA)
 
 task=close_door
 
-train_data_dir=$DATA_PATH/zarr_datasets/hiveformer/$task/train.zarr/
-eval_data_dir=$DATA_PATH/zarr_datasets/hiveformer/$task/val.zarr/
+train_data_dir=$USER_DATA/zarr_datasets/hiveformer/$task/train.zarr/
+eval_data_dir=$USER_DATA/zarr_datasets/hiveformer/$task/val.zarr/
 train_instructions=instructions/hiveformer/$task.json
 val_instructions=instructions/hiveformer/$task.json
 

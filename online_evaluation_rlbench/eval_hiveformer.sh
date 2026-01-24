@@ -14,7 +14,7 @@ collision_checking=false
 seed=0
 
 # Dataset arguments
-data_dir=/data/group_data/katefgroup/datasets/hiveformer_clean/
+data_dir=$(python3 paths.py RAW_ROOT)/datasets/hiveformer_clean/
 dataset=HiveformerRLBench
 image_size=256,256
 

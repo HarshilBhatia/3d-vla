@@ -1,13 +1,14 @@
 import argparse
 import os
 import subprocess
+from paths import RAW_ROOT
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser()
     # Tuples: (name, type, default)
     arguments = [
-        ('root', str, '/data/group_data/katefgroup/VLA/peract2_raw_squash')
+        ('root', str, RAW_ROOT)
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

@@ -6,10 +6,11 @@ import numpy as np
 from natsort import natsorted
 
 from rlbench.backend.const import *
+from paths import RAW_ROOT
 
 
 def get_stored_demos(amount=1,
-                     dataset_root='/data/group_data/katefgroup/VLA/peract_test/',
+                     dataset_root=RAW_ROOT,
                      variation_number=0,
                      task_name='close_jar',
                      random_selection=False,

@@ -1,9 +1,10 @@
 main_dir=Peract
 
-DATA_PATH=/data/user_data/ngkanats
+# Load paths from paths.py
+USER_DATA=$(python3 paths.py USER_DATA)
 
-train_data_dir=$DATA_PATH/zarr_datasets/peract/train.zarr/
-eval_data_dir=$DATA_PATH/zarr_datasets/peract/val.zarr/
+train_data_dir=$USER_DATA/zarr_datasets/peract/train.zarr/
+eval_data_dir=$USER_DATA/zarr_datasets/peract/val.zarr/
 train_instructions=instructions/peract/instructions.json
 val_instructions=instructions/peract/instructions.json
 

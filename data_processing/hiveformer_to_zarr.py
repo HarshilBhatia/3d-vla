@@ -9,6 +9,7 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
+from paths import RAW_ROOT, ZARR_ROOT
 from data_processing.rlbench_utils import (
     keypoint_discovery,
     image_to_float_array,
@@ -30,8 +31,8 @@ def parse_arguments():
     parser = argparse.ArgumentParser()
     # Tuples: (name, type, default)
     arguments = [
-        ('root', str, '/data/group_data/katefgroup/datasets/hiveformer_clean/'),
-        ('tgt', str, '/data/user_data/ngkanats/zarr_datasets/hiveformer/'),
+        ('root', str, RAW_ROOT),
+        ('tgt', str, ZARR_ROOT),
         ('store_trajectory', str2bool, True),
         ('split', str, 'train')
     ]
