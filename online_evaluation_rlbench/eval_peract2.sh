@@ -1,23 +1,23 @@
 exp=peract2
 tasks=(
     bimanual_push_box
-    bimanual_lift_ball
-    bimanual_dual_push_buttons
-    bimanual_pick_plate
-    bimanual_put_item_in_drawer
-    bimanual_put_bottle_in_fridge
-    bimanual_handover_item
-    bimanual_pick_laptop
-    bimanual_straighten_rope
-    bimanual_sweep_to_dustpan
-    bimanual_lift_tray
-    bimanual_handover_item_easy
-    bimanual_take_tray_out_of_oven
+    # bimanual_lift_ball
+    # bimanual_dual_push_buttons
+    # bimanual_pick_plate
+    # bimanual_put_item_in_drawer
+    # bimanual_put_bottle_in_fridge
+    # bimanual_handover_item
+    # bimanual_pick_laptop
+    # bimanual_straighten_rope
+    # bimanual_sweep_to_dustpan
+    # bimanual_lift_tray
+    # bimanual_handover_item_easy
+    # bimanual_take_tray_out_of_oven
 )
 
 
 # Testing arguments
-checkpoint=peract2.pth
+checkpoint=3dfa_peract2.pth
 checkpoint_alias=my_awesome_peract2_model  # or something ugly
 # like: denoise3d-Peract2_3dfront_3dwrist-C120-B64-lr1e-4-constant-H3-rectified_flow
 
@@ -28,7 +28,8 @@ collision_checking=false
 seed=0
 
 # Dataset arguments
-data_dir=/data/group_data/katefgroup/VLA/peract2_raw_squash/test/
+data_dir=/home/harshilb/3d_flowmatch_actor/peract2_test/
+
 dataset=Peract2_3dfront_3dwrist
 image_size=256,256
 
@@ -48,7 +49,7 @@ num_history=3
 num_shared_attn_layers=4
 relative_action=false
 rotation_format=quat_xyzw
-denoise_timesteps=5
+denoise_timesteps=20
 denoise_model=rectified_flow
 
 num_ckpts=${#tasks[@]}
@@ -81,5 +82,5 @@ for ((i=0; i<$num_ckpts; i++)); do
         --denoise_model $denoise_model
 done
 
-python online_evaluation_rlbench/collect_results.py \
-    --folder eval_logs/$exp/$checkpoint_alias/seed$seed/
+# python online_evaluation_rlbench/collect_results.py \
+#     --folder eval_logs/$exp/$checkpoint_alias/seed$seed/

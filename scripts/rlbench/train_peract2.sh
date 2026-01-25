@@ -1,9 +1,10 @@
 main_dir=Peract2
 
-DATA_PATH=/data/user_data/ngkanats
+DATA_PATH=/home/harshilb/3d_flowmatch_actor/
 
-train_data_dir=$DATA_PATH/zarr_datasets/peract2/train.zarr
-eval_data_dir=$DATA_PATH/zarr_datasets/peract2/val.zarr
+
+train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
 train_instructions=instructions/peract2/instructions.json
 val_instructions=instructions/peract2/instructions.json
 
@@ -18,7 +19,7 @@ memory_limit=8  # this means 8GB CPU RAM per worker per GPU,
 
 # Training/testing arguments
 val_freq=4000
-eval_only=false
+eval_only=True
 lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune
 lr_scheduler=constant
@@ -52,7 +53,9 @@ denoise_timesteps=5
 denoise_model=rectified_flow
 
 run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model
-checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
+checkpoint=3dfa_peract2.pth
+
+# train_logs/${main_dir}/${run_log_dir}/last.pth
 
 ngpus=1  # we used 4
 

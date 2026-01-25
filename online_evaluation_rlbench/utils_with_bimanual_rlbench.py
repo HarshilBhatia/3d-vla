@@ -155,6 +155,7 @@ class RLBenchEnv:
             arm_action_mode=BimanualEndEffectorPoseViaPlanning(collision_checking=collision_checking),
             gripper_action_mode=HandoverDiscrete() if 'handover' in task_str else BimanualDiscrete()
         )
+        print("data_path", str(data_path))
         self.env = Environment(
             self.action_mode, str(data_path), self.obs_config,
             headless=headless, robot_setup="dual_panda"

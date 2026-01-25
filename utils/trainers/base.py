@@ -260,6 +260,8 @@ class BaseTrainTester:
         start_iter, best_loss = 0, None
         if self.args.checkpoint:
             start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer)
+            print("Checkpoint loaded successfully!")
+
         print(model.module.workspace_normalizer)
 
         # Eval only
@@ -273,6 +275,7 @@ class BaseTrainTester:
                     val_iters=-1
                 )
             dist.barrier(device_ids=[torch.cuda.current_device()])
+            # print('')
             return ema_model if self.args.use_ema else model
 
         # Step the lr scheduler to the current step
