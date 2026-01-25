@@ -54,6 +54,7 @@ class RLBenchDataset(BaseDataset):
             chunk_size=chunk_size
         )
 
+
     def _get_task(self, idx):
         return [
             self.tasks[int(tid)]
@@ -172,7 +173,7 @@ class PeractTwoCamDataset(PeractDataset):
 
 class Peract2Dataset(RLBenchDataset):
     """RLBench dataset under Peract2 setup."""
-    tasks = PERACT2_TASKS
+    # tasks = PERACT2_TASKS
     cameras = ("front", "wrist_left", "wrist_right")
     camera_inds = None
     train_copies = 10
@@ -181,7 +182,7 @@ class Peract2Dataset(RLBenchDataset):
 
 class Peract2SingleCamDataset(RLBenchDataset):
     """RLBench dataset under Peract2 setup."""
-    tasks = PERACT2_TASKS
+    # tasks = PERACT2_TASKS
     cameras = ("front",)
     camera_inds = (0,)  # use only front camera
     train_copies = 10
