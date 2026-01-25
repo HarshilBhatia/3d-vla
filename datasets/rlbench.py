@@ -44,6 +44,7 @@ class RLBenchDataset(BaseDataset):
         actions_only=False,
         chunk_size=4
     ):
+
         super().__init__(
             root=root,
             instructions=instructions,
@@ -53,7 +54,6 @@ class RLBenchDataset(BaseDataset):
             actions_only=actions_only,
             chunk_size=chunk_size
         )
-
 
     def _get_task(self, idx):
         return [
@@ -164,7 +164,7 @@ class PeractDataset(RLBenchDataset):
 
 class PeractTwoCamDataset(PeractDataset):
     """RLBench dataset under Peract setup."""
-    tasks = PERACT_TASKS
+    # tasks = PERACT_TASKS
     cameras = ("wrist", "front")
     camera_inds = [2, 3]
     train_copies = 10

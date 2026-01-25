@@ -70,8 +70,20 @@ def all_tasks_main(split, tasks):
     filename = f"{STORE_PATH}/{split}.zarr"
 
     if os.path.exists(filename):
-        print(f"[SKIP] Zarr file {filename} already exists.")
-        return
+        # Check if the zarr file actually contains data
+        try:
+            z = zarr.open_group(filename, mode="r")
+            if 'rgb' in z and len(z['rgb']) > 0:
+                print(f"[SKIP] Zarr file {filename} already exists with {len(z['rgb'])} samples.")
+                return
+            else:
+                print(f"[WARN] Zarr file {filename} exists but is empty. Recreating...")
+                import shutil
+                shutil.rmtree(filename)
+        except Exception as e:
+            print(f"[WARN] Error reading {filename}: {e}. Recreating...")
+            import shutil
+            shutil.rmtree(filename)
 
     task2id = {task: i for i, task in enumerate(tasks)}
     compressor = Blosc(cname='lz4', clevel=1, shuffle=Blosc.SHUFFLE)

@@ -44,6 +44,7 @@ class BaseTrainTester:
     def get_datasets(self):
         """Initialize datasets."""
         # Initialize datasets with arguments
+
         train_dataset = self.dataset_cls(
             root=self.args.train_data_dir,
             instructions=self.args.train_instructions,
@@ -59,6 +60,8 @@ class BaseTrainTester:
             mem_limit=0.1,
             chunk_size=self.args.chunk_size
         )
+
+        breakpoint()
         return train_dataset, val_dataset
 
     def get_loaders(self):

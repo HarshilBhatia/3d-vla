@@ -27,12 +27,15 @@ class BaseDataset(Dataset):
         # Load instructions
         self._instructions = self._load_instructions(instructions)
 
+
         # base tasks -- can be overwritten 
         self.tasks = list(self._instructions.keys())
 
 
         # Load all annotations lazily
         self.annos = read_zarr_with_cache(root, mem_gb=mem_limit)
+
+        breakpoint()
         # Sanity check
         len_ = len(self.annos['action'])
         for key in self.annos:

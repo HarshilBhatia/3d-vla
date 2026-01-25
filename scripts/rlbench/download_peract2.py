@@ -21,19 +21,19 @@ STORE_PATH = args.root
 LINK = 'https://dataset.cs.washington.edu/fox/bimanual/image_size_256'
 
 tasks = [
-    'bimanual_push_box',
-    'bimanual_lift_ball',
-    'bimanual_dual_push_buttons',
-    'bimanual_pick_plate',
-    'bimanual_put_item_in_drawer',
-    'bimanual_put_bottle_in_fridge',
-    'bimanual_handover_item',
-    'bimanual_pick_laptop',
-    'bimanual_straighten_rope',
-    'bimanual_sweep_to_dustpan',
+    # 'bimanual_push_box',
+    # 'bimanual_lift_ball',
+    # 'bimanual_dual_push_buttons',
+    # 'bimanual_pick_plate',
+    # 'bimanual_put_item_in_drawer',
+    # 'bimanual_put_bottle_in_fridge',
+    # 'bimanual_handover_item',
+    # 'bimanual_pick_laptop',
+    # 'bimanual_straighten_rope',
+    # 'bimanual_sweep_to_dustpan',
     'bimanual_lift_tray',
-    'bimanual_handover_item_easy',
-    'bimanual_take_tray_out_of_oven'
+    # 'bimanual_handover_item_easy',
+    # 'bimanual_take_tray_out_of_oven'
 ]
 
 

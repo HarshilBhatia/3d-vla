@@ -2,10 +2,21 @@ main_dir=Peract2
 
 DATA_PATH=$(pwd)
 
-train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
-train_instructions=instructions/peract2/instructions.json
-val_instructions=instructions/peract2/instructions.json
+
+
+if [ $1 == "lift_tray" ]; then
+    train_data_dir=$DATA_PATH/Peract2_zarr/peract2_single_task/bimanual_lift_tray/train.zarr
+    eval_data_dir=$DATA_PATH/Peract2_zarr/peract2_single_task/bimanual_lift_tray/val.zarr
+    train_instructions=instructions/peract2/instructions_lift_tray.json
+    val_instructions=instructions/peract2/instructions_lift_tray.json
+fi
+if [ $1 == "all" ]; then
+    train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
+    eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
+    train_instructions=instructions/peract2/instructions.json
+    val_instructions=instructions/peract2/instructions.json
+fi
+
 
 dataset=Peract2_3dfront_3dwrist
 num_workers=4
@@ -18,7 +29,7 @@ memory_limit=8  # this means 8GB CPU RAM per worker per GPU,
 
 # Training/testing arguments
 val_freq=4000
-eval_only=true # this toggles eval and train
+eval_only=false # this toggles eval and train
 lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune
 lr_scheduler=constant
@@ -52,7 +63,9 @@ denoise_timesteps=5
 denoise_model=rectified_flow
 
 run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model
-checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
+# checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
+
+checkpoint='3dfa_peract2.pth'
 
 ngpus=1  # we used 4
 
