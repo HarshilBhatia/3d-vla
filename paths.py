@@ -11,9 +11,8 @@ if os.path.join(ROOT_DIR, 'PyRep') not in sys.path:
 # ==============================================================================
 # CONFIGURATION TOGGLE
 # ==============================================================================
-# Set this to "LUQMAN" for lzaceria, "HARSHIL" for your teammate, 
-# or "ORIGINAL" for the original katefgroup/ngkanats paths.
-ENV = "LUQMAN" 
+# Set this to the user name
+ENV = os.getenv("USER_NAME") 
 
 CONFIGS = {
     "LUQMAN": {
@@ -21,10 +20,10 @@ CONFIGS = {
         "ZARR_ROOT": "/home/lzaceria/mscv/3dvla/3d-vla/Peract2_zarr",
         "USER_DATA": "/home/lzaceria/mscv/3dvla/3d-vla",
     },
-    "HARSHIL": {
-        "RAW_ROOT": "/path/to/teammate/peract2_test",
-        "ZARR_ROOT": "/path/to/teammate/Peract2_zarr",
-        "USER_DATA": "/path/to/teammate",
+    "HB": {
+        "RAW_ROOT": "peract2_raw",
+        "ZARR_ROOT": "Peract2_zarr",
+        "USER_DATA": "",
     },
     "ORIGINAL": {
         "RAW_ROOT": "/data/group_data/katefgroup/VLA/peract2_raw_squash",
