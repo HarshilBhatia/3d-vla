@@ -20,49 +20,51 @@ STORE_PATH = args.root
 LINK = 'https://dataset.cs.washington.edu/fox/bimanual/image_size_256'
 
 tasks = [
-    'bimanual_push_box',
-    'bimanual_lift_ball',
-    'bimanual_dual_push_buttons',
-    'bimanual_pick_plate',
-    'bimanual_put_item_in_drawer',
-    'bimanual_put_bottle_in_fridge',
-    'bimanual_handover_item',
-    'bimanual_pick_laptop',
-    'bimanual_straighten_rope',
-    'bimanual_sweep_to_dustpan',
+    # 'bimanual_push_box',
+    # 'bimanual_lift_ball',
+    # 'bimanual_dual_push_buttons',
+    # 'bimanual_pick_plate',
+    # 'bimanual_put_item_in_drawer',
+    # 'bimanual_put_bottle_in_fridge',
+    # 'bimanual_handover_item',
+    # 'bimanual_pick_laptop',
+    # 'bimanual_straighten_rope',
+    # 'bimanual_sweep_to_dustpan',
     'bimanual_lift_tray',
-    'bimanual_handover_item_easy',
-    'bimanual_take_tray_out_of_oven'
+    # 'bimanual_handover_item_easy',
+    # 'bimanual_take_tray_out_of_oven'
 ]
+
+
+def run_step(label, command, cwd):
+    print(f"[{label}] {command}", flush=True)
+    subprocess.run(command, shell=True, check=True, cwd=cwd)
 
 
 for split in ['train', 'val']:
     os.makedirs(f'{STORE_PATH}/{split}', exist_ok=True)
     for task in tasks:
-        print(task)
+        print(f"\n== {task} ({split}) ==", flush=True)
         if os.path.exists(f'{STORE_PATH}/{split}/{task}'):
+            print("Already exists, skipping.", flush=True)
             continue
-        subprocess.run(
+        run_step(
+            "download",
             f"wget --no-check-certificate {LINK}/{task}.{split}.squashfs",
-            shell=True,
-            capture_output=True, text=True, check=True,
-            cwd=f"{STORE_PATH}/{split}"
+            cwd=f"{STORE_PATH}/{split}",
         )
-        subprocess.run(
+        run_step(
+            "unsquash",
             f"unsquashfs {task}.{split}.squashfs",
-            shell=True,
-            capture_output=True, text=True, check=True,
-            cwd=f"{STORE_PATH}/{split}"
+            cwd=f"{STORE_PATH}/{split}",
         )
-        subprocess.run(
+        run_step(
+            "rename",
             f"mv squashfs-root/ {task}",
-            shell=True,
-            capture_output=True, text=True, check=True,
-            cwd=f"{STORE_PATH}/{split}"
+            cwd=f"{STORE_PATH}/{split}",
         )
-        subprocess.run(
+        run_step(
+            "cleanup",
             f"rm {task}.{split}.squashfs",
-            shell=True,
-            capture_output=True, text=True, check=True,
-            cwd=f"{STORE_PATH}/{split}"
+            cwd=f"{STORE_PATH}/{split}",
         )

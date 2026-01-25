@@ -77,6 +77,8 @@ def load_models(args):
     )
 
     # Load model weights
+
+    
     model_dict = torch.load(
         args.checkpoint, map_location="cpu", weights_only=True
     )
@@ -125,6 +127,8 @@ if __name__ == "__main__":
         random.seed(args.seed)
 
         # Load RLBench environment
+
+        print(args.data_dir)
         env = RLBenchEnv(
             data_path=args.data_dir,
             task_str=task_str,

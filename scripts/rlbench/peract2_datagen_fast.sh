@@ -1,11 +1,13 @@
 DATA_PATH=peract2_raw/
 ZARR_PATH=zarr_datasets/peract2/
 
+mkdir -p ${ZARR_PATH}
+    
 # Ultra-fast, just download our data!
-cd ${ZARR_PATH}
-wget https://huggingface.co/katefgroup/3d_flowmatch_actor/resolve/main/peract2.zip
-unzip peract2.zip
-rm -rf peract2.zip
+# cd ${ZARR_PATH}
+# wget https://huggingface.co/katefgroup/3d_flowmatch_actor/resolve/main/peract2.zip
+# unzip peract2.zip
+# rm -rf peract2.zip
 
 # Download the test seeds
 CURR_DIR=$(pwd)

@@ -24,8 +24,10 @@ class ClipTextEncoder(nn.Module):
 
     def __init__(self):
         super().__init__()
+        # Prefer safetensors to avoid torch.load restrictions.
         self.model = transformers.CLIPTextModel.from_pretrained(
-            "openai/clip-vit-base-patch32"
+            "openai/clip-vit-base-patch32",
+            use_safetensors=True,
         )
 
     def forward(self, tokens):
