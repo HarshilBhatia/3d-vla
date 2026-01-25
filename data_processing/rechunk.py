@@ -14,15 +14,24 @@ def parse_arguments():
     # Tuples: (name, type, default)
     arguments = [
         # Dataset/loader arguments
-        ('src', str, f'{ZARR_ROOT}/Peract2_dense_zarr/train.zarr'),
-        ('tgt', str, f'{ZARR_ROOT}/Peract2_dense_zarr/train_rechunked4.zarr'),
+        ('task', str, 'bimanual_lift_tray'),
+        ('src', str, None),
+        ('tgt', str, None),
         ('chunk_size', int, 4),
         ('shuffle', str2bool, False)
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])
 
-    return parser.parse_args()
+    args = parser.parse_args()
+    
+    # Resolve paths if not provided
+    if args.src is None:
+        args.src = f'{ZARR_ROOT}/{args.task}/train.zarr'
+    if args.tgt is None:
+        args.tgt = f'{ZARR_ROOT}/{args.task}/train_rechunked4.zarr'
+        
+    return args
 
 
 def rechunk_zarr_group(

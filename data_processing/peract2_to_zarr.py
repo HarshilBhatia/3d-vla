@@ -2,6 +2,35 @@ import argparse
 import json
 import os
 import pickle
+import sys
+
+# Centralized Stub and Unpickler to avoid backend dependencies
+class Stub:
+    def __init__(self, *args, **kwargs):
+        pass
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+    def __getattr__(self, name):
+        return self.__dict__.get(name, Stub())
+    def __len__(self):
+        if hasattr(self, '_observations'):
+            return len(self._observations)
+        return 0
+    def __getitem__(self, key):
+        if hasattr(self, '_observations'):
+            return self._observations[key]
+        if isinstance(key, int):
+             return Stub()
+        return self.__dict__.get(key, Stub())
+
+class CustomUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if name == 'list': return list
+        if name == 'dict': return dict
+        try:
+            return super().find_class(module, name)
+        except (AttributeError, ModuleNotFoundError, ImportError):
+            return Stub
 
 from numcodecs import Blosc
 import zarr
@@ -144,7 +173,7 @@ def all_tasks_main(split, tasks):
 
             for ep_folder, ep in tqdm(all_episodes):
                 with open(f"{ep_folder}/{ep}/low_dim_obs.pkl", 'rb') as f:
-                    demo = pickle.load(f)
+                    demo = CustomUnpickler(f).load()
 
                 key_frames = keypoint_discovery(demo, bimanual=True)
                 key_frames.insert(0, 0)
