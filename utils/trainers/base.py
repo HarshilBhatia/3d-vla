@@ -12,6 +12,7 @@ from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import trange, tqdm
+import wandb
 
 from modeling.encoder.text import fetch_tokenizers
 from ..common_utils import count_parameters
@@ -40,6 +41,16 @@ class BaseTrainTester:
 
         if dist.get_rank() == 0 and not self.args.eval_only:
             self.writer = SummaryWriter(log_dir=args.log_dir)
+            
+            # Initialize wandb
+            wandb.init(
+                project=getattr(args, 'wandb_project', '3d_flowmatch_actor'),
+                name=getattr(args, 'wandb_run_name', None) or args.log_dir.name,
+                config=vars(args),
+                dir=args.log_dir,
+                resume='allow',
+                id=getattr(args, 'wandb_run_id', None)
+            )
 
     def get_datasets(self):
         """Initialize datasets."""
@@ -251,6 +262,11 @@ class BaseTrainTester:
             model, device_ids=[self.args.local_rank],
             broadcast_buffers=False, find_unused_parameters=True
         )
+        
+        # Watch model with wandb
+        if dist.get_rank() == 0 and not self.args.eval_only:
+            if getattr(self.args, 'wandb_watch_model', False):
+                wandb.watch(model, log='all', log_freq=self.args.val_freq)
 
         # Initialize EMA copy
         ema_model = deepcopy(model)
@@ -298,7 +314,7 @@ class BaseTrainTester:
                 iter_loader = iter(train_loader)
                 sample = next(iter_loader)
 
-            self.train_one_step(model, optimizer, scaler, lr_scheduler, sample)
+            self.train_one_step(model, optimizer, scaler, lr_scheduler, sample, step_id)
             self.ema.step(model, ema_model, self.args.use_ema, step_id)
 
             if (step_id + 1) % self.args.val_freq == 0 and dist.get_rank() == 0:
@@ -343,7 +359,7 @@ class BaseTrainTester:
             )
         return out  # loss if training, else action
 
-    def train_one_step(self, model, optimizer, scaler, lr_scheduler, sample):
+    def train_one_step(self, model, optimizer, scaler, lr_scheduler, sample, step_id=None):
         """Run a single training step."""
         optimizer.zero_grad()
 
@@ -355,7 +371,7 @@ class BaseTrainTester:
 
         # Clip gradients
         scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
 
         # Update
         scaler.step(optimizer)
@@ -363,6 +379,15 @@ class BaseTrainTester:
 
         # Step the lr scheduler
         lr_scheduler.step()
+        
+        # Log training metrics
+        if dist.get_rank() == 0 and step_id is not None:
+            metrics = {
+                'train/loss': loss.item(),
+                'train/learning_rate': optimizer.param_groups[0]['lr'],
+                'train/grad_norm': grad_norm.item(),
+            }
+            wandb.log(metrics, step=step_id)
 
     @torch.inference_mode()
     def evaluate_nsteps(self, model, loader, step_id, val_iters, split='val'):
@@ -410,8 +435,13 @@ class BaseTrainTester:
         values = {k: v.mean().item() for k, v in values.items()}
         if dist.get_rank() == 0:
             if step_id > -1:
+                # Log to TensorBoard
                 for key, val in values.items():
                     self.writer.add_scalar(key, val, step_id)
+                
+                # Log to wandb
+                wandb_metrics = {key.replace('-', '/'): val for key, val in values.items()}
+                wandb.log(wandb_metrics, step=step_id)
 
             # Also log to terminal
             print(f"Step {step_id}:")
@@ -468,30 +498,41 @@ class BaseTrainTester:
         # Best checkpoint
         if best_loss is None or new_loss <= best_loss:
             best_loss = new_loss
+            best_path = self.args.log_dir / "best.pth"
             torch.save({
                 "weight": model_state,
                 "ema_weight": ema_state,
                 "iter": step_id + 1,
                 "best_loss": best_loss
-            }, self.args.log_dir / "best.pth")
+            }, best_path)
+            
+            # Log best checkpoint to wandb
+            if getattr(self.args, 'wandb_save_checkpoints', True):
+                wandb.save(str(best_path), base_path=str(self.args.log_dir))
 
         # Last checkpoint (always saved)
+        last_path = self.args.log_dir / "last.pth"
         torch.save({
             "weight": model_state,
             "ema_weight": ema_state,
             "optimizer": optimizer.state_dict(),
             "iter": step_id + 1,
             "best_loss": best_loss
-        }, self.args.log_dir / "last.pth")
+        }, last_path)
 
         # Save intermediate checkpoints
         if (step_id + 1) % self.args.interm_ckpt_freq == 0:
+            interm_path = self.args.log_dir / f"interm{step_id + 1}.pth"
             torch.save({
                 "weight": model_state,
                 "ema_weight": ema_state,
                 "iter": step_id + 1,
                 "best_loss": best_loss
-            }, self.args.log_dir / f"interm{step_id + 1}.pth")
+            }, interm_path)
+            
+            # Log intermediate checkpoint to wandb
+            if getattr(self.args, 'wandb_save_checkpoints', True):
+                wandb.save(str(interm_path), base_path=str(self.args.log_dir))
 
         return best_loss
 
