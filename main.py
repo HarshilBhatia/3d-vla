@@ -32,6 +32,12 @@ def parse_arguments():
         ('base_log_dir', Path, Path(__file__).parent / "train_logs"),
         ('exp_log_dir', Path, "exp"),
         ('run_log_dir', Path, "run"),
+        # Wandb arguments
+        ('wandb_project', str, '3d_flowmatch_actor'),
+        ('wandb_run_name', str_none, None),
+        ('wandb_run_id', str_none, None),
+        ('wandb_save_checkpoints', str2bool, True),
+        ('wandb_watch_model', str2bool, False),
         # Training and testing arguments
         ('checkpoint', str_none, None),
         ('val_freq', int, 4000),

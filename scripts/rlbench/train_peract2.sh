@@ -2,31 +2,32 @@ main_dir=Peract2
 
 DATA_PATH=$(pwd)
 
-train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
-train_instructions=instructions/peract2/instructions.json
-val_instructions=instructions/peract2/instructions.json
+train_data_dir=$DATA_PATH/Peract2_zarr/bimanual_lift_tray/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/bimanual_lift_tray/val.zarr
+train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+
+
 
 dataset=Peract2_3dfront_3dwrist
 num_workers=4
 B=64  # we used 64 but you can use as low as 16 without much performance drop - it's much faster
 B_val=64
 chunk_size=1
-memory_limit=8  # this means 8GB CPU RAM per worker per GPU,
-# but it will never reach that, because these datasets are small
-# reduce this if you can't allocate more than 96GB of CPU memory
-
+memory_limit=8 
 # Training/testing arguments
 val_freq=4000
-eval_only=true # this toggles eval and train
+eval_only=false # this toggles eval and train
 lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune
 lr_scheduler=constant
 wd=1e-10
-train_iters=300000
+# train_iters=300000 
+train_iters=30000
 use_compile=false  # much faster, but sometimes unstable
 use_ema=false
 lv2_batch_size=1  # you can increase this and divide B equally, speed/accuracy tradeoff
+
 
 # Model arguments, change (some of) these for new architectures
 model_type=denoise3d
@@ -51,12 +52,14 @@ rotation_format=quat_xyzw
 denoise_timesteps=5
 denoise_model=rectified_flow
 
-run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model
+run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model # exp name ? 
+
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
-ngpus=1  # we used 4
 
-torchrun --nproc_per_node $ngpus --master_port $RANDOM \
+ngpus=$(nvidia-smi -L | wc -l)
+
+WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RANDOM\
     main.py \
     --train_data_dir $train_data_dir \
     --eval_data_dir $eval_data_dir \
@@ -98,4 +101,6 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM \
     --relative_action $relative_action \
     --rotation_format $rotation_format \
     --denoise_timesteps $denoise_timesteps \
-    --denoise_model $denoise_model
+    --denoise_model $denoise_model \
+    --wandb_project 3d_flowmatch_actor \
+    --wandb_run_name $run_log_dir
