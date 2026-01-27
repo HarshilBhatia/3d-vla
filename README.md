@@ -9,11 +9,15 @@
 
 ## 🏆 Highlights & News
 
-### 🚀 Now Supported in LeRobot! 
-X-VLA is natively integrated into the [LeRobot platform](https://huggingface.co/docs/lerobot/xvla). Give it a try! We sincerely appreciate the support and effort from the Hugging Face team.
-    
-### 🥇 Champion Winner of the AgiBot World Challenge at IROS 2025.
+### 🎉 Exciting News: X-VLA Accepted to ICLR 2026  
+We are thrilled to announce that **X-VLA has been accepted to ICLR 2026**.
 
+### 🚀 Now Supported in LeRobot  
+X-VLA is now natively integrated into the [LeRobot platform](https://huggingface.co/docs/lerobot/xvla).  
+Give it a try! We sincerely appreciate the support and collaboration from the Hugging Face team.
+
+### 🥇 Champion Winner at IROS 2025  
+X-VLA won **1st Place (Champion)** at the **AgiBot World Challenge**, held at **IROS 2025**.
 
 
 ---
