@@ -75,7 +75,9 @@ class Encoder(BaseEncoder):
 
         # Rotary positional encoding
         proprio_pos = self.relative_pe_layer(proprio[..., :3])
-        context_pos = self.relative_pe_layer(context_pos)
+        # Allow gradients for context_pos if learning extrinsics
+        allow_grad = getattr(self, '_allow_pe_grad', False)
+        context_pos = self.relative_pe_layer(context_pos, allow_grad=allow_grad)
 
         # Attention to scene tokens
         proprio_feats = self.gripper_context_head(

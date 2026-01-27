@@ -49,6 +49,7 @@ class RotaryPositionEncoding(nn.Module):
         )
         position_code = torch.stack([cos_pos, sin_pos] , dim=-1)
 
+        # Always detach for base RotaryPositionEncoding (not used for pcd)
         if position_code.requires_grad:
             position_code = position_code.detach()
 
@@ -60,8 +61,7 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
     def __init__(self, feature_dim, pe_type='Rotary3D'):
         super().__init__(feature_dim, pe_type)
 
-    @torch.no_grad()
-    def forward(self, XYZ):
+    def forward(self, XYZ, allow_grad=False):
         '''
         @param XYZ: [B,N,3]
         @return:
@@ -103,7 +103,11 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
             torch.cat([sinx, siny, sinz], dim=-1)  # sin_pos
         ], dim=-1)
 
-        return position_code.detach()
+        # Only allow gradients if explicitly requested (for learnable extrinsics)
+        if not allow_grad:
+            position_code = position_code.detach()
+        
+        return position_code
 
 
 class PositionEmbeddingLearnedMLP(nn.Module):

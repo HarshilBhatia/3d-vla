@@ -120,7 +120,8 @@ class BaseTrainTester:
     def get_model(self):
         """Initialize the model."""
         # Initialize model with arguments
-        _model = self.model_cls(
+        # Build model kwargs
+        model_kwargs = dict(
             backbone=self.args.backbone,
             finetune_backbone=self.args.finetune_backbone,
             finetune_text_encoder=self.args.finetune_text_encoder,
@@ -137,10 +138,23 @@ class BaseTrainTester:
             denoise_model=self.args.denoise_model,
             lv2_batch_size=self.args.lv2_batch_size
         )
+        
+        # Add learn_extrinsics if the model supports it (3D model only)
+        import inspect
+        if 'learn_extrinsics' in inspect.signature(self.model_cls.__init__).parameters:
+            model_kwargs['learn_extrinsics'] = self.args.learn_extrinsics
+        
+        _model = self.model_cls(**model_kwargs)
 
         # Print basic modules' parameters
         if dist.get_rank() == 0:
             count_parameters(_model)
+            
+            # Print if learning extrinsics
+            if hasattr(_model, 'learn_extrinsics') and _model.learn_extrinsics:
+                print(f"\nLearning camera extrinsics enabled")
+                print(f"Initial cam_axis_angle: {_model.cam_axis_angle.data}")
+                print(f"Initial cam_translation: {_model.cam_translation.data}")
 
         # Useful for some models to ensure parameters are contiguous
         for name, param in _model.named_parameters():
@@ -245,23 +259,27 @@ class BaseTrainTester:
             model.workspace_normalizer.copy_(normalizer)
             dist.barrier(device_ids=[torch.cuda.current_device()])
 
-        # Get optimizer
+        # Move model to devices FIRST before creating optimizer
+        if torch.cuda.is_available():
+            model = model.cuda()
+            # Enable TF32 for faster matmuls on Ampere+ GPUs
+            torch.set_float32_matmul_precision('high')
+        # Wrap in DDP
+        model = DistributedDataParallel(
+            model, device_ids=[self.args.local_rank],
+            broadcast_buffers=False, find_unused_parameters=True
+        )
+        
+        # NOW create optimizer with CUDA/DDP parameters
         optimizer = self.get_optimizer(model)
         lr_scheduler = fetch_scheduler(
             self.args.lr_scheduler, optimizer, self.args.train_iters
         )
         scaler = torch.GradScaler()
-
-        # Move model to devices
-        if torch.cuda.is_available():
-            model = model.cuda()
-        # make sure to compile before DDP!
+        
+        # Compile after everything else
         if self.args.use_compile:
-            model.compute_loss = torch.compile(model.compute_loss, fullgraph=True)
-        model = DistributedDataParallel(
-            model, device_ids=[self.args.local_rank],
-            broadcast_buffers=False, find_unused_parameters=True
-        )
+            model.module.compute_loss = torch.compile(model.module.compute_loss, fullgraph=True)
         
         # Watch model with wandb
         if dist.get_rank() == 0 and not self.args.eval_only:
@@ -387,6 +405,28 @@ class BaseTrainTester:
                 'train/learning_rate': optimizer.param_groups[0]['lr'],
                 'train/grad_norm': grad_norm.item(),
             }
+            
+            # Log learnable extrinsics if enabled
+            base_model = model.module if hasattr(model, 'module') else model
+            if hasattr(base_model, 'learn_extrinsics') and base_model.learn_extrinsics:
+                # Log axis-angle rotation (3 params)
+                metrics['extrinsics/cam_axis_angle_x'] = base_model.cam_axis_angle[0].item()
+                metrics['extrinsics/cam_axis_angle_y'] = base_model.cam_axis_angle[1].item()
+                metrics['extrinsics/cam_axis_angle_z'] = base_model.cam_axis_angle[2].item()
+                
+                # Log translation (3 params)
+                metrics['extrinsics/cam_translation_x'] = base_model.cam_translation[0].item()
+                metrics['extrinsics/cam_translation_y'] = base_model.cam_translation[1].item()
+                metrics['extrinsics/cam_translation_z'] = base_model.cam_translation[2].item()
+                
+                # Log magnitude of rotation (angle in radians)
+                angle_magnitude = torch.norm(base_model.cam_axis_angle).item()
+                metrics['extrinsics/rotation_angle_rad'] = angle_magnitude
+                
+                # Log magnitude of translation
+                translation_magnitude = torch.norm(base_model.cam_translation).item()
+                metrics['extrinsics/translation_magnitude'] = translation_magnitude
+            
             wandb.log(metrics, step=step_id)
 
     @torch.inference_mode()

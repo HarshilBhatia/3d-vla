@@ -4,12 +4,12 @@
 #SBATCH --error=logs/train_peract2_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=24
-#SBATCH --gres=gpu:2
-#SBATCH --mem=96G
+#SBATCH --cpus-per-task=12
+#SBATCH --gres=gpu:1
+#SBATCH --mem=24G
 #SBATCH --time=24:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --nodelist=grogu-2-12
+#SBATCH --nodelist=grogu-1-34 
 
 # Print job information
 echo "Job started at: $(date)"
