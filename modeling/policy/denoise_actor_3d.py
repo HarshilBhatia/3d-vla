@@ -56,7 +56,8 @@ class DenoiseActor(BaseDenoiseActor):
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
             finetune_backbone=finetune_backbone,
-            finetune_text_encoder=finetune_text_encoder
+            finetune_text_encoder=finetune_text_encoder,
+            learn_extrinsics=learn_extrinsics
         )
 
         # Action decoder, runs at every denoising timestep
@@ -64,15 +65,22 @@ class DenoiseActor(BaseDenoiseActor):
             embedding_dim=embedding_dim,
             nhist=nhist * nhand,
             num_attn_heads=num_attn_heads,
-            num_shared_attn_layers=num_shared_attn_layers
+            num_shared_attn_layers=num_shared_attn_layers,
+            learn_extrinsics=learn_extrinsics
         )
         
         # Learnable camera extrinsics: axis-angle (3) + translation (3) = 6 params
         self.learn_extrinsics = learn_extrinsics
         if learn_extrinsics:
             # Initialize to identity transform
-            self.cam_axis_angle = nn.Parameter(torch.randn(3))  # rotation
-            self.cam_translation = nn.Parameter(torch.randn(3))  # translation
+
+            # randn if not rotated in data processing 
+            # self.cam_axis_angle = nn.Parameter(torch.randn(3))  # rotation
+            # self.cam_translation = nn.Parameter(torch.randn(3))  # translation
+
+            # identity (better)
+            self.cam_axis_angle = nn.Parameter(torch.zeros(3))  # rotation
+            self.cam_translation = nn.Parameter(torch.zeros(3))  # translation
     
     
     def get_learned_extrinsics(self):
@@ -128,18 +136,8 @@ class DenoiseActor(BaseDenoiseActor):
         # Apply learned camera-to-world transformation if enabled
         pcd = self.transform_pcd_to_world(pcd)
         
-        # Store flags for encoder and decoder to allow gradients through RoPE
-        self.encoder._allow_pe_grad = self.learn_extrinsics
-        self.prediction_head._allow_pe_grad = self.learn_extrinsics
-        
         # Call parent's encode_inputs with transformed point cloud
-        outputs = super().encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio)
-        
-        # Clean up flags
-        self.encoder._allow_pe_grad = False
-        self.prediction_head._allow_pe_grad = False
-        
-        return outputs
+        return super().encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio)
 
 
 class TransformerHead(BaseTransformerHead):
@@ -149,7 +147,8 @@ class TransformerHead(BaseTransformerHead):
                  num_attn_heads=8,
                  nhist=3,
                  num_shared_attn_layers=4,
-                 rotary_pe=True):
+                 rotary_pe=True,
+                 learn_extrinsics=False):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -158,6 +157,9 @@ class TransformerHead(BaseTransformerHead):
             rotary_pe=rotary_pe
         )
 
+        # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
+        self.learn_extrinsics = learn_extrinsics
+        
         # Relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
 
@@ -169,8 +171,9 @@ class TransformerHead(BaseTransformerHead):
         fps_scene_feats, fps_scene_pos,
         instr_feats, instr_pos
     ):
-        # Check if parent model is learning extrinsics (set via encode_inputs)
-        allow_grad = getattr(self, '_allow_pe_grad', False)
+        # Allow gradients through RoPE when learning extrinsics
+        # This is needed because the point cloud positions depend on learned camera parameters
+        allow_grad = self.training and self.learn_extrinsics
         
         rel_traj_pos = self.relative_pe_layer(traj_xyz)
         rel_scene_pos = self.relative_pe_layer(rgb3d_pos, allow_grad=allow_grad)

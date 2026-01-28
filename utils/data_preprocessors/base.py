@@ -1,11 +1,13 @@
 class DataPreprocessor:
 
     def __init__(self, keypose_only=False, num_history=1,
-                 custom_imsize=None, depth2cloud=None):
+                 custom_imsize=None, depth2cloud=None,
+                 use_front_camera_frame=False):
         self.keypose_only = keypose_only
         self.num_history = num_history
         self.custom_imsize = custom_imsize
         self.depth2cloud = depth2cloud
+        self.use_front_camera_frame = use_front_camera_frame
 
     def process_actions(self, actions):
         """Action shape: (B, T, nhand, 3+rot+1)."""

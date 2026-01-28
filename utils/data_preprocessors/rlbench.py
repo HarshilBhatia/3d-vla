@@ -8,13 +8,15 @@ from .base import DataPreprocessor
 class RLBenchDataPreprocessor(DataPreprocessor):
 
     def __init__(self, keypose_only=False, num_history=1,
-                 orig_imsize=256, custom_imsize=None, depth2cloud=None):
+                 orig_imsize=256, custom_imsize=None, depth2cloud=None,
+                 use_front_camera_frame=False):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,
             custom_imsize=custom_imsize,
             depth2cloud=depth2cloud
         )
+        self.use_front_camera_frame = use_front_camera_frame
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
                 degrees=0,
@@ -29,6 +31,47 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                 p=0.1
             )
         ).cuda()
+    
+    def _transform_pcd_to_front_frame(self, pcds, extrinsics):
+        """
+        Transform point clouds from world frame to front camera frame.
+        
+        Args:
+            pcds: (B, ncam, 3, H, W) - point clouds in world coordinates
+            extrinsics: (B, ncam, 4, 4) - camera-to-world transforms
+            
+        Returns:
+            pcds_front: (B, ncam, 3, H, W) - point clouds in front camera frame
+        """
+        B, ncam, _, H, W = pcds.shape
+        original_dtype = pcds.dtype
+        
+        # Get front camera extrinsics (camera 0 -> world)
+        front_cam_to_world = extrinsics[:, 0:1].cuda(non_blocking=True).float()  # (B, 1, 4, 4)
+        
+        # Invert to get world -> front camera transform
+        world_to_front = torch.linalg.inv(front_cam_to_world)  # (B, 1, 4, 4)
+        
+        # Reshape point clouds for matrix multiplication (convert to float for matmul)
+        pcds_flat = pcds.float().reshape(B, ncam, 3, H * W)  # (B, ncam, 3, HW)
+        
+        # Add homogeneous coordinate
+        ones = torch.ones(B, ncam, 1, H * W, device=pcds.device, dtype=torch.float32)
+        pcds_homo = torch.cat([pcds_flat, ones], dim=2)  # (B, ncam, 4, HW)
+        
+        # Apply transformation: pcd_front = world_to_front @ pcd_world
+        # Broadcast world_to_front across all cameras
+        world_to_front = world_to_front.expand(B, ncam, 4, 4)  # (B, ncam, 4, 4)
+        pcds_front_homo = torch.matmul(
+            world_to_front.reshape(B * ncam, 4, 4),
+            pcds_homo.reshape(B * ncam, 4, H * W)
+        )  # (B*ncam, 4, HW)
+        
+        # Remove homogeneous coordinate and reshape back
+        pcds_front = pcds_front_homo[:, :3].reshape(B, ncam, 3, H, W)
+        
+        # Convert back to original dtype
+        return pcds_front.to(original_dtype)
 
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
                     augment=False):
@@ -37,7 +80,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         depths of shape (B, ncam, h_i, w_i).
         Assume the 3d cameras go before 2d cameras.
         """
-        # Get point cloud from depth
+        # Get point cloud from depth (in world coordinates)
         pcds = self.depth2cloud(
             depth.cuda(non_blocking=True).to(torch.bfloat16),
             extrinsics.cuda(non_blocking=True).to(torch.bfloat16),
@@ -88,4 +131,11 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             pcds = torch.cat((pcd_3d, pcds[:, :pcd_3d.size(1)].float()))
         else:
             pcds = pcd_3d
+        
+        # Optionally transform point clouds from world frame to front camera frame at the END
+        # This is done after all augmentation and processing
+        # Front camera is assumed to be index 0
+        if self.use_front_camera_frame:
+            pcds = self._transform_pcd_to_front_frame(pcds, extrinsics)
+        
         return rgbs, pcds

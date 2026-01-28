@@ -20,7 +20,8 @@ class Encoder(BaseEncoder):
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
                  finetune_backbone=False,
-                 finetune_text_encoder=False):
+                 finetune_text_encoder=False,
+                 learn_extrinsics=False):
         super().__init__(
             backbone=backbone,
             embedding_dim=embedding_dim,
@@ -31,6 +32,9 @@ class Encoder(BaseEncoder):
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder
         )
+        
+        # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
+        self.learn_extrinsics = learn_extrinsics
 
         # Postprocess scene features
         if self._backbone_name == 'clip':
@@ -76,7 +80,8 @@ class Encoder(BaseEncoder):
         # Rotary positional encoding
         proprio_pos = self.relative_pe_layer(proprio[..., :3])
         # Allow gradients for context_pos if learning extrinsics
-        allow_grad = getattr(self, '_allow_pe_grad', False)
+        # This is needed because point cloud positions depend on learned camera parameters
+        allow_grad = self.training and self.learn_extrinsics
         context_pos = self.relative_pe_layer(context_pos, allow_grad=allow_grad)
 
         # Attention to scene tokens

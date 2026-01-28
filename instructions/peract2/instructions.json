@@ -1,3 +1,12 @@
 {
-  "bimanual_lift_tray": {}
+  "bimanual_lift_tray": {
+    "0": [
+      "Lift the tray"
+    ]
+  },
+  "bimanual_push_box": {
+    "0": [
+      "push the box to the red area"
+    ]
+  }
 }

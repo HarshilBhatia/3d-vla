@@ -33,6 +33,7 @@ def parse_arguments():
         ('exp_log_dir', Path, "exp"),
         ('run_log_dir', Path, "run"),
         # Wandb arguments
+        ('use_wandb', str2bool, True),
         ('wandb_project', str, '3d_flowmatch_actor'),
         ('wandb_run_name', str_none, None),
         ('wandb_run_id', str_none, None),
@@ -74,7 +75,8 @@ def parse_arguments():
         ('rotation_format', str, 'quat_xyzw'),
         ('denoise_timesteps', int, 10),
         ('denoise_model', str, "rectified_flow"),
-        ('learn_extrinsics', str2bool, False)
+        ('learn_extrinsics', str2bool, False),
+        ('use_front_camera_frame', str2bool, False)
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

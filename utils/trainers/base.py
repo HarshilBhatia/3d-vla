@@ -36,21 +36,26 @@ class BaseTrainTester:
             self.args.keypose_only,
             self.args.num_history,
             custom_imsize=self.args.custom_img_size,
-            depth2cloud=fetch_depth2cloud(self.args.dataset)
+            depth2cloud=fetch_depth2cloud(self.args.dataset),
+            use_front_camera_frame=getattr(self.args, 'use_front_camera_frame', False)
         )
 
         if dist.get_rank() == 0 and not self.args.eval_only:
             self.writer = SummaryWriter(log_dir=args.log_dir)
             
-            # Initialize wandb
-            wandb.init(
-                project=getattr(args, 'wandb_project', '3d_flowmatch_actor'),
-                name=getattr(args, 'wandb_run_name', None) or args.log_dir.name,
-                config=vars(args),
-                dir=args.log_dir,
-                resume='allow',
-                id=getattr(args, 'wandb_run_id', None)
-            )
+            # Initialize wandb if enabled
+            if getattr(args, 'use_wandb', True):
+                wandb.init(
+                    project=getattr(args, 'wandb_project', '3d_flowmatch_actor'),
+                    name=getattr(args, 'wandb_run_name', None) or args.log_dir.name,
+                    config=vars(args),
+                    dir=args.log_dir,
+                    resume='allow',
+                    id=getattr(args, 'wandb_run_id', None)
+                )
+                print("Wandb logging enabled")
+            else:
+                print("Wandb logging disabled (using TensorBoard only)")
 
     def get_datasets(self):
         """Initialize datasets."""
@@ -139,9 +144,9 @@ class BaseTrainTester:
             lv2_batch_size=self.args.lv2_batch_size
         )
         
-        # Add learn_extrinsics if the model supports it (3D model only)
-        import inspect
-        if 'learn_extrinsics' in inspect.signature(self.model_cls.__init__).parameters:
+        # Add learn_extrinsics if available in args (for 3D models)
+        # The model __init__ will simply ignore it if it doesn't accept this parameter
+        if hasattr(self.args, 'learn_extrinsics'):
             model_kwargs['learn_extrinsics'] = self.args.learn_extrinsics
         
         _model = self.model_cls(**model_kwargs)
@@ -265,6 +270,9 @@ class BaseTrainTester:
             # Enable TF32 for faster matmuls on Ampere+ GPUs
             torch.set_float32_matmul_precision('high')
         # Wrap in DDP
+        # Note: find_unused_parameters=False for better performance
+        # If you get unused parameter warnings, it means some model parameters
+        # don't receive gradients, which should be investigated and fixed
         model = DistributedDataParallel(
             model, device_ids=[self.args.local_rank],
             broadcast_buffers=False, find_unused_parameters=True
@@ -427,7 +435,8 @@ class BaseTrainTester:
                 translation_magnitude = torch.norm(base_model.cam_translation).item()
                 metrics['extrinsics/translation_magnitude'] = translation_magnitude
             
-            wandb.log(metrics, step=step_id)
+            if getattr(self.args, 'use_wandb', True):
+                wandb.log(metrics, step=step_id)
 
     @torch.inference_mode()
     def evaluate_nsteps(self, model, loader, step_id, val_iters, split='val'):
@@ -480,8 +489,9 @@ class BaseTrainTester:
                     self.writer.add_scalar(key, val, step_id)
                 
                 # Log to wandb
-                wandb_metrics = {key.replace('-', '/'): val for key, val in values.items()}
-                wandb.log(wandb_metrics, step=step_id)
+                if getattr(self.args, 'use_wandb', True):
+                    wandb_metrics = {key.replace('-', '/'): val for key, val in values.items()}
+                    wandb.log(wandb_metrics, step=step_id)
 
             # Also log to terminal
             print(f"Step {step_id}:")
