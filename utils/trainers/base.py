@@ -150,6 +150,10 @@ class BaseTrainTester:
         if hasattr(self.args, 'learn_extrinsics'):
             model_kwargs['learn_extrinsics'] = self.args.learn_extrinsics
         
+        # Add predict_extrinsics if available in args
+        if hasattr(self.args, 'predict_extrinsics'):
+            model_kwargs['predict_extrinsics'] = self.args.predict_extrinsics
+        
         _model = self.model_cls(**model_kwargs)
 
         # Print basic modules' parameters
@@ -161,6 +165,11 @@ class BaseTrainTester:
                 print(f"\nLearning camera extrinsics enabled")
                 print(f"Initial cam_axis_angle: {_model.cam_axis_angle.data}")
                 print(f"Initial cam_translation: {_model.cam_translation.data}")
+            
+            # Print if predicting extrinsics
+            if hasattr(_model, 'prediction_head') and hasattr(_model.prediction_head, 'predict_extrinsics') \
+               and _model.prediction_head.predict_extrinsics:
+                print(f"\nPredicting camera extrinsics from camera token enabled")
 
         # Useful for some models to ensure parameters are contiguous
         for name, param in _model.named_parameters():
@@ -417,6 +426,10 @@ class BaseTrainTester:
             
             # Log learnable extrinsics if enabled
             base_model = model.module if hasattr(model, 'module') else model
+            prediction_head = base_model.prediction_head
+
+            # NOTE: BATCH STATISTIC FOR SINGLE SCENE -- doesn't work for multi-scene.
+
             if hasattr(base_model, 'learn_extrinsics') and base_model.learn_extrinsics:
                 # Log axis-angle rotation (3 params)
                 metrics['extrinsics/cam_axis_angle_x'] = base_model.cam_axis_angle[0].item()
@@ -435,6 +448,36 @@ class BaseTrainTester:
                 # Log magnitude of translation
                 translation_magnitude = torch.norm(base_model.cam_translation).item()
                 metrics['extrinsics/translation_magnitude'] = translation_magnitude
+            # Log predicted camera extrinsics if enabled
+            elif hasattr(prediction_head, 'predict_extrinsics') and prediction_head.predict_extrinsics:
+                if hasattr(prediction_head, '_last_predicted_cam_params') and \
+                   prediction_head._last_predicted_cam_params is not None:
+                    cam_params = prediction_head._last_predicted_cam_params
+                    # Average across batch dimension
+                    cam_params_mean = cam_params.mean(dim=0)
+                    
+                    # Log axis-angle rotation (3 params)
+                    metrics['extrinsics/cam_axis_angle_x'] = cam_params_mean[0].item()
+                    metrics['extrinsics/cam_axis_angle_y'] = cam_params_mean[1].item()
+                    metrics['extrinsics/cam_axis_angle_z'] = cam_params_mean[2].item()
+                    
+                    # Log translation (3 params)
+                    metrics['extrinsics/cam_translation_x'] = cam_params_mean[3].item()
+                    metrics['extrinsics/cam_translation_y'] = cam_params_mean[4].item()
+                    metrics['extrinsics/cam_translation_z'] = cam_params_mean[5].item()
+                    
+                    # Log magnitude of rotation (angle in radians)
+                    angle_magnitude = torch.norm(cam_params_mean[:3]).item()
+                    metrics['extrinsics/rotation_angle_rad'] = angle_magnitude
+                    
+                    # Log magnitude of translation
+                    translation_magnitude = torch.norm(cam_params_mean[3:6]).item()
+                    metrics['extrinsics/translation_magnitude'] = translation_magnitude
+                    
+                    # Log standard deviation across batch (measure of prediction uncertainty)
+                    cam_params_std = cam_params.std(dim=0)
+                    metrics['extrinsics/rotation_std'] = cam_params_std[:3].mean().item()
+                    metrics['extrinsics/translation_std'] = cam_params_std[3:6].mean().item()
             
             if getattr(self.args, 'use_wandb', True):
                 wandb.log(metrics, step=step_id)

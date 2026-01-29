@@ -39,6 +39,8 @@ class DenoiseActor(nn.Module):
         self._relative = relative
         self._lv2_batch_size = lv2_batch_size
 
+        self.embedding_dim = embedding_dim
+
         # Vision-language encoder, runs only once
         self.encoder = None  # Implement this!
 
@@ -373,12 +375,17 @@ class TransformerHead(nn.Module):
                  nhist=3,
                  rotary_pe=True,
                  rot_dim=6,
-                 traj_scene_rope=True):
+                 traj_scene_rope=True,
+                 predict_extrinsics=True):
         super().__init__()
+        
+        print(f" ************** Predicting Extrinsics: {predict_extrinsics} **************")
 
         self.traj_scene_rope = traj_scene_rope
+        self.predict_extrinsics = predict_extrinsics
 
         # Different embeddings
+        
         self.time_emb = nn.Sequential(
             SinusoidalPosEmb(embedding_dim),
             nn.Linear(embedding_dim, embedding_dim),
@@ -392,6 +399,11 @@ class TransformerHead(nn.Module):
         )
         self.traj_time_emb = SinusoidalPosEmb(embedding_dim)
         self.hand_embed = nn.Embedding(2, embedding_dim)
+
+        # Learnable tokens
+        self.register_tokens = nn.Parameter(torch.randn(4, embedding_dim))
+        self.camera_token = nn.Parameter(torch.randn(1, embedding_dim))
+        self.embedding_dim = embedding_dim
 
         # Attention from trajectory queries to language
         self.traj_lang_attention = AttentionModule(
@@ -516,6 +528,38 @@ class TransformerHead(nn.Module):
             nn.Linear(embedding_dim, 1)
         )
 
+        # 4. Camera extrinsics (if enabled)
+        if predict_extrinsics:
+            self.camera_proj = nn.Linear(embedding_dim, embedding_dim)
+            self.camera_predictor = nn.Sequential(
+                nn.Linear(embedding_dim, embedding_dim),
+                nn.ReLU(),
+                nn.Linear(embedding_dim, 6)  # 3 axis-angle + 3 translation
+            )
+
+    def predict_camera_extrinsics(self, features, traj_len):
+        """
+        Predict camera extrinsics from the camera token.
+        
+        Args:
+            features: (B, traj_len + fps_len + 4 + 1, F) - full feature sequence including camera token
+            traj_len: int - length of trajectory sequence
+            
+        Returns:
+            cam_params: (B, 6) - predicted camera extrinsics (3 axis-angle + 3 translation)
+        """
+        # Extract camera token (last token in the sequence)
+        camera_token_features = features[:, -1]  # (B, F)
+        camera_token_features = self.camera_proj(camera_token_features)
+        cam_params = self.camera_predictor(camera_token_features)  # (B, 6)
+        return cam_params
+
+    def transform_pcd_with_extrinsics(self, pcd, cam_params):
+        
+        return pcd  # Base class does nothing
+
+    
+
     def forward(self, traj_feats, trajectory, timesteps,
                 rgb3d_feats, rgb3d_pos, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats,
@@ -585,7 +629,6 @@ class TransformerHead(nn.Module):
             ada_sgnl=time_embs
         )[-1]
 
-        # TODO: Add the rotation etc code here. c
         # Self attention among gripper and sampled context
 
         if self.traj_scene_rope:
@@ -631,6 +674,35 @@ class TransformerHead(nn.Module):
                 ada_sgnl=time_embs
             )[-1]
 
+        # Camera extrinsics prediction (if enabled)
+        if self.predict_extrinsics:
+            # Predict camera extrinsics from camera token
+            cam_params = self.predict_camera_extrinsics(features, traj_feats.shape[1])
+            
+            # Store camera parameters for logging (detached to avoid extra computation)
+            self._last_predicted_cam_params = cam_params.detach()
+            
+            # Transform point clouds using predicted extrinsics
+            # rgb3d_pos_transformed = self.transform_pcd_with_extrinsics(rgb3d_pos, cam_params) 
+            # i don't think i need this^ 
+
+            fps_scene_pos_transformed = self.transform_pcd_with_extrinsics(fps_scene_pos, cam_params)
+            
+            # Recompute positional embeddings with transformed positions
+            _, _, rel_pos_new, rel_fps_pos_new = \
+                self.get_positional_embeddings(
+                    traj_xyz, traj_feats,
+                    rgb3d_pos, rgb3d_feats, # NOT NEEDED HERE 
+                    rgb2d_feats, rgb2d_pos, # NONE anyways
+                    timesteps, proprio_feats,
+                    fps_scene_pos_transformed, fps_scene_pos,
+                    instr_feats, instr_pos,
+                )
+            
+            rel_pos = rel_pos_new
+        else:
+            self._last_predicted_cam_params = None
+
         # Rotation head
         rotation = self.predict_rot(
             features, rel_pos, time_embs, traj_feats.shape[1]
@@ -642,7 +714,7 @@ class TransformerHead(nn.Module):
         )
 
         # Openess head from position head
-        openess = self.openess_predictor(position_features)
+        openess = self.openess_predictor(position_features[:, :self.embedding_dim]) # don't use camera and register tokens here.
 
 
         return [
@@ -680,7 +752,14 @@ class TransformerHead(nn.Module):
         traj_feats, fps_scene_feats,
         rgb3d_feats, rgb2d_feats, instr_feats
     ):
-        return torch.cat([traj_feats, fps_scene_feats], 1)
+        batch_size = traj_feats.shape[0]
+        
+        # Expand learnable tokens to batch size
+        register_tokens = self.register_tokens.unsqueeze(0).expand(batch_size, -1, -1)
+        camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
+        
+        # Concatenate: trajectory, scene, register tokens, camera token
+        return torch.cat([traj_feats, fps_scene_feats, register_tokens, camera_token], 1)
 
     def predict_pos(self, features, pos, time_embs, traj_len):
         if self.traj_scene_rope:
@@ -700,6 +779,7 @@ class TransformerHead(nn.Module):
                 ada_sgnl=time_embs
             )[-1]
             
+        
         position_features = position_features[:, :traj_len]
         position_features = self.position_proj(position_features)  # (B, N, C)
         position = self.position_predictor(position_features)

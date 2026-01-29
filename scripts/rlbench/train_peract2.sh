@@ -55,7 +55,7 @@ relative_action=false
 rotation_format=quat_xyzw
 denoise_timesteps=5
 denoise_model=rectified_flow
-learn_extrinsics=True
+learn_extrinsics=false
 
 run_log_dir=new_$learn_extrinsics=2scene-$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model # exp name ? 
 
@@ -113,4 +113,4 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RAN
     --wandb_run_name $run_log_dir \
     --learn_extrinsics $learn_extrinsics \
     --use_front_camera_frame true \
-    --traj_scene_rope false
+    --traj_scene_rope true
