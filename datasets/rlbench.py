@@ -181,7 +181,10 @@ class Peract2Dataset(RLBenchDataset):
 
 
 class Peract2SingleCamDataset(RLBenchDataset):
-    """RLBench dataset under Peract2 setup."""
+    """RLBench dataset under Peract2 setup with only front camera.
+    
+    Point cloud is in the front camera coordinate frame (not world frame).
+    """
     # tasks = PERACT2_TASKS
     cameras = ("front",)
     camera_inds = (0,)  # use only front camera

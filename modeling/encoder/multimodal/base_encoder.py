@@ -80,6 +80,7 @@ class Encoder(nn.Module):
         # Point subsampling based on scene features
         fps_scene_feats, fps_scene_pos = self.run_dps(rgb3d_feats, pcd)
 
+
         return (
             rgb3d_feats, pcd,
             rgb2d_feats, rgb2d_pos,

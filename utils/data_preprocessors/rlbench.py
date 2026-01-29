@@ -1,4 +1,6 @@
 from kornia import augmentation as K
+import time
+import numpy as np
 import torch
 from torch.nn import functional as F
 
@@ -48,6 +50,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         
         # Get front camera extrinsics (camera 0 -> world)
         front_cam_to_world = extrinsics[:, 0:1].cuda(non_blocking=True).float()  # (B, 1, 4, 4)
+
         
         # Invert to get world -> front camera transform
         world_to_front = torch.linalg.inv(front_cam_to_world)  # (B, 1, 4, 4)
@@ -71,10 +74,11 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         pcds_front = pcds_front_homo[:, :3].reshape(B, ncam, 3, H, W)
         
         # Convert back to original dtype
+
         return pcds_front.to(original_dtype)
 
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
-                    augment=False):
+                    augment=False, task=None):
         """
         RGBs of shape (B, ncam, 3, h_i, w_i),
         depths of shape (B, ncam, h_i, w_i).
@@ -135,7 +139,27 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         # Optionally transform point clouds from world frame to front camera frame at the END
         # This is done after all augmentation and processing
         # Front camera is assumed to be index 0
+
+        # i have to do this for each elem in the batch separately. 
+        # HACK
+       
+        # randomly rotate each batch 
+        # for i in range(extrinsics.size(0)):
+
+        #     rotation_matrix = torch.tensor([[1, 0, 0], [0, np.cos(np.random.uniform(0, 360)*np.pi/180), -np.sin(np.random.uniform(0, 360)*np.pi/180)], [0, np.sin(np.random.uniform(0, 360)*np.pi/180), np.cos(np.random.uniform(0, 360)*np.pi/180)]]).to(extrinsics.device).float()
+        #     extrinsics[i,0,0:3,0:3] = torch.matmul(extrinsics[i,0,0:3,0:3], rotation_matrix)
+
         if self.use_front_camera_frame:
+            for i in range(extrinsics.size(0)):
+                if task[i] == "bimanual_push_box":
+                    pass
+                elif task[i] == "bimanual_lift_tray":
+                    # manually flip the extrinsics
+                    extrinsics[i,0,0:3,3]= -extrinsics[i,0,0:3,3] # flip the translation. 
+                    # rotate by 30 degress 
+                    rotation_matrix = torch.tensor([[1, 0, 0], [0, np.cos(30*np.pi/180), -np.sin(30*np.pi/180)], [0, np.sin(30*np.pi/180), np.cos(30*np.pi/180)]]).to(extrinsics.device).to(extrinsics.dtype)
+                    extrinsics[i,0,0:3,0:3] = torch.matmul(extrinsics[i,0,0:3,0:3], rotation_matrix)
+            
             pcds = self._transform_pcd_to_front_frame(pcds, extrinsics)
         
         return rgbs, pcds

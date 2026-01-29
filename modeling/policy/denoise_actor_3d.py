@@ -33,7 +33,8 @@ class DenoiseActor(BaseDenoiseActor):
                  # Training arguments
                  lv2_batch_size=1,
                  # Learnable extrinsics (camera -> world)
-                 learn_extrinsics=False):
+                 learn_extrinsics=False,
+                 traj_scene_rope=True):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -44,7 +45,8 @@ class DenoiseActor(BaseDenoiseActor):
             rotation_format=rotation_format,
             denoise_timesteps=denoise_timesteps,
             denoise_model=denoise_model,
-            lv2_batch_size=lv2_batch_size
+            lv2_batch_size=lv2_batch_size,
+            traj_scene_rope=traj_scene_rope
         )
 
         # Vision-language encoder, runs only once
@@ -66,7 +68,8 @@ class DenoiseActor(BaseDenoiseActor):
             nhist=nhist * nhand,
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
-            learn_extrinsics=learn_extrinsics
+            learn_extrinsics=learn_extrinsics,
+            traj_scene_rope=traj_scene_rope
         )
         
         # Learnable camera extrinsics: axis-angle (3) + translation (3) = 6 params
@@ -148,13 +151,15 @@ class TransformerHead(BaseTransformerHead):
                  nhist=3,
                  num_shared_attn_layers=4,
                  rotary_pe=True,
-                 learn_extrinsics=False):
+                 learn_extrinsics=False,
+                 traj_scene_rope=True):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
             nhist=nhist,
             num_shared_attn_layers=num_shared_attn_layers,
-            rotary_pe=rotary_pe
+            rotary_pe=rotary_pe,
+            traj_scene_rope=traj_scene_rope
         )
 
         # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
@@ -176,10 +181,12 @@ class TransformerHead(BaseTransformerHead):
         allow_grad = self.training and self.learn_extrinsics
         
         rel_traj_pos = self.relative_pe_layer(traj_xyz)
-        rel_scene_pos = self.relative_pe_layer(rgb3d_pos, allow_grad=allow_grad)
-        rel_fps_pos = self.relative_pe_layer(fps_scene_pos, allow_grad=allow_grad)
+        rel_scene_pos = self.relative_pe_layer(rgb3d_pos)
+
+        # because absolute positions are used, it makes sense to concatenate. 
+        rel_fps_pos = self.relative_pe_layer(fps_scene_pos, allow_grad=allow_grad) # only place where it makes sense to backprop
         rel_pos = torch.cat([rel_traj_pos, rel_fps_pos], 1)
-        return rel_traj_pos, rel_scene_pos, rel_pos
+        return rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos
 
     def get_sa_feature_sequence(
         self,

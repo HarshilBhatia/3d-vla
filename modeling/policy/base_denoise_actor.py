@@ -31,7 +31,8 @@ class DenoiseActor(nn.Module):
                  denoise_timesteps=100,
                  denoise_model="ddpm",
                  # Training arguments
-                 lv2_batch_size=1):
+                 lv2_batch_size=1,
+                 traj_scene_rope=True):
         super().__init__()
         # Arguments to be accessed by the main class
         self._rotation_format = rotation_format
@@ -95,6 +96,8 @@ class DenoiseActor(nn.Module):
 
         # Get features from normalized (relative) trajectory
         trajectory_feats = self.traj_encoder(trajectory)
+
+        
 
         # But use positions from unnormalized absolute trajectory
         traj_xyz = self.unnormalize_pos(trajectory)[..., :3]
@@ -216,6 +219,9 @@ class DenoiseActor(nn.Module):
                 gt_trajectory[..., 3:], noise[..., 3:],
                 timesteps
             )
+
+            # Q: uhhm, why add noise seperately? 
+
             noisy_trajectory = torch.cat((pos, rot), -1)
 
             # Predict the noise residual
@@ -366,8 +372,11 @@ class TransformerHead(nn.Module):
                  num_shared_attn_layers=4,
                  nhist=3,
                  rotary_pe=True,
-                 rot_dim=6):
+                 rot_dim=6,
+                 traj_scene_rope=True):
         super().__init__()
+
+        self.traj_scene_rope = traj_scene_rope
 
         # Different embeddings
         self.time_emb = nn.Sequential(
@@ -411,18 +420,56 @@ class TransformerHead(nn.Module):
         )
 
         # Shared attention layers
-        self.self_attn = AttentionModule(
-            num_layers=num_shared_attn_layers,
-            d_model=embedding_dim,
-            dim_fw=embedding_dim,
-            dropout=0.1,
-            n_heads=num_attn_heads,
-            pre_norm=False,
-            rotary_pe=rotary_pe,
-            use_adaln=True,
-            is_self=True
-        )
 
+        if self.traj_scene_rope:
+            print('Using traj_scene_rope = True')
+            self.self_attn = AttentionModule(
+                num_layers=num_shared_attn_layers,
+                d_model=embedding_dim,
+                dim_fw=embedding_dim,
+                dropout=0.1,
+                n_heads=num_attn_heads,
+                pre_norm=False,
+                rotary_pe=rotary_pe,
+                use_adaln=True,
+                is_self=True
+            )
+        else:
+            print('Using traj_scene_rope = False')
+            self.traj_self_attn = AttentionModule(
+                num_layers=num_shared_attn_layers,
+                d_model=embedding_dim,
+                dim_fw=embedding_dim,
+                dropout=0.1,
+                n_heads=num_attn_heads,
+                pre_norm=False,
+                rotary_pe=rotary_pe,
+                use_adaln=True,
+                is_self=True
+            )
+            self.scene_self_attn = AttentionModule(
+                num_layers=num_shared_attn_layers,
+                d_model=embedding_dim,
+                dim_fw=embedding_dim,
+                dropout=0.1,
+                n_heads=num_attn_heads,
+                pre_norm=False,
+                rotary_pe=rotary_pe,
+                use_adaln=True,
+                is_self=True
+            )
+            self.traj_scene_attn = AttentionModule(
+                num_layers=num_shared_attn_layers,
+                d_model=embedding_dim,
+                dim_fw=embedding_dim,
+                dropout=0.1,
+                n_heads=num_attn_heads,
+                pre_norm=False,
+                rotary_pe=False,
+                use_adaln=True,
+                is_self=True,
+            )
+       
         # Specific (non-shared) Output layers:
         # 1. Rotation
         self.rotation_proj = nn.Linear(embedding_dim, embedding_dim)
@@ -433,7 +480,7 @@ class TransformerHead(nn.Module):
             dropout=0.1,
             n_heads=num_attn_heads,
             pre_norm=False,
-            rotary_pe=rotary_pe,
+            rotary_pe= rotary_pe and self.traj_scene_rope,
             use_adaln=True,
             is_self=True
         )
@@ -452,7 +499,7 @@ class TransformerHead(nn.Module):
             dropout=0.1,
             n_heads=num_attn_heads,
             pre_norm=False,
-            rotary_pe=rotary_pe,
+            rotary_pe=rotary_pe and self.traj_scene_rope,
             use_adaln=True,
             is_self=True
         )
@@ -478,7 +525,7 @@ class TransformerHead(nn.Module):
             traj_feats: (B, trajectory_length, nhand, F)
             trajectory: (B, trajectory_length, nhand, 3+6+X)
             timesteps: (B, 1)
-            rgb3d_feats: (B, N, F)
+            rgb3d_feats: (B, N, F) 
             rgb3d_pos: (B, N, 3)
             rgb2d_feats: (B, N2d, F)
             rgb2d_pos: (B, N2d, 3)
@@ -495,7 +542,9 @@ class TransformerHead(nn.Module):
 
         # Trajectory features
         if nhand > 1:
-            traj_feats = traj_feats + self.hand_embed.weight[None, None]
+            traj_feats = traj_feats + self.hand_embed.weight[None, None] # bimanual support.
+
+        # noisy
         traj_feats = einops.rearrange(traj_feats, 'b l h c -> b (l h) c')
         trajectory = einops.rearrange(trajectory, 'b l h c -> b (l h) c')
 
@@ -512,19 +561,20 @@ class TransformerHead(nn.Module):
         traj_feats = traj_feats + traj_time_pos
         traj_xyz = trajectory[..., :3]
 
+
         # Denoising timesteps' embeddings
         time_embs = self.encode_denoising_timestep(
             timesteps, proprio_feats
         )
 
         # Positional embeddings
-        rel_traj_pos, rel_scene_pos, rel_pos = self.get_positional_embeddings(
+        rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos = self.get_positional_embeddings(
             traj_xyz, traj_feats,
             rgb3d_pos, rgb3d_feats, rgb2d_feats, rgb2d_pos,
             timesteps, proprio_feats,
             fps_scene_feats, fps_scene_pos,
             instr_feats, instr_pos
-        )
+        ) # rel_traj: (traj_len n_hand) = 2, because bimanual.
 
         # Cross attention from gripper to full context
         traj_feats = self.cross_attn(
@@ -535,18 +585,51 @@ class TransformerHead(nn.Module):
             ada_sgnl=time_embs
         )[-1]
 
+        # TODO: Add the rotation etc code here. c
         # Self attention among gripper and sampled context
-        features = self.get_sa_feature_sequence(
-            traj_feats, fps_scene_feats,
-            rgb3d_feats, rgb2d_feats, instr_feats
-        )
-        features = self.self_attn(
-            seq1=features,
-            seq2=features,
-            seq1_pos=rel_pos,
-            seq2_pos=rel_pos,
-            ada_sgnl=time_embs
-        )[-1]
+
+        if self.traj_scene_rope:
+            features = self.get_sa_feature_sequence(
+                traj_feats, fps_scene_feats,
+                rgb3d_feats, rgb2d_feats, instr_feats # NOTE: these are not used 
+            )
+
+            # only place where RoPE is backproped! (that too )
+            features = self.self_attn(
+                seq1=features,
+                seq2=features,
+                seq1_pos=rel_pos,
+                seq2_pos=rel_pos,
+                ada_sgnl=time_embs
+            )[-1]
+        else:
+            traj_feats= self.traj_self_attn(
+                seq1=traj_feats,
+                seq2=traj_feats,
+                seq1_pos=rel_traj_pos,
+                seq2_pos=rel_traj_pos,
+                ada_sgnl=time_embs
+            )[-1]
+            fps_scene_feats = self.scene_self_attn(
+                seq1=fps_scene_feats,
+                seq2=fps_scene_feats,
+                seq1_pos=rel_fps_pos,
+                seq2_pos=rel_fps_pos,
+                ada_sgnl=time_embs
+            )[-1]
+
+            features = self.get_sa_feature_sequence(
+                traj_feats, fps_scene_feats,
+                rgb3d_feats, rgb2d_feats, instr_feats # NOTE: these are not used 
+            )
+
+            features = self.traj_scene_attn(
+                seq1=features,
+                seq2=features,
+                seq1_pos=None,
+                seq2_pos=None,
+                ada_sgnl=time_embs
+            )[-1]
 
         # Rotation head
         rotation = self.predict_rot(
@@ -560,6 +643,7 @@ class TransformerHead(nn.Module):
 
         # Openess head from position head
         openess = self.openess_predictor(position_features)
+
 
         return [
             torch.cat((position, rotation, openess), -1)
@@ -599,26 +683,47 @@ class TransformerHead(nn.Module):
         return torch.cat([traj_feats, fps_scene_feats], 1)
 
     def predict_pos(self, features, pos, time_embs, traj_len):
-        position_features = self.position_self_attn(
-            seq1=features,
-            seq2=features,
-            seq1_pos=pos,
-            seq2_pos=pos,
-            ada_sgnl=time_embs
-        )[-1]
+        if self.traj_scene_rope:
+            position_features = self.position_self_attn(
+                seq1=features,
+                seq2=features,
+                seq1_pos=pos,
+                seq2_pos=pos,
+                ada_sgnl=time_embs
+            )[-1]
+        else:
+            position_features = self.position_self_attn(
+                seq1=features,
+                seq2=features,
+                seq1_pos=None,
+                seq2_pos=None,
+                ada_sgnl=time_embs
+            )[-1]
+            
         position_features = position_features[:, :traj_len]
         position_features = self.position_proj(position_features)  # (B, N, C)
         position = self.position_predictor(position_features)
         return position, position_features
 
     def predict_rot(self, features, pos, time_embs, traj_len):
-        rotation_features = self.rotation_self_attn(
-            seq1=features,
-            seq2=features,
-            seq1_pos=pos,
-            seq2_pos=pos,
-            ada_sgnl=time_embs
-        )[-1]
+        
+        if self.traj_scene_rope:
+            rotation_features = self.rotation_self_attn(
+                seq1=features,
+                seq2=features,
+                seq1_pos=pos,
+                seq2_pos=pos,
+                ada_sgnl=time_embs
+            )[-1]
+        else:
+            rotation_features = self.rotation_self_attn(
+                seq1=features,
+                seq2=features,
+                seq1_pos=None,
+                seq2_pos=None,
+                ada_sgnl=time_embs
+            )[-1]
+        
         rotation_features = rotation_features[:, :traj_len]
         rotation_features = self.rotation_proj(rotation_features)  # (B, N, C)
         rotation = self.rotation_predictor(rotation_features)

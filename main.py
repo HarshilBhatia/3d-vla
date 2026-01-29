@@ -76,7 +76,8 @@ def parse_arguments():
         ('denoise_timesteps', int, 10),
         ('denoise_model', str, "rectified_flow"),
         ('learn_extrinsics', str2bool, False),
-        ('use_front_camera_frame', str2bool, False)
+        ('use_front_camera_frame', str2bool, False),
+        ('traj_scene_rope', str2bool, True),
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

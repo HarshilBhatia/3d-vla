@@ -81,8 +81,8 @@ class Encoder(BaseEncoder):
         proprio_pos = self.relative_pe_layer(proprio[..., :3])
         # Allow gradients for context_pos if learning extrinsics
         # This is needed because point cloud positions depend on learned camera parameters
-        allow_grad = self.training and self.learn_extrinsics
-        context_pos = self.relative_pe_layer(context_pos, allow_grad=allow_grad)
+        # allow_grad = self.training and self.learn_extrinsics
+        context_pos = self.relative_pe_layer(context_pos, allow_grad=False) # this is to encode the proprio, don't need to backprop here.
 
         # Attention to scene tokens
         proprio_feats = self.gripper_context_head(
@@ -122,12 +122,13 @@ class Encoder(BaseEncoder):
         rgb3d_feats = self.feature_pyramid(rgb3d_feats)[self.output_level]
         feat_h, feat_w = rgb3d_feats.shape[-2:]
         # Merge different cameras
+
         rgb3d_feats = einops.rearrange(
             rgb3d_feats,
             "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
         )
         # Attention from vision to language
-        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1]
+        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1] # NOTE: Doesn't make sense to me.  why do this here ?
 
         # Point cloud
         num_cameras = pcd.shape[1]
@@ -143,7 +144,9 @@ class Encoder(BaseEncoder):
             "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
         )
 
+
         # 2D camera features (don't support mixed cameras in this release)
         rgb2d_feats = None
+
 
         return rgb3d_feats, rgb2d_feats, pcd, instr_feats

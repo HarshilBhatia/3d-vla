@@ -141,7 +141,8 @@ class BaseTrainTester:
             rotation_format=self.args.rotation_format,
             denoise_timesteps=self.args.denoise_timesteps,
             denoise_model=self.args.denoise_model,
-            lv2_batch_size=self.args.lv2_batch_size
+            lv2_batch_size=self.args.lv2_batch_size,
+            traj_scene_rope=self.args.traj_scene_rope
         )
         
         # Add learn_extrinsics if available in args (for 3D models)
