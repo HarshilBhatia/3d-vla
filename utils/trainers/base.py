@@ -90,9 +90,19 @@ class BaseTrainTester:
         g = torch.Generator()
         g.manual_seed(0)
         train_sampler = DistributedSampler(train_dataset, drop_last=True)
+        
+        # Divide batch size by world size to keep effective batch size constant
+        world_size = dist.get_world_size()
+        per_gpu_batch_size = self.args.batch_size // (self.args.chunk_size * world_size)
+        
+        if dist.get_rank() == 0:
+            print(f"World size: {world_size}")
+            print(f"Global batch size: {self.args.batch_size}")
+            print(f"Per-GPU batch size: {per_gpu_batch_size}")
+        
         train_loader = DataLoader(
             train_dataset,
-            batch_size=self.args.batch_size // self.args.chunk_size,
+            batch_size=per_gpu_batch_size,
             shuffle=False,
             num_workers=self.args.num_workers,
             worker_init_fn=seed_worker,
@@ -104,7 +114,7 @@ class BaseTrainTester:
             prefetch_factor=4,
             persistent_workers=True
         )
-        # No sampler for val!
+        # No sampler for val! (only runs on rank 0, no need to divide by world_size)
         if dist.get_rank() == 0:
             val_loader = DataLoader(
                 val_dataset,
