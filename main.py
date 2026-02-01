@@ -79,6 +79,7 @@ def parse_arguments():
         ('predict_extrinsics', str2bool, True),
         ('use_front_camera_frame', str2bool, False),
         ('traj_scene_rope', str2bool, True),
+        ('rope_type', str, 'normal'),  # 'adam' or 'normal'
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

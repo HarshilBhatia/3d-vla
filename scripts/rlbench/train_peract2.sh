@@ -2,15 +2,14 @@ main_dir=Peract2
 
 DATA_PATH=$(pwd)
 
-train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
+train_data_dir=$DATA_PATH/Peract2_zarr/bimanual_lift_tray/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/bimanual_lift_tray/val.zarr
 
 # train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
 # eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
 
-train_instructions=instructions/peract2/instructions_full.json
-val_instructions=instructions/peract2/instructions_full.json
-
+train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
 
 
 dataset=Peract2_3dfront_3dwrist
@@ -27,8 +26,9 @@ lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune
 lr_scheduler=constant
 wd=1e-10
-train_iters=300000 
-# train_iters=60000
+# train_iters=300000 
+
+train_iters=45000
 use_compile=false  # much faster, but sometimes unstable
 use_ema=false
 lv2_batch_size=1  # you can increase this and divide B equally, speed/accuracy tradeoff
@@ -56,17 +56,23 @@ relative_action=false
 rotation_format=quat_xyzw
 denoise_timesteps=5
 denoise_model=rectified_flow
+
+
+# Model arguments for learning extrinsics and predicting extrinsics
 learn_extrinsics=False
 predict_extrinsics=True
+use_front_camera_frame=false
+traj_scene_rope=true
+rope_type=normal
 
-run_log_dir=new_$learn_extrinsics=2scene-$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model # exp name ? 
+run_log_dir=Predict_extrinsics_ADAM 
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'
 
 
 # ngpus=2
-ngpus=1
+ngpus=2
 #$(nvidia-smi -L | wc -l)
 
 
@@ -117,6 +123,8 @@ TORCH_DISTRIBUTED_DEBUG=DETAIL NCCL_DEBUG=WARN WANDB_API_KEY=$WANDB_API_KEY torc
     --wandb_project 3d_flowmatch_actor \
     --wandb_run_name $run_log_dir \
     --learn_extrinsics $learn_extrinsics \
-    --use_front_camera_frame false \
-    --traj_scene_rope true \
-    --predict_extrinsics $predict_extrinsics
+    --use_front_camera_frame $use_front_camera_frame \
+    --traj_scene_rope $traj_scene_rope \
+    --predict_extrinsics $predict_extrinsics \
+    --rope_type $rope_type
+

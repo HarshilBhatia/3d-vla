@@ -56,58 +56,58 @@ class RotaryPositionEncoding(nn.Module):
         return position_code
 
 
-class RotaryPositionEncoding3D(RotaryPositionEncoding):
+# class RotaryPositionEncoding3D(RotaryPositionEncoding):
 
-    def __init__(self, feature_dim, pe_type='Rotary3D'):
-        super().__init__(feature_dim, pe_type)
+#     def __init__(self, feature_dim, pe_type='Rotary3D'):
+#         super().__init__(feature_dim, pe_type)
 
-    def forward(self, XYZ, allow_grad=False):
-        '''
-        @param XYZ: [B,N,3]
-        @return:
-        '''
-        bsize, npoint, _ = XYZ.shape
-        x_position, y_position, z_position = XYZ[..., 0:1], XYZ[..., 1:2], XYZ[..., 2:3]
-        dx = dy = self.feature_dim // 3
-        if dx % 2 == 1:
-            dx -= 1
-            dy -= 1
-        dz = self.feature_dim - dx - dy
-        div_term_x = torch.exp(
-            torch.arange(0, dx, 2, dtype=torch.float, device=XYZ.device)
-            * (-math.log(10000.0) / dx)
-        ).view(1, 1, -1)  # [1, 1, d//6]
-        div_term_y = torch.exp(
-            torch.arange(0, dy, 2, dtype=torch.float, device=XYZ.device)
-            * (-math.log(10000.0) / dy)
-        ).view(1, 1, -1)  # [1, 1, d//6]
-        div_term_z = torch.exp(
-            torch.arange(0, dz, 2, dtype=torch.float, device=XYZ.device)
-            * (-math.log(10000.0) / dz)
-        ).view(1, 1, -1)  # [1, 1, d//6]
+#     def forward(self, XYZ, allow_grad=False):
+#         '''
+#         @param XYZ: [B,N,3]
+#         @return:
+#         '''
+#         bsize, npoint, _ = XYZ.shape
+#         x_position, y_position, z_position = XYZ[..., 0:1], XYZ[..., 1:2], XYZ[..., 2:3]
+#         dx = dy = self.feature_dim // 3
+#         if dx % 2 == 1:
+#             dx -= 1
+#             dy -= 1
+#         dz = self.feature_dim - dx - dy
+#         div_term_x = torch.exp(
+#             torch.arange(0, dx, 2, dtype=torch.float, device=XYZ.device)
+#             * (-math.log(10000.0) / dx)
+#         ).view(1, 1, -1)  # [1, 1, d//6]
+#         div_term_y = torch.exp(
+#             torch.arange(0, dy, 2, dtype=torch.float, device=XYZ.device)
+#             * (-math.log(10000.0) / dy)
+#         ).view(1, 1, -1)  # [1, 1, d//6]
+#         div_term_z = torch.exp(
+#             torch.arange(0, dz, 2, dtype=torch.float, device=XYZ.device)
+#             * (-math.log(10000.0) / dz)
+#         ).view(1, 1, -1)  # [1, 1, d//6]
 
-        sinx = torch.sin(x_position * div_term_x)  # [B, N, d//6]
-        cosx = torch.cos(x_position * div_term_x)
-        siny = torch.sin(y_position * div_term_y)
-        cosy = torch.cos(y_position * div_term_y)
-        sinz = torch.sin(z_position * div_term_z)
-        cosz = torch.cos(z_position * div_term_z)
+#         sinx = torch.sin(x_position * div_term_x)  # [B, N, d//6]
+#         cosx = torch.cos(x_position * div_term_x)
+#         siny = torch.sin(y_position * div_term_y)
+#         cosy = torch.cos(y_position * div_term_y)
+#         sinz = torch.sin(z_position * div_term_z)
+#         cosz = torch.cos(z_position * div_term_z)
 
-        sinx, cosx, siny, cosy, sinz, cosz = map(
-            lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
-            [sinx, cosx, siny, cosy, sinz, cosz]
-        )
+#         sinx, cosx, siny, cosy, sinz, cosz = map(
+#             lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
+#             [sinx, cosx, siny, cosy, sinz, cosz]
+#         )
 
-        position_code = torch.stack([
-            torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
-            torch.cat([sinx, siny, sinz], dim=-1)  # sin_pos
-        ], dim=-1)
+#         position_code = torch.stack([
+#             torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
+#             torch.cat([sinx, siny, sinz], dim=-1)  # sin_pos
+#         ], dim=-1)
 
-        # Only allow gradients if explicitly requested (for learnable extrinsics)
-        if not allow_grad:
-            position_code = position_code.detach()
+#         # Only allow gradients if explicitly requested (for learnable extrinsics)
+#         if not allow_grad:
+#             position_code = position_code.detach()
         
-        return position_code
+#         return position_code
 
 
 class PositionEmbeddingLearnedMLP(nn.Module):
@@ -131,3 +131,198 @@ class PositionEmbeddingLearnedMLP(nn.Module):
         """Forward pass, xyz is (B, N, 3or6), output (B, F, N)."""
         position_embedding = self.position_embedding_head(xyz)
         return position_embedding
+
+
+
+class RoPE3DAdamFunction(torch.autograd.Function):
+    """
+    Custom autograd for 3D RoPE that normalizes per-bin gradients
+    using a per-bin second moment (RMSProp-style) before summing.
+
+    Forward: identical to standard 3D RoPE.
+    Backward: decomposes grad into per-bin contributions analytically,
+              normalizes each by its running second moment v[i],
+              then sums back to grad_XYZ.
+    """
+
+    @staticmethod
+    def forward(ctx, XYZ, div_term_x, div_term_y, div_term_z, adam_v):
+        bsize, npoint, _ = XYZ.shape
+        x_position, y_position, z_position = XYZ[..., 0:1], XYZ[..., 1:2], XYZ[..., 2:3]
+
+        # Compute sin/cos per axis (pre-repeat versions saved for backward)
+        sinx = torch.sin(x_position * div_term_x)  # [B, N, dx//2]
+        cosx = torch.cos(x_position * div_term_x)
+        siny = torch.sin(y_position * div_term_y)
+        cosy = torch.cos(y_position * div_term_y)
+        sinz = torch.sin(z_position * div_term_z)
+        cosz = torch.cos(z_position * div_term_z)
+
+        ctx.save_for_backward(sinx, cosx, siny, cosy, sinz, cosz,
+                              div_term_x, div_term_y, div_term_z)
+        ctx.adam_v = adam_v  # mutable reference to module buffer, updated in-place
+        ctx.dx = div_term_x.shape[-1] * 2
+        ctx.dy = div_term_y.shape[-1] * 2
+
+        # Repeat each bin twice and build position_code (identical to original forward)
+        sinx, cosx, siny, cosy, sinz, cosz = map(
+            lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
+            [sinx, cosx, siny, cosy, sinz, cosz]
+        )
+
+        position_code = torch.stack([
+            torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
+            torch.cat([sinx, siny, sinz], dim=-1)   # sin_pos
+        ], dim=-1)
+
+        return position_code
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        sinx, cosx, siny, cosy, sinz, cosz, div_term_x, div_term_y, div_term_z = ctx.saved_tensors
+        adam_v = ctx.adam_v
+        dx, dy = ctx.dx, ctx.dy
+        beta2, eps = 0.999, 1e-8
+
+        B, N = grad_output.shape[:2]
+        nbx = div_term_x.shape[-1]   # num bins x  (= dx//2)
+        nby = div_term_y.shape[-1]
+        nbz = div_term_z.shape[-1]
+
+        # grad_output: [B, N, feature_dim, 2]
+        #   [..., 0] = grad flowing into cos_pos
+        #   [..., 1] = grad flowing into sin_pos
+        # Each bin was repeated twice in forward (stack+view), so undo by summing pairs
+        def sum_repeat(grad_slice, num_bins):
+            """[B, N, 2*num_bins] -> [B, N, num_bins] by summing the two copies."""
+            return grad_slice.view(B, N, num_bins, 2).sum(-1)
+
+        # Per-axis grad slices, pairs summed
+        gx_cos = sum_repeat(grad_output[:, :, :dx, 0], nbx)
+        gx_sin = sum_repeat(grad_output[:, :, :dx, 1], nbx)
+        gy_cos = sum_repeat(grad_output[:, :, dx:dx+dy, 0], nby)
+        gy_sin = sum_repeat(grad_output[:, :, dx:dx+dy, 1], nby)
+        gz_cos = sum_repeat(grad_output[:, :, dx+dy:, 0], nbz)
+        gz_sin = sum_repeat(grad_output[:, :, dx+dy:, 1], nbz)
+
+        # Per-bin chain rule:
+        #   d cos(pos * theta) / d pos = -theta * sin(pos * theta)
+        #   d sin(pos * theta) / d pos =  theta * cos(pos * theta)
+        grad_x = gx_cos * (-div_term_x * sinx) + gx_sin * (div_term_x * cosx)  # [B, N, nbx]
+        grad_y = gy_cos * (-div_term_y * siny) + gy_sin * (div_term_y * cosy)  # [B, N, nby]
+        grad_z = gz_cos * (-div_term_z * sinz) + gz_sin * (div_term_z * cosz)  # [B, N, nbz]
+
+        # --- Per-bin Adam (v only) ---
+        # Average over B, N to get a scalar per bin for the moment update
+        per_bin_mean = torch.cat([
+            grad_x.mean((0, 1)),   # [nbx]
+            grad_y.mean((0, 1)),   # [nby]
+            grad_z.mean((0, 1)),   # [nbz]
+        ])  # [total_bins]
+
+        # Update second moment in-place on the module buffer
+        adam_v.mul_(beta2).add_(per_bin_mean ** 2, alpha=1 - beta2)
+
+        # Normalize each bin's gradient by its second moment
+        v_x = adam_v[:nbx]
+        v_y = adam_v[nbx:nbx + nby]
+        v_z = adam_v[nbx + nby:]
+
+        grad_x = grad_x / (v_x.sqrt() + eps)
+        grad_y = grad_y / (v_y.sqrt() + eps)
+        grad_z = grad_z / (v_z.sqrt() + eps)
+
+        # Sum across bins -> grad per axis -> grad_XYZ
+        grad_XYZ = torch.cat([
+            grad_x.sum(-1, keepdim=True),  # [B, N, 1]
+            grad_y.sum(-1, keepdim=True),
+            grad_z.sum(-1, keepdim=True),
+        ], dim=-1)  # [B, N, 3]
+
+        # Returns: grad for XYZ, None for div_terms and adam_v (not learnable)
+        return grad_XYZ, None, None, None, None
+
+
+class RotaryPositionEncoding3D(RotaryPositionEncoding):
+    # NOTE: adjust inheritance to match your actual parent class
+
+    def __init__(self, feature_dim, pe_type='Rotary3D', rope_type='s'):
+        """
+        Args:
+            feature_dim: Dimension of the position encoding features
+            pe_type: Type of position encoding (default: 'Rotary3D')
+            rope_type: Type of RoPE backward pass. Options:
+                - 'adam': Use Adam-style normalized gradients (custom backward)
+                - 'normal': Use standard PyTorch autograd (normal backward)
+        """
+        super().__init__(feature_dim, pe_type)
+        self.feature_dim = feature_dim
+        self.rope_type = rope_type.lower()
+        
+        if self.rope_type not in ['adam', 'normal']:
+            raise ValueError(f"rope_type must be 'adam' or 'normal', got '{rope_type}'")
+
+        # --- ADDED: per-bin Adam second moment buffer (only needed for adam type) ---
+        if self.rope_type == 'adam':
+            dx = dy = feature_dim // 3
+            if dx % 2 == 1:
+                dx -= 1
+                dy -= 1
+            dz = feature_dim - dx - dy
+            total_bins = dx // 2 + dy // 2 + dz // 2
+            self.register_buffer('adam_v', torch.zeros(total_bins))
+        else:
+            self.adam_v = None
+
+    def forward(self, XYZ, allow_grad=False):
+        '''
+        @param XYZ: [B,N,3]
+        @return: position_code [B, N, feature_dim, 2]
+        '''
+        bsize, npoint, _ = XYZ.shape
+        x_position, y_position, z_position = XYZ[..., 0:1], XYZ[..., 1:2], XYZ[..., 2:3]
+        dx = dy = self.feature_dim // 3
+        if dx % 2 == 1:
+            dx -= 1
+            dy -= 1
+        dz = self.feature_dim - dx - dy
+        div_term_x = torch.exp(
+            torch.arange(0, dx, 2, dtype=torch.float, device=XYZ.device)
+            * (-math.log(10000.0) / dx)
+        ).view(1, 1, -1)  # [1, 1, d//6]
+        div_term_y = torch.exp(
+            torch.arange(0, dy, 2, dtype=torch.float, device=XYZ.device)
+            * (-math.log(10000.0) / dy)
+        ).view(1, 1, -1)  # [1, 1, d//6]
+        div_term_z = torch.exp(
+            torch.arange(0, dz, 2, dtype=torch.float, device=XYZ.device)
+            * (-math.log(10000.0) / dz)
+        ).view(1, 1, -1)  # [1, 1, d//6]
+
+        # --- ADDED: when allow_grad and rope_type='adam', route through custom Function ---
+        if allow_grad and self.rope_type == 'adam':
+            return RoPE3DAdamFunction.apply(XYZ, div_term_x, div_term_y, div_term_z, self.adam_v)
+
+        # --- Standard path (either no grad or normal rope_type) ---
+        sinx = torch.sin(x_position * div_term_x)  # [B, N, d//6]
+        cosx = torch.cos(x_position * div_term_x)
+        siny = torch.sin(y_position * div_term_y)
+        cosy = torch.cos(y_position * div_term_y)
+        sinz = torch.sin(z_position * div_term_z)
+        cosz = torch.cos(z_position * div_term_z)
+
+        sinx, cosx, siny, cosy, sinz, cosz = map(
+            lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
+            [sinx, cosx, siny, cosy, sinz, cosz]
+        )
+
+        position_code = torch.stack([
+            torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
+            torch.cat([sinx, siny, sinz], dim=-1)   # sin_pos
+        ], dim=-1)
+
+        # Only detach if gradients not allowed (for normal rope_type, grad flows through)
+        if not allow_grad:
+            position_code = position_code.detach()
+
+        return position_code

@@ -1,15 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=train_peract2
+#SBATCH --job-name=AdamRoPE
 #SBATCH --output=logs/train_peract2_%j.out
 #SBATCH --error=logs/train_peract2_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=12
-#SBATCH --gres=gpu:1
-#SBATCH --mem=24G
-#SBATCH --time=24:00:00
+#SBATCH --cpus-per-task=48
+#SBATCH --gres=gpu:4
+#SBATCH --mem=96G
+#SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --nodelist=grogu-2-31 
+#SBATCH --nodelist=grogu-2-9
 
 # Print job information
 echo "Job started at: $(date)"
@@ -38,15 +38,16 @@ eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
 train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
 val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
 
-
+B=64 # with 4 gpu -- 16 per gpu, so A5000s work! 
 train_iters=45000
 
 # Experiment configuration
 learn_extrinsics=false
 traj_scene_rope=true
-front_camera_frame=false
-
-run_log_dir=1task-cam_token_extrinsics-traj_scene_rope$traj_scene_rope-front-cam-$front_camera_frame
+front_camera_frame=true
+predict_extrinsics=true
+rope_type=adam
+run_log_dir=1scene_RoPEADAM-front_cam-$front_camera_frames-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'
@@ -111,4 +112,6 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RAN
     --wandb_run_name $run_log_dir \
     --learn_extrinsics $learn_extrinsics \
     --use_front_camera_frame $front_camera_frame \
-    --traj_scene_rope $traj_scene_rope
+    --traj_scene_rope $traj_scene_rope \
+    --predict_extrinsics $predict_extrinsics \
+    --rope_type $rope_type  

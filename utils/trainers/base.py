@@ -164,7 +164,14 @@ class BaseTrainTester:
         if hasattr(self.args, 'predict_extrinsics'):
             model_kwargs['predict_extrinsics'] = self.args.predict_extrinsics
         
+        # Add rope_type if available in args
+        if hasattr(self.args, 'rope_type'):
+            model_kwargs['rope_type'] = self.args.rope_type
+        
+        print(f'model_kwargs: {model_kwargs}')
+
         _model = self.model_cls(**model_kwargs)
+
 
         # Print basic modules' parameters
         if dist.get_rank() == 0:

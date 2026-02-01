@@ -32,7 +32,9 @@ class DenoiseActor(nn.Module):
                  denoise_model="ddpm",
                  # Training arguments
                  lv2_batch_size=1,
-                 traj_scene_rope=True):
+                 traj_scene_rope=True,
+                 learn_extrinsics=False,
+                 predict_extrinsics=True):
         super().__init__()
         # Arguments to be accessed by the main class
         self._rotation_format = rotation_format
@@ -376,7 +378,8 @@ class TransformerHead(nn.Module):
                  rotary_pe=True,
                  rot_dim=6,
                  traj_scene_rope=True,
-                 predict_extrinsics=True):
+                 predict_extrinsics=True,
+                 learn_extrinsics=False):
         super().__init__()
         
         print(f" ************** Predicting Extrinsics: {predict_extrinsics} **************")

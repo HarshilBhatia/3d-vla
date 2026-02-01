@@ -35,7 +35,9 @@ class DenoiseActor(BaseDenoiseActor):
                  # Learnable extrinsics (camera -> world)
                  learn_extrinsics=False,
                  traj_scene_rope=True,
-                 predict_extrinsics=True):
+                 predict_extrinsics=True,
+                 # RoPE type
+                 rope_type='adam'):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -47,9 +49,15 @@ class DenoiseActor(BaseDenoiseActor):
             denoise_timesteps=denoise_timesteps,
             denoise_model=denoise_model,
             lv2_batch_size=lv2_batch_size,
-            traj_scene_rope=traj_scene_rope
+            traj_scene_rope=traj_scene_rope,
+            learn_extrinsics=learn_extrinsics,
+            predict_extrinsics=predict_extrinsics
         )
 
+
+        print(f'learn_extrinsics: {learn_extrinsics}')
+        print(f'predict_extrinsics: {predict_extrinsics}')
+        print(f'rope_type: {rope_type}')
         # Vision-language encoder, runs only once
         self.encoder = Encoder(
             backbone=backbone,
@@ -60,7 +68,8 @@ class DenoiseActor(BaseDenoiseActor):
             fps_subsampling_factor=fps_subsampling_factor,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder,
-            learn_extrinsics=learn_extrinsics
+            learn_extrinsics=learn_extrinsics,
+            rope_type=rope_type
         )
 
         # Action decoder, runs at every denoising timestep
@@ -71,7 +80,8 @@ class DenoiseActor(BaseDenoiseActor):
             num_shared_attn_layers=num_shared_attn_layers,
             learn_extrinsics=learn_extrinsics,
             traj_scene_rope=traj_scene_rope,
-            predict_extrinsics=predict_extrinsics
+            predict_extrinsics=predict_extrinsics,
+            rope_type=rope_type
         )
         
         # Learnable camera extrinsics: axis-angle (3) + translation (3) = 6 params
@@ -157,7 +167,8 @@ class TransformerHead(BaseTransformerHead):
                  rotary_pe=True,
                  learn_extrinsics=False,
                  traj_scene_rope=True,
-                 predict_extrinsics=True):
+                 predict_extrinsics=True,
+                 rope_type='normal'):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -165,7 +176,8 @@ class TransformerHead(BaseTransformerHead):
             num_shared_attn_layers=num_shared_attn_layers,
             rotary_pe=rotary_pe,
             traj_scene_rope=traj_scene_rope,
-            predict_extrinsics=predict_extrinsics
+            predict_extrinsics=predict_extrinsics,
+            learn_extrinsics=learn_extrinsics
         )
 
         # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
@@ -173,7 +185,7 @@ class TransformerHead(BaseTransformerHead):
         self.predict_extrinsics = predict_extrinsics
         
         # Relative positional embeddings
-        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim, rope_type=rope_type)
 
     def transform_pcd_with_extrinsics(self, pcd, cam_params):
         """
@@ -213,7 +225,7 @@ class TransformerHead(BaseTransformerHead):
     ):
         # Allow gradients through RoPE when learning extrinsics
         # This is needed because the point cloud positions depend on learned camera parameters
-        allow_grad = self.training
+        allow_grad = self.training and (self.learn_extrinsics or self.predict_extrinsics)
         
         rel_traj_pos = self.relative_pe_layer(traj_xyz)
         rel_scene_pos = self.relative_pe_layer(rgb3d_pos)
