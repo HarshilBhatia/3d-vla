@@ -144,7 +144,15 @@ class TransformerHead(BaseTransformerHead):
         _scene_pos = self.pos_embed_2d(
             torch.arange(0, fps_scene_feats.size(1), device=traj_feats.device)
         )[None].repeat(traj_feats.size(0), 1, 1)
-        _pos = torch.cat([_traj_pos, _scene_pos], 1)
+        
+        # Add positional embeddings for register tokens (4) and camera token (1)
+        num_additional_tokens = 5  # 4 register + 1 camera
+        start_idx = traj_feats.size(1) + fps_scene_feats.size(1)
+        _additional_pos = self.pos_embed_2d(
+            torch.arange(start_idx, start_idx + num_additional_tokens, device=traj_feats.device)
+        )[None].repeat(traj_feats.size(0), 1, 1)
+        
+        _pos = torch.cat([_traj_pos, _scene_pos, _additional_pos], 1)
         return _traj_pos, full_scene_pos, _pos
 
     def get_sa_feature_sequence(
@@ -152,5 +160,12 @@ class TransformerHead(BaseTransformerHead):
         traj_feats, fps_scene_feats,
         rgb3d_feats, rgb2d_feats, instr_feats
     ):
-        features = torch.cat([traj_feats, fps_scene_feats], 1)
+        batch_size = traj_feats.shape[0]
+        
+        # Expand learnable tokens to batch size
+        register_tokens = self.register_tokens.unsqueeze(0).expand(batch_size, -1, -1)
+        camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
+        
+        # Concatenate: trajectory, scene, register tokens, camera token
+        features = torch.cat([traj_feats, fps_scene_feats, register_tokens, camera_token], 1)
         return features

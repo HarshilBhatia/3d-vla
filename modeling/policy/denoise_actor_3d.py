@@ -34,7 +34,8 @@ class DenoiseActor(BaseDenoiseActor):
                  lv2_batch_size=1,
                  # Learnable extrinsics (camera -> world)
                  learn_extrinsics=False,
-                 traj_scene_rope=True):
+                 traj_scene_rope=True,
+                 predict_extrinsics=True):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -69,12 +70,15 @@ class DenoiseActor(BaseDenoiseActor):
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
             learn_extrinsics=learn_extrinsics,
-            traj_scene_rope=traj_scene_rope
+            traj_scene_rope=traj_scene_rope,
+            predict_extrinsics=predict_extrinsics
         )
         
         # Learnable camera extrinsics: axis-angle (3) + translation (3) = 6 params
         self.learn_extrinsics = learn_extrinsics
         if learn_extrinsics:
+
+            raise NotImplementedError("Should NOT be USED HERE")
             # Initialize to identity transform
 
             # randn if not rotated in data processing 
@@ -152,21 +156,52 @@ class TransformerHead(BaseTransformerHead):
                  num_shared_attn_layers=4,
                  rotary_pe=True,
                  learn_extrinsics=False,
-                 traj_scene_rope=True):
+                 traj_scene_rope=True,
+                 predict_extrinsics=True):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
             nhist=nhist,
             num_shared_attn_layers=num_shared_attn_layers,
             rotary_pe=rotary_pe,
-            traj_scene_rope=traj_scene_rope
+            traj_scene_rope=traj_scene_rope,
+            predict_extrinsics=predict_extrinsics
         )
 
         # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
         self.learn_extrinsics = learn_extrinsics
+        self.predict_extrinsics = predict_extrinsics
         
         # Relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+
+    def transform_pcd_with_extrinsics(self, pcd, cam_params):
+        """
+        Transform point cloud using predicted camera extrinsics.
+        
+        Args:
+            pcd: (B, N, 3) - point cloud in camera coordinates
+            cam_params: (B, 6) - camera extrinsics (3 axis-angle + 3 translation)
+            
+        Returns:
+            pcd_transformed: (B, N, 3) - transformed point cloud in world coordinates
+        """
+        B, N, _ = pcd.shape
+        
+        # Extract axis-angle and translation
+        axis_angle = cam_params[:, :3]  # (B, 3)
+        translation = cam_params[:, 3:6]  # (B, 3)
+        
+        # Convert axis-angle to rotation matrix
+        R = axis_angle_to_matrix(axis_angle)  # (B, 3, 3)
+        
+        # Transform: P_world = R @ P_cam + t
+        # pcd: (B, N, 3) -> (B, 3, N) for matrix multiplication
+        pcd_transposed = pcd.transpose(1, 2)  # (B, 3, N)
+        pcd_rotated = torch.bmm(R, pcd_transposed)  # (B, 3, N)
+        pcd_transformed = pcd_rotated.transpose(1, 2) + translation.unsqueeze(1)  # (B, N, 3)
+        
+        return pcd_transformed
 
     def get_positional_embeddings(
         self,
@@ -178,14 +213,21 @@ class TransformerHead(BaseTransformerHead):
     ):
         # Allow gradients through RoPE when learning extrinsics
         # This is needed because the point cloud positions depend on learned camera parameters
-        allow_grad = self.training and self.learn_extrinsics
+        allow_grad = self.training
         
         rel_traj_pos = self.relative_pe_layer(traj_xyz)
         rel_scene_pos = self.relative_pe_layer(rgb3d_pos)
 
         # because absolute positions are used, it makes sense to concatenate. 
         rel_fps_pos = self.relative_pe_layer(fps_scene_pos, allow_grad=allow_grad) # only place where it makes sense to backprop
-        rel_pos = torch.cat([rel_traj_pos, rel_fps_pos], 1)
+        
+        # Add zero positional embeddings for register tokens (4) and camera token (1)
+        batch_size = traj_xyz.shape[0]
+        num_additional_tokens = 5  # 4 register + 1 camera
+        zero_pos = torch.zeros(batch_size, num_additional_tokens, rel_traj_pos.shape[-2], rel_traj_pos.shape[-1],  
+                              device=rel_traj_pos.device, dtype=rel_traj_pos.dtype)
+        
+        rel_pos = torch.cat([rel_traj_pos, rel_fps_pos, zero_pos], 1)
         return rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos
 
     def get_sa_feature_sequence(
@@ -193,5 +235,12 @@ class TransformerHead(BaseTransformerHead):
         traj_feats, fps_scene_feats,
         rgb3d_feats, rgb2d_feats, instr_feats
     ):
-        features = torch.cat([traj_feats, fps_scene_feats], 1)
+        batch_size = traj_feats.shape[0]
+        
+        # Expand learnable tokens to batch size
+        register_tokens = self.register_tokens.unsqueeze(0).expand(batch_size, -1, -1)
+        camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
+        
+        # Concatenate: trajectory, scene, register tokens, camera token
+        features = torch.cat([traj_feats, fps_scene_feats, register_tokens, camera_token], 1)
         return features

@@ -2,23 +2,24 @@ main_dir=Peract2
 
 DATA_PATH=$(pwd)
 
-train_data_dir=$DATA_PATH/Peract2_zarr/bimanual_lift_tray,bimanual_push_box/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/bimanual_lift_tray,bimanual_push_box/val.zarr
+train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
 
 # train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
 # eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
 
-train_instructions=instructions/peract2/instructions.json
-val_instructions=instructions/peract2/instructions.json
+train_instructions=instructions/peract2/instructions_full.json
+val_instructions=instructions/peract2/instructions_full.json
 
 
 
 dataset=Peract2_3dfront_3dwrist
-num_workers=4
-B=64  # we used 64 but you can use as low as 16 without much performance drop - it's much faster
+num_workers=16
+B=16  # we used 64 but you can use as low as 16 without much performance drop - it's much faster
 B_val=64
 chunk_size=1
 memory_limit=8 
+
 # Training/testing arguments
 val_freq=4000
 eval_only=false # this toggles eval and train
@@ -26,8 +27,8 @@ lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune
 lr_scheduler=constant
 wd=1e-10
-# train_iters=300000 
-train_iters=60000
+train_iters=300000 
+# train_iters=60000
 use_compile=false  # much faster, but sometimes unstable
 use_ema=false
 lv2_batch_size=1  # you can increase this and divide B equally, speed/accuracy tradeoff
@@ -55,7 +56,8 @@ relative_action=false
 rotation_format=quat_xyzw
 denoise_timesteps=5
 denoise_model=rectified_flow
-learn_extrinsics=True
+learn_extrinsics=False
+predict_extrinsics=True
 
 run_log_dir=new_$learn_extrinsics=2scene-$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model # exp name ? 
 
@@ -63,9 +65,12 @@ checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'
 
 
-ngpus=$(nvidia-smi -L | wc -l)
+# ngpus=2
+ngpus=1
+#$(nvidia-smi -L | wc -l)
 
-WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RANDOM\
+
+TORCH_DISTRIBUTED_DEBUG=DETAIL NCCL_DEBUG=WARN WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RANDOM\
     main.py \
     --train_data_dir $train_data_dir \
     --eval_data_dir $eval_data_dir \
@@ -112,5 +117,6 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RAN
     --wandb_project 3d_flowmatch_actor \
     --wandb_run_name $run_log_dir \
     --learn_extrinsics $learn_extrinsics \
-    --use_front_camera_frame true \
-    --traj_scene_rope false
+    --use_front_camera_frame false \
+    --traj_scene_rope true \
+    --predict_extrinsics $predict_extrinsics
