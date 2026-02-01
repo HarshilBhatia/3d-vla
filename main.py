@@ -76,6 +76,7 @@ def parse_arguments():
         ('denoise_timesteps', int, 10),
         ('denoise_model', str, "rectified_flow"),
         ('learn_extrinsics', str2bool, False),
+        ('predict_extrinsics', str2bool, True),
         ('use_front_camera_frame', str2bool, False),
         ('traj_scene_rope', str2bool, True),
     ]

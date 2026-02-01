@@ -42,11 +42,11 @@ val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
 train_iters=45000
 
 # Experiment configuration
-learn_extrinsics=False
-traj_scene_rope=False
-front_camera_frame=true
+learn_extrinsics=false
+traj_scene_rope=true
+front_camera_frame=false
 
-run_log_dir=1task-LE$learn_extrinsics-traj_scene_rope$traj_scene_rope-front-cam-$front_camera_frame
+run_log_dir=1task-cam_token_extrinsics-traj_scene_rope$traj_scene_rope-front-cam-$front_camera_frame
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'
