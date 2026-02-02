@@ -243,10 +243,120 @@ class RoPE3DAdamFunction(torch.autograd.Function):
         return grad_XYZ, None, None, None, None
 
 
+class RoPE3DStopGradFunction(torch.autograd.Function):
+    """
+    Custom autograd for 3D RoPE with stopgrad behavior.
+    
+    Forward: identical to standard 3D RoPE.
+    Backward: zeros out gradients for the first K bins.
+    """
+
+    @staticmethod
+    def forward(ctx, XYZ, div_term_x, div_term_y, div_term_z, stopgrad_k):
+        bsize, npoint, _ = XYZ.shape
+        x_position, y_position, z_position = XYZ[..., 0:1], XYZ[..., 1:2], XYZ[..., 2:3]
+
+        # Compute sin/cos per axis (pre-repeat versions saved for backward)
+        sinx = torch.sin(x_position * div_term_x)  # [B, N, dx//2]
+        cosx = torch.cos(x_position * div_term_x)
+        siny = torch.sin(y_position * div_term_y)
+        cosy = torch.cos(y_position * div_term_y)
+        sinz = torch.sin(z_position * div_term_z)
+        cosz = torch.cos(z_position * div_term_z)
+
+        ctx.save_for_backward(sinx, cosx, siny, cosy, sinz, cosz,
+                              div_term_x, div_term_y, div_term_z)
+        ctx.stopgrad_k = stopgrad_k
+        ctx.dx = div_term_x.shape[-1] * 2
+        ctx.dy = div_term_y.shape[-1] * 2
+
+        # Repeat each bin twice and build position_code (identical to original forward)
+        sinx, cosx, siny, cosy, sinz, cosz = map(
+            lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
+            [sinx, cosx, siny, cosy, sinz, cosz]
+        )
+
+        position_code = torch.stack([
+            torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
+            torch.cat([sinx, siny, sinz], dim=-1)   # sin_pos
+        ], dim=-1)
+
+        return position_code
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        sinx, cosx, siny, cosy, sinz, cosz, div_term_x, div_term_y, div_term_z = ctx.saved_tensors
+        stopgrad_k = ctx.stopgrad_k
+        dx, dy = ctx.dx, ctx.dy
+
+        B, N = grad_output.shape[:2]
+        nbx = div_term_x.shape[-1]   # num bins x  (= dx//2)
+        nby = div_term_y.shape[-1]
+        nbz = div_term_z.shape[-1]
+
+        # grad_output: [B, N, feature_dim, 2]
+        #   [..., 0] = grad flowing into cos_pos
+        #   [..., 1] = grad flowing into sin_pos
+        # Each bin was repeated twice in forward (stack+view), so undo by summing pairs
+        def sum_repeat(grad_slice, num_bins):
+            """[B, N, 2*num_bins] -> [B, N, num_bins] by summing the two copies."""
+            return grad_slice.view(B, N, num_bins, 2).sum(-1)
+
+        # Per-axis grad slices, pairs summed
+        gx_cos = sum_repeat(grad_output[:, :, :dx, 0], nbx)
+        gx_sin = sum_repeat(grad_output[:, :, :dx, 1], nbx)
+        gy_cos = sum_repeat(grad_output[:, :, dx:dx+dy, 0], nby)
+        gy_sin = sum_repeat(grad_output[:, :, dx:dx+dy, 1], nby)
+        gz_cos = sum_repeat(grad_output[:, :, dx+dy:, 0], nbz)
+        gz_sin = sum_repeat(grad_output[:, :, dx+dy:, 1], nbz)
+
+        # Per-bin chain rule:
+        #   d cos(pos * theta) / d pos = -theta * sin(pos * theta)
+        #   d sin(pos * theta) / d pos =  theta * cos(pos * theta)
+        grad_x = gx_cos * (-div_term_x * sinx) + gx_sin * (div_term_x * cosx)  # [B, N, nbx]
+        grad_y = gy_cos * (-div_term_y * siny) + gy_sin * (div_term_y * cosy)  # [B, N, nby]
+        grad_z = gz_cos * (-div_term_z * sinz) + gz_sin * (div_term_z * cosz)  # [B, N, nbz]
+
+        # --- Apply stopgrad masking: zero out first K bins ---
+        if stopgrad_k > 0:
+            total_bins = nbx + nby + nbz
+            k = max(0, min(stopgrad_k, total_bins))  # Clamp to valid range
+            
+            # Determine how many bins to mask from each axis
+            k_remaining = k
+            
+            # Mask x bins first
+            if k_remaining > 0:
+                k_x = min(k_remaining, nbx)
+                grad_x[:, :, :k_x] = 0
+                k_remaining -= k_x
+            
+            # Then mask y bins
+            if k_remaining > 0:
+                k_y = min(k_remaining, nby)
+                grad_y[:, :, :k_y] = 0
+                k_remaining -= k_y
+            
+            # Finally mask z bins
+            if k_remaining > 0:
+                k_z = min(k_remaining, nbz)
+                grad_z[:, :, :k_z] = 0
+
+        # Sum across bins -> grad per axis -> grad_XYZ
+        grad_XYZ = torch.cat([
+            grad_x.sum(-1, keepdim=True),  # [B, N, 1]
+            grad_y.sum(-1, keepdim=True),
+            grad_z.sum(-1, keepdim=True),
+        ], dim=-1)  # [B, N, 3]
+
+        # Returns: grad for XYZ, None for other arguments (not learnable)
+        return grad_XYZ, None, None, None, None
+
+
 class RotaryPositionEncoding3D(RotaryPositionEncoding):
     # NOTE: adjust inheritance to match your actual parent class
 
-    def __init__(self, feature_dim, pe_type='Rotary3D', rope_type='s'):
+    def __init__(self, feature_dim, pe_type='Rotary3D', rope_type='normal'):
         """
         Args:
             feature_dim: Dimension of the position encoding features
@@ -254,13 +364,14 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
             rope_type: Type of RoPE backward pass. Options:
                 - 'adam': Use Adam-style normalized gradients (custom backward)
                 - 'normal': Use standard PyTorch autograd (normal backward)
+                - 'stopgrad': Use stopgrad (zeros first K bins in backward, K passed at runtime)
         """
         super().__init__(feature_dim, pe_type)
         self.feature_dim = feature_dim
         self.rope_type = rope_type.lower()
         
-        if self.rope_type not in ['adam', 'normal']:
-            raise ValueError(f"rope_type must be 'adam' or 'normal', got '{rope_type}'")
+        if self.rope_type not in ['adam', 'normal', 'stopgrad']:
+            raise ValueError(f"rope_type must be 'adam', 'normal', or 'stopgrad', got '{rope_type}'")
 
         # --- ADDED: per-bin Adam second moment buffer (only needed for adam type) ---
         if self.rope_type == 'adam':
@@ -274,9 +385,11 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         else:
             self.adam_v = None
 
-    def forward(self, XYZ, allow_grad=False):
+    def forward(self, XYZ, allow_grad=False, stopgrad_k=0):
         '''
         @param XYZ: [B,N,3]
+        @param allow_grad: whether to allow gradients to flow through
+        @param stopgrad_k: number of bins to zero out in backward (for stopgrad rope_type)
         @return: position_code [B, N, feature_dim, 2]
         '''
         bsize, npoint, _ = XYZ.shape
@@ -302,6 +415,12 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         # --- ADDED: when allow_grad and rope_type='adam', route through custom Function ---
         if allow_grad and self.rope_type == 'adam':
             return RoPE3DAdamFunction.apply(XYZ, div_term_x, div_term_y, div_term_z, self.adam_v)
+        
+        # --- ADDED: when allow_grad and rope_type='stopgrad', route through stopgrad Function ---
+        if allow_grad and self.rope_type == 'stopgrad':
+            return RoPE3DStopGradFunction.apply(
+                XYZ, div_term_x, div_term_y, div_term_z, stopgrad_k
+            )
 
         # --- Standard path (either no grad or normal rope_type) ---
         sinx = torch.sin(x_position * div_term_x)  # [B, N, d//6]

@@ -165,6 +165,8 @@ class BaseTrainTester:
             model_kwargs['predict_extrinsics'] = self.args.predict_extrinsics
         
         # Add rope_type if available in args
+        # Note: schedule parameters are kept in args and used by trainer to compute K,
+        # but are NOT passed to the model
         if hasattr(self.args, 'rope_type'):
             model_kwargs['rope_type'] = self.args.rope_type
         
@@ -176,6 +178,14 @@ class BaseTrainTester:
         # Print basic modules' parameters
         if dist.get_rank() == 0:
             count_parameters(_model)
+            
+            # Print RoPE stopgrad schedule if enabled
+            if hasattr(self.args, 'rope_type') and self.args.rope_type == 'stopgrad':
+                print(f"\nRoPE stopgrad schedule enabled:")
+                print(f"  Schedule type: {getattr(self.args, 'rope_schedule_type', 'linear')}")
+                print(f"  Start K: {getattr(self.args, 'rope_schedule_start_k', 0)}")
+                print(f"  End K: {getattr(self.args, 'rope_schedule_end_k', 0)}")
+                print(f"  Schedule steps: {getattr(self.args, 'rope_schedule_steps', 1)}")
             
             # Print if learning extrinsics
             if hasattr(_model, 'learn_extrinsics') and _model.learn_extrinsics:
@@ -399,7 +409,7 @@ class BaseTrainTester:
     def prepare_batch(self, sample, augment=False):
         pass  # implement in children
 
-    def _model_forward(self, model, sample, training=True):
+    def _model_forward(self, model, sample, training=True, stopgrad_k=0):
         action, action_mask, rgbs, rgb2d, pcds, instr, prop = self.prepare_batch(
             sample, augment=training
         )
@@ -408,16 +418,44 @@ class BaseTrainTester:
         with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
             out = model(
                 action, action_mask, rgbs, rgb2d, pcds, instr, prop,
-                run_inference=not training
+                run_inference=not training,
+                stopgrad_k=stopgrad_k
             )
         return out  # loss if training, else action
+    
+    def compute_rope_stopgrad_k(self, step_id):
+        """Compute the number of bins to zero out in RoPE backward based on schedule."""
+        if not hasattr(self.args, 'rope_type') or self.args.rope_type != 'stopgrad':
+            return 0
+        
+        schedule_type = getattr(self.args, 'rope_schedule_type', 'linear')
+        # start_k = getattr(self.args, 'rope_schedule_start_k', 0)
+        start_k = self.args.embedding_dim // 3 - 1 # hardcode 
+        end_k = 0
+
+        schedule_steps = getattr(self.args, 'rope_schedule_steps', 1)
+        
+        progress = min(1.0, step_id / max(1, schedule_steps))
+        
+        if schedule_type == 'linear':
+            k_float = start_k + (end_k - start_k) * progress
+        elif schedule_type == 'cosine':
+            import math
+            k_float = end_k + (start_k - end_k) * 0.5 * (1 + math.cos(math.pi * progress))
+        else:
+            k_float = start_k
+        
+        return int(k_float)
 
     def train_one_step(self, model, optimizer, scaler, lr_scheduler, sample, step_id=None):
         """Run a single training step."""
         optimizer.zero_grad()
 
+        # Compute RoPE stopgrad K based on schedule
+        stopgrad_k = self.compute_rope_stopgrad_k(step_id) if step_id is not None else 0
+
         # Forward pass
-        loss = self._model_forward(model, sample)
+        loss = self._model_forward(model, sample, training=True, stopgrad_k=stopgrad_k)
 
         # Backward pass
         scaler.scale(loss).backward()
@@ -440,6 +478,10 @@ class BaseTrainTester:
                 'train/learning_rate': optimizer.param_groups[0]['lr'],
                 'train/grad_norm': grad_norm.item(),
             }
+            
+            # Log RoPE stopgrad K if using stopgrad
+            if hasattr(self.args, 'rope_type') and self.args.rope_type == 'stopgrad':
+                metrics['train/rope_stopgrad_k'] = stopgrad_k
             
             # Log learnable extrinsics if enabled
             base_model = model.module if hasattr(model, 'module') else model

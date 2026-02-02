@@ -78,16 +78,17 @@ class DenoiseActor(nn.Module):
             )
         self.nrm_dim = int(self.workspace_normalizer.size(-1))
 
-    def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio):
+    def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=0):
         fixed_inputs = self.encoder(
             rgb3d, rgb2d, pcd, instruction,
-            proprio.flatten(1, 2)
+            proprio.flatten(1, 2),
+            stopgrad_k=stopgrad_k
         )
         # Query trajectory (for relative trajectory prediction)
         query_trajectory = proprio[:, -1:]
         return (query_trajectory,) + fixed_inputs
 
-    def policy_forward_pass(self, trajectory, timestep, fixed_inputs):
+    def policy_forward_pass(self, trajectory, timestep, fixed_inputs, stopgrad_k=0):
         # Parse inputs
         (
             query_trajectory,
@@ -123,10 +124,11 @@ class DenoiseActor(nn.Module):
             instr_pos=instr_pos,
             proprio_feats=proprio_feats,
             fps_scene_feats=fps_scene_feats,
-            fps_scene_pos=fps_scene_pos
+            fps_scene_pos=fps_scene_pos,
+            stopgrad_k=stopgrad_k
         )
 
-    def conditional_sample(self, trajectory, device, fixed_inputs):
+    def conditional_sample(self, trajectory, device, fixed_inputs, stopgrad_k=0):
         # Set schedulers
         self.position_scheduler.set_timesteps(self.n_steps, device=device)
         self.rotation_scheduler.set_timesteps(self.n_steps, device=device)
@@ -137,7 +139,8 @@ class DenoiseActor(nn.Module):
             out = self.policy_forward_pass(
                 trajectory,
                 t * torch.ones(len(trajectory)).to(device).long(),
-                fixed_inputs
+                fixed_inputs,
+                stopgrad_k=stopgrad_k
             )
             out = out[-1]  # keep only last layer's output
             pos = self.position_scheduler.step(
@@ -153,10 +156,12 @@ class DenoiseActor(nn.Module):
         return torch.cat((trajectory, out[..., -1:]), -1)
 
     def compute_trajectory(self, trajectory_mask,
-                           rgb3d, rgb2d, pcd, instruction, proprio):
+                           rgb3d, rgb2d, pcd, instruction, proprio,
+                           stopgrad_k=0):
         # Encode observations, states, instructions
         fixed_inputs = self.encode_inputs(
-            rgb3d, rgb2d, pcd, instruction, proprio
+            rgb3d, rgb2d, pcd, instruction, proprio,
+            stopgrad_k=stopgrad_k
         )
 
         # Sample from learned model starting from noise
@@ -168,7 +173,8 @@ class DenoiseActor(nn.Module):
         trajectory = self.conditional_sample(
             trajectory,
             device=trajectory_mask.device,
-            fixed_inputs=fixed_inputs
+            fixed_inputs=fixed_inputs,
+            stopgrad_k=stopgrad_k
         )
 
         # Back to quaternion
@@ -184,10 +190,12 @@ class DenoiseActor(nn.Module):
         return trajectory
 
     def compute_loss(self, gt_trajectory,
-                     rgb3d, rgb2d, pcd, instruction, proprio):
+                     rgb3d, rgb2d, pcd, instruction, proprio,
+                     stopgrad_k=0):
         # Encode observations, states, instructions
         fixed_inputs = self.encode_inputs(
-            rgb3d, rgb2d, pcd, instruction, proprio
+            rgb3d, rgb2d, pcd, instruction, proprio,
+            stopgrad_k=stopgrad_k
         )
 
         # Process gt_trajectory
@@ -231,7 +239,8 @@ class DenoiseActor(nn.Module):
             # Predict the noise residual
             pred = self.policy_forward_pass(
                 noisy_trajectory,
-                timesteps, fixed_inputs
+                timesteps, fixed_inputs,
+                stopgrad_k=stopgrad_k
             )
 
             # Compute loss
@@ -333,7 +342,8 @@ class DenoiseActor(nn.Module):
         pcd,
         instruction,
         proprio,
-        run_inference=False
+        run_inference=False,
+        stopgrad_k=0
     ):
         """
         Arguments:
@@ -344,6 +354,7 @@ class DenoiseActor(nn.Module):
             pcd: (B, num_3d_cameras, 3, H, W) in world coordinates
             instruction: tokenized text instruction
             proprio: (B, nhist, nhand, 3+4+X)
+            stopgrad_k: number of bins to zero out in backward (for RoPE stopgrad)
 
         Note:
             The input rotation is expressed either as:
@@ -358,13 +369,15 @@ class DenoiseActor(nn.Module):
         if run_inference:
             return self.compute_trajectory(
                 trajectory_mask,
-                rgb3d, rgb2d, pcd, instruction, proprio
+                rgb3d, rgb2d, pcd, instruction, proprio,
+                stopgrad_k=stopgrad_k
             )
 
         # Training, use gt_trajectory to compute loss
         return self.compute_loss(
             gt_trajectory,
-            rgb3d, rgb2d, pcd, instruction, proprio
+            rgb3d, rgb2d, pcd, instruction, proprio,
+            stopgrad_k=stopgrad_k
         )
 
 
@@ -566,7 +579,7 @@ class TransformerHead(nn.Module):
     def forward(self, traj_feats, trajectory, timesteps,
                 rgb3d_feats, rgb3d_pos, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats,
-                fps_scene_feats, fps_scene_pos):
+                fps_scene_feats, fps_scene_pos, stopgrad_k=0):
         """
         Arguments:
             traj_feats: (B, trajectory_length, nhand, F)
@@ -581,6 +594,7 @@ class TransformerHead(nn.Module):
             proprio_feats: (B, nhist*nhand, F)
             fps_scene_feats: (B, M, F), M < N
             fps_scene_pos: (B, M, 3)
+            stopgrad_k: number of bins to zero out in backward (for RoPE stopgrad)
 
         Returns:
             list of (B, trajectory_length, nhand, 3+6+X)
@@ -620,7 +634,8 @@ class TransformerHead(nn.Module):
             rgb3d_pos, rgb3d_feats, rgb2d_feats, rgb2d_pos,
             timesteps, proprio_feats,
             fps_scene_feats, fps_scene_pos,
-            instr_feats, instr_pos
+            instr_feats, instr_pos,
+            stopgrad_k=stopgrad_k
         ) # rel_traj: (traj_len n_hand) = 2, because bimanual.
 
         # Cross attention from gripper to full context

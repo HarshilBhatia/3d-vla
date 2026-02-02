@@ -61,7 +61,7 @@ class Encoder(BaseEncoder):
         self.camera_ids = nn.Embedding(2, embedding_dim)
         self.pos_embed_2d = SinusoidalPosEmb(embedding_dim)
 
-    def encode_proprio(self, proprio, context_feats, context_pos):
+    def encode_proprio(self, proprio, context_feats, context_pos, stopgrad_k=0):
         """
         Compute proprioception features.
 
@@ -69,6 +69,7 @@ class Encoder(BaseEncoder):
             - proprio: (B, nhist, 3+)
             - context_feats: (B, npt, C)
             - context_pos: (B, npt, 3)
+            - stopgrad_k: number of bins to zero out in backward (for RoPE stopgrad)
 
         Returns:
             - gripper_feats: (B, nhist, F)
@@ -79,11 +80,11 @@ class Encoder(BaseEncoder):
         )
 
         # Rotary positional encoding
-        proprio_pos = self.relative_pe_layer(proprio[..., :3])
+        proprio_pos = self.relative_pe_layer(proprio[..., :3], stopgrad_k=stopgrad_k)
         # Allow gradients for context_pos if learning extrinsics
         # This is needed because point cloud positions depend on learned camera parameters
         # allow_grad = self.training and self.learn_extrinsics
-        context_pos = self.relative_pe_layer(context_pos, allow_grad=False) # this is to encode the proprio, don't need to backprop here.
+        context_pos = self.relative_pe_layer(context_pos, allow_grad=False, stopgrad_k=stopgrad_k) # this is to encode the proprio, don't need to backprop here.
 
         # Attention to scene tokens
         proprio_feats = self.gripper_context_head(

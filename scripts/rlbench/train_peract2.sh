@@ -63,16 +63,18 @@ learn_extrinsics=False
 predict_extrinsics=True
 use_front_camera_frame=false
 traj_scene_rope=true
-rope_type=normal
+rope_type=stopgrad
+rope_schedule_type=linear
+rope_schedule_steps=$train_iters
 
-run_log_dir=Predict_extrinsics_ADAM 
+run_log_dir=Predict_extrinsics_stopgrad_schedule_${rope_schedule_type}_${rope_schedule_steps} 
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'
 
 
 # ngpus=2
-ngpus=2
+ngpus=1
 #$(nvidia-smi -L | wc -l)
 
 
@@ -126,5 +128,6 @@ TORCH_DISTRIBUTED_DEBUG=DETAIL NCCL_DEBUG=WARN WANDB_API_KEY=$WANDB_API_KEY torc
     --use_front_camera_frame $use_front_camera_frame \
     --traj_scene_rope $traj_scene_rope \
     --predict_extrinsics $predict_extrinsics \
-    --rope_type $rope_type
-
+    --rope_type $rope_type \
+    --rope_schedule_type $rope_schedule_type \
+    --rope_schedule_steps $rope_schedule_steps

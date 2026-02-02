@@ -40,7 +40,7 @@ class Encoder(nn.Module):
                 dim_fw=4 * embedding_dim, n_heads=num_attn_heads, pre_norm=False
             )
 
-    def forward(self, rgb3d, rgb2d, pcd, instruction, proprio):
+    def forward(self, rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=0):
         """
         Encode different modalities, independent of denoising step.
 
@@ -50,6 +50,7 @@ class Encoder(nn.Module):
             - pcd: (B, ncam3d, 3, H, W)
             - instruction: (B, nt), tokens
             - proprio: (B, nhist, 3+6+X)
+            - stopgrad_k: number of bins to zero out in backward (for RoPE stopgrad)
 
         Returns:
             - rgb3d_feats: (B, N, F)
@@ -75,7 +76,7 @@ class Encoder(nn.Module):
         instr_pos = proprio[:, -1:, :3].repeat(1, instr_feats.size(1), 1)
 
         # Encode proprioception
-        proprio_feats = self.encode_proprio(proprio, rgb3d_feats, pcd)
+        proprio_feats = self.encode_proprio(proprio, rgb3d_feats, pcd, stopgrad_k=stopgrad_k)
 
         # Point subsampling based on scene features
         fps_scene_feats, fps_scene_pos = self.run_dps(rgb3d_feats, pcd)

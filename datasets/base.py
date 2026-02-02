@@ -32,7 +32,9 @@ class BaseDataset(Dataset):
 
 
         # Load all annotations lazily
+
         self.annos = read_zarr_with_cache(root, mem_gb=mem_limit)
+
         # Sanity check
         len_ = len(self.annos['action'])
         for key in self.annos:

@@ -58,6 +58,7 @@ class DenoiseActor(BaseDenoiseActor):
         print(f'learn_extrinsics: {learn_extrinsics}')
         print(f'predict_extrinsics: {predict_extrinsics}')
         print(f'rope_type: {rope_type}')
+        
         # Vision-language encoder, runs only once
         self.encoder = Encoder(
             backbone=backbone,
@@ -148,13 +149,13 @@ class DenoiseActor(BaseDenoiseActor):
         
         return pcd_world
     
-    def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio):
+    def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=0):
         """Override to apply learned transformation to point cloud."""
         # Apply learned camera-to-world transformation if enabled
         pcd = self.transform_pcd_to_world(pcd)
         
         # Call parent's encode_inputs with transformed point cloud
-        return super().encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio)
+        return super().encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=stopgrad_k)
 
 
 class TransformerHead(BaseTransformerHead):
@@ -221,17 +222,18 @@ class TransformerHead(BaseTransformerHead):
         rgb3d_pos, rgb3d_feats, rgb2d_feats, rgb2d_pos,
         timesteps, proprio_feats,
         fps_scene_feats, fps_scene_pos,
-        instr_feats, instr_pos
+        instr_feats, instr_pos,
+        stopgrad_k=0
     ):
         # Allow gradients through RoPE when learning extrinsics
         # This is needed because the point cloud positions depend on learned camera parameters
         allow_grad = self.training and (self.learn_extrinsics or self.predict_extrinsics)
         
-        rel_traj_pos = self.relative_pe_layer(traj_xyz)
-        rel_scene_pos = self.relative_pe_layer(rgb3d_pos)
+        rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
+        rel_scene_pos = self.relative_pe_layer(rgb3d_pos, stopgrad_k=stopgrad_k)
 
         # because absolute positions are used, it makes sense to concatenate. 
-        rel_fps_pos = self.relative_pe_layer(fps_scene_pos, allow_grad=allow_grad) # only place where it makes sense to backprop
+        rel_fps_pos = self.relative_pe_layer(fps_scene_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k) # only place where it makes sense to backprop
         
         # Add zero positional embeddings for register tokens (4) and camera token (1)
         batch_size = traj_xyz.shape[0]

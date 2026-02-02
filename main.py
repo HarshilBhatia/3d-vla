@@ -79,7 +79,12 @@ def parse_arguments():
         ('predict_extrinsics', str2bool, True),
         ('use_front_camera_frame', str2bool, False),
         ('traj_scene_rope', str2bool, True),
-        ('rope_type', str, 'normal'),  # 'adam' or 'normal'
+        ('rope_type', str, 'normal'),  # 'adam', 'normal', or 'stopgrad'
+        # RoPE stopgrad schedule arguments
+        ('rope_schedule_type', str, 'linear'),  # 'linear' or 'cosine'
+        ('rope_schedule_start_k', int, 0),  # initial bins to zero out # NOT USED
+        ('rope_schedule_end_k', int, 0),  # final bins to zero out
+        ('rope_schedule_steps', int, 100000),  # training steps for schedule
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

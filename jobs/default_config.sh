@@ -42,6 +42,8 @@ rotation_format=quat_xyzw
 denoise_timesteps=5
 denoise_model=rectified_flow
 
+MASTER_PORT=$((27500 + RANDOM % 1000))
+
 # ============================================
 # Default Training Parameters
 # ============================================
