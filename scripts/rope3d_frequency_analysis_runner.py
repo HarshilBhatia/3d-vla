@@ -46,8 +46,8 @@ def _patched_mha_forward(
     dropout_p, out_proj_weight, out_proj_bias,
     training=True, attn_mask=None, rotary_pe=None,
 ):
-    """Capture Q/K after in_proj, before RoPE; move to CPU to avoid OOM."""
-    if rotary_pe is not None and _current_rope_layer_name[0] is not None:
+    """Capture Q/K after in_proj, before RoPE; move to CPU to avoid OOM. Capture for all registered layers (with or without RoPE)."""
+    if _current_rope_layer_name[0] is not None:
         q, k, v = F._in_projection_packed(query, key, value, in_proj_weight, in_proj_bias)
         _rope_query_captures.append((
             _current_rope_layer_name[0],
@@ -62,10 +62,10 @@ def _patched_mha_forward(
 
 
 def _register_rope_capture(unwrapped_model, rope_layer_names):
-    """Register pre-hooks on RoPE AttentionLayers and patch MHA forward."""
+    """Register pre-hooks on all AttentionLayers (with or without RoPE) so we capture Q/K and output SA matrices for every block."""
     handles = []
     for name, mod in unwrapped_model.named_modules():
-        if isinstance(mod, AttentionLayer) and getattr(mod, "rotary_pe", False):
+        if isinstance(mod, AttentionLayer):
             if name not in rope_layer_names:
                 rope_layer_names.append(name)
             h = mod.register_forward_pre_hook(_attention_layer_pre_hook(name))
