@@ -1,22 +1,23 @@
-"""
-Visualize RoPE 3D frequency norms: heatmap and per-axis usage.
-"""
+"""Visualize RoPE 3D frequency norms: heatmaps and per-axis bar charts."""
 
 from pathlib import Path
 
 import matplotlib.pyplot as plt
 import numpy as np
 
+DPI = 150
+FIG_SIZE = (12, 6)
+
 
 def _to_float32(arr):
-    """Convert to float32 (matplotlib/numpy do not support bfloat16)."""
+    """Convert array to float32 (matplotlib does not support bfloat16)."""
     if hasattr(arr, "cpu"):
         return arr.cpu().float().numpy()
     return np.asarray(arr, dtype=np.float32)
 
 
 def _plot_norms_row(axes_row, norms_per_layer, axis_metadata, title_prefix, num_layers):
-    """Plot one row: heatmap (col 0) and per-axis bar chart (col 1)."""
+    """One row: heatmap (col 0) and per-axis bar chart (col 1)."""
     x_start, x_end = axis_metadata["x"]
     y_start, y_end = axis_metadata["y"]
     z_start, z_end = axis_metadata["z"]
@@ -64,8 +65,8 @@ def visualize_rope3d_frequency_norms(
     axis_metadata,
     log_dir,
     save_name="rope3d_frequency_norms.png",
-    figsize=(12, 6),
-    dpi=150,
+    figsize=FIG_SIZE,
+    dpi=DPI,
     block_title=None,
     norms_k=None,
 ):
@@ -77,7 +78,7 @@ def visualize_rope3d_frequency_norms(
     norms_k: optional [num_layers, D/2] — key norms (same layout as Q)
     axis_metadata: dict with 'x', 'y', 'z' -> (start, end) frequency indices
     log_dir: directory to save the figure
-    block_title: optional label for this block (e.g. 'self_attn', 'rotation_self_attn')
+    block_title: optional label (e.g. 'self_attn', 'rotation_self_attn')
     """
     norms_per_layer = _to_float32(norms_per_layer)
     num_layers, num_freq = norms_per_layer.shape
@@ -114,18 +115,74 @@ def visualize_rope3d_frequency_norms(
     return str(out_path)
 
 
+def _block_name_to_filename(block_name: str) -> str:
+    """Sanitize block name for filenames."""
+    return block_name.replace(".", "_")
+
+
+def visualize_block_bins_per_layer(
+    norms_per_layer_head_bins,
+    log_dir,
+    block_name,
+    kind="query",
+    figsize_per_subplot=(5, 3),
+    dpi=DPI,
+):
+    """
+    One PNG per block: one subplot per layer. Y = freq bin, X = head.
+    norms_per_layer_head_bins: [num_layers, num_heads, head_dim/2].
+    Note: per-head bins do not carry 3D axis info (each head uses one axis slice).
+    """
+    norms = _to_float32(norms_per_layer_head_bins)
+    num_layers, num_heads, num_bins = norms.shape
+    out_dir = Path(log_dir) / "per_block_bins"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    fname = _block_name_to_filename(block_name) + f"_{kind}.png"
+    path = out_dir / fname
+
+    ncols = min(num_layers, 4)
+    nrows = (num_layers + ncols - 1) // ncols
+    fig, axes = plt.subplots(
+        nrows, ncols,
+        figsize=(figsize_per_subplot[0] * ncols, figsize_per_subplot[1] * nrows),
+        squeeze=False,
+    )
+    axes = axes.flatten()
+    for layer_idx in range(num_layers):
+        ax = axes[layer_idx]
+        im = ax.imshow(
+            norms[layer_idx].T,
+            aspect="auto",
+            interpolation="nearest",
+            cmap="viridis",
+        )
+        ax.set_xlabel("Head")
+        ax.set_ylabel("Freq bin")
+        ax.set_title(f"Layer {layer_idx}")
+        ax.set_xticks(np.arange(num_heads))
+        ax.set_xticklabels(np.arange(num_heads))
+        ax.set_yticks(np.linspace(0, num_bins - 1, min(10, num_bins), dtype=int))
+        ax.set_yticklabels(np.linspace(0, num_bins - 1, min(10, num_bins), dtype=int))
+        plt.colorbar(im, ax=ax, label="Mean L2 norm")
+    for idx in range(num_layers, len(axes)):
+        axes[idx].set_visible(False)
+    fig.suptitle(f"Mean {kind.capitalize()} L2 norm (per head, per bin) - {block_name}", fontsize=11)
+    plt.tight_layout()
+    plt.savefig(path, dpi=dpi, bbox_inches="tight")
+    plt.close()
+    return str(path)
+
+
 def visualize_per_head_mean_norms_per_layer(
     per_block_per_head_norms,
     log_dir,
     kind="query",
     figsize=(10, 6),
-    dpi=150,
+    dpi=DPI,
 ):
     """
-    One PNG per layer index: x = head number, y = block name, color = mean norm.
-    Saves to log_dir / per_head_{kind}_norms / layer_0.png, layer_1.png, ...
-
-    per_block_per_head_norms: dict[block_name, array (num_layers, num_heads)]
+    One PNG per layer: x = head, y = block, color = mean norm.
+    Saves to log_dir / per_head_{kind}_norms / layer_0.png, ...
     """
     out_dir = Path(log_dir) / f"per_head_{kind}_norms"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -134,7 +191,6 @@ def visualize_per_head_mean_norms_per_layer(
     block_names = list(per_block_per_head_norms.keys())
     saved = []
     for layer_idx in range(max_layers):
-        # Build matrix: rows = blocks that have this layer, cols = heads
         rows_data = []
         rows_labels = []
         for block_name in block_names:
@@ -147,7 +203,7 @@ def visualize_per_head_mean_norms_per_layer(
         mat = np.array(rows_data)
         fig, ax = plt.subplots(figsize=figsize)
         im = ax.imshow(mat, aspect="auto", interpolation="nearest", cmap="viridis")
-        ax.set_xlabel("Attention head")
+        ax.set_xlabel("Head (head dim)")
         ax.set_ylabel("Block")
         ax.set_yticks(np.arange(len(rows_labels)))
         ax.set_yticklabels(rows_labels, fontsize=8)
