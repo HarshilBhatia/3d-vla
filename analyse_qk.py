@@ -83,6 +83,7 @@ def parse_arguments():
         ('learn_extrinsics', str2bool, False),
         ('predict_extrinsics', str2bool, True),
         ('use_front_camera_frame', str2bool, False),
+        ('pc_rotate_by_front_camera', str2bool, False),
         ('traj_scene_rope', str2bool, True),
         ('rope_type', str, 'normal'),  # 'adam', 'normal', or 'stopgrad'
         # RoPE stopgrad schedule arguments

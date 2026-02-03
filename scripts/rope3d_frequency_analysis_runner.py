@@ -15,7 +15,7 @@ from modeling.utils.layers import AttentionLayer
 from utils.rope3d_frequency_norms import (
     compute_axis_dims,
     queries_to_axis_norms_single_layer,
-    split_queries_by_axis,
+    split_queries_by_axis_interleaved,
 )
     from scripts.rope3d_frequency_visualize import (
         visualize_block_bins_per_layer,
@@ -157,8 +157,8 @@ def _collect_queries_and_compute_norms(
             S, B_total, E = q_cat.shape
             q_flat = q_cat.permute(1, 0, 2).contiguous()
             k_flat = k_cat.permute(1, 0, 2).contiguous()
-            qx, qy, qz = split_queries_by_axis(q_flat, feature_dim)
-            kx, ky, kz = split_queries_by_axis(k_flat, feature_dim)
+            qx, qy, qz = split_queries_by_axis_interleaved(q_flat, feature_dim)
+            kx, ky, kz = split_queries_by_axis_interleaved(k_flat, feature_dim)
             agg_q, axis_metadata = queries_to_axis_norms_single_layer(qx, qy, qz)
             agg_k, _ = queries_to_axis_norms_single_layer(kx, ky, kz)
             layer_results_q.append(agg_q)

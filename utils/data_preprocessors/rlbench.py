@@ -11,14 +11,15 @@ class RLBenchDataPreprocessor(DataPreprocessor):
 
     def __init__(self, keypose_only=False, num_history=1,
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
-                 use_front_camera_frame=False):
+                 use_front_camera_frame=False, pc_rotate_by_front_camera=False):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,
             custom_imsize=custom_imsize,
-            depth2cloud=depth2cloud
+            depth2cloud=depth2cloud,
+            use_front_camera_frame=use_front_camera_frame,
+            pc_rotate_by_front_camera=pc_rotate_by_front_camera
         )
-        self.use_front_camera_frame = use_front_camera_frame
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
                 degrees=0,
@@ -69,6 +70,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             world_to_front.reshape(B * ncam, 4, 4),
             pcds_homo.reshape(B * ncam, 4, H * W)
         )  # (B*ncam, 4, HW)
+
+
         
         # Remove homogeneous coordinate and reshape back
         pcds_front = pcds_front_homo[:, :3].reshape(B, ncam, 3, H, W)
@@ -76,6 +79,32 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         # Convert back to original dtype
 
         return pcds_front.to(original_dtype)
+
+    def _rotate_pcd_by_front_camera(self, pcds, extrinsics):
+        """
+        Rotate the point cloud by the front camera's extrinsic rotation only (no translation).
+        Uses R^T from the front camera's camera-to-world transform so points are in the
+        front camera's orientation.
+
+        Args:
+            pcds: (B, ncam, 3, H, W) - point clouds in world coordinates
+            extrinsics: (B, ncam, 4, 4) - camera-to-world transforms
+
+        Returns:
+            pcds_rotated: (B, ncam, 3, H, W) - point clouds rotated by front camera R^T
+        """
+        B, ncam, _, H, W = pcds.shape
+        original_dtype = pcds.dtype
+        # Front camera extrinsic: camera-to-world, rotation is extrinsics[:, 0, :3, :3]
+        R_c2w = extrinsics[:, 0:1, :3, :3].cuda(non_blocking=True).float()  # (B, 1, 3, 3)
+        R_w2c = R_c2w.transpose(-1, -2)  # (B, 1, 3, 3), rotation only
+        pcds_flat = pcds.float().reshape(B, ncam, 3, H * W)
+        R_w2c = R_w2c.expand(B, ncam, 3, 3)
+        rotated = torch.matmul(
+            R_w2c.reshape(B * ncam, 3, 3),
+            pcds_flat.reshape(B * ncam, 3, H * W)
+        )
+        return rotated.reshape(B, ncam, 3, H, W).to(original_dtype)
 
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
                     augment=False, task=None):
@@ -94,7 +123,6 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         # Handle non-wrist cameras, which may require augmentations
         if augment:
             b, nc, _, h, w = rgbs.shape
-            # Augment in half precision
             obs = torch.cat((
                 rgbs.cuda(non_blocking=True).half() / 255,
                 pcds[:, :rgbs.size(1)].half()
@@ -150,6 +178,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         #     extrinsics[i,0,0:3,0:3] = torch.matmul(extrinsics[i,0,0:3,0:3], rotation_matrix)
 
         if self.use_front_camera_frame:
+            print('transforming to front camera frame')
             for i in range(extrinsics.size(0)):
                 if task[i] == "bimanual_push_box":
                     pass
@@ -160,6 +189,12 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                     rotation_matrix = torch.tensor([[1, 0, 0], [0, np.cos(30*np.pi/180), -np.sin(30*np.pi/180)], [0, np.sin(30*np.pi/180), np.cos(30*np.pi/180)]]).to(extrinsics.device).to(extrinsics.dtype)
                     extrinsics[i,0,0:3,0:3] = torch.matmul(extrinsics[i,0,0:3,0:3], rotation_matrix)
             
+
             pcds = self._transform_pcd_to_front_frame(pcds, extrinsics)
+
+        if self.pc_rotate_by_front_camera:
+            print('rotating by front camera')
+            pcds = self._rotate_pcd_by_front_camera(pcds, extrinsics)
+
         
         return rgbs, pcds

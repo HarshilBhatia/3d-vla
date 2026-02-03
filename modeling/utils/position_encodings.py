@@ -134,6 +134,44 @@ class PositionEmbeddingLearnedMLP(nn.Module):
 
 
 
+def _interleave_xyz_cos_sin(cosx, cosy, cosz, sinx, siny, sinz):
+    """Build (x1,y1,z1, x2,y2,z2, ...) layout from per-axis cos/sin. Each input [B, N, axis_len]."""
+    B, N = cosx.shape[:2]
+    dx, dy, dz = cosx.shape[-1], cosy.shape[-1], cosz.shape[-1]
+    n_bins = min(dx, dy, dz) // 2  # number of (x,y,z) triplets of RoPE pairs
+    # Interleaved block: for each bin i take 2 dims from x, y, z
+    cos_parts, sin_parts = [], []
+    for i in range(n_bins):
+        cos_parts.extend([cosx[:, :, 2 * i : 2 * i + 2], cosy[:, :, 2 * i : 2 * i + 2], cosz[:, :, 2 * i : 2 * i + 2]])
+        sin_parts.extend([sinx[:, :, 2 * i : 2 * i + 2], siny[:, :, 2 * i : 2 * i + 2], sinz[:, :, 2 * i : 2 * i + 2]])
+    cos_inter = torch.cat(cos_parts, dim=-1)  # [B, N, 6*n_bins]
+    sin_inter = torch.cat(sin_parts, dim=-1)
+    # Remainder: rest of x, then y, then z
+    rem_x = dx - 2 * n_bins
+    rem_y = dy - 2 * n_bins
+    rem_z = dz - 2 * n_bins
+    if rem_x > 0 or rem_y > 0 or rem_z > 0:
+        cos_rem = torch.cat(
+            [
+                cosx[:, :, 2 * n_bins :],
+                cosy[:, :, 2 * n_bins :],
+                cosz[:, :, 2 * n_bins :],
+            ],
+            dim=-1,
+        )
+        sin_rem = torch.cat(
+            [
+                sinx[:, :, 2 * n_bins :],
+                siny[:, :, 2 * n_bins :],
+                sinz[:, :, 2 * n_bins :],
+            ],
+            dim=-1,
+        )
+        cos_inter = torch.cat([cos_inter, cos_rem], dim=-1)
+        sin_inter = torch.cat([sin_inter, sin_rem], dim=-1)
+    return cos_inter, sin_inter, n_bins, dx, dy, dz
+
+
 class RoPE3DAdamFunction(torch.autograd.Function):
     """
     Custom autograd for 3D RoPE that normalizes per-bin gradients
@@ -164,16 +202,17 @@ class RoPE3DAdamFunction(torch.autograd.Function):
         ctx.dx = div_term_x.shape[-1] * 2
         ctx.dy = div_term_y.shape[-1] * 2
 
-        # Repeat each bin twice and build position_code (identical to original forward)
+        # Repeat each bin twice and build position_code (interleaved: x1,y1,z1, x2,y2,z2, ...)
         sinx, cosx, siny, cosy, sinz, cosz = map(
             lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
             [sinx, cosx, siny, cosy, sinz, cosz]
         )
-
-        position_code = torch.stack([
-            torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
-            torch.cat([sinx, siny, sinz], dim=-1)   # sin_pos
-        ], dim=-1)
+        cos_inter, sin_inter, n_bins, dx, dy, dz = _interleave_xyz_cos_sin(
+            cosx, cosy, cosz, sinx, siny, sinz
+        )
+        position_code = torch.stack([cos_inter, sin_inter], dim=-1)
+        ctx.n_bins = n_bins
+        ctx.dx, ctx.dy, ctx.dz = dx, dy, dz
 
         return position_code
 
@@ -181,7 +220,8 @@ class RoPE3DAdamFunction(torch.autograd.Function):
     def backward(ctx, grad_output):
         sinx, cosx, siny, cosy, sinz, cosz, div_term_x, div_term_y, div_term_z = ctx.saved_tensors
         adam_v = ctx.adam_v
-        dx, dy = ctx.dx, ctx.dy
+        n_bins = ctx.n_bins
+        dx, dy, dz = ctx.dx, ctx.dy, ctx.dz
         beta2, eps = 0.999, 1e-8
 
         B, N = grad_output.shape[:2]
@@ -189,21 +229,37 @@ class RoPE3DAdamFunction(torch.autograd.Function):
         nby = div_term_y.shape[-1]
         nbz = div_term_z.shape[-1]
 
-        # grad_output: [B, N, feature_dim, 2]
-        #   [..., 0] = grad flowing into cos_pos
-        #   [..., 1] = grad flowing into sin_pos
-        # Each bin was repeated twice in forward (stack+view), so undo by summing pairs
         def sum_repeat(grad_slice, num_bins):
             """[B, N, 2*num_bins] -> [B, N, num_bins] by summing the two copies."""
             return grad_slice.view(B, N, num_bins, 2).sum(-1)
 
-        # Per-axis grad slices, pairs summed
-        gx_cos = sum_repeat(grad_output[:, :, :dx, 0], nbx)
-        gx_sin = sum_repeat(grad_output[:, :, :dx, 1], nbx)
-        gy_cos = sum_repeat(grad_output[:, :, dx:dx+dy, 0], nby)
-        gy_sin = sum_repeat(grad_output[:, :, dx:dx+dy, 1], nby)
-        gz_cos = sum_repeat(grad_output[:, :, dx+dy:, 0], nbz)
-        gz_sin = sum_repeat(grad_output[:, :, dx+dy:, 1], nbz)
+        # De-interleave: x bins at 6*i, 6*i+1; y at 6*i+2, 6*i+3; z at 6*i+4, 6*i+5
+        gx_cos_parts = [grad_output[:, :, 6 * i : 6 * i + 2, 0] for i in range(n_bins)]
+        gx_sin_parts = [grad_output[:, :, 6 * i : 6 * i + 2, 1] for i in range(n_bins)]
+        gy_cos_parts = [grad_output[:, :, 6 * i + 2 : 6 * i + 4, 0] for i in range(n_bins)]
+        gy_sin_parts = [grad_output[:, :, 6 * i + 2 : 6 * i + 4, 1] for i in range(n_bins)]
+        gz_cos_parts = [grad_output[:, :, 6 * i + 4 : 6 * i + 6, 0] for i in range(n_bins)]
+        gz_sin_parts = [grad_output[:, :, 6 * i + 4 : 6 * i + 6, 1] for i in range(n_bins)]
+        gx_cos = sum_repeat(torch.cat(gx_cos_parts, dim=-1), n_bins)
+        gx_sin = sum_repeat(torch.cat(gx_sin_parts, dim=-1), n_bins)
+        gy_cos = sum_repeat(torch.cat(gy_cos_parts, dim=-1), n_bins)
+        gy_sin = sum_repeat(torch.cat(gy_sin_parts, dim=-1), n_bins)
+        gz_cos = sum_repeat(torch.cat(gz_cos_parts, dim=-1), n_bins)
+        gz_sin = sum_repeat(torch.cat(gz_sin_parts, dim=-1), n_bins)
+        # Remainder: 6*n_bins : 6*n_bins+dx-2*n_bins = x_rem, then y_rem, then z_rem
+        base = 6 * n_bins
+        rem_x, rem_y, rem_z = dx - 2 * n_bins, dy - 2 * n_bins, dz - 2 * n_bins
+        if rem_x > 0:
+            gx_cos = torch.cat([gx_cos, sum_repeat(grad_output[:, :, base : base + rem_x, 0], rem_x // 2)], dim=-1)
+            gx_sin = torch.cat([gx_sin, sum_repeat(grad_output[:, :, base : base + rem_x, 1], rem_x // 2)], dim=-1)
+            base += rem_x
+        if rem_y > 0:
+            gy_cos = torch.cat([gy_cos, sum_repeat(grad_output[:, :, base : base + rem_y, 0], rem_y // 2)], dim=-1)
+            gy_sin = torch.cat([gy_sin, sum_repeat(grad_output[:, :, base : base + rem_y, 1], rem_y // 2)], dim=-1)
+            base += rem_y
+        if rem_z > 0:
+            gz_cos = torch.cat([gz_cos, sum_repeat(grad_output[:, :, base : base + rem_z, 0], rem_z // 2)], dim=-1)
+            gz_sin = torch.cat([gz_sin, sum_repeat(grad_output[:, :, base : base + rem_z, 1], rem_z // 2)], dim=-1)
 
         # Per-bin chain rule:
         #   d cos(pos * theta) / d pos = -theta * sin(pos * theta)
@@ -267,19 +323,18 @@ class RoPE3DStopGradFunction(torch.autograd.Function):
         ctx.save_for_backward(sinx, cosx, siny, cosy, sinz, cosz,
                               div_term_x, div_term_y, div_term_z)
         ctx.stopgrad_k = stopgrad_k
-        ctx.dx = div_term_x.shape[-1] * 2
-        ctx.dy = div_term_y.shape[-1] * 2
 
-        # Repeat each bin twice and build position_code (identical to original forward)
+        # Repeat each bin twice and build position_code (interleaved: x1,y1,z1, x2,y2,z2, ...)
         sinx, cosx, siny, cosy, sinz, cosz = map(
             lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
             [sinx, cosx, siny, cosy, sinz, cosz]
         )
-
-        position_code = torch.stack([
-            torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
-            torch.cat([sinx, siny, sinz], dim=-1)   # sin_pos
-        ], dim=-1)
+        cos_inter, sin_inter, n_bins, dx, dy, dz = _interleave_xyz_cos_sin(
+            cosx, cosy, cosz, sinx, siny, sinz
+        )
+        position_code = torch.stack([cos_inter, sin_inter], dim=-1)
+        ctx.n_bins = n_bins
+        ctx.dx, ctx.dy, ctx.dz = dx, dy, dz
 
         return position_code
 
@@ -287,28 +342,44 @@ class RoPE3DStopGradFunction(torch.autograd.Function):
     def backward(ctx, grad_output):
         sinx, cosx, siny, cosy, sinz, cosz, div_term_x, div_term_y, div_term_z = ctx.saved_tensors
         stopgrad_k = ctx.stopgrad_k
-        dx, dy = ctx.dx, ctx.dy
+        n_bins = ctx.n_bins
+        dx, dy, dz = ctx.dx, ctx.dy, ctx.dz
 
         B, N = grad_output.shape[:2]
         nbx = div_term_x.shape[-1]   # num bins x  (= dx//2)
         nby = div_term_y.shape[-1]
         nbz = div_term_z.shape[-1]
 
-        # grad_output: [B, N, feature_dim, 2]
-        #   [..., 0] = grad flowing into cos_pos
-        #   [..., 1] = grad flowing into sin_pos
-        # Each bin was repeated twice in forward (stack+view), so undo by summing pairs
         def sum_repeat(grad_slice, num_bins):
             """[B, N, 2*num_bins] -> [B, N, num_bins] by summing the two copies."""
             return grad_slice.view(B, N, num_bins, 2).sum(-1)
 
-        # Per-axis grad slices, pairs summed
-        gx_cos = sum_repeat(grad_output[:, :, :dx, 0], nbx)
-        gx_sin = sum_repeat(grad_output[:, :, :dx, 1], nbx)
-        gy_cos = sum_repeat(grad_output[:, :, dx:dx+dy, 0], nby)
-        gy_sin = sum_repeat(grad_output[:, :, dx:dx+dy, 1], nby)
-        gz_cos = sum_repeat(grad_output[:, :, dx+dy:, 0], nbz)
-        gz_sin = sum_repeat(grad_output[:, :, dx+dy:, 1], nbz)
+        # De-interleave: x at 6*i, 6*i+1; y at 6*i+2, 6*i+3; z at 6*i+4, 6*i+5
+        gx_cos_parts = [grad_output[:, :, 6 * i : 6 * i + 2, 0] for i in range(n_bins)]
+        gx_sin_parts = [grad_output[:, :, 6 * i : 6 * i + 2, 1] for i in range(n_bins)]
+        gy_cos_parts = [grad_output[:, :, 6 * i + 2 : 6 * i + 4, 0] for i in range(n_bins)]
+        gy_sin_parts = [grad_output[:, :, 6 * i + 2 : 6 * i + 4, 1] for i in range(n_bins)]
+        gz_cos_parts = [grad_output[:, :, 6 * i + 4 : 6 * i + 6, 0] for i in range(n_bins)]
+        gz_sin_parts = [grad_output[:, :, 6 * i + 4 : 6 * i + 6, 1] for i in range(n_bins)]
+        gx_cos = sum_repeat(torch.cat(gx_cos_parts, dim=-1), n_bins)
+        gx_sin = sum_repeat(torch.cat(gx_sin_parts, dim=-1), n_bins)
+        gy_cos = sum_repeat(torch.cat(gy_cos_parts, dim=-1), n_bins)
+        gy_sin = sum_repeat(torch.cat(gy_sin_parts, dim=-1), n_bins)
+        gz_cos = sum_repeat(torch.cat(gz_cos_parts, dim=-1), n_bins)
+        gz_sin = sum_repeat(torch.cat(gz_sin_parts, dim=-1), n_bins)
+        base = 6 * n_bins
+        rem_x, rem_y, rem_z = dx - 2 * n_bins, dy - 2 * n_bins, dz - 2 * n_bins
+        if rem_x > 0:
+            gx_cos = torch.cat([gx_cos, sum_repeat(grad_output[:, :, base : base + rem_x, 0], rem_x // 2)], dim=-1)
+            gx_sin = torch.cat([gx_sin, sum_repeat(grad_output[:, :, base : base + rem_x, 1], rem_x // 2)], dim=-1)
+            base += rem_x
+        if rem_y > 0:
+            gy_cos = torch.cat([gy_cos, sum_repeat(grad_output[:, :, base : base + rem_y, 0], rem_y // 2)], dim=-1)
+            gy_sin = torch.cat([gy_sin, sum_repeat(grad_output[:, :, base : base + rem_y, 1], rem_y // 2)], dim=-1)
+            base += rem_y
+        if rem_z > 0:
+            gz_cos = torch.cat([gz_cos, sum_repeat(grad_output[:, :, base : base + rem_z, 0], rem_z // 2)], dim=-1)
+            gz_sin = torch.cat([gz_sin, sum_repeat(grad_output[:, :, base : base + rem_z, 1], rem_z // 2)], dim=-1)
 
         # Per-bin chain rule:
         #   d cos(pos * theta) / d pos = -theta * sin(pos * theta)

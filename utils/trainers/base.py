@@ -37,7 +37,8 @@ class BaseTrainTester:
             self.args.num_history,
             custom_imsize=self.args.custom_img_size,
             depth2cloud=fetch_depth2cloud(self.args.dataset),
-            use_front_camera_frame=getattr(self.args, 'use_front_camera_frame', False)
+            use_front_camera_frame=getattr(self.args, 'use_front_camera_frame', False),
+            pc_rotate_by_front_camera=getattr(self.args, 'pc_rotate_by_front_camera', False)
         )
 
         if dist.get_rank() == 0 and not self.args.eval_only:
@@ -165,8 +166,6 @@ class BaseTrainTester:
             model_kwargs['predict_extrinsics'] = self.args.predict_extrinsics
         
         # Add rope_type if available in args
-        # Note: schedule parameters are kept in args and used by trainer to compute K,
-        # but are NOT passed to the model
         if hasattr(self.args, 'rope_type'):
             model_kwargs['rope_type'] = self.args.rope_type
         

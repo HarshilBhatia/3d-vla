@@ -1,15 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=inter-3dfa
-#SBATCH --output=logs/train_peract2_%j.out
-#SBATCH --error=logs/train_peract2_%j.err
+#SBATCH --job-name=3dfa
+#SBATCH --output=logs/train_full_%j.out
+#SBATCH --error=logs/train_full_%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=36
+#SBATCH --cpus-per-task=48
 #SBATCH --gres=gpu:4
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --nodelist=grogu-0-14
+#SBATCH --nodelist=grogu-2-9
 
 # Print job information
 echo "Job started at: $(date)"
@@ -31,34 +31,24 @@ source jobs/default_config.sh
 # ============================================
 
 # dataset 
-DATASET_NAME=bimanual_lift_tray
-train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
 
-train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
-val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
 
-B=64 # with 4 gpu -- 16 per gpu, so A5000s work! 
-train_iters=45000
+train_instructions=instructions/peract2/instructions_full.json
+val_instructions=instructions/peract2/instructions_full.json
+
+
+train_iters=300000
 
 # Experiment configuration
-learn_extrinsics=false
-traj_scene_rope=true
-
-predict_extrinsics=false
-
-
+learn_extrinsics=False
+traj_scene_rope=False
 front_camera_frame=false
-#
-rope_type=normal
-rope_schedule_type=none
-rope_schedule_steps=$train_iters
-pc_rotate_by_front_camera=false
 
-run_log_dir=1scene_3dfa-front_cam-$front_camera_frame-cam_token-$predict_extrinsics
+run_log_dir=full-LE$learn_extrinsics-traj_scene_rope$traj_scene_rope-front-cam-$front_camera_frame
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
-# checkpoint='.pth'
 
 
 echo "train_data_dir: $train_data_dir"
@@ -72,7 +62,8 @@ echo run_log_dir: $run_log_dir
 
 ngpus=$(nvidia-smi -L | wc -l)
 
-WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT\
+# Select a random port between 27500 and 28500 for torchrun
+WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
     --train_data_dir $train_data_dir \
     --eval_data_dir $eval_data_dir \
@@ -122,7 +113,4 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MAS
     --use_front_camera_frame $front_camera_frame \
     --pc_rotate_by_front_camera $pc_rotate_by_front_camera \
     --traj_scene_rope $traj_scene_rope \
-    --predict_extrinsics $predict_extrinsics \
-    --rope_type $rope_type \
-    --rope_schedule_type $rope_schedule_type \
-    --rope_schedule_steps $rope_schedule_steps
+    --predict_extrinsics $predict_extrinsics

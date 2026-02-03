@@ -68,11 +68,24 @@ rope_schedule_type=linear
 rope_schedule_steps=$train_iters
 
 
-checkpoint=3dfa_peract2.pth
-run_log_dir=analysis/3dfa
+# checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1task-cam_token_extrinsics-traj_scene_ropetrue-front-cam-true/best.pth'
+# run_log_dir=analysis/cam_token_front_cam/
 
-# checkpoint='.pth'
 
+
+# checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1task-cam_token_extrinsics-traj_scene_ropetrue-front-cam-false/best.pth'
+# run_log_dir=analysis/cam_token_front_cam_false/
+
+# checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPEADAM-front_cam--cam_token-true-traj_scene_rope-true/best.pth'
+# run_log_dir=analysis/scene_rope_adam_front_cam/
+
+
+# checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/denoise3d-Peract2_3dfront_3dwrist-C120-B64-lr1e-4-constant-H3-rectified_flow/best.pth'
+# # checkpoint='.pth'
+# run_log_dir=analysis/3dfa-single/
+
+checkpoint=/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPEstopgrad_schedule_linear-front_cam--cam_token-true-traj_scene_rope-true/best.pth
+run_log_dir=analysis/scene_rope_stopgrad_linear_front_cam/
 
 # ngpus=2
 ngpus=1

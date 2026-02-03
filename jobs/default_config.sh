@@ -66,3 +66,4 @@ use_ema=${use_ema:-false}
 learn_extrinsics=${learn_extrinsics:-False}
 traj_scene_rope=${traj_scene_rope:-true}
 front_camera_frame=${front_camera_frame:-false}
+pc_rotate_by_front_camera=${pc_rotate_by_front_camera:-false}

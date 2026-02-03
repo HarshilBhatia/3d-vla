@@ -13,8 +13,8 @@ val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
 
 
 dataset=Peract2_3dfront_3dwrist
-num_workers=16
-B=16  # we used 64 but you can use as low as 16 without much performance drop - it's much faster
+num_workers=8
+B=32  # we used 64 but you can use as low as 16 without much performance drop - it's much faster
 B_val=64
 chunk_size=1
 memory_limit=8 
@@ -60,10 +60,13 @@ denoise_model=rectified_flow
 
 # Model arguments for learning extrinsics and predicting extrinsics
 learn_extrinsics=False
-predict_extrinsics=True
+predict_extrinsics=false
 use_front_camera_frame=false
-traj_scene_rope=true
-rope_type=stopgrad
+pc_rotate_by_front_camera=true
+traj_scene_rope=true 
+
+
+rope_type=normal
 rope_schedule_type=linear
 rope_schedule_steps=$train_iters
 
@@ -126,6 +129,7 @@ TORCH_DISTRIBUTED_DEBUG=DETAIL NCCL_DEBUG=WARN WANDB_API_KEY=$WANDB_API_KEY torc
     --wandb_run_name $run_log_dir \
     --learn_extrinsics $learn_extrinsics \
     --use_front_camera_frame $use_front_camera_frame \
+    --pc_rotate_by_front_camera $pc_rotate_by_front_camera \
     --traj_scene_rope $traj_scene_rope \
     --predict_extrinsics $predict_extrinsics \
     --rope_type $rope_type \
