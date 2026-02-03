@@ -86,6 +86,7 @@ def parse_arguments():
         ('rope_schedule_start_k', int, 0),  # initial bins to zero out # NOT USED
         ('rope_schedule_end_k', int, 0),  # final bins to zero out
         ('rope_schedule_steps', int, 100000),  # training steps for schedule
+        ('sa_blocks_use_rope', str2bool, True),  # False = disable RoPE in self_attn, position_self_attn, rotation_self_attn
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

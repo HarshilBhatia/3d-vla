@@ -17,9 +17,9 @@ from utils.rope3d_frequency_norms import (
     queries_to_axis_norms_single_layer,
     split_queries_by_axis_interleaved,
 )
-    from scripts.rope3d_frequency_visualize import (
-        visualize_block_bins_per_layer,
-        visualize_rope3d_frequency_norms,)
+from scripts.rope3d_frequency_visualize import (
+    visualize_block_bins_per_layer,
+    visualize_rope3d_frequency_norms,)
 
 
 def _layer_name_to_block(name: str) -> str:

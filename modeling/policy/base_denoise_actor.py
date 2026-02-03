@@ -33,6 +33,7 @@ class DenoiseActor(nn.Module):
                  # Training arguments
                  lv2_batch_size=1,
                  traj_scene_rope=True,
+                 sa_blocks_use_rope=True,
                  learn_extrinsics=False,
                  predict_extrinsics=True):
         super().__init__()
@@ -56,7 +57,9 @@ class DenoiseActor(nn.Module):
             nhist=nhist * nhand,
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
-            rot_dim=3 if rotation_format == 'euler' else 6
+            rot_dim=3 if rotation_format == 'euler' else 6,
+            traj_scene_rope=traj_scene_rope,
+            sa_blocks_use_rope=sa_blocks_use_rope
         )
 
         # Noise/denoise schedulers and hyperparameters
@@ -391,6 +394,7 @@ class TransformerHead(nn.Module):
                  rotary_pe=True,
                  rot_dim=6,
                  traj_scene_rope=True,
+                 sa_blocks_use_rope=True,
                  predict_extrinsics=True,
                  learn_extrinsics=False):
         super().__init__()
@@ -398,6 +402,7 @@ class TransformerHead(nn.Module):
         print(f" ************** Predicting Extrinsics: {predict_extrinsics} **************")
 
         self.traj_scene_rope = traj_scene_rope
+        self.sa_blocks_use_rope = sa_blocks_use_rope
         self.predict_extrinsics = predict_extrinsics
 
         # Different embeddings
@@ -458,7 +463,7 @@ class TransformerHead(nn.Module):
                 dropout=0.1,
                 n_heads=num_attn_heads,
                 pre_norm=False,
-                rotary_pe=rotary_pe,
+                rotary_pe=rotary_pe and self.sa_blocks_use_rope,
                 use_adaln=True,
                 is_self=True
             )
@@ -508,7 +513,7 @@ class TransformerHead(nn.Module):
             dropout=0.1,
             n_heads=num_attn_heads,
             pre_norm=False,
-            rotary_pe= rotary_pe and self.traj_scene_rope,
+            rotary_pe=rotary_pe and self.traj_scene_rope and self.sa_blocks_use_rope,
             use_adaln=True,
             is_self=True
         )
@@ -527,7 +532,7 @@ class TransformerHead(nn.Module):
             dropout=0.1,
             n_heads=num_attn_heads,
             pre_norm=False,
-            rotary_pe=rotary_pe and self.traj_scene_rope,
+            rotary_pe=rotary_pe and self.traj_scene_rope and self.sa_blocks_use_rope,
             use_adaln=True,
             is_self=True
         )
@@ -656,11 +661,12 @@ class TransformerHead(nn.Module):
             )
 
             # only place where RoPE is backproped! (that too )
+            sa_pos = (rel_pos, rel_pos) if self.sa_blocks_use_rope else (None, None)
             features = self.self_attn(
                 seq1=features,
                 seq2=features,
-                seq1_pos=rel_pos,
-                seq2_pos=rel_pos,
+                seq1_pos=sa_pos[0],
+                seq2_pos=sa_pos[1],
                 ada_sgnl=time_embs
             )[-1]
         else:
@@ -780,7 +786,7 @@ class TransformerHead(nn.Module):
         return torch.cat([traj_feats, fps_scene_feats, register_tokens, camera_token], 1)
 
     def predict_pos(self, features, pos, time_embs, traj_len):
-        if self.traj_scene_rope:
+        if self.traj_scene_rope and self.sa_blocks_use_rope:
             position_features = self.position_self_attn(
                 seq1=features,
                 seq2=features,
@@ -805,7 +811,7 @@ class TransformerHead(nn.Module):
 
     def predict_rot(self, features, pos, time_embs, traj_len):
         
-        if self.traj_scene_rope:
+        if self.traj_scene_rope and self.sa_blocks_use_rope:
             rotation_features = self.rotation_self_attn(
                 seq1=features,
                 seq2=features,

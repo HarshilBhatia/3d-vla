@@ -35,6 +35,7 @@ class DenoiseActor(BaseDenoiseActor):
                  # Learnable extrinsics (camera -> world)
                  learn_extrinsics=False,
                  traj_scene_rope=True,
+                 sa_blocks_use_rope=True,
                  predict_extrinsics=True,
                  # RoPE type
                  rope_type='adam'):
@@ -50,6 +51,7 @@ class DenoiseActor(BaseDenoiseActor):
             denoise_model=denoise_model,
             lv2_batch_size=lv2_batch_size,
             traj_scene_rope=traj_scene_rope,
+            sa_blocks_use_rope=sa_blocks_use_rope,
             learn_extrinsics=learn_extrinsics,
             predict_extrinsics=predict_extrinsics
         )
@@ -81,6 +83,7 @@ class DenoiseActor(BaseDenoiseActor):
             num_shared_attn_layers=num_shared_attn_layers,
             learn_extrinsics=learn_extrinsics,
             traj_scene_rope=traj_scene_rope,
+            sa_blocks_use_rope=sa_blocks_use_rope,
             predict_extrinsics=predict_extrinsics,
             rope_type=rope_type
         )
@@ -168,6 +171,7 @@ class TransformerHead(BaseTransformerHead):
                  rotary_pe=True,
                  learn_extrinsics=False,
                  traj_scene_rope=True,
+                 sa_blocks_use_rope=True,
                  predict_extrinsics=True,
                  rope_type='normal'):
         super().__init__(
@@ -177,6 +181,7 @@ class TransformerHead(BaseTransformerHead):
             num_shared_attn_layers=num_shared_attn_layers,
             rotary_pe=rotary_pe,
             traj_scene_rope=traj_scene_rope,
+            sa_blocks_use_rope=sa_blocks_use_rope,
             predict_extrinsics=predict_extrinsics,
             learn_extrinsics=learn_extrinsics
         )

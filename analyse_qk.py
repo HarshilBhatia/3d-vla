@@ -91,6 +91,7 @@ def parse_arguments():
         ('rope_schedule_start_k', int, 0),  # initial bins to zero out # NOT USED
         ('rope_schedule_end_k', int, 0),  # final bins to zero out
         ('rope_schedule_steps', int, 100000),  # training steps for schedule
+        ('sa_blocks_use_rope', str2bool, True),  # must match checkpoint training config
         # RoPE frequency analysis
         ('rope_analysis_max_batches', int, 50),
         ('rope_analysis_save_name', str, 'rope3d_frequency_norms.pt'),
