@@ -629,9 +629,15 @@ class BaseTrainTester:
         # EMA weights
         if model_dict.get("ema_weight") is not None:
             ema_model.load_state_dict(model_dict["ema_weight"], strict=True)
-        # Useful for resuming training
+        # Useful for resuming training; skip optimizer if structure doesn't match (e.g. different param groups or model size)
         if 'optimizer' in model_dict and not self.args.eval_only:
-            optimizer.load_state_dict(model_dict["optimizer"])
+            try:
+                optimizer.load_state_dict(model_dict["optimizer"])
+            except (ValueError, KeyError) as e:
+                print(
+                    "=> skipping optimizer state (incompatible with current config: {}). "
+                    "Optimizer and scheduler start fresh.".format(e)
+                )
         start_iter = model_dict.get("iter", 0)
         best_loss = model_dict.get("best_loss", None)
 
