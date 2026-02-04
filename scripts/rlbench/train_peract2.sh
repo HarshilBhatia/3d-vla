@@ -21,7 +21,7 @@ memory_limit=8
 
 # Training/testing arguments
 val_freq=4000
-eval_only=false # this toggles eval and train
+eval_only=true # this toggles eval and train
 lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune
 lr_scheduler=constant
@@ -60,19 +60,20 @@ denoise_model=rectified_flow
 
 # Model arguments for learning extrinsics and predicting extrinsics
 learn_extrinsics=False
-predict_extrinsics=false
-use_front_camera_frame=false
-pc_rotate_by_front_camera=true
+pc_rotate_by_front_camera=false
+
+predict_extrinsics=true
+use_front_camera_frame=True
 traj_scene_rope=true 
 
-
-rope_type=normal
+rope_type=adam
 rope_schedule_type=linear
 rope_schedule_steps=$train_iters
 
+
 run_log_dir=Predict_extrinsics_stopgrad_schedule_${rope_schedule_type}_${rope_schedule_steps} 
 
-checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
+checkpoint=/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPE-rope_type-adam-front_cam--cam_token-true/last.pth
 # checkpoint='.pth'
 
 
@@ -127,6 +128,7 @@ TORCH_DISTRIBUTED_DEBUG=DETAIL NCCL_DEBUG=WARN WANDB_API_KEY=$WANDB_API_KEY torc
     --use_wandb false \
     --wandb_project 3d_flowmatch_actor \
     --wandb_run_name $run_log_dir \
+    --wandb_group $main_dir \
     --learn_extrinsics $learn_extrinsics \
     --use_front_camera_frame $use_front_camera_frame \
     --pc_rotate_by_front_camera $pc_rotate_by_front_camera \
@@ -134,4 +136,4 @@ TORCH_DISTRIBUTED_DEBUG=DETAIL NCCL_DEBUG=WARN WANDB_API_KEY=$WANDB_API_KEY torc
     --predict_extrinsics $predict_extrinsics \
     --rope_type $rope_type \
     --rope_schedule_type $rope_schedule_type \
-    --rope_schedule_steps $rope_schedule_steps
+    --rope_schedule_steps $rope_schedule_steps \

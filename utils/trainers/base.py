@@ -46,7 +46,7 @@ class BaseTrainTester:
             
             # Initialize wandb if enabled
             if getattr(args, 'use_wandb', True):
-                wandb.init(
+                wandb_kwargs = dict(
                     project=getattr(args, 'wandb_project', '3d_flowmatch_actor'),
                     name=getattr(args, 'wandb_run_name', None) or args.log_dir.name,
                     config=vars(args),
@@ -54,6 +54,9 @@ class BaseTrainTester:
                     resume='allow',
                     id=getattr(args, 'wandb_run_id', None)
                 )
+                if getattr(args, 'wandb_group', None) is not None:
+                    wandb_kwargs['group'] = args.wandb_group
+                wandb.init(**wandb_kwargs)
                 print("Wandb logging enabled")
             else:
                 print("Wandb logging disabled (using TensorBoard only)")
@@ -117,6 +120,12 @@ class BaseTrainTester:
         )
         # No sampler for val! (only runs on rank 0, no need to divide by world_size)
         if dist.get_rank() == 0:
+            val_gen = None
+            val_worker_init = None
+            if getattr(self.args, 'eval_only', False):
+                val_gen = torch.Generator()
+                val_gen.manual_seed(getattr(self.args, 'seed', 0))
+                val_worker_init = seed_worker
             val_loader = DataLoader(
                 val_dataset,
                 batch_size=self.args.batch_size_val // self.args.chunk_size,
@@ -126,6 +135,8 @@ class BaseTrainTester:
                 pin_memory=True,
                 sampler=None,
                 drop_last=False,
+                generator=val_gen,
+                worker_init_fn=val_worker_init,
                 prefetch_factor=4,
                 persistent_workers=True
             )

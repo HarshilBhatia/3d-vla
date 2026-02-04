@@ -1,15 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=inter-3dfa
-#SBATCH --output=logs/train_peract2_%j.out
-#SBATCH --error=logs/train_peract2_%j.err
+#SBATCH --job-name=adam-cam-token
+#SBATCH --output=logs/%j.out
+#SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=36
-#SBATCH --gres=gpu:4
-#SBATCH --mem=96G
+#SBATCH --cpus-per-task=24
+#SBATCH --gres=gpu:2
+#SBATCH --mem=32G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --nodelist=grogu-0-14
+#SBATCH --nodelist=grogu-2-9
 
 # Print job information
 echo "Job started at: $(date)"
@@ -43,19 +43,22 @@ train_iters=45000
 
 # Experiment configuration
 learn_extrinsics=false
-traj_scene_rope=true
-
-predict_extrinsics=false
-
-
-front_camera_frame=false
-#
-rope_type=normal
-rope_schedule_type=none
-rope_schedule_steps=$train_iters
 pc_rotate_by_front_camera=false
 
-run_log_dir=1scene_3dfa-front_cam-$front_camera_frame-cam_token-$predict_extrinsics
+
+
+traj_scene_rope=true
+predict_extrinsics=true
+front_camera_frame=true
+
+#
+rope_type=adam
+rope_schedule_type=linear
+rope_schedule_steps=$train_iters
+group_name=inter
+
+exp_name=adam-cam-token
+run_log_dir=${exp_name}-front-$front_camera_frame-rope_type-$rope_type-pred-$predict_extrinsics
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'
@@ -118,6 +121,7 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MAS
     --use_wandb true \
     --wandb_project 3d_flowmatch_actor \
     --wandb_run_name $run_log_dir \
+    --wandb_group $group_name \
     --learn_extrinsics $learn_extrinsics \
     --use_front_camera_frame $front_camera_frame \
     --pc_rotate_by_front_camera $pc_rotate_by_front_camera \
@@ -125,4 +129,4 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MAS
     --predict_extrinsics $predict_extrinsics \
     --rope_type $rope_type \
     --rope_schedule_type $rope_schedule_type \
-    --rope_schedule_steps $rope_schedule_steps
+    --rope_schedule_steps $rope_schedule_steps \

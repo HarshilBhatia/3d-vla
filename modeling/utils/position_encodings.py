@@ -135,7 +135,8 @@ class PositionEmbeddingLearnedMLP(nn.Module):
 
 
 def _interleave_xyz_cos_sin(cosx, cosy, cosz, sinx, siny, sinz):
-    """Build (x1,y1,z1, x2,y2,z2, ...) layout from per-axis cos/sin. Each input [B, N, axis_len]."""
+    """Build (x1,y1,z1, x2,y2,z2, ...) layout from per-axis cos/sin. Canonical layout used everywhere.
+    Each input [B, N, axis_len]."""
     B, N = cosx.shape[:2]
     dx, dy, dz = cosx.shape[-1], cosy.shape[-1], cosz.shape[-1]
     n_bins = min(dx, dy, dz) // 2  # number of (x,y,z) triplets of RoPE pairs
@@ -184,7 +185,7 @@ class RoPE3DAdamFunction(torch.autograd.Function):
     """
 
     @staticmethod
-    def forward(ctx, XYZ, div_term_x, div_term_y, div_term_z, adam_v):
+    def forward(ctx, XYZ, div_term_x, div_term_y, div_term_z, adam_v, rope_module):
         bsize, npoint, _ = XYZ.shape
         x_position, y_position, z_position = XYZ[..., 0:1], XYZ[..., 1:2], XYZ[..., 2:3]
 
@@ -198,7 +199,8 @@ class RoPE3DAdamFunction(torch.autograd.Function):
 
         ctx.save_for_backward(sinx, cosx, siny, cosy, sinz, cosz,
                               div_term_x, div_term_y, div_term_z)
-        ctx.adam_v = adam_v  # mutable reference to module buffer, updated in-place
+        ctx.adam_v = adam_v
+        ctx.rope_module = rope_module
         ctx.dx = div_term_x.shape[-1] * 2
         ctx.dy = div_term_y.shape[-1] * 2
 
@@ -249,6 +251,7 @@ class RoPE3DAdamFunction(torch.autograd.Function):
         # Remainder: 6*n_bins : 6*n_bins+dx-2*n_bins = x_rem, then y_rem, then z_rem
         base = 6 * n_bins
         rem_x, rem_y, rem_z = dx - 2 * n_bins, dy - 2 * n_bins, dz - 2 * n_bins
+
         if rem_x > 0:
             gx_cos = torch.cat([gx_cos, sum_repeat(grad_output[:, :, base : base + rem_x, 0], rem_x // 2)], dim=-1)
             gx_sin = torch.cat([gx_sin, sum_repeat(grad_output[:, :, base : base + rem_x, 1], rem_x // 2)], dim=-1)
@@ -268,21 +271,25 @@ class RoPE3DAdamFunction(torch.autograd.Function):
         grad_y = gy_cos * (-div_term_y * siny) + gy_sin * (div_term_y * cosy)  # [B, N, nby]
         grad_z = gz_cos * (-div_term_z * sinz) + gz_sin * (div_term_z * cosz)  # [B, N, nbz]
 
-        # --- Per-bin Adam (v only) ---
-        # Average over B, N to get a scalar per bin for the moment update
+        # --- Per-bin Adam (v only): step counter + update on detached view so autograd is safe ---
         per_bin_mean = torch.cat([
             grad_x.mean((0, 1)),   # [nbx]
             grad_y.mean((0, 1)),   # [nby]
             grad_z.mean((0, 1)),   # [nbz]
         ])  # [total_bins]
 
-        # Update second moment in-place on the module buffer
-        adam_v.mul_(beta2).add_(per_bin_mean ** 2, alpha=1 - beta2)
+        # B. Update step counter (on module, not an input -> safe)
+        ctx.rope_module.adam_step.add_(1)
+        step_val = ctx.rope_module.adam_step.item()
 
-        # Normalize each bin's gradient by its second moment
-        v_x = adam_v[:nbx]
-        v_y = adam_v[nbx:nbx + nby]
-        v_z = adam_v[nbx + nby:]
+        # C. Update second moment on a detached view (buffer still updated for next forward/DDP, no graph)
+        v_buffer = ctx.adam_v.detach()
+        v_buffer.mul_(beta2).add_(per_bin_mean ** 2, alpha=1 - beta2)
+
+        # Normalize gradient by second moment (using detached buffer so grad_XYZ doesn't depend on adam_v)
+        v_x = v_buffer[:nbx]
+        v_y = v_buffer[nbx:nbx + nby]
+        v_z = v_buffer[nbx + nby:]
 
         grad_x = grad_x / (v_x.sqrt() + eps)
         grad_y = grad_y / (v_y.sqrt() + eps)
@@ -295,8 +302,7 @@ class RoPE3DAdamFunction(torch.autograd.Function):
             grad_z.sum(-1, keepdim=True),
         ], dim=-1)  # [B, N, 3]
 
-        # Returns: grad for XYZ, None for div_terms and adam_v (not learnable)
-        return grad_XYZ, None, None, None, None
+        return grad_XYZ, None, None, None, None, None
 
 
 class RoPE3DStopGradFunction(torch.autograd.Function):
@@ -444,7 +450,7 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         if self.rope_type not in ['adam', 'normal', 'stopgrad']:
             raise ValueError(f"rope_type must be 'adam', 'normal', or 'stopgrad', got '{rope_type}'")
 
-        # --- ADDED: per-bin Adam second moment buffer (only needed for adam type) ---
+        # --- ADDED: per-bin Adam second moment buffer + step (only needed for adam type) ---
         if self.rope_type == 'adam':
             dx = dy = feature_dim // 3
             if dx % 2 == 1:
@@ -453,8 +459,10 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
             dz = feature_dim - dx - dy
             total_bins = dx // 2 + dy // 2 + dz // 2
             self.register_buffer('adam_v', torch.zeros(total_bins))
+            self.register_buffer('adam_step', torch.tensor(0, dtype=torch.long))
         else:
             self.adam_v = None
+            self.adam_step = None
 
     def forward(self, XYZ, allow_grad=False, stopgrad_k=0):
         '''
@@ -485,7 +493,7 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
 
         # --- ADDED: when allow_grad and rope_type='adam', route through custom Function ---
         if allow_grad and self.rope_type == 'adam':
-            return RoPE3DAdamFunction.apply(XYZ, div_term_x, div_term_y, div_term_z, self.adam_v)
+            return RoPE3DAdamFunction.apply(XYZ, div_term_x, div_term_y, div_term_z, self.adam_v, self)
         
         # --- ADDED: when allow_grad and rope_type='stopgrad', route through stopgrad Function ---
         if allow_grad and self.rope_type == 'stopgrad':
@@ -505,11 +513,10 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
             lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
             [sinx, cosx, siny, cosy, sinz, cosz]
         )
-
-        position_code = torch.stack([
-            torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
-            torch.cat([sinx, siny, sinz], dim=-1)   # sin_pos
-        ], dim=-1)
+        cos_inter, sin_inter, _, _, _, _ = _interleave_xyz_cos_sin(
+            cosx, cosy, cosz, sinx, siny, sinz
+        )
+        position_code = torch.stack([cos_inter, sin_inter], dim=-1)
 
         # Only detach if gradients not allowed (for normal rope_type, grad flows through)
         if not allow_grad:

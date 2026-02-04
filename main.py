@@ -2,10 +2,13 @@
 
 import argparse
 import os
+import random
 from pathlib import Path
 import sys
 
+import numpy as np
 import torch
+import torch.distributed as dist
 
 from datasets import fetch_dataset_class
 from modeling.policy import fetch_model_class
@@ -37,13 +40,15 @@ def parse_arguments():
         ('wandb_project', str, '3d_flowmatch_actor'),
         ('wandb_run_name', str_none, None),
         ('wandb_run_id', str_none, None),
+        ('wandb_group', str_none, None),
         ('wandb_save_checkpoints', str2bool, True),
         ('wandb_watch_model', str2bool, False),
         # Training and testing arguments
         ('checkpoint', str_none, None),
         ('val_freq', int, 4000),
-        ('interm_ckpt_freq', int, 1000000),
+        ('interm_ckpt_freq', int, 5000),
         ('eval_only', str2bool, False),
+        ('seed', int, 0),
         ('lr', float, 1e-4),
         ('backbone_lr', float, 1e-4),
         ('lr_scheduler', str, "constant"),
@@ -128,6 +133,16 @@ if __name__ == '__main__':
     torch.backends.cudnn.deterministic = False
     torch.backends.cuda.matmul.allow_tf32 = True
     torch.backends.cudnn.allow_tf32 = True
+
+    if args.eval_only:
+        torch.manual_seed(args.seed)
+        np.random.seed(args.seed)
+        random.seed(args.seed)
+        torch.cuda.manual_seed_all(args.seed)
+        torch.backends.cudnn.benchmark = False
+        torch.backends.cudnn.deterministic = True
+        if dist.get_rank() == 0:
+            print(f"eval_only: global seed set to {args.seed} (deterministic eval)")
 
     # Select dataset and model classes
     dataset_class = fetch_dataset_class(args.dataset)

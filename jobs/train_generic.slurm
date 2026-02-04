@@ -114,6 +114,7 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RAN
     --use_wandb true \
     --wandb_project 3d_flowmatch_actor \
     --wandb_run_name $run_log_dir \
+    --wandb_group $main_dir \
     --learn_extrinsics $learn_extrinsics \
     --use_front_camera_frame $front_camera_frame \
     --pc_rotate_by_front_camera $pc_rotate_by_front_camera \

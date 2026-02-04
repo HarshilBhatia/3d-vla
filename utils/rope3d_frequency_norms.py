@@ -147,21 +147,8 @@ def queries_to_axis_norms_multi_layer(
 
 def split_queries_by_axis(queries: torch.Tensor, feature_dim: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
     """
-    Split full query tensor along last dimension using D_x, D_y, D_z from
-    RotaryPositionEncoding3D (block layout: x, y, z). Use when RoPE uses
-    block layout [x_block][y_block][z_block].
-    """
-    D_x, D_y, D_z = compute_axis_dims(feature_dim)
-    qx = queries[..., :D_x]
-    qy = queries[..., D_x : D_x + D_y]
-    qz = queries[..., D_x + D_y :]
-    return qx, qy, qz
-
-
-def split_queries_by_axis_interleaved(queries: torch.Tensor, feature_dim: int) -> tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
-    """
     Split full query tensor for interleaved RoPE layout (x1,y1,z1, x2,y2,z2, ...).
-    Use when RotaryPositionEncoding3D uses interleaved position code.
+    RotaryPositionEncoding3D uses interleaved layout everywhere.
     """
     D_x, D_y, D_z = compute_axis_dims(feature_dim)
     n_bins = min(D_x, D_y, D_z) // 2
@@ -183,3 +170,7 @@ def split_queries_by_axis_interleaved(queries: torch.Tensor, feature_dim: int) -
     qy = queries[..., idx_y]
     qz = queries[..., idx_z]
     return qx, qy, qz
+
+
+# Alias for backward compatibility
+split_queries_by_axis_interleaved = split_queries_by_axis

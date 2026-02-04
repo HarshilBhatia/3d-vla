@@ -1,3 +1,4 @@
+#!/bin/bash
 main_dir=Peract2
 
 DATA_PATH=$(pwd)
@@ -60,11 +61,15 @@ denoise_model=rectified_flow
 
 # Model arguments for learning extrinsics and predicting extrinsics
 learn_extrinsics=False
+
+
 predict_extrinsics=True
-use_front_camera_frame=false
+use_front_camera_frame=True
 traj_scene_rope=true
-rope_type=stopgrad
-rope_schedule_type=linear
+# sa_blocks_use_rope=false
+
+rope_type=normal
+rope_schedule_type=none
 rope_schedule_steps=$train_iters
 
 
@@ -84,64 +89,86 @@ rope_schedule_steps=$train_iters
 # # checkpoint='.pth'
 # run_log_dir=analysis/3dfa-single/
 
-checkpoint=/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPEstopgrad_schedule_linear-front_cam--cam_token-true-traj_scene_rope-true/best.pth
-run_log_dir=analysis/scene_rope_stopgrad_linear_front_cam/
+# checkpoint=/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPEstopgrad_schedule_linear-front_cam--cam_token-true-traj_scene_rope-true/best.pth
+# run_log_dir=analysis/scene_rope_stopgrad_linear_front_cam/
 
-# ngpus=2
+# checkpoint=/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_3dfa-front_cam-false-cam_token-false/best.pth
+# run_log_dir=analysis/1scene_3dfa-front_cam-false-cam_token-false/
+
+checkpoints=(
+    "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPE-rope_type-adam-front_cam--cam_token-true/best.pth"
+    # "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPE-rope_type-normal-front_cam--cam_token-true/best.pth"
+    # "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_3dfa-front_cam-false-cam_token-false/best.pth"
+    # "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/DroPE-1scene-3dfa-rope_type-normal-sa_blocks_use_rope-false/best.pth"
+)
+run_log_dirs=(
+    "analysis/inter/rot_adam/"
+    # "analysis/inter/rot_normal/"
+    # "analysis/inter/3dfa/"
+    # "analysis/inter/drope/"
+)
+
 ngpus=1
-#$(nvidia-smi -L | wc -l)
+# ngpus=$(nvidia-smi -L | wc -l)
+for ((i=0; i<${#checkpoints[@]}; i++)); do
+    # echo "Running analysis for ${run_log_dirs[$i]}s"
+    checkpoint=${checkpoints[$i]}
+    run_log_dir=${run_log_dirs[$i]}
+    echo "Running analysis for ${run_log_dir} with checkpoint ${checkpoint} on ${ngpus} GPUs"
 
-
-torchrun --nproc_per_node $ngpus --master_port $RANDOM\
-    analyse_qk.py \
-    --train_data_dir $train_data_dir \
-    --eval_data_dir $eval_data_dir \
-    --train_instructions $train_instructions \
-    --val_instructions $val_instructions \
-    --dataset $dataset \
-    --num_workers $num_workers \
-    --batch_size $B \
-    --batch_size_val $B_val \
-    --chunk_size $chunk_size \
-    --memory_limit $memory_limit \
-    --exp_log_dir $main_dir \
-    --run_log_dir ${run_log_dir} \
-    --checkpoint $checkpoint \
-    --val_freq $val_freq \
-    --eval_only $eval_only \
-    --lr $lr \
-    --backbone_lr $backbone_lr \
-    --lr_scheduler $lr_scheduler \
-    --wd $wd \
-    --train_iters $train_iters \
-    --use_compile $use_compile \
-    --use_ema $use_ema \
-    --lv2_batch_size $lv2_batch_size \
-    --model_type $model_type \
-    --bimanual $bimanual \
-    --keypose_only $keypose_only \
-    --pre_tokenize $pre_tokenize \
-    --backbone $backbone \
-    --finetune_backbone $finetune_backbone \
-    --finetune_text_encoder $finetune_text_encoder \
-    --fps_subsampling_factor $fps_subsampling_factor \
-    --embedding_dim $C \
-    --num_attn_heads $num_attn_heads \
-    --num_vis_instr_attn_layers $num_vis_instr_attn_layers \
-    --num_history $num_history \
-    --num_shared_attn_layers $num_shared_attn_layers \
-    --workspace_normalizer_buffer $workspace_normalizer_buffer \
-    --relative_action $relative_action \
-    --rotation_format $rotation_format \
-    --denoise_timesteps $denoise_timesteps \
-    --denoise_model $denoise_model \
-    --use_wandb false \
-    --wandb_project 3d_flowmatch_actor \
-    --wandb_run_name $run_log_dir \
-    --learn_extrinsics $learn_extrinsics \
-    --use_front_camera_frame $use_front_camera_frame \
-    --traj_scene_rope $traj_scene_rope \
-    --predict_extrinsics $predict_extrinsics \
-    --rope_type $rope_type \
-    --rope_schedule_type $rope_schedule_type \
-    --rope_schedule_steps $rope_schedule_steps
+    torchrun --nproc_per_node $ngpus --master_port $RANDOM\
+        analyse_qk.py \
+        --train_data_dir $train_data_dir \
+        --eval_data_dir $eval_data_dir \
+        --train_instructions $train_instructions \
+        --val_instructions $val_instructions \
+        --dataset $dataset \
+        --num_workers $num_workers \
+        --batch_size $B \
+        --batch_size_val $B_val \
+        --chunk_size $chunk_size \
+        --memory_limit $memory_limit \
+        --exp_log_dir $main_dir \
+        --run_log_dir ${run_log_dir} \
+        --checkpoint $checkpoint \
+        --val_freq $val_freq \
+        --eval_only $eval_only \
+        --lr $lr \
+        --backbone_lr $backbone_lr \
+        --lr_scheduler $lr_scheduler \
+        --wd $wd \
+        --train_iters $train_iters \
+        --use_compile $use_compile \
+        --use_ema $use_ema \
+        --lv2_batch_size $lv2_batch_size \
+        --model_type $model_type \
+        --bimanual $bimanual \
+        --keypose_only $keypose_only \
+        --pre_tokenize $pre_tokenize \
+        --backbone $backbone \
+        --finetune_backbone $finetune_backbone \
+        --finetune_text_encoder $finetune_text_encoder \
+        --fps_subsampling_factor $fps_subsampling_factor \
+        --embedding_dim $C \
+        --num_attn_heads $num_attn_heads \
+        --num_vis_instr_attn_layers $num_vis_instr_attn_layers \
+        --num_history $num_history \
+        --num_shared_attn_layers $num_shared_attn_layers \
+        --workspace_normalizer_buffer $workspace_normalizer_buffer \
+        --relative_action $relative_action \
+        --rotation_format $rotation_format \
+        --denoise_timesteps $denoise_timesteps \
+        --denoise_model $denoise_model \
+        --use_wandb false \
+        --wandb_project 3d_flowmatch_actor \
+        --wandb_run_name $run_log_dir \
+        --wandb_group $main_dir \
+        --learn_extrinsics $learn_extrinsics \
+        --use_front_camera_frame $use_front_camera_frame \
+        --traj_scene_rope $traj_scene_rope \
+        --predict_extrinsics $predict_extrinsics \
+        --rope_type $rope_type \
+        --rope_schedule_type $rope_schedule_type \
+        --rope_schedule_steps $rope_schedule_steps \
+        # --sa_blocks_use_rope $sa_blocks_use_rope
+    done

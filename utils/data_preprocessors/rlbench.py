@@ -178,7 +178,6 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         #     extrinsics[i,0,0:3,0:3] = torch.matmul(extrinsics[i,0,0:3,0:3], rotation_matrix)
 
         if self.use_front_camera_frame:
-            print('transforming to front camera frame')
             for i in range(extrinsics.size(0)):
                 if task[i] == "bimanual_push_box":
                     pass
@@ -193,7 +192,6 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             pcds = self._transform_pcd_to_front_frame(pcds, extrinsics)
 
         if self.pc_rotate_by_front_camera:
-            print('rotating by front camera')
             pcds = self._rotate_pcd_by_front_camera(pcds, extrinsics)
 
         
