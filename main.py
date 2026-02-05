@@ -41,7 +41,7 @@ def parse_arguments():
         ('wandb_run_name', str_none, None),
         ('wandb_run_id', str_none, None),
         ('wandb_group', str_none, None),
-        ('wandb_save_checkpoints', str2bool, True),
+        ('wandb_save_checkpoints', str2bool, False),
         ('wandb_watch_model', str2bool, False),
         # Training and testing arguments
         ('checkpoint', str_none, None),
