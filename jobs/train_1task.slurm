@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --job-name=adam-cam-token
+#SBATCH --job-name=3dfa-reproduce
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=24
-#SBATCH --gres=gpu:2
-#SBATCH --mem=32G
+#SBATCH --cpus-per-task=48
+#SBATCH --gres=gpu:4
+#SBATCH --mem=96G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
 #SBATCH --nodelist=grogu-2-9
@@ -40,6 +40,7 @@ val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
 
 B=64 # with 4 gpu -- 16 per gpu, so A5000s work! 
 train_iters=45000
+val_freq=1000
 
 # Experiment configuration
 learn_extrinsics=false
@@ -57,7 +58,7 @@ rope_schedule_type=linear
 rope_schedule_steps=$train_iters
 group_name=inter
 
-exp_name=adam-cam-token
+exp_name=cam-token-reproduce
 run_log_dir=${exp_name}-front-$front_camera_frame-rope_type-$rope_type-pred-$predict_extrinsics
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth

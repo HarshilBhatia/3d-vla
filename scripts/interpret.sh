@@ -63,8 +63,9 @@ denoise_model=rectified_flow
 learn_extrinsics=False
 
 
-predict_extrinsics=True
-use_front_camera_frame=True
+predict_extrinsics=False
+use_front_camera_frame=False
+
 traj_scene_rope=true
 # sa_blocks_use_rope=false
 
@@ -73,38 +74,16 @@ rope_schedule_type=none
 rope_schedule_steps=$train_iters
 
 
-# checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1task-cam_token_extrinsics-traj_scene_ropetrue-front-cam-true/best.pth'
-# run_log_dir=analysis/cam_token_front_cam/
-
-
-
-# checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1task-cam_token_extrinsics-traj_scene_ropetrue-front-cam-false/best.pth'
-# run_log_dir=analysis/cam_token_front_cam_false/
-
-# checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPEADAM-front_cam--cam_token-true-traj_scene_rope-true/best.pth'
-# run_log_dir=analysis/scene_rope_adam_front_cam/
-
-
-# checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/denoise3d-Peract2_3dfront_3dwrist-C120-B64-lr1e-4-constant-H3-rectified_flow/best.pth'
-# # checkpoint='.pth'
-# run_log_dir=analysis/3dfa-single/
-
-# checkpoint=/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPEstopgrad_schedule_linear-front_cam--cam_token-true-traj_scene_rope-true/best.pth
-# run_log_dir=analysis/scene_rope_stopgrad_linear_front_cam/
-
-# checkpoint=/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_3dfa-front_cam-false-cam_token-false/best.pth
-# run_log_dir=analysis/1scene_3dfa-front_cam-false-cam_token-false/
-
 checkpoints=(
-    "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPE-rope_type-adam-front_cam--cam_token-true/best.pth"
-    # "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_RoPE-rope_type-normal-front_cam--cam_token-true/best.pth"
-    # "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_3dfa-front_cam-false-cam_token-false/best.pth"
-    # "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/DroPE-1scene-3dfa-rope_type-normal-sa_blocks_use_rope-false/best.pth"
+    # "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/normal-cam-token-front-true-rope_type-normal-pred-true/best.pth"
+    # "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/adam-cam-token-front-true-rope_type-adam-pred-true/best.pth"
+    "/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/3dfa-reproduce-front-false-rope_type-normal-pred-false/best.pth"
 )
+
 run_log_dirs=(
-    "analysis/inter/rot_adam/"
+    # "analysis/inter/rot_adam/"
     # "analysis/inter/rot_normal/"
-    # "analysis/inter/3dfa/"
+    "analysis/inter/3dfa-normal/"
     # "analysis/inter/drope/"
 )
 
@@ -162,7 +141,6 @@ for ((i=0; i<${#checkpoints[@]}; i++)); do
         --use_wandb false \
         --wandb_project 3d_flowmatch_actor \
         --wandb_run_name $run_log_dir \
-        --wandb_group $main_dir \
         --learn_extrinsics $learn_extrinsics \
         --use_front_camera_frame $use_front_camera_frame \
         --traj_scene_rope $traj_scene_rope \

@@ -197,3 +197,13 @@ This code base is released under the MIT License (refer to the LICENSE file for 
 
 ## Acknowledgement
 Parts of this codebase have been adapted from [3D Diffuser Actor](https://github.com/nickgkan/3d_diffuser_actor).
+
+
+rsync -avzPL --dry-run \
+    --include='best.pth' \
+    --include='*/' \
+    --exclude='*' \
+    --exclude='wandb/' \
+    --delete \
+    "$HOME/3d_flowmatch_actor/train_logs/" \
+    "harshilb@euclid.ri.cs.cmu.edu:/home/harshilb/work/3d-vla/grogu_train_logs/"

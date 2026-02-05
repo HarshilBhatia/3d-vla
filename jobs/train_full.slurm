@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=3dfa
+#SBATCH --job-name=baseline
 #SBATCH --output=logs/train_full_%j.out
 #SBATCH --error=logs/train_full_%j.err
 #SBATCH --nodes=1
@@ -9,7 +9,7 @@
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --nodelist=grogu-2-9
+#SBATCH --nodelist=grogu-2-12
 
 # Print job information
 echo "Job started at: $(date)"
@@ -42,11 +42,22 @@ val_instructions=instructions/peract2/instructions_full.json
 train_iters=300000
 
 # Experiment configuration
-learn_extrinsics=False
-traj_scene_rope=False
-front_camera_frame=false
 
-run_log_dir=full-LE$learn_extrinsics-traj_scene_rope$traj_scene_rope-front-cam-$front_camera_frame
+learn_extrinsics=false
+pc_rotate_by_front_camera=false
+
+
+
+traj_scene_rope=false
+predict_extrinsics=false
+front_camera_frame=true
+#
+rope_type=normal
+rope_schedule_type=none
+rope_schedule_steps=$train_iters
+
+
+run_log_dir=baseline-rope_type-$rope_type-pred-$predict_extrinsics-front-$front_camera_frame
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
@@ -114,4 +125,7 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MAS
     --use_front_camera_frame $front_camera_frame \
     --pc_rotate_by_front_camera $pc_rotate_by_front_camera \
     --traj_scene_rope $traj_scene_rope \
-    --predict_extrinsics $predict_extrinsics
+    --predict_extrinsics $predict_extrinsics \
+    --rope_type $rope_type \
+    --rope_schedule_type $rope_schedule_type \
+    --rope_schedule_steps $rope_schedule_steps \
