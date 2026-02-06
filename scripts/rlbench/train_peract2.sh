@@ -65,7 +65,7 @@ denoise_model=rectified_flow
 
 # Wandb logging configuration (optional)
 wandb_project=3dvla  # Change this to customize your wandb project name
-wandb_name=baseline  # Leave empty to use run_log_dir as the run name, or set a custom name
+wandb_name=adas  # Leave empty to use run_log_dir as the run name, or set a custom name
 
 run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
