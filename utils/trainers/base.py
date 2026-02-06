@@ -424,6 +424,17 @@ class BaseTrainTester:
 
             losses, losses_B = compute_metrics(pred_action, gt_action)
 
+            # Create aliases for cleaner logging
+            if 'traj_pos_acc_001' in losses:
+                losses['traj_pos_acc'] = losses['traj_pos_acc_001']
+            if 'traj_rot_acc_0025' in losses:
+                losses['traj_rot_acc'] = losses['traj_rot_acc_0025']
+            
+            if 'traj_pos_acc_001' in losses_B:
+                losses_B['traj_pos_acc'] = losses_B['traj_pos_acc_001']
+            if 'traj_rot_acc_0025' in losses_B:
+                losses_B['traj_rot_acc'] = losses_B['traj_rot_acc_0025']
+
             # Gather global statistics
             for n, l in losses.items():
                 key = f"{split}-losses/mean/{n}"
@@ -435,11 +446,17 @@ class BaseTrainTester:
             tasks = np.array(sample["task"])
             for n, l in losses_B.items():
                 for task in np.unique(tasks):
-                    key = f"{split}-loss/{task}/{n}"
+                    # Log in a format that groups by metric: split/metric/task
+                    key_new = f"{split}/{n}/{task}"
+                    # Keep original format for backward compatibility
+                    key_orig = f"{split}-loss/{task}/{n}"
+                    
                     l_task = l[tasks == task].mean()
-                    if key not in values:
-                        values[key] = torch.Tensor([]).to(device)
-                    values[key] = torch.cat([values[key], l_task.unsqueeze(0)])
+                    
+                    for key in [key_new, key_orig]:
+                        if key not in values:
+                            values[key] = torch.Tensor([]).to(device)
+                        values[key] = torch.cat([values[key], l_task.unsqueeze(0)])
 
         # Log all statistics
         values = {k: v.mean().item() for k, v in values.items()}
