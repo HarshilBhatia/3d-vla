@@ -322,7 +322,16 @@ class BaseTrainTester:
                 iter_loader = iter(train_loader)
                 sample = next(iter_loader)
 
-            self.train_one_step(model, optimizer, scaler, lr_scheduler, sample)
+            loss_val, grad_norm = self.train_one_step(model, optimizer, scaler, lr_scheduler, sample)
+            
+            # Log training metrics
+            if dist.get_rank() == 0 and wandb is not None and wandb.run is not None:
+                wandb.log({
+                    "train/loss": loss_val,
+                    "train/grad_norm": grad_norm.item() if isinstance(grad_norm, torch.Tensor) else grad_norm,
+                    "train/lr": optimizer.param_groups[0]["lr"]
+                }, step=step_id)
+
             self.ema.step(model, ema_model, self.args.use_ema, step_id)
 
             if (step_id + 1) % self.args.val_freq == 0 and dist.get_rank() == 0:
@@ -379,7 +388,7 @@ class BaseTrainTester:
 
         # Clip gradients
         scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
+        grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
 
         # Update
         scaler.step(optimizer)
@@ -387,6 +396,8 @@ class BaseTrainTester:
 
         # Step the lr scheduler
         lr_scheduler.step()
+
+        return loss.item(), grad_norm
 
     @torch.inference_mode()
     def evaluate_nsteps(self, model, loader, step_id, val_iters, split='val'):
