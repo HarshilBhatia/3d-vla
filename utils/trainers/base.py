@@ -9,6 +9,10 @@ from torch.utils.data.distributed import DistributedSampler
 from torch import nn
 import torch.distributed as dist
 from torch.utils.data import DataLoader
+try:
+    import wandb
+except ImportError:
+    wandb = None
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import trange, tqdm
@@ -40,16 +44,35 @@ class BaseTrainTester:
 
         if dist.get_rank() == 0 and not self.args.eval_only:
             self.writer = SummaryWriter(log_dir=args.log_dir)
+            if wandb is not None:
+                # Get wandb project name from args or use default
+                wandb_project = getattr(args, 'wandb_project', '3d_flowmatch_actor')
+                # Get wandb run name from args or use run_log_dir (convert Path to string)
+                wandb_name = getattr(args, 'wandb_name', None)
+                if wandb_name is None:
+                    wandb_name = str(args.run_log_dir) if hasattr(args.run_log_dir, '__str__') else args.run_log_dir
+                wandb.init(
+                    project=wandb_project,
+                    name=wandb_name,
+                    config=vars(args)
+                )
 
     def get_datasets(self):
         """Initialize datasets."""
+        # Get filter_tasks if specified and parse comma-separated list
+        filter_tasks = getattr(self.args, 'filter_tasks', None)
+        if filter_tasks is not None:
+            # Parse comma-separated string into list
+            filter_tasks = [task.strip() for task in filter_tasks.split(',')]
+        
         # Initialize datasets with arguments
         train_dataset = self.dataset_cls(
             root=self.args.train_data_dir,
             instructions=self.args.train_instructions,
             relative_action=self.args.relative_action,
             mem_limit=self.args.memory_limit,
-            chunk_size=self.args.chunk_size
+            chunk_size=self.args.chunk_size,
+            filter_tasks=filter_tasks
         )
         val_dataset = self.dataset_cls(
             root=self.args.eval_data_dir,
@@ -57,7 +80,8 @@ class BaseTrainTester:
             copies=1,
             relative_action=self.args.relative_action,
             mem_limit=0.1,
-            chunk_size=self.args.chunk_size
+            chunk_size=self.args.chunk_size,
+            filter_tasks=filter_tasks
         )
         return train_dataset, val_dataset
 
@@ -412,6 +436,8 @@ class BaseTrainTester:
             if step_id > -1:
                 for key, val in values.items():
                     self.writer.add_scalar(key, val, step_id)
+                if wandb is not None and wandb.run is not None:
+                    wandb.log(values, step=step_id)
 
             # Also log to terminal
             print(f"Step {step_id}:")

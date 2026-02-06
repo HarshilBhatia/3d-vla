@@ -12,8 +12,8 @@ val_instructions=instructions/peract2/instructions.json
 
 dataset=Peract2_3dfront_3dwrist
 num_workers=4
-B=64  # we used 64 but you can use as low as 16 without much performance drop - it's much faster
-B_val=64
+B=16  # Reduced from 64 to avoid OOM - you can increase if you have more GPU memory
+B_val=16
 chunk_size=1
 memory_limit=8  # this means 8GB CPU RAM per worker per GPU,
 # but it will never reach that, because these datasets are small
@@ -21,7 +21,7 @@ memory_limit=8  # this means 8GB CPU RAM per worker per GPU,
 
 # Training/testing arguments
 val_freq=4000
-eval_only=true # this toggles eval and train
+eval_only=false # this toggles eval and train
 lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune
 lr_scheduler=constant
@@ -53,6 +53,10 @@ relative_action=false
 rotation_format=quat_xyzw
 denoise_timesteps=5
 denoise_model=rectified_flow
+
+# Wandb logging configuration (optional)
+wandb_project=3dvla  # Change this to customize your wandb project name
+wandb_name=baseline  # Leave empty to use run_log_dir as the run name, or set a custom name
 
 run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
@@ -101,4 +105,7 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM \
     --relative_action $relative_action \
     --rotation_format $rotation_format \
     --denoise_timesteps $denoise_timesteps \
-    --denoise_model $denoise_model
+    --denoise_model $denoise_model \
+    --wandb_project $wandb_project \
+    ${wandb_name:+--wandb_name $wandb_name} \
+    --filter_tasks $TASK

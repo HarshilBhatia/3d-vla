@@ -28,10 +28,13 @@ def parse_arguments():
         ('batch_size_val', int, 64),
         ('chunk_size', int, 1),
         ('memory_limit', float, 8),  # cache limit in GB
+        ('filter_tasks', str_none, None),  # Comma-separated task names to filter, or single task name
         # Logging arguments
         ('base_log_dir', Path, Path(__file__).parent / "train_logs"),
         ('exp_log_dir', Path, "exp"),
         ('run_log_dir', Path, "run"),
+        ('wandb_project', str, '3d_flowmatch_actor'),
+        ('wandb_name', str_none, None),
         # Training and testing arguments
         ('checkpoint', str_none, None),
         ('val_freq', int, 4000),
