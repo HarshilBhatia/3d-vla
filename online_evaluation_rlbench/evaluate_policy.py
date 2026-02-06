@@ -39,6 +39,10 @@ def parse_arguments():
         # Model arguments: encoder
         ('backbone', str, "clip"),
         ('fps_subsampling_factor', int, 5),
+        # Model arguments: adaptive trajectory-centric sampling
+        ('adaptive_traj_sampling', str2bool, False),
+        ('traj_sampling_sigma', float, 0.03),
+        ('traj_sampling_beta', float, 1.0),
         # Model arguments: encoder and head
         ('embedding_dim', int, 144),
         ('num_attn_heads', int, 9),
@@ -65,6 +69,9 @@ def load_models(args):
         backbone=args.backbone,
         num_vis_instr_attn_layers=args.num_vis_instr_attn_layers,
         fps_subsampling_factor=args.fps_subsampling_factor,
+        adaptive_traj_sampling=args.adaptive_traj_sampling,
+        traj_sampling_sigma=args.traj_sampling_sigma,
+        traj_sampling_beta=args.traj_sampling_beta,
         embedding_dim=args.embedding_dim,
         num_attn_heads=args.num_attn_heads,
         nhist=args.num_history,

@@ -60,6 +60,10 @@ def parse_arguments():
         ('finetune_backbone', str2bool, False),
         ('finetune_text_encoder', str2bool, False),
         ('fps_subsampling_factor', int, 5),
+        # Model arguments: adaptive trajectory-centric sampling
+        ('adaptive_traj_sampling', str2bool, False),
+        ('traj_sampling_sigma', float, 0.03),
+        ('traj_sampling_beta', float, 1.0),
         # Model arguments: encoder and head
         ('embedding_dim', int, 120),  # divisible by num_attn_heads
         ('num_attn_heads', int, 8),

@@ -29,6 +29,12 @@ export USER_NAME=LUQMAN  # For paths.py configuration
 export TOKENIZERS_PARALLELISM=false
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
+# Adaptive Trajectory-Centric Sampling (ATCS) controls
+# (read by scripts/rlbench/train_peract2.sh)
+export ADAPTIVE_TRAJ_SAMPLING=true
+export TRAJ_SAMPLING_SIGMA=0.03
+export TRAJ_SAMPLING_BETA=1.0
+
 # Print GPU info
 echo "GPU Info:"
 nvidia-smi

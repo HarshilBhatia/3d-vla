@@ -43,6 +43,15 @@ finetune_backbone=false
 finetune_text_encoder=false
 fps_subsampling_factor=4
 
+# Adaptive Trajectory-Centric Sampling (ATCS)
+# Can be overridden per-job via environment variables:
+#   ADAPTIVE_TRAJ_SAMPLING=true|false
+#   TRAJ_SAMPLING_SIGMA=0.03
+#   TRAJ_SAMPLING_BETA=1.0
+adaptive_traj_sampling=${ADAPTIVE_TRAJ_SAMPLING:-true}
+traj_sampling_sigma=${TRAJ_SAMPLING_SIGMA:-0.03}
+traj_sampling_beta=${TRAJ_SAMPLING_BETA:-1.0}
+
 C=120
 num_attn_heads=8
 num_vis_instr_attn_layers=3
@@ -96,6 +105,9 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM \
     --finetune_backbone $finetune_backbone \
     --finetune_text_encoder $finetune_text_encoder \
     --fps_subsampling_factor $fps_subsampling_factor \
+    --adaptive_traj_sampling $adaptive_traj_sampling \
+    --traj_sampling_sigma $traj_sampling_sigma \
+    --traj_sampling_beta $traj_sampling_beta \
     --embedding_dim $C \
     --num_attn_heads $num_attn_heads \
     --num_vis_instr_attn_layers $num_vis_instr_attn_layers \

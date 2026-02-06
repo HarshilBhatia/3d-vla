@@ -16,6 +16,10 @@ class DenoiseActor(BaseDenoiseActor):
                  finetune_text_encoder=False,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
+                 # Adaptive trajectory-centric sampling
+                 adaptive_traj_sampling=False,
+                 traj_sampling_sigma=0.03,
+                 traj_sampling_beta=1.0,
                  # Encoder and decoder arguments
                  embedding_dim=60,
                  num_attn_heads=9,
@@ -40,6 +44,9 @@ class DenoiseActor(BaseDenoiseActor):
             rotation_format=rotation_format,
             denoise_timesteps=denoise_timesteps,
             denoise_model=denoise_model,
+            adaptive_traj_sampling=adaptive_traj_sampling,
+            traj_sampling_sigma=traj_sampling_sigma,
+            traj_sampling_beta=traj_sampling_beta,
             lv2_batch_size=lv2_batch_size
         )
 

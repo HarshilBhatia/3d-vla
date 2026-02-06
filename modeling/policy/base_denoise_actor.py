@@ -30,6 +30,10 @@ class DenoiseActor(nn.Module):
                  # Denoising arguments
                  denoise_timesteps=100,
                  denoise_model="ddpm",
+                 # Adaptive trajectory-centric sampling
+                 adaptive_traj_sampling=False,
+                 traj_sampling_sigma=0.03,
+                 traj_sampling_beta=1.0,
                  # Training arguments
                  lv2_batch_size=1):
         super().__init__()
@@ -37,6 +41,9 @@ class DenoiseActor(nn.Module):
         self._rotation_format = rotation_format
         self._relative = relative
         self._lv2_batch_size = lv2_batch_size
+        self._adaptive_traj_sampling = adaptive_traj_sampling
+        self._traj_sampling_sigma = traj_sampling_sigma
+        self._traj_sampling_beta = traj_sampling_beta
 
         # Vision-language encoder, runs only once
         self.encoder = None  # Implement this!
@@ -90,7 +97,8 @@ class DenoiseActor(nn.Module):
             rgb2d_feats, rgb2d_pos,
             instr_feats, instr_pos,
             proprio_feats,
-            fps_scene_feats, fps_scene_pos
+            fps_scene_feats, fps_scene_pos,
+            scene_dbs_density
         ) = fixed_inputs
 
         # Get features from normalized (relative) trajectory
@@ -103,6 +111,38 @@ class DenoiseActor(nn.Module):
                 query_trajectory[..., :3]
                 + torch.cumsum(traj_xyz, dim=1)
             )
+
+        # Adaptive Trajectory-Centric Sampling:
+        # resample visual tokens each denoising step, biased toward traj_xyz.
+        if (
+            self._adaptive_traj_sampling
+            and (pcd is not None)
+            and (scene_dbs_density is not None)
+            and hasattr(self, "encoder")
+            and (self.encoder is not None)
+            and hasattr(self.encoder, "subsampling_factor")
+            and int(self.encoder.subsampling_factor) > 1
+        ):
+            from ..encoder.multimodal.base_encoder import (
+                adaptive_trajectory_sample_inds,
+            )
+            # Flatten (B, L, H, 3) -> (B, T, 3)
+            traj_xyz_flat = traj_xyz.reshape(len(traj_xyz), -1, 3)
+            sampled_inds = adaptive_trajectory_sample_inds(
+                scene_pos=pcd,
+                scene_dbs_density=scene_dbs_density,
+                subsample_factor=int(self.encoder.subsampling_factor),
+                traj_xyz=traj_xyz_flat,
+                sigma=self._traj_sampling_sigma,
+                beta=self._traj_sampling_beta
+            )
+
+            # Gather features/pos (keep gradients w.r.t. rgb3d_feats)
+            B, _, Fdim = rgb3d_feats.shape
+            expanded = sampled_inds.unsqueeze(-1).expand(-1, -1, Fdim)
+            fps_scene_feats = torch.gather(rgb3d_feats, 1, expanded)
+            expanded_pos = sampled_inds.unsqueeze(-1).expand(-1, -1, 3)
+            fps_scene_pos = torch.gather(pcd, 1, expanded_pos)
 
         return self.prediction_head(
             trajectory_feats,

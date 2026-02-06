@@ -61,6 +61,7 @@ class Encoder(nn.Module):
             - proprio_feats: (B, nhist, F)
             - fps_scene_feats: (B, n, F), n < N
             - fps_scene_pos: (B, n, 3), n < N
+            - scene_dbs_density: (B, N) or None, DBS sparsity score per point
         """
         vl_enc_fn = {
             'clip': self.encode_clip,
@@ -78,14 +79,17 @@ class Encoder(nn.Module):
         proprio_feats = self.encode_proprio(proprio, rgb3d_feats, pcd)
 
         # Point subsampling based on scene features
-        fps_scene_feats, fps_scene_pos = self.run_dps(rgb3d_feats, pcd)
+        fps_scene_feats, fps_scene_pos, scene_dbs_density = self.run_dps(
+            rgb3d_feats, pcd
+        )
 
         return (
             rgb3d_feats, pcd,
             rgb2d_feats, rgb2d_pos,
             instr_feats, instr_pos,
             proprio_feats,
-            fps_scene_feats, fps_scene_pos
+            fps_scene_feats, fps_scene_pos,
+            scene_dbs_density
         )
 
     def encode_proprio(self, proprio, context_feats, context_pos):
@@ -125,10 +129,14 @@ class Encoder(nn.Module):
         # context_pos (B, Np, 3)
         # outputs of analogous shape, with smaller Np
         if self.subsampling_factor == 1:
-            return features, pos
+            return features, pos, None
 
         bs, npts, ch = features.shape
-        sampled_inds = density_based_sampler(features, self.subsampling_factor)
+        scene_dbs_density = density_based_scores(features)
+
+        # Choose top M points with highest avg distance (i.e. lowest density)
+        M = int(npts // self.subsampling_factor)
+        sampled_inds = scene_dbs_density.topk(M, dim=-1, largest=True).indices
 
         # Sample features
         expanded_inds = sampled_inds.unsqueeze(-1).expand(-1, -1, ch)  # B Np F
@@ -136,12 +144,35 @@ class Encoder(nn.Module):
 
         # If positions are None, return
         if pos is None:
-            return sampled_features, None
+            return sampled_features, None, scene_dbs_density
 
         # Else sample positions
         expanded_inds = sampled_inds.unsqueeze(-1).expand(-1, -1, 3)  # B Np 3
         sampled_pos = torch.gather(pos, 1, expanded_inds)
-        return sampled_features, sampled_pos
+        return sampled_features, sampled_pos, scene_dbs_density
+
+
+@torch.no_grad()
+def density_based_scores(features, k=8):
+    """
+    Args:
+        features: Tensor of shape (B, N, C)
+        k: number of neighbors to compute local density (default: 8)
+
+    Returns:
+        density: FloatTensor (B, N), higher = more sparse in feature space
+    """
+    B, N, C = features.shape
+    if N == 0:
+        return features.new_zeros((B, 0))
+    # (B, N, N) pairwise distances in feature space
+    dists = torch.cdist(features, features, p=2)  # L2 distance
+
+    # Get average distance to k nearest neighbors (as inverse density estimate)
+    k_eff = min(int(k), int(N))
+    knn_dists, _ = dists.topk(k=k_eff, dim=-1, largest=False)
+    density = knn_dists.mean(dim=-1)  # (B, N), higher = more sparse
+    return density
 
 
 @torch.no_grad()
@@ -155,16 +186,73 @@ def density_based_sampler(features, subsample_factor, k=8):
     Returns:
         sampled_inds: LongTensor (B, N//factor) with sampled point indices
     """
-    B, N, C = features.shape
-    # (B, N, N) pairwise distances in feature space
-    dists = torch.cdist(features, features, p=2)  # L2 distance
-
-    # Get average distance to k nearest neighbors (as inverse density estimate)
-    knn_dists, _ = dists.topk(k=k, dim=-1, largest=False)
-    density = knn_dists.mean(dim=-1)  # (B, N), higher = more sparse
-
-    # Choose top M points with highest avg distance (i.e. lowest density)
+    B, N, _ = features.shape
+    if N == 0:
+        return torch.empty((B, 0), dtype=torch.long, device=features.device)
+    density = density_based_scores(features, k=k)
     M = int(N // subsample_factor)
-    sampled_inds = density.topk(M, dim=-1, largest=True).indices  # (B, M)
+    return density.topk(M, dim=-1, largest=True).indices  # (B, M)
 
-    return sampled_inds
+
+@torch.no_grad()
+def adaptive_trajectory_sample_inds(
+    scene_pos,
+    scene_dbs_density,
+    subsample_factor,
+    traj_xyz,
+    sigma=0.03,
+    beta=1.0,
+    eps=1e-6
+):
+    """
+    Adaptive Trajectory-Centric Sampling indices.
+
+    Combines DBS sparsity score (feature-space inverse density) with a spatial
+    importance weight around the current trajectory estimate tau_i:
+
+        W_p = exp( - min_t ||p - tau_i[t]||^2 / sigma^2 )
+
+    Final sampling score:
+        score = norm(DBS) + beta * W_p
+
+    Args:
+        scene_pos: (B, N, 3) raw 3D locations for each visual token
+        scene_dbs_density: (B, N) DBS sparsity score per token (higher = sparser)
+        subsample_factor: int, downsampling factor (e.g., 4 keeps 25%)
+        traj_xyz: (B, T, 3) current trajectory estimate points
+        sigma: float, spatial falloff (in same units as scene_pos)
+        beta: float, weight for the trajectory-centric term
+
+    Returns:
+        sampled_inds: (B, M) LongTensor indices, where M = N//subsample_factor
+    """
+    B, N, _ = scene_pos.shape
+    if N == 0:
+        return torch.empty((B, 0), dtype=torch.long, device=scene_pos.device)
+    M = int(N // int(subsample_factor))
+
+    # If missing trajectory / density, fall back to DBS.
+    if (
+        traj_xyz is None
+        or scene_dbs_density is None
+        or traj_xyz.numel() == 0
+        or sigma is None
+        or float(sigma) <= 0.0
+        or float(beta) <= 0.0
+    ):
+        return scene_dbs_density.topk(M, dim=-1, largest=True).indices
+
+    # Normalize DBS density into [0, 1] per batch element.
+    dbs = scene_dbs_density
+    dbs_min = dbs.min(dim=-1, keepdim=True).values
+    dbs_max = dbs.max(dim=-1, keepdim=True).values
+    dbs_norm = (dbs - dbs_min) / (dbs_max - dbs_min + eps)
+
+    # Compute min squared distance from each scene point to any trajectory point.
+    # (B, N, T, 3) -> (B, N, T) -> (B, N)
+    diff = scene_pos.unsqueeze(2) - traj_xyz.unsqueeze(1)
+    min_d2 = (diff * diff).sum(dim=-1).min(dim=-1).values
+    w = torch.exp(-min_d2 / (float(sigma) * float(sigma) + eps))
+
+    score = dbs_norm + float(beta) * w
+    return score.topk(M, dim=-1, largest=True).indices
