@@ -15,6 +15,7 @@ class Encoder(BaseEncoder):
                  num_attn_heads=9,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
+                 semantic_dps_weight=0.0,
                  finetune_backbone=False,
                  finetune_text_encoder=False,
                  rot_dim=3):
@@ -25,6 +26,7 @@ class Encoder(BaseEncoder):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
+            semantic_dps_weight=semantic_dps_weight,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder
         )

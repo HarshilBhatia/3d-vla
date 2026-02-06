@@ -139,6 +139,7 @@ class BaseTrainTester:
             finetune_text_encoder=self.args.finetune_text_encoder,
             num_vis_instr_attn_layers=self.args.num_vis_instr_attn_layers,
             fps_subsampling_factor=self.args.fps_subsampling_factor,
+            semantic_dps_weight=getattr(self.args, "semantic_dps_weight", 0.0),
             embedding_dim=self.args.embedding_dim,
             num_attn_heads=self.args.num_attn_heads,
             nhist=self.args.num_history,

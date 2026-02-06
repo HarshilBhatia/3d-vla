@@ -39,6 +39,8 @@ def parse_arguments():
         # Model arguments: encoder
         ('backbone', str, "clip"),
         ('fps_subsampling_factor', int, 5),
+        # LAST-Lifting (see main.py)
+        ('semantic_dps_weight', float, 0.0),
         # Model arguments: encoder and head
         ('embedding_dim', int, 144),
         ('num_attn_heads', int, 9),
@@ -65,6 +67,7 @@ def load_models(args):
         backbone=args.backbone,
         num_vis_instr_attn_layers=args.num_vis_instr_attn_layers,
         fps_subsampling_factor=args.fps_subsampling_factor,
+        semantic_dps_weight=getattr(args, "semantic_dps_weight", 0.0),
         embedding_dim=args.embedding_dim,
         num_attn_heads=args.num_attn_heads,
         nhist=args.num_history,

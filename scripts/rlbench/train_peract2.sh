@@ -42,6 +42,9 @@ backbone=clip
 finetune_backbone=false
 finetune_text_encoder=false
 fps_subsampling_factor=4
+# Language-Aware Selective Token Lifting (LAST-Lifting)
+# 0.0 = baseline DBS; 0.5-0.8 typically yields strong language focus.
+semantic_dps_weight=0.7
 
 C=120
 num_attn_heads=8
@@ -56,9 +59,9 @@ denoise_model=rectified_flow
 
 # Wandb logging configuration (optional)
 wandb_project=3dvla  # Change this to customize your wandb project name
-wandb_name=baseline  # Leave empty to use run_log_dir as the run name, or set a custom name
+wandb_name=last_lifting_w${semantic_dps_weight}  # Leave empty to use run_log_dir as the run name, or set a custom name
 
-run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model
+run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model-LASTw${semantic_dps_weight}
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
 ngpus=1  # we used 4
@@ -96,6 +99,7 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM \
     --finetune_backbone $finetune_backbone \
     --finetune_text_encoder $finetune_text_encoder \
     --fps_subsampling_factor $fps_subsampling_factor \
+    --semantic_dps_weight $semantic_dps_weight \
     --embedding_dim $C \
     --num_attn_heads $num_attn_heads \
     --num_vis_instr_attn_layers $num_vis_instr_attn_layers \

@@ -15,10 +15,12 @@ class Encoder(nn.Module):
                  num_attn_heads=9,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
+                 semantic_dps_weight=0.0,
                  finetune_backbone=False,
                  finetune_text_encoder=False):
         super().__init__()
         self.subsampling_factor = fps_subsampling_factor
+        self.semantic_dps_weight = float(semantic_dps_weight)
         self._backbone_name = backbone
 
         # Instruction encoder
@@ -66,9 +68,16 @@ class Encoder(nn.Module):
             'clip': self.encode_clip,
         }[self._backbone_name]
         # Compute scene features/positional embeddings, language embeddings
-        rgb3d_feats, rgb2d_feats, pcd, instr_feats = vl_enc_fn(
-            rgb3d, rgb2d, pcd, instruction
-        )
+        vl_out = vl_enc_fn(rgb3d, rgb2d, pcd, instruction)
+        if len(vl_out) == 4:
+            rgb3d_feats, rgb2d_feats, pcd, instr_feats = vl_out
+            semantic_scores = None
+        elif len(vl_out) == 5:
+            rgb3d_feats, rgb2d_feats, pcd, instr_feats, semantic_scores = vl_out
+        else:
+            raise ValueError(
+                f"Expected 4 or 5 outputs from encode fn, got {len(vl_out)}."
+            )
         rgb2d_pos = None
 
         # Use the current end-effector position as language 'position'
@@ -78,7 +87,9 @@ class Encoder(nn.Module):
         proprio_feats = self.encode_proprio(proprio, rgb3d_feats, pcd)
 
         # Point subsampling based on scene features
-        fps_scene_feats, fps_scene_pos = self.run_dps(rgb3d_feats, pcd)
+        fps_scene_feats, fps_scene_pos = self.run_dps(
+            rgb3d_feats, pcd, semantic_scores=semantic_scores
+        )
 
         return (
             rgb3d_feats, pcd,
@@ -120,7 +131,7 @@ class Encoder(nn.Module):
         """
         return None, None, None, None
 
-    def run_dps(self, features, pos):
+    def run_dps(self, features, pos, semantic_scores=None):
         # features (B, Np, F)
         # context_pos (B, Np, 3)
         # outputs of analogous shape, with smaller Np
@@ -128,7 +139,18 @@ class Encoder(nn.Module):
             return features, pos
 
         bs, npts, ch = features.shape
-        sampled_inds = density_based_sampler(features, self.subsampling_factor)
+        use_semantic = (
+            semantic_scores is not None and self.semantic_dps_weight > 0.0
+        )
+        if use_semantic:
+            sampled_inds = density_semantic_sampler(
+                features=features,
+                semantic_scores=semantic_scores,
+                subsample_factor=self.subsampling_factor,
+                semantic_weight=self.semantic_dps_weight,
+            )
+        else:
+            sampled_inds = density_based_sampler(features, self.subsampling_factor)
 
         # Sample features
         expanded_inds = sampled_inds.unsqueeze(-1).expand(-1, -1, ch)  # B Np F
@@ -167,4 +189,61 @@ def density_based_sampler(features, subsample_factor, k=8):
     M = int(N // subsample_factor)
     sampled_inds = density.topk(M, dim=-1, largest=True).indices  # (B, M)
 
+    return sampled_inds
+
+
+@torch.no_grad()
+def density_semantic_sampler(
+    features,
+    semantic_scores,
+    subsample_factor,
+    semantic_weight=0.5,
+    k=8,
+    eps=1e-6,
+):
+    """
+    Density-biased sampling augmented with language semantic importance.
+
+    We keep exactly N//subsample_factor tokens (same as DBS), but bias which
+    tokens survive using a blended score:
+
+        score = (1 - w) * norm_density + w * norm_semantic
+
+    Where:
+      - norm_density prefers feature-space *sparse* tokens (DBS behavior)
+      - norm_semantic prefers language-relevant tokens (LAST-Lifting)
+
+    Args:
+        features: (B, N, C) visual tokens
+        semantic_scores: (B, N) cosine similarity (or any scalar importance)
+        subsample_factor: int, e.g. 4 keeps 25% of tokens
+        semantic_weight: float in [0, 1], higher = more language-focused
+        k: KNN used for density estimate (default: 8)
+    """
+    B, N, C = features.shape
+    M = int(N // subsample_factor)
+    if M <= 0:
+        raise ValueError(
+            f"Invalid subsample_factor={subsample_factor} for N={N}."
+        )
+
+    # --- Density score (DBS): higher => more sparse in feature space ---
+    kk = min(int(k), int(N))
+    dists = torch.cdist(features, features, p=2)
+    knn_dists, _ = dists.topk(k=kk, dim=-1, largest=False)
+    density = knn_dists.mean(dim=-1)  # (B, N)
+    dmin = density.min(dim=-1, keepdim=True).values
+    dmax = density.max(dim=-1, keepdim=True).values
+    density = (density - dmin) / (dmax - dmin + eps)
+
+    # --- Semantic score: normalize per sample to [0, 1] ---
+    sem = semantic_scores
+    smin = sem.min(dim=-1, keepdim=True).values
+    smax = sem.max(dim=-1, keepdim=True).values
+    sem = (sem - smin) / (smax - smin + eps)
+
+    w = float(semantic_weight)
+    w = max(0.0, min(1.0, w))
+    score = (1.0 - w) * density + w * sem
+    sampled_inds = score.topk(M, dim=-1, largest=True).indices
     return sampled_inds

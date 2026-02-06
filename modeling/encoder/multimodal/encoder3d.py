@@ -19,6 +19,7 @@ class Encoder(BaseEncoder):
                  num_attn_heads=9,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
+                 semantic_dps_weight=0.0,
                  finetune_backbone=False,
                  finetune_text_encoder=False):
         super().__init__(
@@ -28,6 +29,7 @@ class Encoder(BaseEncoder):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
+            semantic_dps_weight=semantic_dps_weight,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder
         )
@@ -104,6 +106,14 @@ class Encoder(BaseEncoder):
         # Encode language
         instruction = self.text_encoder(text)
         instr_feats = self.instruction_encoder(instruction)
+        # Global language embedding for semantic scoring (mask padding if present)
+        if torch.is_tensor(text):
+            # CLIPTokenizer pad_token_id is typically 0; dataset uses pre-tokenized ids.
+            mask = (text != 0).to(instr_feats.dtype)  # (B, L)
+            denom = mask.sum(dim=1, keepdim=True).clamp_min(1.0)
+            lang_global = (instr_feats * mask.unsqueeze(-1)).sum(dim=1) / denom
+        else:
+            lang_global = instr_feats.mean(dim=1)
 
         # 3D camera features
         num_cameras = rgb3d.shape[1]
@@ -119,6 +129,11 @@ class Encoder(BaseEncoder):
             rgb3d_feats,
             "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
         )
+        # Semantic heatmap (per-token cosine similarity to language)
+        # Computed after CLIP+FPN encoding but before 3D subsampling/lifting.
+        rgb3d_feats_norm = F.normalize(rgb3d_feats, dim=-1)
+        lang_global_norm = F.normalize(lang_global, dim=-1).unsqueeze(1)  # (B,1,F)
+        semantic_scores = (rgb3d_feats_norm * lang_global_norm).sum(dim=-1)  # (B, N)
         # Attention from vision to language
         rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1]
 
@@ -139,4 +154,4 @@ class Encoder(BaseEncoder):
         # 2D camera features (don't support mixed cameras in this release)
         rgb2d_feats = None
 
-        return rgb3d_feats, rgb2d_feats, pcd, instr_feats
+        return rgb3d_feats, rgb2d_feats, pcd, instr_feats, semantic_scores

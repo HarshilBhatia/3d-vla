@@ -60,6 +60,10 @@ def parse_arguments():
         ('finetune_backbone', str2bool, False),
         ('finetune_text_encoder', str2bool, False),
         ('fps_subsampling_factor', int, 5),
+        # Language-Aware Selective Token Lifting (LAST-Lifting)
+        # 0.0 = original density-biased sampling only; >0 biases kept tokens by
+        # cosine similarity of visual patches to the language instruction.
+        ('semantic_dps_weight', float, 0.0),
         # Model arguments: encoder and head
         ('embedding_dim', int, 120),  # divisible by num_attn_heads
         ('num_attn_heads', int, 8),
