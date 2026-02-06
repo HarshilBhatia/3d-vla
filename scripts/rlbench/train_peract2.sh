@@ -20,7 +20,7 @@ memory_limit=8  # this means 8GB CPU RAM per worker per GPU,
 # reduce this if you can't allocate more than 96GB of CPU memory
 
 # Training/testing arguments
-val_freq=4000
+val_freq=500
 eval_only=false # this toggles eval and train
 lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune

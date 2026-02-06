@@ -308,6 +308,18 @@ class BaseTrainTester:
         epoch = start_iter // samples_per_epoch + 1
         train_sampler.set_epoch(epoch)  # ensures new batches are sampled
 
+        # Initial evaluation to verify metrics
+        if not self.args.eval_only and self.args.val_freq > 0 and dist.get_rank() == 0:
+            print("Running initial evaluation to verify metrics...")
+            model.eval()
+            self.evaluate_nsteps(
+                ema_model if self.args.use_ema else model,
+                val_loader, step_id=start_iter,
+                val_iters=10, # Short run for verification
+                split='val'
+            )
+            model.train()
+
         # Training loop
         model.train()
         iter_loader = iter(train_loader)
@@ -502,7 +514,11 @@ class BaseTrainTester:
             ema_model.load_state_dict(model_dict["ema_weight"], strict=True)
         # Useful for resuming training
         if 'optimizer' in model_dict and not self.args.eval_only:
-            optimizer.load_state_dict(model_dict["optimizer"])
+            try:
+                optimizer.load_state_dict(model_dict["optimizer"])
+            except ValueError as e:
+                print(f"Warning: Failed to load optimizer state: {e}")
+                print("Skipping optimizer loading. Training will continue with fresh optimizer state.")
         start_iter = model_dict.get("iter", 0)
         best_loss = model_dict.get("best_loss", None)
 
