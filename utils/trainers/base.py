@@ -169,7 +169,17 @@ class BaseTrainTester:
         # Add rope_type if available in args
         if hasattr(self.args, 'rope_type'):
             model_kwargs['rope_type'] = self.args.rope_type
-        
+
+        # ComRoPE: learnable RoPE in self_attn (only used when traj_scene_rope=True)
+        if hasattr(self.args, 'use_com_rope'):
+            model_kwargs['use_com_rope'] = self.args.use_com_rope
+        if hasattr(self.args, 'com_rope_block_size'):
+            model_kwargs['com_rope_block_size'] = self.args.com_rope_block_size
+        if hasattr(self.args, 'com_rope_num_axes'):
+            model_kwargs['com_rope_num_axes'] = self.args.com_rope_num_axes
+        if hasattr(self.args, 'com_rope_init_std'):
+            model_kwargs['com_rope_init_std'] = self.args.com_rope_init_std
+
         print(f'model_kwargs: {model_kwargs}')
 
         _model = self.model_cls(**model_kwargs)
@@ -629,15 +639,9 @@ class BaseTrainTester:
         # EMA weights
         if model_dict.get("ema_weight") is not None:
             ema_model.load_state_dict(model_dict["ema_weight"], strict=True)
-        # Useful for resuming training; skip optimizer if structure doesn't match (e.g. different param groups or model size)
+        # Useful for resuming training
         if 'optimizer' in model_dict and not self.args.eval_only:
-            try:
-                optimizer.load_state_dict(model_dict["optimizer"])
-            except (ValueError, KeyError) as e:
-                print(
-                    "=> skipping optimizer state (incompatible with current config: {}). "
-                    "Optimizer and scheduler start fresh.".format(e)
-                )
+            optimizer.load_state_dict(model_dict["optimizer"])
         start_iter = model_dict.get("iter", 0)
         best_loss = model_dict.get("best_loss", None)
 

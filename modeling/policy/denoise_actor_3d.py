@@ -38,7 +38,11 @@ class DenoiseActor(BaseDenoiseActor):
                  sa_blocks_use_rope=True,
                  predict_extrinsics=True,
                  # RoPE type
-                 rope_type='adam'):
+                 rope_type='adam',
+                 use_com_rope=False,
+                 com_rope_block_size=4,
+                 com_rope_num_axes=3,
+                 com_rope_init_std=0.02):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -85,7 +89,11 @@ class DenoiseActor(BaseDenoiseActor):
             traj_scene_rope=traj_scene_rope,
             sa_blocks_use_rope=sa_blocks_use_rope,
             predict_extrinsics=predict_extrinsics,
-            rope_type=rope_type
+            rope_type=rope_type,
+            use_com_rope=use_com_rope,
+            com_rope_block_size=com_rope_block_size,
+            com_rope_num_axes=com_rope_num_axes,
+            com_rope_init_std=com_rope_init_std,
         )
         
         # Learnable camera extrinsics: axis-angle (3) + translation (3) = 6 params
@@ -173,7 +181,8 @@ class TransformerHead(BaseTransformerHead):
                  traj_scene_rope=True,
                  sa_blocks_use_rope=True,
                  predict_extrinsics=True,
-                 rope_type='normal'):
+                 rope_type='normal',
+                 **kwargs):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -183,7 +192,11 @@ class TransformerHead(BaseTransformerHead):
             traj_scene_rope=traj_scene_rope,
             sa_blocks_use_rope=sa_blocks_use_rope,
             predict_extrinsics=predict_extrinsics,
-            learn_extrinsics=learn_extrinsics
+            learn_extrinsics=learn_extrinsics,
+            use_com_rope=kwargs.get("use_com_rope", False),
+            com_rope_block_size=kwargs.get("com_rope_block_size", 4),
+            com_rope_num_axes=kwargs.get("com_rope_num_axes", 3),
+            com_rope_init_std=kwargs.get("com_rope_init_std", 0.02),
         )
 
         # Store whether we're learning extrinsics (needed for gradient flow through RoPE)

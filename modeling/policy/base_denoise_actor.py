@@ -4,7 +4,7 @@ from torch.nn import functional as F
 import einops
 
 from ..noise_scheduler import fetch_schedulers
-from ..utils.layers import AttentionModule
+from ..utils.layers import AttentionModule, ComRoPEAttentionModule
 from ..utils.position_encodings import SinusoidalPosEmb
 from ..utils.utils import (
     compute_rotation_matrix_from_ortho6d,
@@ -396,7 +396,11 @@ class TransformerHead(nn.Module):
                  traj_scene_rope=True,
                  sa_blocks_use_rope=True,
                  predict_extrinsics=True,
-                 learn_extrinsics=False):
+                 learn_extrinsics=False,
+                 use_com_rope=False,
+                 com_rope_block_size=4,
+                 com_rope_num_axes=3,
+                 com_rope_init_std=0.02):
         super().__init__()
         
         print(f" ************** Predicting Extrinsics: {predict_extrinsics} **************")
@@ -404,6 +408,7 @@ class TransformerHead(nn.Module):
         self.traj_scene_rope = traj_scene_rope
         self.sa_blocks_use_rope = sa_blocks_use_rope
         self.predict_extrinsics = predict_extrinsics
+        self.use_com_rope = use_com_rope and traj_scene_rope
 
         # Different embeddings
         
@@ -456,17 +461,32 @@ class TransformerHead(nn.Module):
 
         if self.traj_scene_rope:
             print('Using traj_scene_rope = True')
-            self.self_attn = AttentionModule(
-                num_layers=num_shared_attn_layers,
-                d_model=embedding_dim,
-                dim_fw=embedding_dim,
-                dropout=0.1,
-                n_heads=num_attn_heads,
-                pre_norm=False,
-                rotary_pe=rotary_pe and self.sa_blocks_use_rope,
-                use_adaln=True,
-                is_self=True
-            )
+            if self.use_com_rope:
+                print('Using ComRoPE (learnable RoPE) in self_attn')
+                self.self_attn = ComRoPEAttentionModule(
+                    num_layers=num_shared_attn_layers,
+                    d_model=embedding_dim,
+                    dim_fw=embedding_dim,
+                    dropout=0.1,
+                    n_heads=num_attn_heads,
+                    pre_norm=False,
+                    use_adaln=True,
+                    block_size=com_rope_block_size,
+                    num_axes=com_rope_num_axes,
+                    init_std=com_rope_init_std,
+                )
+            else:
+                self.self_attn = AttentionModule(
+                    num_layers=num_shared_attn_layers,
+                    d_model=embedding_dim,
+                    dim_fw=embedding_dim,
+                    dropout=0.1,
+                    n_heads=num_attn_heads,
+                    pre_norm=False,
+                    rotary_pe=rotary_pe and self.sa_blocks_use_rope,
+                    use_adaln=True,
+                    is_self=True
+                )
         else:
             print('Using traj_scene_rope = False')
             self.traj_self_attn = AttentionModule(
@@ -661,13 +681,22 @@ class TransformerHead(nn.Module):
             )
 
             # only place where RoPE is backproped! (that too )
-            sa_pos = (rel_pos, rel_pos) if self.sa_blocks_use_rope else (None, None)
+            sa_pos = (rel_pos, rel_pos) if self.sa_blocks_use_rope and not self.use_com_rope else (None, None)
+            sa_pos_xyz = None
+            if self.use_com_rope:
+                B = features.shape[0]
+                sa_pos_xyz = torch.cat([
+                    traj_xyz,
+                    fps_scene_pos,
+                    torch.zeros(B, 5, 3, device=features.device, dtype=features.dtype),
+                ], dim=1)
             features = self.self_attn(
                 seq1=features,
                 seq2=features,
                 seq1_pos=sa_pos[0],
                 seq2_pos=sa_pos[1],
-                ada_sgnl=time_embs
+                ada_sgnl=time_embs,
+                sa_pos_xyz=sa_pos_xyz,
             )[-1]
         else:
             traj_feats= self.traj_self_attn(

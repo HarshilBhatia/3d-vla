@@ -9,7 +9,8 @@
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --nodelist=grogu-2-9
+#SBATCH --nodelist=grogu-0-14
+
 
 # Print job information
 echo "Job started at: $(date)"
@@ -31,15 +32,33 @@ source jobs/default_config.sh
 # ============================================
 
 # dataset 
-DATASET_NAME=bimanual_lift_tray
-train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
+# DATASET_NAME=bimanual_lift_tray
+# train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
+# eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
 
-train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
-val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+# train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+# val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+
+
+# DATASET_NAME=bimanual_lift_tray,bimanual_push_box
+# train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
+# eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
+
+# train_instructions=instructions/peract2/instructions.json
+# val_instructions=instructions/peract2/instructions.json
+
+
+
+train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
+
+train_instructions=instructions/peract2/instructions_full.json
+val_instructions=instructions/peract2/instructions_full.json
+
+
 
 B=64 # with 4 gpu -- 16 per gpu, so A5000s work! 
-train_iters=60000
+train_iters=400000
 
 # Experiment configuration
 learn_extrinsics=false
@@ -53,9 +72,11 @@ rope_schedule_type=none
 rope_schedule_steps=$train_iters
 sa_blocks_use_rope=false
 
-run_log_dir=DroPE-1scene-3dfa-rope_type-$rope_type-sa_blocks_use_rope-$sa_blocks_use_rope
+run_log_dir=DroPE-full-2-rope_type-$rope_type-sa_blocks_use_rope-$sa_blocks_use_rope
 
-checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1scene_3dfa-front_cam-false-cam_token-false/best.pth'
+checkpoint="/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/DroPE-full-rope_type-normal-sa_blocks_use_rope-false/last.pth"
+
+# /home/harshilb/3d_flowmatch_actor/train_logs/Peract2/2scene-LEFalse-traj_scene_ropetrue-front-cam-false/last.pth
 # checkpoint='.pth'
 
 

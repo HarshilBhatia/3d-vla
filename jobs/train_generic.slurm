@@ -9,7 +9,7 @@
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --nodelist=grogu-0-14
+#SBATCH --nodelist=grogu-2-12
 
 # Print job information
 echo "Job started at: $(date)"
@@ -30,29 +30,53 @@ source jobs/default_config.sh
 # Experiment-specific overrides
 # ============================================
 
-# dataset 
-DATASET_NAME=bimanual_lift_tray,bimanual_push_box
+# dataset (support multiple configs; they will be comma-merged)
+# DATASET_NAMES=("bimanual_lift_tray" "bimanual_push_box")
+# TRAIN_DIRS=()
+# EVAL_DIRS=()
+# for d in "${DATASET_NAMES[@]}"; do
+#     TRAIN_DIRS+=("$DATA_PATH/Peract2_zarr/${d}/train.zarr")
+#     EVAL_DIRS+=("$DATA_PATH/Peract2_zarr/${d}/val.zarr")
+# done
+# # Comma-merge for main.py
+# train_data_dir=$(IFS=,; echo "${TRAIN_DIRS[*]}")
+# eval_data_dir=$(IFS=,; echo "${EVAL_DIRS[*]}")
+
+# Single instructions file (set to per-dataset if needed)
+# train_instructions=instructions/peract2/instructions.json
+# val_instructions=instructions/peract2/instructions.json
+
+DATASET_NAME=bimanual_lift_tray
 train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
 eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
 
-train_instructions=instructions/peract2/instructions.json
-val_instructions=instructions/peract2/instructions.json
+train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+
 
 B=64 # with 4 gpu -- 16 per gpu, so A5000s work! 
-train_iters=75000
+train_iters=45000
 
 # Experiment configuration
 learn_extrinsics=false
 traj_scene_rope=true
+
 front_camera_frame=true
-predict_extrinsics=true
-rope_type=stopgrad
+predict_extrinsics=False
+
+rope_type=normal
 rope_schedule_type=linear
 rope_schedule_steps=$train_iters
 
-# run_log_dir=2scene_RoPEAdam-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
-run_log_dir=2scene_RoPE-$rope_type-schedule-$rope_schedule_type-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
+use_com_rope=True
+com_rope_block_size=3
+com_rope_num_axes=3
+com_rope_init_std=0.02
 
+
+# run_log_dir=2scene_RoPEAdam-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
+run_log_dir=1scene-ComRoPE-$rope_type-schedule-$rope_schedule_type-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
+# wandb
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'
 
@@ -68,7 +92,7 @@ echo run_log_dir: $run_log_dir
 
 ngpus=$(nvidia-smi -L | wc -l)
 
-WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RANDOM\
+WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT\
     main.py \
     --train_data_dir $train_data_dir \
     --eval_data_dir $eval_data_dir \
@@ -112,8 +136,6 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RAN
     --denoise_timesteps $denoise_timesteps \
     --denoise_model $denoise_model \
     --use_wandb true \
-    --wandb_project 3d_flowmatch_actor \
-    --wandb_run_name $run_log_dir \
     --learn_extrinsics $learn_extrinsics \
     --use_front_camera_frame $front_camera_frame \
     --pc_rotate_by_front_camera $pc_rotate_by_front_camera \
@@ -121,4 +143,8 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RAN
     --predict_extrinsics $predict_extrinsics \
     --rope_type $rope_type \
     --rope_schedule_type $rope_schedule_type \
-    --rope_schedule_steps $rope_schedule_steps
+    --rope_schedule_steps $rope_schedule_steps \
+    --use_com_rope $use_com_rope \
+    --com_rope_block_size $com_rope_block_size \
+    --com_rope_num_axes $com_rope_num_axes \
+    --com_rope_init_std $com_rope_init_std

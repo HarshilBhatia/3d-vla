@@ -87,6 +87,11 @@ def parse_arguments():
         ('rope_schedule_end_k', int, 0),  # final bins to zero out
         ('rope_schedule_steps', int, 100000),  # training steps for schedule
         ('sa_blocks_use_rope', str2bool, True),  # False = disable RoPE in self_attn, position_self_attn, rotation_self_attn
+        # ComRoPE: learnable RoPE in self_attn only (requires traj_scene_rope=True)
+        ('use_com_rope', str2bool, False),
+        ('com_rope_block_size', int, 4),
+        ('com_rope_num_axes', int, 3),
+        ('com_rope_init_std', float, 0.02),
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])
