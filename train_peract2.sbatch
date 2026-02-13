@@ -1,12 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=3dvla
+#SBATCH --job-name=bash
 #SBATCH --partition=shubhamlong
 #SBATCH --nodes=1
+#SBATCH --nodelist=grogu-2-9
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
-#SBATCH --time=03:00:00
+#SBATCH --time=24:00:00
 #SBATCH --output=logs/train-%j.out
 #SBATCH --error=logs/train-%j.err
 
