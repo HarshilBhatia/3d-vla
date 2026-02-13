@@ -39,7 +39,10 @@ class BaseTrainTester:
             self.args.keypose_only,
             self.args.num_history,
             custom_imsize=self.args.custom_img_size,
-            depth2cloud=fetch_depth2cloud(self.args.dataset)
+            depth2cloud=fetch_depth2cloud(self.args.dataset),
+            rotate_pcd=self.args.rotate_pcd,
+            rotate_angle_deg=self.args.rotate_angle_deg,
+            rotate_axis=self.args.rotate_axis
         )
 
         if dist.get_rank() == 0 and not self.args.eval_only:
