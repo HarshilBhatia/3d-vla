@@ -59,9 +59,28 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
 
     def __init__(self, feature_dim, pe_type='Rotary3D'):
         super().__init__(feature_dim, pe_type)
+        self.delta_omega = nn.Parameter(torch.zeros(3))
 
-    @torch.no_grad()
+    def so3_exp(self, omega):
+        theta = torch.norm(omega) + 1e-8
+        k = omega / theta
+
+        # Construct K preserving gradients
+        z = torch.zeros_like(k[0])
+        K = torch.stack([
+            torch.stack([z, -k[2], k[1]]),
+            torch.stack([k[2], z, -k[0]]),
+            torch.stack([-k[1], k[0], z])
+        ])
+
+        I = torch.eye(3, device=omega.device)
+
+        return I + torch.sin(theta) * K + (1 - torch.cos(theta)) * (K @ K)
+
     def forward(self, XYZ):
+        R = self.so3_exp(self.delta_omega)
+        XYZ = torch.matmul(XYZ, R)
+
         '''
         @param XYZ: [B,N,3]
         @return:
@@ -103,7 +122,7 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
             torch.cat([sinx, siny, sinz], dim=-1)  # sin_pos
         ], dim=-1)
 
-        return position_code.detach()
+        return position_code
 
 
 class PositionEmbeddingLearnedMLP(nn.Module):
