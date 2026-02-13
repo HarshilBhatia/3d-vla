@@ -29,7 +29,8 @@ class DenoiseActor(BaseDenoiseActor):
                  denoise_timesteps=100,
                  denoise_model="ddpm",
                  # Training arguments
-                 lv2_batch_size=1):
+                 lv2_batch_size=1,
+                 learnable_so3=False):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -52,7 +53,8 @@ class DenoiseActor(BaseDenoiseActor):
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
             finetune_backbone=finetune_backbone,
-            finetune_text_encoder=finetune_text_encoder
+            finetune_text_encoder=finetune_text_encoder,
+            learnable_so3=learnable_so3
         )
 
         # Action decoder, runs at every denoising timestep
@@ -60,7 +62,8 @@ class DenoiseActor(BaseDenoiseActor):
             embedding_dim=embedding_dim,
             nhist=nhist * nhand,
             num_attn_heads=num_attn_heads,
-            num_shared_attn_layers=num_shared_attn_layers
+            num_shared_attn_layers=num_shared_attn_layers,
+            learnable_so3=learnable_so3
         )
 
 
@@ -71,7 +74,8 @@ class TransformerHead(BaseTransformerHead):
                  num_attn_heads=8,
                  nhist=3,
                  num_shared_attn_layers=4,
-                 rotary_pe=True):
+                 rotary_pe=True,
+                 learnable_so3=False):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -81,7 +85,7 @@ class TransformerHead(BaseTransformerHead):
         )
 
         # Relative positional embeddings
-        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim, learnable_so3=learnable_so3)
 
     def get_positional_embeddings(
         self,

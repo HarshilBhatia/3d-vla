@@ -2,7 +2,6 @@
 #SBATCH --job-name=bash
 #SBATCH --partition=shubhamlong
 #SBATCH --nodes=1
-#SBATCH --nodelist=grogu-2-9
 #SBATCH --ntasks-per-node=1
 #SBATCH --gres=gpu:1
 #SBATCH --cpus-per-task=4
@@ -36,6 +35,6 @@ nvidia-smi
 
 # Run the training script
 echo "Starting training..."
-bash scripts/rlbench/train_peract2.sh
+bash scripts/rlbench/train_peract2.sh $@
 
 echo "Job finished at: $(date)"

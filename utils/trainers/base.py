@@ -151,7 +151,8 @@ class BaseTrainTester:
             rotation_format=self.args.rotation_format,
             denoise_timesteps=self.args.denoise_timesteps,
             denoise_model=self.args.denoise_model,
-            lv2_batch_size=self.args.lv2_batch_size
+            lv2_batch_size=self.args.lv2_batch_size,
+            learnable_so3=self.args.learnable_so3
         )
 
         # Print basic modules' parameters

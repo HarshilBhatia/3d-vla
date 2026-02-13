@@ -57,9 +57,11 @@ class RotaryPositionEncoding(nn.Module):
 
 class RotaryPositionEncoding3D(RotaryPositionEncoding):
 
-    def __init__(self, feature_dim, pe_type='Rotary3D'):
+    def __init__(self, feature_dim, pe_type='Rotary3D', learnable_so3=False):
         super().__init__(feature_dim, pe_type)
-        self.delta_omega = nn.Parameter(torch.zeros(3))
+        self.learnable_so3 = learnable_so3
+        if self.learnable_so3:
+            self.delta_omega = nn.Parameter(torch.zeros(3))
 
     def so3_exp(self, omega):
         theta = torch.norm(omega) + 1e-8
@@ -78,8 +80,9 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         return I + torch.sin(theta) * K + (1 - torch.cos(theta)) * (K @ K)
 
     def forward(self, XYZ):
-        R = self.so3_exp(self.delta_omega)
-        XYZ = torch.matmul(XYZ, R)
+        if self.learnable_so3:
+            R = self.so3_exp(self.delta_omega)
+            XYZ = torch.matmul(XYZ, R)
 
         '''
         @param XYZ: [B,N,3]

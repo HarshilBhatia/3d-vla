@@ -75,6 +75,7 @@ def parse_arguments():
         ('rotate_pcd', str2bool, False),
         ('rotate_angle_deg', float, 0.0),
         ('rotate_axis', str, 'z'),
+        ('learnable_so3', str2bool, False),
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

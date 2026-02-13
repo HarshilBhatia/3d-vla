@@ -20,7 +20,8 @@ class Encoder(BaseEncoder):
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
                  finetune_backbone=False,
-                 finetune_text_encoder=False):
+                 finetune_text_encoder=False,
+                 learnable_so3=False):
         super().__init__(
             backbone=backbone,
             embedding_dim=embedding_dim,
@@ -42,7 +43,7 @@ class Encoder(BaseEncoder):
             self.rgb2d_proj = nn.Linear(1024, embedding_dim)
 
         # 3D relative positional embeddings
-        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim, learnable_so3=learnable_so3)
 
         # Proprioception learnable encoding if 3D is used
         self.curr_gripper_embed = nn.Embedding(nhist, embedding_dim)

@@ -108,4 +108,5 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM \
     --denoise_model $denoise_model \
     --wandb_project $wandb_project \
     ${wandb_name:+--wandb_name $wandb_name} \
-    --filter_tasks $TASK
+    --filter_tasks $TASK \
+    $@
