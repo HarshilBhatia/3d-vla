@@ -74,6 +74,10 @@ def parse_arguments():
         # RoPE ΔM (learnable orthogonal in position encoding)
         ('use_rope_delta_m', str2bool, False),
         ('rope_lambda_reg', float, 0.0),
+        # Rotation arguments
+        ('rotate_pcd', str2bool, False),
+        ('rotate_angle_deg', float, 0.0),
+        ('rotate_axis', str, 'z'),
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

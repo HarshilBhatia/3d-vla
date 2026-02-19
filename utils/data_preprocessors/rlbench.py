@@ -1,3 +1,4 @@
+import math
 from kornia import augmentation as K
 import torch
 from torch.nn import functional as F
@@ -8,13 +9,17 @@ from .base import DataPreprocessor
 class RLBenchDataPreprocessor(DataPreprocessor):
 
     def __init__(self, keypose_only=False, num_history=1,
-                 orig_imsize=256, custom_imsize=None, depth2cloud=None):
+                 orig_imsize=256, custom_imsize=None, depth2cloud=None,
+                 rotate_pcd=False, rotate_angle_deg=0.0, rotate_axis='z'):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,
             custom_imsize=custom_imsize,
             depth2cloud=depth2cloud
         )
+        self.rotate_pcd = rotate_pcd
+        self.rotate_angle_deg = rotate_angle_deg
+        self.rotate_axis = rotate_axis
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
                 degrees=0,
@@ -29,6 +34,35 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                 p=0.1
             )
         ).cuda()
+
+    def _rotate_point_cloud(self, pcd):
+        """
+        pcd: (B, ncam, 3, H, W)
+        """
+
+        angle = torch.tensor(self.rotate_angle_deg * math.pi / 180.0, device=pcd.device)
+
+        c = torch.cos(angle)
+        s = torch.sin(angle)
+
+        if self.rotate_axis == 'z':
+            R = torch.tensor([[c, -s, 0],
+                              [s,  c, 0],
+                              [0,  0, 1]], device=pcd.device)
+        elif self.rotate_axis == 'y':
+            R = torch.tensor([[ c, 0, s],
+                              [ 0, 1, 0],
+                              [-s, 0, c]], device=pcd.device)
+        else:  # x
+            R = torch.tensor([[1,  0,  0],
+                              [0,  c, -s],
+                              [0,  s,  c]], device=pcd.device)
+
+        B, ncam, _, H, W = pcd.shape
+        pcd_flat = pcd.reshape(B * ncam, 3, H * W)
+
+        pcd_rot = torch.matmul(R, pcd_flat)
+        return pcd_rot.reshape(B, ncam, 3, H, W)
 
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
                     augment=False):
@@ -88,4 +122,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             pcds = torch.cat((pcd_3d, pcds[:, :pcd_3d.size(1)].float()))
         else:
             pcds = pcd_3d
+        
+        if self.rotate_pcd:
+            pcds = self._rotate_point_cloud(pcds)
+
         return rgbs, pcds
