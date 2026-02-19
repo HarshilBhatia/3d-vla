@@ -53,8 +53,6 @@ class RoPESelfAttentionBase(nn.Module):
         self.num_axes = num_axes
         self.scale = self.head_dim ** -0.5
 
-        print(self.head_dim, embed_dim)
-
         assert self.head_dim % block_size == 0
         self.register_buffer("block_diag_selector", self._init_block_diag_selector(), persistent=False)
 

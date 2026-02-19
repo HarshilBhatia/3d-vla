@@ -202,7 +202,8 @@ class AttentionModule(nn.Module):
                 seq2_key_padding_mask=None,
                 seq1_pos=None, seq2_pos=None,
                 seq1_sem_pos=None, seq2_sem_pos=None,
-                ada_sgnl=None):
+                ada_sgnl=None,
+                sa_pos_xyz=None):  # ignored, for API compat with ComRoPEAttentionModule
         """
         Args:
             seq1: tensor (B, S1, C)
@@ -213,6 +214,7 @@ class AttentionModule(nn.Module):
             seq1_sem_pos: (B, S1, C), semantic embedding
             seq2_sem_pos: (B, S2, C), semantic embedding
             ada_sgnl: tensor (B, C)
+            sa_pos_xyz: ignored (for API compat with ComRoPEAttentionModule)
 
         Returns:
             tensor (B, S1, C)

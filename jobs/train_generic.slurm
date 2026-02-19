@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --job-name=AdamRoPE
-#SBATCH --output=logs/train_peract2_%j.out
-#SBATCH --error=logs/train_peract2_%j.err
+#SBATCH --job-name=comRoPE
+#SBATCH --output=logs/%j.out
+#SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=36
+#SBATCH --cpus-per-task=72
 #SBATCH --gres=gpu:4
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00
@@ -30,38 +30,38 @@ source jobs/default_config.sh
 # Experiment-specific overrides
 # ============================================
 
-# dataset (support multiple configs; they will be comma-merged)
-# DATASET_NAMES=("bimanual_lift_tray" "bimanual_push_box")
-# TRAIN_DIRS=()
-# EVAL_DIRS=()
-# for d in "${DATASET_NAMES[@]}"; do
-#     TRAIN_DIRS+=("$DATA_PATH/Peract2_zarr/${d}/train.zarr")
-#     EVAL_DIRS+=("$DATA_PATH/Peract2_zarr/${d}/val.zarr")
-# done
-# # Comma-merge for main.py
-# train_data_dir=$(IFS=,; echo "${TRAIN_DIRS[*]}")
-# eval_data_dir=$(IFS=,; echo "${EVAL_DIRS[*]}")
 
-# Single instructions file (set to per-dataset if needed)
-# train_instructions=instructions/peract2/instructions.json
-# val_instructions=instructions/peract2/instructions.json
+# DATASET_NAME=bimanual_lift_tray
+# train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
+# eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
 
-DATASET_NAME=bimanual_lift_tray
+# train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+# val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+
+DATASET_NAME=bimanual_lift_tray,bimanual_push_box
 train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
 eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
 
-train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
-val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+train_instructions=instructions/peract2/instructions.json
+val_instructions=instructions/peract2/instructions.json
+
+
+# train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
+# eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
+
+# train_instructions=instructions/peract2/instructions_full.json
+# val_instructions=instructions/peract2/instructions_full.json
+
 
 
 B=64 # with 4 gpu -- 16 per gpu, so A5000s work! 
-train_iters=45000
+train_iters=60000
 
 # Experiment configuration
 learn_extrinsics=false
 traj_scene_rope=true
 
-front_camera_frame=true
+front_camera_frame=false
 predict_extrinsics=False
 
 rope_type=normal
@@ -75,7 +75,7 @@ com_rope_init_std=0.02
 
 
 # run_log_dir=2scene_RoPEAdam-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
-run_log_dir=1scene-ComRoPE-$rope_type-schedule-$rope_schedule_type-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
+run_log_dir=Test_RUN-ComRoPE
 # wandb
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'

@@ -47,6 +47,7 @@ class BaseTrainTester:
             # Initialize wandb if enabled
             if getattr(args, 'use_wandb', True):
                 wandb.init(
+                    entity='harshilb-carnegie-mellon-university',
                     project=getattr(args, 'wandb_project', '3d_flowmatch_actor'),
                     name=getattr(args, 'wandb_run_name', None) or args.log_dir.name,
                     config=vars(args),

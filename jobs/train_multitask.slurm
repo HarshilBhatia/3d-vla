@@ -44,7 +44,7 @@ train_iters=45000
 # Experiment configuration
 learn_extrinsics=False
 traj_scene_rope=true
-front_camera_frame=true
+front_camera_frame=False
 
 run_log_dir=2scene-cam-token-traj_scene_rope$traj_scene_rope-front-cam-$front_camera_frame
 

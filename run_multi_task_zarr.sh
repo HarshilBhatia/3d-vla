@@ -1,21 +1,30 @@
 source jobs/default_config.sh
 
-DATASET_NAME=bimanual_lift_tray
-train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
+# DATASET_NAME=bimanual_lift_tray
+# train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
+# eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
 
-train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
-val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+# train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+# val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+
+
+
+train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
+
+train_instructions=instructions/peract2/instructions_full.json
+val_instructions=instructions/peract2/instructions_full.json
+
 
 
 B=64 # with 4 gpu -- 16 per gpu, so A5000s work! 
-train_iters=45000
+train_iters=300000
 
 # Experiment configuration
 learn_extrinsics=false
 traj_scene_rope=true
 
-front_camera_frame=true
+front_camera_frame=false
 predict_extrinsics=False
 
 rope_type=normal
@@ -29,7 +38,7 @@ com_rope_init_std=0.02
 
 
 # run_log_dir=2scene_RoPEAdam-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
-run_log_dir=1scene-ComRoPE-$rope_type-schedule-$rope_schedule_type-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
+run_log_dir=Full-ComRoPE-$rope_type-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
 # wandb
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'
