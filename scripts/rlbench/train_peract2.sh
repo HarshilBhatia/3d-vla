@@ -54,9 +54,18 @@ rotation_format=quat_xyzw
 denoise_timesteps=5
 denoise_model=rectified_flow
 
+# RoPE ΔM (learnable orthogonal in position encoding)
+use_rope_delta_m=false
+rope_lambda_reg=0.0
+
 # Wandb logging configuration (optional)
 wandb_project=3dvla  # Change this to customize your wandb project name
 wandb_name=baseline  # Leave empty to use run_log_dir as the run name, or set a custom name
+
+# Experiment overrides (set by sbatch via export)
+use_rope_delta_m=${USE_ROPE_DELTA_M:-$use_rope_delta_m}
+rope_lambda_reg=${ROPE_LAMBDA_REG:-$rope_lambda_reg}
+wandb_name=${WANDB_NAME:-$wandb_name}
 
 run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
@@ -106,6 +115,8 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM \
     --rotation_format $rotation_format \
     --denoise_timesteps $denoise_timesteps \
     --denoise_model $denoise_model \
+    --use_rope_delta_m $use_rope_delta_m \
+    --rope_lambda_reg $rope_lambda_reg \
     --wandb_project $wandb_project \
     ${wandb_name:+--wandb_name $wandb_name} \
     --filter_tasks $TASK

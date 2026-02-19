@@ -25,6 +25,9 @@ class DenoiseActor(BaseDenoiseActor):
                  num_shared_attn_layers=4,
                  relative=False,
                  rotation_format='quat_xyzw',
+                 # RoPE ΔM (no RoPE in 2d path; for API consistency)
+                 use_rope_delta_m=False,
+                 rope_lambda_reg=0.0,
                  # Denoising arguments
                  denoise_timesteps=100,
                  denoise_model="ddpm",
@@ -38,6 +41,8 @@ class DenoiseActor(BaseDenoiseActor):
             num_shared_attn_layers=num_shared_attn_layers,
             relative=relative,
             rotation_format=rotation_format,
+            use_rope_delta_m=use_rope_delta_m,
+            rope_lambda_reg=rope_lambda_reg,
             denoise_timesteps=denoise_timesteps,
             denoise_model=denoise_model,
             lv2_batch_size=lv2_batch_size
@@ -60,7 +65,9 @@ class DenoiseActor(BaseDenoiseActor):
             embedding_dim=embedding_dim,
             nhist=nhist * nhand,
             num_attn_heads=num_attn_heads,
-            num_shared_attn_layers=num_shared_attn_layers
+            num_shared_attn_layers=num_shared_attn_layers,
+            use_rope_delta_m=use_rope_delta_m,
+            rope_lambda_reg=rope_lambda_reg
         )
 
     def forward(
@@ -118,13 +125,17 @@ class TransformerHead(BaseTransformerHead):
                  num_attn_heads=8,
                  nhist=3,
                  num_shared_attn_layers=4,
-                 rotary_pe=False):
+                 rotary_pe=False,
+                 use_rope_delta_m=False,
+                 rope_lambda_reg=0.0):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
             nhist=nhist,
-            rotary_pe=False
+            rotary_pe=False,
+            use_rope_delta_m=use_rope_delta_m,
+            rope_lambda_reg=rope_lambda_reg
         )
         # Positional embeddings
         self.pos_embed_2d = SinusoidalPosEmb(embedding_dim)

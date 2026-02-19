@@ -146,6 +146,8 @@ class BaseTrainTester:
             num_shared_attn_layers=self.args.num_shared_attn_layers,
             relative=self.args.relative_action,
             rotation_format=self.args.rotation_format,
+            use_rope_delta_m=getattr(self.args, 'use_rope_delta_m', False),
+            rope_lambda_reg=getattr(self.args, 'rope_lambda_reg', 0.0),
             denoise_timesteps=self.args.denoise_timesteps,
             denoise_model=self.args.denoise_model,
             lv2_batch_size=self.args.lv2_batch_size

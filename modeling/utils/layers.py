@@ -130,7 +130,9 @@ class AttentionLayer(DummyLayer):
                 seq2_key_padding_mask=None,
                 seq1_pos=None, seq2_pos=None,
                 seq1_sem_pos=None, seq2_sem_pos=None,
-                ada_sgnl=None):
+                ada_sgnl=None,
+                rotary_pe_module=None,
+                rope_lambda_reg=0.0):
         """
         Args:
             seq1: tensor (B, S1, C)
@@ -169,7 +171,9 @@ class AttentionLayer(DummyLayer):
             value=v2.transpose(0, 1),
             attn_mask=None,
             key_padding_mask=seq2_key_padding_mask,  # (B, S2)
-            rotary_pe=(seq1_pos, seq2_pos) if self.rotary_pe else None
+            rotary_pe=(seq1_pos, seq2_pos) if self.rotary_pe else None,
+            rotary_pe_module=rotary_pe_module,
+            rope_lambda_reg=rope_lambda_reg
         )[0].transpose(0, 1)
         seq1 = seq1 + self.dropout(seq1b)
         # Normalize if post-norm
@@ -201,7 +205,9 @@ class AttentionModule(nn.Module):
                 seq2_key_padding_mask=None,
                 seq1_pos=None, seq2_pos=None,
                 seq1_sem_pos=None, seq2_sem_pos=None,
-                ada_sgnl=None):
+                ada_sgnl=None,
+                rotary_pe_module=None,
+                rope_lambda_reg=0.0):
         """
         Args:
             seq1: tensor (B, S1, C)
@@ -225,7 +231,9 @@ class AttentionModule(nn.Module):
                 seq2_key_padding_mask,
                 seq1_pos, seq2_pos,
                 seq1_sem_pos, seq2_sem_pos,
-                ada_sgnl
+                ada_sgnl,
+                rotary_pe_module=rotary_pe_module,
+                rope_lambda_reg=rope_lambda_reg
             )
             seq1 = self.ffw_layers[i](seq1, ada_sgnl)
             output.append(seq1)

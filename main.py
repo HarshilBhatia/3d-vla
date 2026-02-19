@@ -70,7 +70,10 @@ def parse_arguments():
         ('relative_action', str2bool, False),
         ('rotation_format', str, 'quat_xyzw'),
         ('denoise_timesteps', int, 10),
-        ('denoise_model', str, "rectified_flow")
+        ('denoise_model', str, "rectified_flow"),
+        # RoPE ΔM (learnable orthogonal in position encoding)
+        ('use_rope_delta_m', str2bool, False),
+        ('rope_lambda_reg', float, 0.0),
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])

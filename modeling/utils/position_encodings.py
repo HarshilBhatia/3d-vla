@@ -21,17 +21,36 @@ class SinusoidalPosEmb(nn.Module):
 
 
 class RotaryPositionEncoding(nn.Module):
-    def __init__(self, feature_dim, pe_type='Rotary1D'):
+    def __init__(self, feature_dim, pe_type='Rotary1D', use_delta_m=False, num_heads=None, per_head=False):
         super().__init__()
-
         self.feature_dim = feature_dim
         self.pe_type = pe_type
+        self.use_delta_m = use_delta_m
+        self.per_head = per_head
+        self.num_heads = num_heads
+        if use_delta_m:
+            if per_head and num_heads is not None:
+                head_dim = feature_dim // num_heads
+                self.B = nn.Parameter(torch.zeros(num_heads, head_dim, head_dim))
+            else:
+                self.B = nn.Parameter(torch.zeros(feature_dim, feature_dim))
 
     @staticmethod
     def embed_rotary(x, cos, sin):
         x2 = torch.stack([-x[..., 1::2], x[..., ::2]], dim=-1).reshape_as(x).contiguous()
         x = x * cos + x2 * sin
         return x
+
+    def embed_rotary_total(self, x, cos, sin, lambda_reg=0.0):
+        """Apply R_total(p) @ x = ΔM @ R(p) @ x. Returns (x_out, reg)."""
+        x_rope = self.embed_rotary(x, cos, sin)
+        if not self.use_delta_m:
+            return x_rope, torch.tensor(0.0, device=x.device, dtype=x.dtype)
+        A = self.B - self.B.T
+        delta_M = torch.linalg.matrix_exp(A)
+        x_out = x_rope @ delta_M.T
+        reg = (lambda_reg * (A * A).sum()) if lambda_reg else torch.tensor(0.0, device=x.device, dtype=x.dtype)
+        return x_out, reg
 
     def forward(self, x_position):
         bsize, npoint = x_position.shape
@@ -57,8 +76,8 @@ class RotaryPositionEncoding(nn.Module):
 
 class RotaryPositionEncoding3D(RotaryPositionEncoding):
 
-    def __init__(self, feature_dim, pe_type='Rotary3D'):
-        super().__init__(feature_dim, pe_type)
+    def __init__(self, feature_dim, pe_type='Rotary3D', use_delta_m=False, num_heads=None, per_head=False):
+        super().__init__(feature_dim, pe_type, use_delta_m=use_delta_m, num_heads=num_heads, per_head=per_head)
 
     @torch.no_grad()
     def forward(self, XYZ):

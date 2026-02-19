@@ -26,7 +26,9 @@ class MultiheadCustomAttention(nn.MultiheadAttention):
             value,
             key_padding_mask=None,
             attn_mask=None,
-            rotary_pe=None):
+            rotary_pe=None,
+            rotary_pe_module=None,
+            rope_lambda_reg=0.0):
         r"""Compute attention outputs using query, key, and value embeddings.
 
         query, key, and value are (S, B, F) if not batch_first else (B, S, F)
@@ -79,7 +81,9 @@ class MultiheadCustomAttention(nn.MultiheadAttention):
             self.dropout, self.out_proj.weight, self.out_proj.bias,
             training=self.training,
             attn_mask=attn_mask,
-            rotary_pe=rotary_pe)
+            rotary_pe=rotary_pe,
+            rotary_pe_module=rotary_pe_module,
+            rope_lambda_reg=rope_lambda_reg)
         if self.batch_first and is_batched:
             return attn_output.transpose(1, 0), attn_output_weights
         else:
@@ -98,7 +102,9 @@ def multi_head_attention_forward(query,
                                  out_proj_bias,
                                  training=True,
                                  attn_mask=None,
-                                 rotary_pe=None):
+                                 rotary_pe=None,
+                                 rotary_pe_module=None,
+                                 rope_lambda_reg=0.0):
     tgt_len, bsz, embed_dim = query.size()
     assert embed_dim == embed_dim_to_check
     assert list(query.size()) == [tgt_len, bsz, embed_dim]
@@ -109,12 +115,18 @@ def multi_head_attention_forward(query,
 
     q, k, v = F._in_projection_packed(query, key, value, in_proj_weight, in_proj_bias)
 
-    if rotary_pe is not None:  # rotary pe ROPE disentangeld
+    if rotary_pe is not None:  # rotary pe ROPE disentangled
         qp, kvp = rotary_pe
         q_cos, q_sin = qp[..., 0], qp[..., 1]
         k_cos, k_sin = kvp[..., 0], kvp[..., 1]
-        q = RotaryPositionEncoding.embed_rotary(q.transpose(0, 1), q_cos, q_sin).transpose(0, 1)
-        k = RotaryPositionEncoding.embed_rotary(k.transpose(0, 1), k_cos, k_sin).transpose(0, 1)
+        if rotary_pe_module is not None and hasattr(rotary_pe_module, 'embed_rotary_total'):
+            q_bt, q_reg = rotary_pe_module.embed_rotary_total(q.transpose(0, 1), q_cos, q_sin, lambda_reg=rope_lambda_reg)
+            q = q_bt.transpose(0, 1)
+            k_bt, k_reg = rotary_pe_module.embed_rotary_total(k.transpose(0, 1), k_cos, k_sin, lambda_reg=rope_lambda_reg)
+            k = k_bt.transpose(0, 1)
+        else:
+            q = RotaryPositionEncoding.embed_rotary(q.transpose(0, 1), q_cos, q_sin).transpose(0, 1)
+            k = RotaryPositionEncoding.embed_rotary(k.transpose(0, 1), k_cos, k_sin).transpose(0, 1)
 
     q = einops.rearrange(q, "S B (H D) -> B H S D", H=num_heads, D=head_dim)
     k = einops.rearrange(k, "S B (H D) -> B H S D", H=num_heads, D=head_dim)

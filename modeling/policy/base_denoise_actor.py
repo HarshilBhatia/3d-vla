@@ -27,6 +27,9 @@ class DenoiseActor(nn.Module):
                  num_shared_attn_layers=4,
                  relative=False,
                  rotation_format='quat_xyzw',
+                 # RoPE ΔM (learnable orthogonal in position encoding)
+                 use_rope_delta_m=False,
+                 rope_lambda_reg=0.0,
                  # Denoising arguments
                  denoise_timesteps=100,
                  denoise_model="ddpm",
@@ -51,7 +54,9 @@ class DenoiseActor(nn.Module):
             nhist=nhist * nhand,
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
-            rot_dim=3 if rotation_format == 'euler' else 6
+            rot_dim=3 if rotation_format == 'euler' else 6,
+            use_rope_delta_m=use_rope_delta_m,
+            rope_lambda_reg=rope_lambda_reg
         )
 
         # Noise/denoise schedulers and hyperparameters
@@ -366,8 +371,11 @@ class TransformerHead(nn.Module):
                  num_shared_attn_layers=4,
                  nhist=3,
                  rotary_pe=True,
-                 rot_dim=6):
+                 rot_dim=6,
+                 use_rope_delta_m=False,
+                 rope_lambda_reg=0.0):
         super().__init__()
+        self.rope_lambda_reg = rope_lambda_reg
 
         # Different embeddings
         self.time_emb = nn.Sequential(
@@ -532,7 +540,9 @@ class TransformerHead(nn.Module):
             seq2=rgb3d_feats,
             seq1_pos=rel_traj_pos,
             seq2_pos=rel_scene_pos,
-            ada_sgnl=time_embs
+            ada_sgnl=time_embs,
+            rotary_pe_module=getattr(self, 'relative_pe_layer', None),
+            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0)
         )[-1]
 
         # Self attention among gripper and sampled context
@@ -545,7 +555,9 @@ class TransformerHead(nn.Module):
             seq2=features,
             seq1_pos=rel_pos,
             seq2_pos=rel_pos,
-            ada_sgnl=time_embs
+            ada_sgnl=time_embs,
+            rotary_pe_module=getattr(self, 'relative_pe_layer', None),
+            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0)
         )[-1]
 
         # Rotation head
@@ -604,7 +616,9 @@ class TransformerHead(nn.Module):
             seq2=features,
             seq1_pos=pos,
             seq2_pos=pos,
-            ada_sgnl=time_embs
+            ada_sgnl=time_embs,
+            rotary_pe_module=getattr(self, 'relative_pe_layer', None),
+            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0)
         )[-1]
         position_features = position_features[:, :traj_len]
         position_features = self.position_proj(position_features)  # (B, N, C)
@@ -617,7 +631,9 @@ class TransformerHead(nn.Module):
             seq2=features,
             seq1_pos=pos,
             seq2_pos=pos,
-            ada_sgnl=time_embs
+            ada_sgnl=time_embs,
+            rotary_pe_module=getattr(self, 'relative_pe_layer', None),
+            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0)
         )[-1]
         rotation_features = rotation_features[:, :traj_len]
         rotation_features = self.rotation_proj(rotation_features)  # (B, N, C)
