@@ -60,6 +60,7 @@ def parse_arguments():
         ('denoise_model', str, "rectified_flow"),
         ('learn_extrinsics', str2bool, False),
         ('predict_extrinsics', str2bool, True),
+        ('extrinsics_prediction_mode', str, 'delta_m'),  # 'rt' = predict R,T (6D) and log; 'delta_m' = predict 6x6 matrix
         ('use_front_camera_frame', str2bool, False),
         ('pc_rotate_by_front_camera', str2bool, False),
         ('traj_scene_rope', str2bool, True),
@@ -109,6 +110,7 @@ def load_models(args):
         traj_scene_rope=args.traj_scene_rope,
         sa_blocks_use_rope=args.sa_blocks_use_rope,
         predict_extrinsics=args.predict_extrinsics,
+        extrinsics_prediction_mode=args.extrinsics_prediction_mode,
         rope_type=args.rope_type,
         use_com_rope=args.use_com_rope,
         com_rope_block_size=args.com_rope_block_size,
@@ -120,6 +122,7 @@ def load_models(args):
     model_dict = torch.load(
         args.checkpoint, map_location="cpu", weights_only=True
     )
+
     model_dict_weight = {}
     for key in model_dict["weight"]:
         _key = key[7:]
@@ -173,7 +176,9 @@ if __name__ == "__main__":
             apply_pc=True,
             headless=bool(args.headless),
             apply_cameras=dataset_class.cameras,
-            collision_checking=bool(args.collision_checking)
+            collision_checking=bool(args.collision_checking),
+            use_front_camera_frame=args.use_front_camera_frame,
+            pc_rotate_by_front_camera=args.pc_rotate_by_front_camera,
         )
 
         # Actioner (runs the policy online)

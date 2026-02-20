@@ -171,12 +171,6 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         # i have to do this for each elem in the batch separately. 
         # HACK
        
-        # randomly rotate each batch 
-        # for i in range(extrinsics.size(0)):
-
-        #     rotation_matrix = torch.tensor([[1, 0, 0], [0, np.cos(np.random.uniform(0, 360)*np.pi/180), -np.sin(np.random.uniform(0, 360)*np.pi/180)], [0, np.sin(np.random.uniform(0, 360)*np.pi/180), np.cos(np.random.uniform(0, 360)*np.pi/180)]]).to(extrinsics.device).float()
-        #     extrinsics[i,0,0:3,0:3] = torch.matmul(extrinsics[i,0,0:3,0:3], rotation_matrix)
-
         if self.use_front_camera_frame:
             for i in range(extrinsics.size(0)):
                 if task[i] == "bimanual_push_box":
