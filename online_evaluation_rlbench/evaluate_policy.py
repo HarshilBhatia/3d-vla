@@ -32,29 +32,58 @@ def parse_arguments():
         ('image_size', str, "256,256"),
         # Logging arguments
         ('output_file', Path, Path(__file__).parent / "eval.json"),
+        # Inference speed
+        ('fp16', str2bool, False),
         # Model arguments: general policy type
         ('model_type', str, 'denoise3d'),
         ('bimanual', str2bool, False),
+        ('keypose_only', str2bool, True),
+        ('pre_tokenize', str2bool, True),
+        ('custom_img_size', int, None),
+        ('workspace_normalizer_buffer', float, 0.04),
         ('prediction_len', int, 1),
         # Model arguments: encoder
         ('backbone', str, "clip"),
+        ('finetune_backbone', str2bool, False),
+        ('finetune_text_encoder', str2bool, False),
         ('fps_subsampling_factor', int, 5),
         # Model arguments: encoder and head
-        ('embedding_dim', int, 144),
-        ('num_attn_heads', int, 9),
-        ('num_vis_instr_attn_layers', int, 2),
-        ('num_history', int, 0),
+        ('embedding_dim', int, 120),
+        ('num_attn_heads', int, 8),
+        ('num_vis_instr_attn_layers', int, 3),
+        ('num_history', int, 1),
         # Model arguments: head
         ('num_shared_attn_layers', int, 4),
         ('relative_action', str2bool, False),
         ('rotation_format', str, 'quat_xyzw'),
         ('denoise_timesteps', int, 10),
-        ('denoise_model', str, "rectified_flow")
+        ('denoise_model', str, "rectified_flow"),
+        ('learn_extrinsics', str2bool, False),
+        ('predict_extrinsics', str2bool, True),
+        ('use_front_camera_frame', str2bool, False),
+        ('pc_rotate_by_front_camera', str2bool, False),
+        ('traj_scene_rope', str2bool, True),
+        ('rope_type', str, 'normal'),
+        ('rope_schedule_type', str, 'linear'),
+        ('rope_schedule_start_k', int, 0),
+        ('rope_schedule_end_k', int, 0),
+        ('rope_schedule_steps', int, 100000),
+        ('sa_blocks_use_rope', str2bool, True),
+        ('use_com_rope', str2bool, False),
+        ('com_rope_block_size', int, 4),
+        ('com_rope_num_axes', int, 3),
+        ('com_rope_init_std', float, 0.02),
     ]
     for arg in arguments:
         parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])
 
-    return parser.parse_args()
+    # Alias: --front_camera_frame (used in shell) -> use_front_camera_frame
+    parser.add_argument('--front_camera_frame', type=str2bool, default=None, dest='_front_camera_frame')
+    args = parser.parse_args()
+    if args._front_camera_frame is not None:
+        args.use_front_camera_frame = args._front_camera_frame
+    delattr(args, '_front_camera_frame')
+    return args
 
 
 def load_models(args):
@@ -63,6 +92,8 @@ def load_models(args):
     model_class = fetch_model_class(args.model_type)
     model = model_class(
         backbone=args.backbone,
+        finetune_backbone=args.finetune_backbone,
+        finetune_text_encoder=args.finetune_text_encoder,
         num_vis_instr_attn_layers=args.num_vis_instr_attn_layers,
         fps_subsampling_factor=args.fps_subsampling_factor,
         embedding_dim=args.embedding_dim,
@@ -73,7 +104,16 @@ def load_models(args):
         relative=args.relative_action,
         rotation_format=args.rotation_format,
         denoise_timesteps=args.denoise_timesteps,
-        denoise_model=args.denoise_model
+        denoise_model=args.denoise_model,
+        learn_extrinsics=args.learn_extrinsics,
+        traj_scene_rope=args.traj_scene_rope,
+        sa_blocks_use_rope=args.sa_blocks_use_rope,
+        predict_extrinsics=args.predict_extrinsics,
+        rope_type=args.rope_type,
+        use_com_rope=args.use_com_rope,
+        com_rope_block_size=args.com_rope_block_size,
+        com_rope_num_axes=args.com_rope_num_axes,
+        com_rope_init_std=args.com_rope_init_std,
     )
 
     # Load model weights
