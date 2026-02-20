@@ -35,7 +35,8 @@ class DenoiseActor(nn.Module):
                  traj_scene_rope=True,
                  sa_blocks_use_rope=True,
                  learn_extrinsics=False,
-                 predict_extrinsics=True):
+                 predict_extrinsics=True,
+                 extrinsics_prediction_mode='delta_m'):
         super().__init__()
         # Arguments to be accessed by the main class
         self._rotation_format = rotation_format
@@ -265,7 +266,7 @@ class DenoiseActor(nn.Module):
     def normalize_pos(self, signal):
         _min = self.workspace_normalizer[0]
         _max = self.workspace_normalizer[1]
-        diff = _max - _min
+        diff = (_max - _min).clamp(min=1e-6)  # avoid div by zero -> NaN
 
         out = signal.clone()
         out[..., :self.nrm_dim] = (
@@ -277,7 +278,7 @@ class DenoiseActor(nn.Module):
     def unnormalize_pos(self, signal):
         _min = self.workspace_normalizer[0]
         _max = self.workspace_normalizer[1]
-        diff = _max - _min
+        diff = (_max - _min).clamp(min=1e-6)
 
         out = signal.clone()
         out[..., :self.nrm_dim] = (
@@ -396,6 +397,7 @@ class TransformerHead(nn.Module):
                  traj_scene_rope=True,
                  sa_blocks_use_rope=True,
                  predict_extrinsics=True,
+                 extrinsics_prediction_mode='delta_m',  # 'rt' = R,T (6D) and log; 'delta_m' = 6x6 matrix
                  learn_extrinsics=False,
                  use_com_rope=False,
                  com_rope_block_size=4,
@@ -403,7 +405,9 @@ class TransformerHead(nn.Module):
                  com_rope_init_std=0.02):
         super().__init__()
         
-        print(f" ************** Predicting Extrinsics: {predict_extrinsics} **************")
+        self.extrinsics_prediction_mode = extrinsics_prediction_mode.lower()
+        assert self.extrinsics_prediction_mode in ('rt', 'delta_m'), "extrinsics_prediction_mode must be 'rt' or 'delta_m'"
+        print(f" ************** Predicting Extrinsics: {predict_extrinsics} (mode={self.extrinsics_prediction_mode}) **************")
 
         self.traj_scene_rope = traj_scene_rope
         self.sa_blocks_use_rope = sa_blocks_use_rope
@@ -598,31 +602,49 @@ class TransformerHead(nn.Module):
             nn.Linear(embedding_dim, 1)
         )
 
-        # 4. Camera extrinsics (if enabled)
+        # 4. Predict extrinsics from cam_token: either R,T (6D) or delta_M (6x6)
         if predict_extrinsics:
             self.camera_proj = nn.Linear(embedding_dim, embedding_dim)
-            self.camera_predictor = nn.Sequential(
-                nn.Linear(embedding_dim, embedding_dim),
-                nn.ReLU(),
-                nn.Linear(embedding_dim, 6)  # 3 axis-angle + 3 translation
-            )
+            if self.extrinsics_prediction_mode == 'rt':
+                self.camera_predictor = nn.Sequential(
+                    nn.Linear(embedding_dim, embedding_dim),
+                    nn.ReLU(),
+                    nn.Linear(embedding_dim, 6)  # axis_angle (3) + translation (3)
+                )
+            else:
+                self.camera_predictor = nn.Sequential(
+                    nn.Linear(embedding_dim, embedding_dim),
+                    nn.ReLU(),
+                    nn.Linear(embedding_dim, 36)  # 6x6 A_skew for delta_M
+                )
+                # Init last layer so A_skew ≈ 0 -> delta_M = exp(A) ≈ I (small delta_M at start)
+                nn.init.normal_(self.camera_predictor[-1].weight, mean=0.0, std=0.01)
+                nn.init.zeros_(self.camera_predictor[-1].bias)
 
-    def predict_camera_extrinsics(self, features, traj_len):
+    def _predict_rt(self, batch_size, device):
+        """Predict axis-angle (3) + translation (3) from cam token. Returns (B, 6)."""
+        cam = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device)
+        h = self.camera_proj(cam.squeeze(1))
+        return self.camera_predictor(h)  # (B, 6)
+
+    def _predict_delta_M(self, batch_size, device):
         """
-        Predict camera extrinsics from the camera token.
-        
-        Args:
-            features: (B, traj_len + fps_len + 4 + 1, F) - full feature sequence including camera token
-            traj_len: int - length of trajectory sequence
-            
+        Predict A_skew from cam token; delta_M = exp(A_skew - A_skew.T) is orthogonal.
+        Used to mix sin/cos features in RoPE, independent of comRoPE.
+
         Returns:
-            cam_params: (B, 6) - predicted camera extrinsics (3 axis-angle + 3 translation)
+            delta_M: (B, 6, 6) orthogonal
         """
-        # Extract camera token (last token in the sequence)
-        camera_token_features = features[:, -1]  # (B, F)
-        camera_token_features = self.camera_proj(camera_token_features)
-        cam_params = self.camera_predictor(camera_token_features)  # (B, 6)
-        return cam_params
+        cam = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device)
+        h = self.camera_proj(cam.squeeze(1))
+        A_skew = self.camera_predictor(h).view(batch_size, 6, 6)
+        A = A_skew - A_skew.transpose(-1, -2)  # skew-symmetric
+        # Clamp norm to avoid matrix_exp overflow -> NaN (orthogonal exp(skew) is stable for small skew)
+        max_norm = 3.0  # ~pi, keep rotation in reasonable range
+        norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
+        A = A * (norm.clamp(max=max_norm) / norm)
+        delta_M = torch.linalg.matrix_exp(A)  # orthogonal by construction
+        return delta_M
 
     def transform_pcd_with_extrinsics(self, pcd, cam_params):
         
@@ -682,14 +704,33 @@ class TransformerHead(nn.Module):
             timesteps, proprio_feats
         )
 
-        # Positional embeddings
+        # Predict extrinsics from cam_token: RT = transform 3D positions (no delta_M); delta_M = mix RoPE sin/cos (no position transform)
+        batch_size, device = trajectory.shape[0], trajectory.device
+        if self.predict_extrinsics:
+            if self.extrinsics_prediction_mode == 'rt':
+                rt = self._predict_rt(batch_size, device)
+                self._last_predicted_cam_params = rt.detach()  # (B, 6) for logging
+                cam_params_rt = rt
+                delta_M = None
+            else:
+                delta_M = self._predict_delta_M(batch_size, device)
+                self._last_predicted_cam_params = delta_M.detach()  # (B, 6, 6)
+                cam_params_rt = None
+        else:
+            cam_params_rt = None
+            delta_M = None
+            self._last_predicted_cam_params = None
+
+        # Positional embeddings (RT mode: positions are transformed inside get_positional_embeddings; delta_M mode: delta_M mixes sin/cos in RoPE)
         rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos = self.get_positional_embeddings(
             traj_xyz, traj_feats,
             rgb3d_pos, rgb3d_feats, rgb2d_feats, rgb2d_pos,
             timesteps, proprio_feats,
             fps_scene_feats, fps_scene_pos,
             instr_feats, instr_pos,
-            stopgrad_k=stopgrad_k
+            stopgrad_k=stopgrad_k,
+            delta_M=delta_M,
+            cam_params_rt=cam_params_rt,
         ) # rel_traj: (traj_len n_hand) = 2, because bimanual.
 
         # Cross attention from gripper to full context
@@ -746,36 +787,8 @@ class TransformerHead(nn.Module):
                 ada_sgnl=time_embs,
             )[-1]
 
-        # Camera extrinsics prediction (if enabled)
-        if self.predict_extrinsics:
-            # Predict camera extrinsics from camera token
-            cam_params = self.predict_camera_extrinsics(features, traj_feats.shape[1])
-            
-            # Store camera parameters for logging (detached to avoid extra computation)
-            self._last_predicted_cam_params = cam_params.detach()
-            
-            # Transform point clouds using predicted extrinsics
-            # rgb3d_pos_transformed = self.transform_pcd_with_extrinsics(rgb3d_pos, cam_params) 
-            # i don't think i need this^ 
-
-            fps_scene_pos_transformed = self.transform_pcd_with_extrinsics(fps_scene_pos, cam_params)
-            
-            # Recompute positional embeddings with transformed positions
-            _, _, rel_pos_new, rel_fps_pos_new = \
-                self.get_positional_embeddings(
-                    traj_xyz, traj_feats,
-                    rgb3d_pos, rgb3d_feats, # NOT NEEDED HERE 
-                    rgb2d_feats, rgb2d_pos, # NONE anyways
-                    timesteps, proprio_feats,
-                    fps_scene_pos_transformed, fps_scene_pos,
-                    instr_feats, instr_pos,
-                )
-            
-            rel_pos = rel_pos_new
-            fps_scene_pos_for_sa = fps_scene_pos_transformed
-        else:
-            self._last_predicted_cam_params = None
-            fps_scene_pos_for_sa = fps_scene_pos
+        # delta_M and _last_predicted_cam_params already set above when predict_extrinsics
+        fps_scene_pos_for_sa = fps_scene_pos
 
         sa_pos_xyz = self._build_sa_pos_xyz(features, traj_xyz, fps_scene_pos_for_sa) if self.use_com_rope else None
 
@@ -812,7 +825,10 @@ class TransformerHead(nn.Module):
         rgb3d_pos, rgb3d_feats, rgb2d_feats, rgb2d_pos,
         timesteps, proprio_feats,
         fps_scene_feats, fps_scene_pos,
-        instr_feats, instr_pos
+        instr_feats, instr_pos,
+        stopgrad_k=0,
+        delta_M=None,
+        cam_params_rt=None,
     ):
         return None, None, None
 
