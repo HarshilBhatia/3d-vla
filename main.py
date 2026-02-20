@@ -77,6 +77,7 @@ def parse_arguments():
         ('denoise_model', str, "rectified_flow"),
         ('learn_extrinsics', str2bool, False),
         ('predict_extrinsics', str2bool, True),
+        ('extrinsics_prediction_mode', str, 'delta_m'),  # 'rt' = predict R,T (6D) and log; 'delta_m' = predict 6x6 matrix
         ('use_front_camera_frame', str2bool, False),
         ('pc_rotate_by_front_camera', str2bool, False),
         ('traj_scene_rope', str2bool, True),

@@ -37,6 +37,7 @@ class DenoiseActor(BaseDenoiseActor):
                  traj_scene_rope=True,
                  sa_blocks_use_rope=True,
                  predict_extrinsics=True,
+                 extrinsics_prediction_mode='delta_m',
                  # RoPE type
                  rope_type='adam',
                  use_com_rope=False,
@@ -57,12 +58,14 @@ class DenoiseActor(BaseDenoiseActor):
             traj_scene_rope=traj_scene_rope,
             sa_blocks_use_rope=sa_blocks_use_rope,
             learn_extrinsics=learn_extrinsics,
-            predict_extrinsics=predict_extrinsics
+            predict_extrinsics=predict_extrinsics,
+            extrinsics_prediction_mode=extrinsics_prediction_mode,
         )
 
 
         print(f'learn_extrinsics: {learn_extrinsics}')
         print(f'predict_extrinsics: {predict_extrinsics}')
+        print(f'extrinsics_prediction_mode: {extrinsics_prediction_mode}')
         print(f'rope_type: {rope_type}')
         
         # Vision-language encoder, runs only once
@@ -89,6 +92,7 @@ class DenoiseActor(BaseDenoiseActor):
             traj_scene_rope=traj_scene_rope,
             sa_blocks_use_rope=sa_blocks_use_rope,
             predict_extrinsics=predict_extrinsics,
+            extrinsics_prediction_mode=extrinsics_prediction_mode,
             rope_type=rope_type,
             use_com_rope=use_com_rope,
             com_rope_block_size=com_rope_block_size,
@@ -241,17 +245,26 @@ class TransformerHead(BaseTransformerHead):
         timesteps, proprio_feats,
         fps_scene_feats, fps_scene_pos,
         instr_feats, instr_pos,
-        stopgrad_k=0
+        stopgrad_k=0,
+        delta_M=None,
+        cam_params_rt=None,
     ):
-        # Allow gradients through RoPE when learning extrinsics
-        # This is needed because the point cloud positions depend on learned camera parameters
+        # RT mode: transform positions by predicted R,t (camera -> world); no delta_M in RoPE.
+        # delta_M mode: no position transform; delta_M mixes sin/cos in RoPE.
         allow_grad = self.training and (self.learn_extrinsics or self.predict_extrinsics)
-        
+
+        if cam_params_rt is not None:
+            # Predict R,T: transform scene positions to world frame; RoPE sees transformed positions, no delta_M
+            rgb3d_pos = self.transform_pcd_with_extrinsics(rgb3d_pos, cam_params_rt)
+            fps_scene_pos = self.transform_pcd_with_extrinsics(fps_scene_pos, cam_params_rt)
+            delta_M = None
+
         rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
         rel_scene_pos = self.relative_pe_layer(rgb3d_pos, stopgrad_k=stopgrad_k)
 
-        # because absolute positions are used, it makes sense to concatenate. 
-        rel_fps_pos = self.relative_pe_layer(fps_scene_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k) # only place where it makes sense to backprop
+        rel_fps_pos = self.relative_pe_layer(
+            fps_scene_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M
+        )
         
         # Add zero positional embeddings for register tokens (4) and camera token (1)
         batch_size = traj_xyz.shape[0]

@@ -1,37 +1,38 @@
 source jobs/default_config.sh
 
-# DATASET_NAME=bimanual_lift_tray
-# train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
-# eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
+DATASET_NAME=bimanual_lift_tray
+train_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/${DATASET_NAME}/val.zarr
 
-# train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
-# val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
-
-
-
-train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
-
-train_instructions=instructions/peract2/instructions_full.json
-val_instructions=instructions/peract2/instructions_full.json
+train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
+val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
 
 
 
-B=64 # with 4 gpu -- 16 per gpu, so A5000s work! 
-train_iters=300000
+# train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
+# eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
+
+# train_instructions=instructions/peract2/instructions_full.json
+# val_instructions=instructions/peract2/instructions_full.json
+
+
+
+B=16 # with 4 gpu -- 16 per gpu, so A5000s work! 
+train_iters=45000
 
 # Experiment configuration
 learn_extrinsics=false
 traj_scene_rope=true
 
-front_camera_frame=false
-predict_extrinsics=False
+front_camera_frame=true
+predict_extrinsics=True
+extrinsics_prediction_mode=delta_m
 
 rope_type=normal
 rope_schedule_type=linear
 rope_schedule_steps=$train_iters
 
-use_com_rope=True
+use_com_rope=False
 com_rope_block_size=3
 com_rope_num_axes=3
 com_rope_init_std=0.02
@@ -112,4 +113,5 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RAN
     --use_com_rope $use_com_rope \
     --com_rope_block_size $com_rope_block_size \
     --com_rope_num_axes $com_rope_num_axes \
-    --com_rope_init_std $com_rope_init_std
+    --com_rope_init_std $com_rope_init_std \
+    --extrinsics_prediction_mode $extrinsics_prediction_mode

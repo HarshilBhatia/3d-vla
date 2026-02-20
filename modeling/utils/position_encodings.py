@@ -456,11 +456,12 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         else:
             self.adam_v = None
 
-    def forward(self, XYZ, allow_grad=False, stopgrad_k=0):
+    def forward(self, XYZ, allow_grad=False, stopgrad_k=0, delta_M=None):
         '''
         @param XYZ: [B,N,3]
         @param allow_grad: whether to allow gradients to flow through
         @param stopgrad_k: number of bins to zero out in backward (for stopgrad rope_type)
+        @param delta_M: optional (B, 6, 6) to mix sin/cos features before view/stack (predict delta M from cam_token)
         @return: position_code [B, N, feature_dim, 2]
         '''
         bsize, npoint, _ = XYZ.shape
@@ -500,6 +501,13 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         cosy = torch.cos(y_position * div_term_y)
         sinz = torch.sin(z_position * div_term_z)
         cosz = torch.cos(z_position * div_term_z)
+
+        # Optional: mix sin/cos with delta_M (from cam_token), before view/stack
+        if delta_M is not None:
+            feat = torch.stack([cosx, cosy, cosz, sinx, siny, sinz], dim=-1)  # [B, N, d//6, 6]
+            feat = torch.einsum('bnci,bji->bncj', feat, delta_M)  # feat @ delta_M.T -> [B, N, d//6, 6]
+            cosx, cosy, cosz = feat[..., 0], feat[..., 1], feat[..., 2]
+            sinx, siny, sinz = feat[..., 3], feat[..., 4], feat[..., 5]
 
         sinx, cosx, siny, cosy, sinz, cosz = map(
             lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),

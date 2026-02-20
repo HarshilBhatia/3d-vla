@@ -9,7 +9,7 @@
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --nodelist=grogu-2-12
+#SBATCH --nodelist=grogu-0-14
 
 # Print job information
 echo "Job started at: $(date)"
@@ -55,14 +55,15 @@ val_instructions=instructions/peract2/instructions.json
 
 
 B=64 # with 4 gpu -- 16 per gpu, so A5000s work! 
-train_iters=60000
+train_iters=75000
 
 # Experiment configuration
 learn_extrinsics=false
 traj_scene_rope=true
 
 front_camera_frame=false
-predict_extrinsics=False
+predict_extrinsics=false
+extrinsics_prediction_mode=delta_m
 
 rope_type=normal
 rope_schedule_type=linear
@@ -74,8 +75,8 @@ com_rope_num_axes=3
 com_rope_init_std=0.02
 
 
-# run_log_dir=2scene_RoPEAdam-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
-run_log_dir=Test_RUN-ComRoPE
+run_log_dir=2scene_comRoPE_rerun_2-front_cam-$front_camera_frame-cam_token-$predict_extrinsics-traj_scene_rope-$traj_scene_rope
+# run_log_dir=Test_RUN-ComRoPE
 # wandb
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 # checkpoint='.pth'
@@ -147,4 +148,5 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MAS
     --use_com_rope $use_com_rope \
     --com_rope_block_size $com_rope_block_size \
     --com_rope_num_axes $com_rope_num_axes \
-    --com_rope_init_std $com_rope_init_std
+    --com_rope_init_std $com_rope_init_std \
+    --extrinsics_prediction_mode $extrinsics_prediction_mode
