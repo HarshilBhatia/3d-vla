@@ -132,7 +132,8 @@ class AttentionLayer(DummyLayer):
                 seq1_sem_pos=None, seq2_sem_pos=None,
                 ada_sgnl=None,
                 rotary_pe_module=None,
-                rope_lambda_reg=0.0):
+                rope_lambda_reg=0.0,
+                rotary_pe_mode=None):
         """
         Args:
             seq1: tensor (B, S1, C)
@@ -143,6 +144,7 @@ class AttentionLayer(DummyLayer):
             seq2_pos: (B, S2, C) if not rotary, else (B, S2, C, 2)
             seq2_sem_pos: (B, S2, C), semantic embedding
             ada_sgnl: tensor (B, C)
+            rotary_pe_mode: str
 
         Returns:
             tensor (B, S, C)
@@ -173,7 +175,8 @@ class AttentionLayer(DummyLayer):
             key_padding_mask=seq2_key_padding_mask,  # (B, S2)
             rotary_pe=(seq1_pos, seq2_pos) if self.rotary_pe else None,
             rotary_pe_module=rotary_pe_module,
-            rope_lambda_reg=rope_lambda_reg
+            rope_lambda_reg=rope_lambda_reg,
+            rotary_pe_mode=rotary_pe_mode
         )[0].transpose(0, 1)
         seq1 = seq1 + self.dropout(seq1b)
         # Normalize if post-norm
@@ -207,7 +210,8 @@ class AttentionModule(nn.Module):
                 seq1_sem_pos=None, seq2_sem_pos=None,
                 ada_sgnl=None,
                 rotary_pe_module=None,
-                rope_lambda_reg=0.0):
+                rope_lambda_reg=0.0,
+                rotary_pe_mode=None):
         """
         Args:
             seq1: tensor (B, S1, C)
@@ -218,6 +222,7 @@ class AttentionModule(nn.Module):
             seq1_sem_pos: (B, S1, C), semantic embedding
             seq2_sem_pos: (B, S2, C), semantic embedding
             ada_sgnl: tensor (B, C)
+            rotary_pe_mode: str, "vision_to_traj", "traj_to_vision", etc.
 
         Returns:
             tensor (B, S1, C)
@@ -233,7 +238,8 @@ class AttentionModule(nn.Module):
                 seq1_sem_pos, seq2_sem_pos,
                 ada_sgnl,
                 rotary_pe_module=rotary_pe_module,
-                rope_lambda_reg=rope_lambda_reg
+                rope_lambda_reg=rope_lambda_reg,
+                rotary_pe_mode=rotary_pe_mode
             )
             seq1 = self.ffw_layers[i](seq1, ada_sgnl)
             output.append(seq1)

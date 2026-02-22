@@ -58,6 +58,11 @@ denoise_model=rectified_flow
 use_rope_delta_m=false
 rope_lambda_reg=0.0
 
+# Rotation (point cloud augmentation; optional)
+rotate_pcd=false
+rotate_angle_deg=0.0
+rotate_axis=z
+
 # Wandb logging configuration (optional)
 wandb_project=3dvla  # Change this to customize your wandb project name
 wandb_name=baseline  # Leave empty to use run_log_dir as the run name, or set a custom name
@@ -65,6 +70,9 @@ wandb_name=baseline  # Leave empty to use run_log_dir as the run name, or set a 
 # Experiment overrides (set by sbatch via export)
 use_rope_delta_m=${USE_ROPE_DELTA_M:-$use_rope_delta_m}
 rope_lambda_reg=${ROPE_LAMBDA_REG:-$rope_lambda_reg}
+rotate_pcd=${ROTATE_PCD:-$rotate_pcd}
+rotate_angle_deg=${ROTATE_ANGLE_DEG:-$rotate_angle_deg}
+rotate_axis=${ROTATE_AXIS:-$rotate_axis}
 wandb_name=${WANDB_NAME:-$wandb_name}
 
 run_log_dir=$model_type-$dataset-C$C-B$B-lr$lr-$lr_scheduler-H$num_history-$denoise_model
@@ -117,6 +125,9 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM \
     --denoise_model $denoise_model \
     --use_rope_delta_m $use_rope_delta_m \
     --rope_lambda_reg $rope_lambda_reg \
+    --rotate_pcd $rotate_pcd \
+    --rotate_angle_deg $rotate_angle_deg \
+    --rotate_axis $rotate_axis \
     --wandb_project $wandb_project \
     ${wandb_name:+--wandb_name $wandb_name} \
     --filter_tasks $TASK

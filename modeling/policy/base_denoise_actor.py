@@ -542,7 +542,8 @@ class TransformerHead(nn.Module):
             seq2_pos=rel_scene_pos,
             ada_sgnl=time_embs,
             rotary_pe_module=getattr(self, 'relative_pe_layer', None),
-            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0)
+            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0),
+            rotary_pe_mode='traj_to_vision'
         )[-1]
 
         # Self attention among gripper and sampled context

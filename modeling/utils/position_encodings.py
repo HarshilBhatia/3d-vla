@@ -41,15 +41,23 @@ class RotaryPositionEncoding(nn.Module):
         x = x * cos + x2 * sin
         return x
 
-    def embed_rotary_total(self, x, cos, sin, lambda_reg=0.0):
+    def embed_rotary_total(self, x, cos, sin, mode=None, lambda_reg=0.0):
         """Apply R_total(p) @ x = ΔM @ R(p) @ x. Returns (x_out, reg)."""
         x_rope = self.embed_rotary(x, cos, sin)
         if not self.use_delta_m:
             return x_rope, torch.tensor(0.0, device=x.device, dtype=x.dtype)
+        
         A = self.B - self.B.T
         delta_M = torch.linalg.matrix_exp(A)
-        x_out = x_rope @ delta_M.T
         reg = (lambda_reg * (A * A).sum()) if lambda_reg else torch.tensor(0.0, device=x.device, dtype=x.dtype)
+
+        if mode == "vision_to_traj":
+            x_out = x_rope @ delta_M.T
+        elif mode == "traj_to_vision":
+            x_out = x_rope @ delta_M
+        else:
+            x_out = x_rope
+            
         return x_out, reg
 
     def forward(self, x_position):
