@@ -62,7 +62,7 @@ class RotaryPositionEncoding(nn.Module):
             vision_tokens = x_rope[vision_mask]
             vision_tokens = vision_tokens @ delta_M.T
             x_out = x_rope.clone()
-            x_out[vision_mask] = vision_tokens
+            x_out[vision_mask] = vision_tokens.to(x_out.dtype)
         else:
             x_out = x_rope
             
