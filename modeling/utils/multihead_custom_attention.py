@@ -29,7 +29,8 @@ class MultiheadCustomAttention(nn.MultiheadAttention):
             rotary_pe=None,
             rotary_pe_module=None,
             rope_lambda_reg=0.0,
-            rotary_pe_mode=None):
+            rotary_pe_mode=None,
+            vision_mask=None):
         r"""Compute attention outputs using query, key, and value embeddings.
 
         query, key, and value are (S, B, F) if not batch_first else (B, S, F)
@@ -85,7 +86,8 @@ class MultiheadCustomAttention(nn.MultiheadAttention):
             rotary_pe=rotary_pe,
             rotary_pe_module=rotary_pe_module,
             rope_lambda_reg=rope_lambda_reg,
-            rotary_pe_mode=rotary_pe_mode)
+            rotary_pe_mode=rotary_pe_mode,
+            vision_mask=vision_mask)
         if self.batch_first and is_batched:
             return attn_output.transpose(1, 0), attn_output_weights
         else:
@@ -107,7 +109,8 @@ def multi_head_attention_forward(query,
                                  rotary_pe=None,
                                  rotary_pe_module=None,
                                  rope_lambda_reg=0.0,
-                                 rotary_pe_mode=None):
+                                 rotary_pe_mode=None,
+                                 vision_mask=None):
     tgt_len, bsz, embed_dim = query.size()
     assert embed_dim == embed_dim_to_check
     assert list(query.size()) == [tgt_len, bsz, embed_dim]
@@ -123,18 +126,20 @@ def multi_head_attention_forward(query,
         q_cos, q_sin = qp[..., 0], qp[..., 1]
         k_cos, k_sin = kvp[..., 0], kvp[..., 1]
         if rotary_pe_module is not None and hasattr(rotary_pe_module, 'embed_rotary_total'):
-            # Apply mode to Q, but NOT to K (K uses standard RoPE)
+            # Q: Apply mode (if cross-attn) or vision_mask (if self-attn)
             q_bt, q_reg = rotary_pe_module.embed_rotary_total(
                 q.transpose(0, 1), q_cos, q_sin, 
                 mode=rotary_pe_mode, 
+                vision_mask=vision_mask,
                 lambda_reg=rope_lambda_reg
             )
             q = q_bt.transpose(0, 1)
             
-            # K uses standard RoPE (mode=None)
+            # K: Apply vision_mask (if self-attn), but NO mode (if cross-attn)
             k_bt, k_reg = rotary_pe_module.embed_rotary_total(
                 k.transpose(0, 1), k_cos, k_sin, 
                 mode=None, 
+                vision_mask=vision_mask,
                 lambda_reg=rope_lambda_reg
             )
             k = k_bt.transpose(0, 1)

@@ -41,7 +41,7 @@ class RotaryPositionEncoding(nn.Module):
         x = x * cos + x2 * sin
         return x
 
-    def embed_rotary_total(self, x, cos, sin, mode=None, lambda_reg=0.0):
+    def embed_rotary_total(self, x, cos, sin, mode=None, vision_mask=None, lambda_reg=0.0):
         """Apply R_total(p) @ x = ΔM @ R(p) @ x. Returns (x_out, reg)."""
         x_rope = self.embed_rotary(x, cos, sin)
         if not self.use_delta_m:
@@ -55,6 +55,14 @@ class RotaryPositionEncoding(nn.Module):
             x_out = x_rope @ delta_M.T
         elif mode == "traj_to_vision":
             x_out = x_rope @ delta_M
+        elif vision_mask is not None:
+            # Aggressive version: apply ΔM only to vision tokens
+            # x_rope: (B, S, D)
+            # vision_mask: (B, S) boolean
+            vision_tokens = x_rope[vision_mask]
+            vision_tokens = vision_tokens @ delta_M.T
+            x_out = x_rope.clone()
+            x_out[vision_mask] = vision_tokens
         else:
             x_out = x_rope
             

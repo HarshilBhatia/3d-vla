@@ -551,6 +551,13 @@ class TransformerHead(nn.Module):
             traj_feats, fps_scene_feats,
             rgb3d_feats, rgb2d_feats, instr_feats
         )
+
+        # Create vision_mask for self-attention ΔM
+        # features is [traj_feats, fps_scene_feats]
+        traj_len = traj_feats.shape[1]
+        vision_mask = torch.zeros(features.shape[:2], dtype=torch.bool, device=features.device)
+        vision_mask[:, traj_len:] = True
+
         features = self.self_attn(
             seq1=features,
             seq2=features,
@@ -558,17 +565,18 @@ class TransformerHead(nn.Module):
             seq2_pos=rel_pos,
             ada_sgnl=time_embs,
             rotary_pe_module=getattr(self, 'relative_pe_layer', None),
-            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0)
+            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0),
+            vision_mask=vision_mask
         )[-1]
 
         # Rotation head
         rotation = self.predict_rot(
-            features, rel_pos, time_embs, traj_feats.shape[1]
+            features, rel_pos, time_embs, traj_feats.shape[1], vision_mask
         )
 
         # Position head
         position, position_features = self.predict_pos(
-            features, rel_pos, time_embs, traj_feats.shape[1]
+            features, rel_pos, time_embs, traj_feats.shape[1], vision_mask
         )
 
         # Openess head from position head
@@ -611,7 +619,7 @@ class TransformerHead(nn.Module):
     ):
         return torch.cat([traj_feats, fps_scene_feats], 1)
 
-    def predict_pos(self, features, pos, time_embs, traj_len):
+    def predict_pos(self, features, pos, time_embs, traj_len, vision_mask=None):
         position_features = self.position_self_attn(
             seq1=features,
             seq2=features,
@@ -619,14 +627,15 @@ class TransformerHead(nn.Module):
             seq2_pos=pos,
             ada_sgnl=time_embs,
             rotary_pe_module=getattr(self, 'relative_pe_layer', None),
-            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0)
+            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0),
+            vision_mask=vision_mask
         )[-1]
         position_features = position_features[:, :traj_len]
         position_features = self.position_proj(position_features)  # (B, N, C)
         position = self.position_predictor(position_features)
         return position, position_features
 
-    def predict_rot(self, features, pos, time_embs, traj_len):
+    def predict_rot(self, features, pos, time_embs, traj_len, vision_mask=None):
         rotation_features = self.rotation_self_attn(
             seq1=features,
             seq2=features,
@@ -634,7 +643,8 @@ class TransformerHead(nn.Module):
             seq2_pos=pos,
             ada_sgnl=time_embs,
             rotary_pe_module=getattr(self, 'relative_pe_layer', None),
-            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0)
+            rope_lambda_reg=getattr(self, 'rope_lambda_reg', 0.0),
+            vision_mask=vision_mask
         )[-1]
         rotation_features = rotation_features[:, :traj_len]
         rotation_features = self.rotation_proj(rotation_features)  # (B, N, C)

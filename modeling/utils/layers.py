@@ -133,7 +133,8 @@ class AttentionLayer(DummyLayer):
                 ada_sgnl=None,
                 rotary_pe_module=None,
                 rope_lambda_reg=0.0,
-                rotary_pe_mode=None):
+                rotary_pe_mode=None,
+                vision_mask=None):
         """
         Args:
             seq1: tensor (B, S1, C)
@@ -145,6 +146,7 @@ class AttentionLayer(DummyLayer):
             seq2_sem_pos: (B, S2, C), semantic embedding
             ada_sgnl: tensor (B, C)
             rotary_pe_mode: str
+            vision_mask: tensor (B, S)
 
         Returns:
             tensor (B, S, C)
@@ -176,7 +178,8 @@ class AttentionLayer(DummyLayer):
             rotary_pe=(seq1_pos, seq2_pos) if self.rotary_pe else None,
             rotary_pe_module=rotary_pe_module,
             rope_lambda_reg=rope_lambda_reg,
-            rotary_pe_mode=rotary_pe_mode
+            rotary_pe_mode=rotary_pe_mode,
+            vision_mask=vision_mask
         )[0].transpose(0, 1)
         seq1 = seq1 + self.dropout(seq1b)
         # Normalize if post-norm
@@ -211,7 +214,8 @@ class AttentionModule(nn.Module):
                 ada_sgnl=None,
                 rotary_pe_module=None,
                 rope_lambda_reg=0.0,
-                rotary_pe_mode=None):
+                rotary_pe_mode=None,
+                vision_mask=None):
         """
         Args:
             seq1: tensor (B, S1, C)
@@ -239,7 +243,8 @@ class AttentionModule(nn.Module):
                 ada_sgnl,
                 rotary_pe_module=rotary_pe_module,
                 rope_lambda_reg=rope_lambda_reg,
-                rotary_pe_mode=rotary_pe_mode
+                rotary_pe_mode=rotary_pe_mode,
+                vision_mask=vision_mask
             )
             seq1 = self.ffw_layers[i](seq1, ada_sgnl)
             output.append(seq1)
