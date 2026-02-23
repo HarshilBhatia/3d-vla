@@ -1,4 +1,6 @@
 from kornia import augmentation as K
+import json
+import os
 import time
 import numpy as np
 import torch
@@ -7,11 +9,41 @@ from torch.nn import functional as F
 from .base import DataPreprocessor
 
 
+
+def _load_task_extrinsics_offsets(path=None):
+    """Load per-task R (3x3) and t (3) from JSON. Returns dict task_name -> (R, t) as numpy."""
+    
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "..",
+        "instructions", "peract2", "task_extrinsics_offsets.json"
+    )
+    with open(path) as f:
+        raw = json.load(f)
+    out = {}
+    for task, data in raw.items():
+        R = np.array(data["R"], dtype=np.float64)
+        t = np.array(data["t"], dtype=np.float64)
+        out[task] = (R, t)
+    return out
+
+
+def _apply_offset_to_extrinsics(extrinsics_i0, R, t, device, dtype):
+    """Apply world-frame offset to front cam: new_cam_to_world = [R|t;0 0 0 1] @ cam_to_world.
+    extrinsics_i0: (4, 4) camera-to-world for one sample.
+    """
+    T = np.eye(4, dtype=np.float64)
+    T[:3, :3] = R
+    T[:3, 3] = t
+    T = torch.tensor(T, device=device, dtype=dtype)
+    return T @ extrinsics_i0
+
+
 class RLBenchDataPreprocessor(DataPreprocessor):
 
     def __init__(self, keypose_only=False, num_history=1,
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
-                 use_front_camera_frame=False, pc_rotate_by_front_camera=False):
+                 use_front_camera_frame=False, pc_rotate_by_front_camera=False,
+                 task_extrinsics_offsets_path=None):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,
@@ -20,6 +52,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             use_front_camera_frame=use_front_camera_frame,
             pc_rotate_by_front_camera=pc_rotate_by_front_camera
         )
+        self.task_offsets = _load_task_extrinsics_offsets()
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
                 degrees=0,
@@ -34,6 +67,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                 p=0.1
             )
         ).cuda()
+
     
     def _transform_pcd_to_front_frame(self, pcds, extrinsics):
         """
@@ -168,22 +202,19 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         # This is done after all augmentation and processing
         # Front camera is assumed to be index 0
 
-        # i have to do this for each elem in the batch separately. 
-        # HACK
-       
+        # Task-based extrinsics offset then transform to front camera frame
         if self.use_front_camera_frame:
+            offsets = self.task_offsets
+            extrinsics_for_frame = extrinsics.clone()
             for i in range(extrinsics.size(0)):
-                if task[i] == "bimanual_push_box":
-                    pass
-                elif task[i] == "bimanual_lift_tray":
-                    # manually flip the extrinsics
-                    extrinsics[i,0,0:3,3]= -extrinsics[i,0,0:3,3] # flip the translation. 
-                    # rotate by 30 degress 
-                    rotation_matrix = torch.tensor([[1, 0, 0], [0, np.cos(30*np.pi/180), -np.sin(30*np.pi/180)], [0, np.sin(30*np.pi/180), np.cos(30*np.pi/180)]]).to(extrinsics.device).to(extrinsics.dtype)
-                    extrinsics[i,0,0:3,0:3] = torch.matmul(extrinsics[i,0,0:3,0:3], rotation_matrix)
-            
-
-            pcds = self._transform_pcd_to_front_frame(pcds, extrinsics)
+                task_name = task[i] if task is not None else None
+                if task_name and task_name in offsets:
+                    R, t = offsets[task_name]
+                    extrinsics_for_frame[i, 0] = _apply_offset_to_extrinsics(
+                        extrinsics_for_frame[i, 0], R, t,
+                        extrinsics.device, extrinsics.dtype
+                    )
+            pcds = self._transform_pcd_to_front_frame(pcds, extrinsics_for_frame)
 
         if self.pc_rotate_by_front_camera:
             pcds = self._rotate_pcd_by_front_camera(pcds, extrinsics)

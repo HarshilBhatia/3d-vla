@@ -1,0 +1,136 @@
+# Single source of truth for train, offline eval, online eval, and analyse_qk.
+# Override from CLI: python main.py batch_size=32 eval_only=true
+# Switch dataset type: python main.py dataset=peract  (peract2 | peract | peract2_singlecam | peract_twocam)
+# Switch data config: python main.py data=two  (single | two | full)  <- which tasks/split
+# Switch rope mode: python main.py rope_mode=com  (none | standard | com)
+# Switch experiment: python main.py experiment=comrope_2task  (default | comrope_2task | one_task | full | drope)
+
+
+# === Data / loader (train & offline eval) ===
+# data group sets train_data_dir, eval_data_dir, train_instructions, val_instructions (see config/data/*.yaml)
+train_data_dir: ''
+eval_data_dir: ''
+train_instructions: ''
+val_instructions: ''
+dataset: Peract2_3dfront_3dwrist
+
+# DataLoader: num_workers >= (1+prefetch) per GPU; increase if GPU waits on data. memory_limit = zarr LRU cache (GB).
+num_workers: 4
+prefetch_factor: 4  # batches to prefetch per worker; try 8 if RAM allows
+batch_size: 64
+batch_size_val: 64
+chunk_size: 1
+memory_limit: 8.0
+
+# === Logging ===
+base_log_dir: train_logs
+exp_log_dir: exp
+run_log_dir: run
+
+# === Wandb ===
+use_wandb: true
+wandb_project: 3d_flowmatch_actor
+wandb_run_name: null
+wandb_run_id: null
+wandb_save_checkpoints: false
+wandb_watch_model: false
+
+# === Train / offline eval ===
+# checkpoint: path to .pth for resume or eval_only; null = train from scratch
+checkpoint: null
+val_freq: 4000
+interm_ckpt_freq: 10000
+# eval_only: true = run validation only (no training); trainer uses run_mode=eval_offline
+eval_only: false
+lr: 0.0001
+backbone_lr: 0.0001
+lr_scheduler: constant
+wd: 0.005
+train_iters: 100000  # total training steps; override per experiment or CLI
+use_compile: false  # torch.compile on compute_loss (faster, sometimes unstable)
+use_ema: false      # exponential moving average of weights for eval
+lv2_batch_size: 1
+
+# === Model: policy type ===
+model_type: denoise3d
+# bimanual: true for Peract2 bimanual tasks (bimanual_lift_tray, etc.); false for single-arm
+bimanual: true
+keypose_only: true
+pre_tokenize: true
+custom_img_size: null
+workspace_normalizer_buffer: 0.04
+
+# === Model: encoder ===
+backbone: clip
+finetune_backbone: false
+finetune_text_encoder: false
+fps_subsampling_factor: 5
+
+
+
+# === Online eval (evaluate_policy.py) ===
+task: null
+max_tries: 10
+max_steps: 25
+headless: false
+collision_checking: false
+seed: 0
+data_dir: demos
+image_size: "256,256"
+output_file: eval.json
+fp16: false
+prediction_len: 1
+
+# === RoPE analysis (analyse_qk.py) ===
+rope_analysis_max_batches: 50
+rope_analysis_save_name: rope3d_frequency_norms.pt
+
+
+
+
+# === Model: head ===
+embedding_dim: 120
+num_attn_heads: 8
+num_vis_instr_attn_layers: 3
+num_history: 1
+num_shared_attn_layers: 4
+relative_action: false
+rotation_format: quat_xyzw
+denoise_timesteps: 5
+denoise_model: rectified_flow
+
+
+sa_blocks_use_rope: true
+traj_scene_rope: true
+
+
+learn_extrinsics: false
+predict_extrinsics: false
+extrinsics_prediction_mode: null  # 'rt' = R,T (6D); 'delta_m' = 6x6 matrix
+# use_front_camera_frame: canonical name; use for front-camera frame transform in data/eval
+use_front_camera_frame: false
+pc_rotate_by_front_camera: false
+
+# RoPE: traj_scene_rope, sa_blocks_use_rope, use_com_rope come from config/rope_mode/<name>.yaml
+
+
+
+rope_type: normal
+rope_schedule_type: null
+rope_schedule_start_k: null
+rope_schedule_end_k: null
+rope_schedule_steps: null
+
+
+use_com_rope: false
+com_rope_block_size: 3
+com_rope_num_axes: 3
+com_rope_init_std: 0.02
+
+
+# @_global_ merges group content into root (so train_data_dir, train_instructions, etc. are top-level)
+# _self_ sets composition order so this config's values come first, then group configs override.
+defaults:
+  - _self_
+  - data@_global_: single
+  - experiment@_global_: default

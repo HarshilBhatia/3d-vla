@@ -7,6 +7,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from utils.data_preprocessors.rlbench import (
+    _load_task_extrinsics_offsets,
+    _apply_offset_to_extrinsics,
+)
+
 from rlbench.observation_config import ObservationConfig, CameraConfig
 from rlbench.environment import Environment
 from rlbench.action_modes.action_mode import BimanualMoveArmThenGripper
@@ -150,6 +155,7 @@ class RLBenchEnv:
         self._task_str = task_str
         self._use_front_camera_frame = use_front_camera_frame
         self._pc_rotate_by_front_camera = pc_rotate_by_front_camera
+        self.task_offsets = _load_task_extrinsics_offsets()
 
         # setup RLBench environments
         self.obs_config = self.create_obs_config(
@@ -168,22 +174,17 @@ class RLBenchEnv:
     def _apply_front_camera_frame_transform(self, pcd, extrinsics, front_index, task_str):
         """
         Same logic as utils.data_preprocessors.rlbench.RLBenchDataPreprocessor when
-        use_front_camera_frame=True: task-specific extrinsics tweak then transform
+        use_front_camera_frame=True: task-based extrinsics offset then transform
         pcd to front camera frame.
         extrinsics: (1, ncam, 4, 4), pcd: (1, ncam, 3, H, W).
         """
         ext = extrinsics.clone()
-        if task_str == "bimanual_push_box":
-            pass
-        elif task_str == "bimanual_lift_tray":
-            # flip translation
-            ext[0, front_index, 0:3, 3] = -ext[0, front_index, 0:3, 3]
-            # rotate by 30 deg around X
-            rot_30_x = torch.tensor(
-                [[1, 0, 0], [0, np.cos(30 * np.pi / 180), -np.sin(30 * np.pi / 180)], [0, np.sin(30 * np.pi / 180), np.cos(30 * np.pi / 180)]],
-                device=ext.device, dtype=ext.dtype
+        offsets = self.task_offsets
+        if task_str and task_str in offsets:
+            R, t = offsets[task_str]
+            ext[0, front_index] = _apply_offset_to_extrinsics(
+                ext[0, front_index], R, t, ext.device, ext.dtype
             )
-            ext[0, front_index, 0:3, 0:3] = ext[0, front_index, 0:3, 0:3] @ rot_30_x
         return self._transform_pcd_to_front_frame(pcd, ext, front_index)
 
     def _transform_pcd_to_front_frame(self, pcds, extrinsics, front_index):

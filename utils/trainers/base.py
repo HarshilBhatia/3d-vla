@@ -31,6 +31,8 @@ class BaseTrainTester:
         self.args = args
         self.dataset_cls = dataset_cls
         self.model_cls = model_cls
+        # Single semantic for train vs offline eval (Option B: derived from eval_only; can migrate to --mode later)
+        self.run_mode = "eval_offline" if getattr(args, "eval_only", False) else "train"
 
         self.preprocessor = fetch_data_preprocessor(self.args.dataset)(
             self.args.keypose_only,
@@ -41,7 +43,7 @@ class BaseTrainTester:
             pc_rotate_by_front_camera=getattr(self.args, 'pc_rotate_by_front_camera', False)
         )
 
-        if dist.get_rank() == 0 and not self.args.eval_only:
+        if dist.get_rank() == 0 and self.run_mode == "train":
             self.writer = SummaryWriter(log_dir=args.log_dir)
             
             # Initialize wandb if enabled
@@ -102,6 +104,7 @@ class BaseTrainTester:
             print(f"Global batch size: {self.args.batch_size}")
             print(f"Per-GPU batch size: {per_gpu_batch_size}")
         
+        prefetch = getattr(self.args, 'prefetch_factor', 4)
         train_loader = DataLoader(
             train_dataset,
             batch_size=per_gpu_batch_size,
@@ -113,11 +116,13 @@ class BaseTrainTester:
             sampler=train_sampler,
             drop_last=True,
             generator=g,
-            prefetch_factor=4,
-            persistent_workers=True
+            prefetch_factor=prefetch,
+            persistent_workers=True,
         )
         # No sampler for val! (only runs on rank 0, no need to divide by world_size)
         if dist.get_rank() == 0:
+            g_val = torch.Generator()
+            g_val.manual_seed(0)
             val_loader = DataLoader(
                 val_dataset,
                 batch_size=self.args.batch_size_val // self.args.chunk_size,
@@ -127,8 +132,9 @@ class BaseTrainTester:
                 pin_memory=True,
                 sampler=None,
                 drop_last=False,
-                prefetch_factor=4,
-                persistent_workers=True
+                prefetch_factor=prefetch,
+                persistent_workers=True,
+                generator=g_val,
             )
         else:
             val_loader = None
@@ -239,7 +245,8 @@ class BaseTrainTester:
             batch_size=max(self.args.batch_size, 64) // self.args.chunk_size,
             collate_fn=actions_collate_fn,
             shuffle=False,
-            num_workers=self.args.num_workers
+            num_workers=self.args.num_workers,
+            pin_memory=True,
         )
 
         # Loop and compute action min-max
@@ -330,6 +337,10 @@ class BaseTrainTester:
         
         # NOW create optimizer with CUDA/DDP parameters
         optimizer = self.get_optimizer(model)
+        if self.run_mode == "train" and self.args.train_iters is None:
+            raise ValueError(
+                "train_iters must be set for training. Set in config (e.g. experiment yaml) or CLI: train_iters=100000"
+            )
         lr_scheduler = fetch_scheduler(
             self.args.lr_scheduler, optimizer, self.args.train_iters
         )
@@ -340,7 +351,7 @@ class BaseTrainTester:
             model.module.compute_loss = torch.compile(model.module.compute_loss, fullgraph=True)
         
         # Watch model with wandb
-        if dist.get_rank() == 0 and not self.args.eval_only:
+        if dist.get_rank() == 0 and self.run_mode == "train":
             if getattr(self.args, 'wandb_watch_model', False):
                 wandb.watch(model, log='all', log_freq=self.args.val_freq)
 
@@ -354,8 +365,8 @@ class BaseTrainTester:
             start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer)
         print(model.module.workspace_normalizer)
 
-        # Eval only
-        if self.args.eval_only:
+        # Eval only (offline validation, no training)
+        if self.run_mode == "eval_offline":
             if dist.get_rank() == 0:
                 print("Test evaluation.......")
                 model.eval()
@@ -631,7 +642,7 @@ class BaseTrainTester:
         if model_dict.get("ema_weight") is not None:
             ema_model.load_state_dict(model_dict["ema_weight"], strict=True)
         # Useful for resuming training
-        if 'optimizer' in model_dict and not self.args.eval_only:
+        if 'optimizer' in model_dict and self.run_mode == "train":
             optimizer.load_state_dict(model_dict["optimizer"])
         start_iter = model_dict.get("iter", 0)
         best_loss = model_dict.get("best_loss", None)

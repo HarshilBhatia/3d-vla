@@ -173,6 +173,26 @@ class DenoiseActor(BaseDenoiseActor):
         return super().encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=stopgrad_k)
 
 
+
+def _transform_pcd_with_extrinsics(pcd, cam_params):
+
+    B, N, _ = pcd.shape
+    
+    # Extract axis-angle and translation
+    axis_angle = cam_params[:, :3]  # (B, 3)
+    translation = cam_params[:, 3:6]  # (B, 3)
+    
+    # Convert axis-angle to rotation matrix
+    R = axis_angle_to_matrix(axis_angle)  # (B, 3, 3)
+    
+    # Transform: P_world = R @ P_cam + t
+    # pcd: (B, N, 3) -> (B, 3, N) for matrix multiplication
+    pcd_transposed = pcd.transpose(1, 2)  # (B, 3, N)
+    pcd_rotated = torch.bmm(R, pcd_transposed)  # (B, 3, N)
+    pcd_transformed = pcd_rotated.transpose(1, 2) + translation.unsqueeze(1)  # (B, N, 3)
+    
+    return pcd_transformed
+
 class TransformerHead(BaseTransformerHead):
 
     def __init__(self,
@@ -210,33 +230,6 @@ class TransformerHead(BaseTransformerHead):
         # Relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim, rope_type=rope_type)
 
-    def transform_pcd_with_extrinsics(self, pcd, cam_params):
-        """
-        Transform point cloud using predicted camera extrinsics.
-        
-        Args:
-            pcd: (B, N, 3) - point cloud in camera coordinates
-            cam_params: (B, 6) - camera extrinsics (3 axis-angle + 3 translation)
-            
-        Returns:
-            pcd_transformed: (B, N, 3) - transformed point cloud in world coordinates
-        """
-        B, N, _ = pcd.shape
-        
-        # Extract axis-angle and translation
-        axis_angle = cam_params[:, :3]  # (B, 3)
-        translation = cam_params[:, 3:6]  # (B, 3)
-        
-        # Convert axis-angle to rotation matrix
-        R = axis_angle_to_matrix(axis_angle)  # (B, 3, 3)
-        
-        # Transform: P_world = R @ P_cam + t
-        # pcd: (B, N, 3) -> (B, 3, N) for matrix multiplication
-        pcd_transposed = pcd.transpose(1, 2)  # (B, 3, N)
-        pcd_rotated = torch.bmm(R, pcd_transposed)  # (B, 3, N)
-        pcd_transformed = pcd_rotated.transpose(1, 2) + translation.unsqueeze(1)  # (B, N, 3)
-        
-        return pcd_transformed
 
     def get_positional_embeddings(
         self,
@@ -255,8 +248,8 @@ class TransformerHead(BaseTransformerHead):
 
         if cam_params_rt is not None:
             # Predict R,T: transform scene positions to world frame; RoPE sees transformed positions, no delta_M
-            rgb3d_pos = self.transform_pcd_with_extrinsics(rgb3d_pos, cam_params_rt)
-            fps_scene_pos = self.transform_pcd_with_extrinsics(fps_scene_pos, cam_params_rt)
+            rgb3d_pos = _transform_pcd_with_extrinsics(rgb3d_pos, cam_params_rt)
+            fps_scene_pos = _transform_pcd_with_extrinsics(fps_scene_pos, cam_params_rt)
             delta_M = None
 
         rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)

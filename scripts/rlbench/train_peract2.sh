@@ -81,57 +81,57 @@ ngpus=1
 #$(nvidia-smi -L | wc -l)
 
 
-TORCH_DISTRIBUTED_DEBUG=DETAIL NCCL_DEBUG=WARN WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RANDOM\
+TORCH_DISTRIBUTED_DEBUG=DETAIL NCCL_DEBUG=WARN WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $RANDOM \
     main.py \
-    --train_data_dir $train_data_dir \
-    --eval_data_dir $eval_data_dir \
-    --train_instructions $train_instructions \
-    --val_instructions $val_instructions \
-    --dataset $dataset \
-    --num_workers $num_workers \
-    --batch_size $B \
-    --batch_size_val $B_val \
-    --chunk_size $chunk_size \
-    --memory_limit $memory_limit \
-    --exp_log_dir $main_dir \
-    --run_log_dir ${run_log_dir} \
-    --checkpoint $checkpoint \
-    --val_freq $val_freq \
-    --eval_only $eval_only \
-    --lr $lr \
-    --backbone_lr $backbone_lr \
-    --lr_scheduler $lr_scheduler \
-    --wd $wd \
-    --train_iters $train_iters \
-    --use_compile $use_compile \
-    --use_ema $use_ema \
-    --lv2_batch_size $lv2_batch_size \
-    --model_type $model_type \
-    --bimanual $bimanual \
-    --keypose_only $keypose_only \
-    --pre_tokenize $pre_tokenize \
-    --backbone $backbone \
-    --finetune_backbone $finetune_backbone \
-    --finetune_text_encoder $finetune_text_encoder \
-    --fps_subsampling_factor $fps_subsampling_factor \
-    --embedding_dim $C \
-    --num_attn_heads $num_attn_heads \
-    --num_vis_instr_attn_layers $num_vis_instr_attn_layers \
-    --num_history $num_history \
-    --num_shared_attn_layers $num_shared_attn_layers \
-    --workspace_normalizer_buffer $workspace_normalizer_buffer \
-    --relative_action $relative_action \
-    --rotation_format $rotation_format \
-    --denoise_timesteps $denoise_timesteps \
-    --denoise_model $denoise_model \
-    --use_wandb false \
-    --wandb_project 3d_flowmatch_actor \
-    --wandb_run_name $run_log_dir \
-    --learn_extrinsics $learn_extrinsics \
-    --use_front_camera_frame $use_front_camera_frame \
-    --pc_rotate_by_front_camera $pc_rotate_by_front_camera \
-    --traj_scene_rope $traj_scene_rope \
-    --predict_extrinsics $predict_extrinsics \
-    --rope_type $rope_type \
-    --rope_schedule_type $rope_schedule_type \
-    --rope_schedule_steps $rope_schedule_steps
+    train_data_dir=$train_data_dir \
+    eval_data_dir=$eval_data_dir \
+    train_instructions=$train_instructions \
+    val_instructions=$val_instructions \
+    dataset=$dataset \
+    num_workers=$num_workers \
+    batch_size=$B \
+batch_size_val=$B_val \
+    chunk_size=$chunk_size \
+    memory_limit=$memory_limit \
+    exp_log_dir=$main_dir \
+    run_log_dir="${run_log_dir}" \
+    checkpoint="$checkpoint" \
+    val_freq=$val_freq \
+    eval_only=$eval_only \
+    lr=$lr \
+    backbone_lr=$backbone_lr \
+    lr_scheduler=$lr_scheduler \
+    wd=$wd \
+    train_iters=$train_iters \
+    use_compile=$use_compile \
+    use_ema=$use_ema \
+    lv2_batch_size=$lv2_batch_size \
+    model_type=$model_type \
+    bimanual=$bimanual \
+    keypose_only=$keypose_only \
+    pre_tokenize=$pre_tokenize \
+    backbone=$backbone \
+    finetune_backbone=$finetune_backbone \
+    finetune_text_encoder=$finetune_text_encoder \
+    fps_subsampling_factor=$fps_subsampling_factor \
+    embedding_dim=$C \
+    num_attn_heads=$num_attn_heads \
+    num_vis_instr_attn_layers=$num_vis_instr_attn_layers \
+    num_history=$num_history \
+    num_shared_attn_layers=$num_shared_attn_layers \
+    workspace_normalizer_buffer=$workspace_normalizer_buffer \
+    relative_action=$relative_action \
+    rotation_format=$rotation_format \
+    denoise_timesteps=$denoise_timesteps \
+    denoise_model=$denoise_model \
+    use_wandb=false \
+    wandb_project=3d_flowmatch_actor \
+    wandb_run_name="$run_log_dir" \
+    learn_extrinsics=$learn_extrinsics \
+    use_front_camera_frame=$use_front_camera_frame \
+    pc_rotate_by_front_camera=$pc_rotate_by_front_camera \
+    traj_scene_rope=$traj_scene_rope \
+    predict_extrinsics=$predict_extrinsics \
+    rope_type=$rope_type \
+    rope_schedule_type=$rope_schedule_type \
+    rope_schedule_steps=$rope_schedule_steps

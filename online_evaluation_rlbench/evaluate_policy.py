@@ -1,90 +1,18 @@
 """Online evaluation script on RLBench."""
 
-import argparse
-import random
-from pathlib import Path
 import json
 import os
+import random
+import sys
+from pathlib import Path
 
-import torch
 import numpy as np
+import torch
 
 from datasets import fetch_dataset_class
 from modeling.policy import fetch_model_class
-from utils.common_utils import str2bool, str_none, round_floats
-
-
-def parse_arguments():
-    parser = argparse.ArgumentParser("Parse arguments for main.py")
-    # Tuples: (name, type, default)
-    arguments = [
-        # Testing arguments
-        ('checkpoint', str_none, None),
-        ('task', str, "close_jar"),
-        ('max_tries', int, 10),
-        ('max_steps', int, 25),
-        ('headless', str2bool, False),
-        ('collision_checking', str2bool, False),
-        ('seed', int, 0),
-        # Dataset arguments
-        ('data_dir', Path, Path(__file__).parent / "demos"),
-        ('dataset', str, "Peract"),
-        ('image_size', str, "256,256"),
-        # Logging arguments
-        ('output_file', Path, Path(__file__).parent / "eval.json"),
-        # Inference speed
-        ('fp16', str2bool, False),
-        # Model arguments: general policy type
-        ('model_type', str, 'denoise3d'),
-        ('bimanual', str2bool, False),
-        ('keypose_only', str2bool, True),
-        ('pre_tokenize', str2bool, True),
-        ('custom_img_size', int, None),
-        ('workspace_normalizer_buffer', float, 0.04),
-        ('prediction_len', int, 1),
-        # Model arguments: encoder
-        ('backbone', str, "clip"),
-        ('finetune_backbone', str2bool, False),
-        ('finetune_text_encoder', str2bool, False),
-        ('fps_subsampling_factor', int, 5),
-        # Model arguments: encoder and head
-        ('embedding_dim', int, 120),
-        ('num_attn_heads', int, 8),
-        ('num_vis_instr_attn_layers', int, 3),
-        ('num_history', int, 1),
-        # Model arguments: head
-        ('num_shared_attn_layers', int, 4),
-        ('relative_action', str2bool, False),
-        ('rotation_format', str, 'quat_xyzw'),
-        ('denoise_timesteps', int, 10),
-        ('denoise_model', str, "rectified_flow"),
-        ('learn_extrinsics', str2bool, False),
-        ('predict_extrinsics', str2bool, True),
-        ('extrinsics_prediction_mode', str, 'delta_m'),  # 'rt' = predict R,T (6D) and log; 'delta_m' = predict 6x6 matrix
-        ('use_front_camera_frame', str2bool, False),
-        ('pc_rotate_by_front_camera', str2bool, False),
-        ('traj_scene_rope', str2bool, True),
-        ('rope_type', str, 'normal'),
-        ('rope_schedule_type', str, 'linear'),
-        ('rope_schedule_start_k', int, 0),
-        ('rope_schedule_end_k', int, 0),
-        ('rope_schedule_steps', int, 100000),
-        ('sa_blocks_use_rope', str2bool, True),
-        ('use_com_rope', str2bool, False),
-        ('com_rope_block_size', int, 4),
-        ('com_rope_num_axes', int, 3),
-        ('com_rope_init_std', float, 0.02),
-    ]
-    for arg in arguments:
-        parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])
-
-    # Alias: --front_camera_frame (used in shell) -> use_front_camera_frame
-    parser.add_argument('--front_camera_frame', type=str2bool, default=None, dest='_front_camera_frame')
-    args = parser.parse_args()
-    if args._front_camera_frame is not None:
-        args.use_front_camera_frame = args._front_camera_frame
-    delattr(args, '_front_camera_frame')
-    return args
+from utils.common_utils import round_floats
+from utils.hydra_utils import get_config, get_config_path
 
 
 def load_models(args):
@@ -134,10 +62,22 @@ def load_models(args):
 
 
 if __name__ == "__main__":
-    # Arguments
-    args = parse_arguments()
+    # Compose config from config/config.yaml + CLI overrides (e.g. checkpoint=path task=close_jar)
+    args = get_config(
+        overrides=sys.argv[1:],
+        config_name="config",
+        config_path=get_config_path(),
+    )
+    # Resolve relative paths relative to this script's directory
+    _script_dir = Path(__file__).resolve().parent
+    if args.data_dir is not None and not args.data_dir.is_absolute():
+        args.data_dir = _script_dir / args.data_dir
+    if args.output_file is not None and not args.output_file.is_absolute():
+        args.output_file = _script_dir / args.output_file
+
     print("Arguments:")
-    print(args)
+    for k, v in sorted(vars(args).items()):
+        print(f"  {k}: {v}")
     print("-" * 100)
 
     # Save results here
