@@ -1,6 +1,6 @@
 exp=peract2
 tasks=(
-    bimanual_pick_plate
+    bimanual_push_box
 )
 
 
@@ -40,9 +40,22 @@ denoise_model=rectified_flow
 
 
 
-checkpoint=/home/harshilb/work/3d-vla/grogu_train_logs/2scene-LEFalse-traj_scene_ropetrue-front-cam-false/best.pth
+checkpoint=/home/harshilb/work/3d-vla/grogu_train_logs/exp/camtoken_deltaM_full/best.pth
+# /home/harshilb/work/3d-vla/grogu_train_logs/exp/final_default_full/best.pth
+
+
+# /home/harshilb/work/3d-vla/grogu_train_logs/exp/final_baseline_full/best.pth
+
+# /home/harshilb/work/3d-vla/test2/camtoken_deltaM_two/best.pth
+
+# /home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_deltaM_new-front_cam-true-cam_token-true-traj_scene_rope-true/best.pth
+
 
 # /home/harshilb/work/3d-vla/grogu_train_logs/exp/camtoken_deltaM_two/best.pth
+
+# /home/harshilb/work/3d-vla/grogu_train_logs/2scene-LEFalse-traj_scene_ropetrue-front-cam-false/best.pth
+
+
 
 # /home/harshilb/work/3d-vla/grogu_train_logs/baseline-rope_type-normal-pred-false-front-true/best.pth
 
@@ -68,8 +81,8 @@ checkpoint_dir=$(dirname "$checkpoint")
 learn_extrinsics=false
 traj_scene_rope=true
 
-front_camera_frame=false 
-predict_extrinsics=false
+front_camera_frame=true 
+predict_extrinsics=true
 
 extrinsics_prediction_mode=delta_m
 
