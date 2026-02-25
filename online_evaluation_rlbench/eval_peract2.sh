@@ -18,7 +18,6 @@ seed=0
 # Dataset arguments
 data_dir=peract2_test/
 dataset=Peract2_3dfront_3dwrist
-image_size=256,256
 
 # Model arguments
 model_type=denoise3d
@@ -41,7 +40,11 @@ denoise_model=rectified_flow
 
 
 
-checkpoint=/home/harshilb/work/3d-vla/grogu_train_logs/baseline-rope_type-normal-pred-false-front-true/best.pth
+checkpoint=/home/harshilb/work/3d-vla/grogu_train_logs/2scene-LEFalse-traj_scene_ropetrue-front-cam-false/best.pth
+
+# /home/harshilb/work/3d-vla/grogu_train_logs/exp/camtoken_deltaM_two/best.pth
+
+# /home/harshilb/work/3d-vla/grogu_train_logs/baseline-rope_type-normal-pred-false-front-true/best.pth
 
 # /home/harshilb/work/3d-vla/grogu_train_logs/2scene-LEFalse-traj_scene_ropefalse-front-cam-true/best.pth
 
@@ -65,7 +68,7 @@ checkpoint_dir=$(dirname "$checkpoint")
 learn_extrinsics=false
 traj_scene_rope=true
 
-front_camera_frame=false
+front_camera_frame=false 
 predict_extrinsics=false
 
 extrinsics_prediction_mode=delta_m
@@ -90,7 +93,6 @@ CUDA_VISIBLE_DEVICES=1 xvfb-run -a python online_evaluation_rlbench/evaluate_pol
     seed=$seed \
     data_dir="$data_dir" \
     dataset=$dataset \
-    image_size=$image_size \
     output_file="$checkpoint_dir/seed$seed/${tasks[$i]}/eval.json" \
     model_type=$model_type \
     bimanual=$bimanual \

@@ -234,18 +234,17 @@ class RLBenchEnv:
             for cam in self.apply_cameras
         ]).unsqueeze(0)  # 1, N, C, H, W
 
-        # Apply same front-camera frame logic as in training (data_preprocessors/rlbench.py)
+        # Apply same front-camera frame logic as in training (data_preprocessors/rlbench.py)]
+        print('use_front_camera_frame', self._use_front_camera_frame)
         if self._use_front_camera_frame and getattr(obs, "misc", None) is not None:
-            try:
-                ext_list = [obs.misc.get("{}_camera_extrinsics".format(cam)) for cam in self.apply_cameras]
-                if all(e is not None for e in ext_list):
-                    extrinsics = torch.tensor(
-                        np.stack(ext_list), dtype=torch.float32, device=pcd.device
-                    ).unsqueeze(0)  # 1, ncam, 4, 4
-                    front_index = list(self.apply_cameras).index("front") if "front" in self.apply_cameras else 0
-                    pcd = self._apply_front_camera_frame_transform(pcd, extrinsics, front_index, self._task_str)
-            except (KeyError, ValueError):
-                pass
+            ext_list = [obs.misc.get("{}_camera_extrinsics".format(cam)) for cam in self.apply_cameras]
+            if all(e is not None for e in ext_list):
+                extrinsics = torch.tensor(
+                    np.stack(ext_list), dtype=torch.float32, device=pcd.device
+                ).unsqueeze(0)  # 1, ncam, 4, 4
+                front_index = list(self.apply_cameras).index("front") if "front" in self.apply_cameras else 0
+                pcd = self._apply_front_camera_frame_transform(pcd, extrinsics, front_index, self._task_str)
+            
         if self._pc_rotate_by_front_camera and getattr(obs, "misc", None) is not None:
             try:
                 ext_list = [obs.misc.get("{}_camera_extrinsics".format(cam)) for cam in self.apply_cameras]
