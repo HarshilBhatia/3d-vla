@@ -253,10 +253,21 @@ class TransformerHead(BaseTransformerHead):
             delta_M = None
 
         rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
-        rel_scene_pos = self.relative_pe_layer(rgb3d_pos, stopgrad_k=stopgrad_k)
+        # Apply the same RoPE settings (allow_grad / delta_M) to all scene tokens,
+        # including those used in cross-attention (rgb3d_pos) and the subsampled
+        # fps_scene_pos tokens.
+        rel_scene_pos = self.relative_pe_layer(
+            rgb3d_pos,
+            allow_grad=allow_grad,
+            stopgrad_k=stopgrad_k,
+            delta_M=delta_M,
+        )
 
         rel_fps_pos = self.relative_pe_layer(
-            fps_scene_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M
+            fps_scene_pos,
+            allow_grad=allow_grad,
+            stopgrad_k=stopgrad_k,
+            delta_M=delta_M,
         )
         
         # Add zero positional embeddings for register tokens (4) and camera token (1)
