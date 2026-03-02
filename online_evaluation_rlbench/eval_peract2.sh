@@ -1,3 +1,4 @@
+export ENV=LUQMAN_EVAL
 exp=peract2
 tasks=(
     bimanual_push_box
@@ -17,7 +18,7 @@ tasks=(
 
 
 # Testing arguments
-checkpoint=peract2.pth
+checkpoint=3dfa_peract2.pth
 checkpoint_alias=my_awesome_peract2_model  # or something ugly
 # like: denoise3d-Peract2_3dfront_3dwrist-C120-B64-lr1e-4-constant-H3-rectified_flow
 

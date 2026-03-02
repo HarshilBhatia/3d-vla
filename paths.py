@@ -29,7 +29,13 @@ CONFIGS = {
         "RAW_ROOT": "/data/group_data/katefgroup/VLA/peract2_raw_squash",
         "ZARR_ROOT": "/data/user_data/ngkanats/zarr_datasets/Peract2_zarr",
         "USER_DATA": "/data/user_data/ngkanats",
-    }
+    },
+    "LUQMAN_EVAL": {
+        "RAW_ROOT": "/home/ubuntu/3dvla/3d-vla/peract2_raw",
+        "ZARR_ROOT": "/home/ubuntu/3dvla/3d-vla/Peract2_zarr",
+        "USER_DATA": "/home/ubuntu/3dvla/3d-vla",
+    },
+
 }
 
 # ==============================================================================
