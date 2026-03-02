@@ -1,3 +1,27 @@
+Run eval with:
+
+conda activate 3dfa
+
+export USER_NAME=LUQMAN_EVAL
+
+python online_evaluation_rlbench/evaluate_policy.py \
+--data_dir /home/ubuntu/3dvla/3d-vla/peract2_raw/test \
+--checkpoint 3dfa_peract2.pth \
+--task bimanual_push_box \
+--headless False \
+--embedding_dim 120 \
+--num_attn_heads 10 \
+--bimanual True \
+--dataset Peract2_3dfront_3dwrist \
+--prediction_len 1 \
+--backbone clip \
+--fps_subsampling_factor 4 \
+--num_vis_instr_attn_layers 3 \
+--num_shared_attn_layers 4 \
+--num_history 3
+
+
+
 # 3D FlowMatch Actor: Unified 3D Policy for Single- and Dual-Arm Manipulation
 By [Nikolaos Gkanatsios*](https://nickgkan.github.io/), [Jiahe Xu*](https://github.com/JiaheXu), [Matthew Bronars](https://mbronars.github.io/), [Arsalan Mousavian](https://cs.gmu.edu/~amousavi/), [Tsung-Wei Ke](https://twke18.github.io/) and [Katerina Fragkiadaki](https://www.cs.cmu.edu/~katef/)
 
