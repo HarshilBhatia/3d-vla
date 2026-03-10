@@ -31,6 +31,13 @@ class FinetuneConfig:
     If None, use the pre-registered modality config in `gr00t/configs/data/embodiment_configs.py`. 
     """
 
+    cached_backbone_dir: str | None = None
+    """
+    If set, use precomputed VLM backbone features from this directory (feat_*.pt from
+    cache_backbone_features.py). Training will skip the backbone forward and only run the action head.
+    Dataset path and shard/seed must match the run that created the cache.
+    """
+
     # --- Model Tuning Flags ---
     tune_llm: bool = False
     """If True, fine-tune the language model (LLM) backbone during training."""
@@ -95,9 +102,15 @@ class FinetuneConfig:
     use_wandb: bool = False
     """
     If True, log metrics and artifacts to Weights & Biases (wandb).
-    The project is `finetune-gr00t-n1d6`.
+    The project is `finetune-gr00t-n1d6` unless overridden by wandb_project.
     You need to login to wandb to view the logs.
     """
+
+    wandb_project: str | None = None
+    """Override wandb project name. If None, uses default `finetune-gr00t-n1d6`."""
+
+    wandb_run_name: str | None = None
+    """Optional wandb run name. If None, run name is derived from output_dir."""
 
     max_steps: int = 10000
     """Total number of training steps to run before stopping."""

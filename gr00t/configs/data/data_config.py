@@ -74,6 +74,10 @@ class DataConfig:
     # Subsample ratio for the dataset
     subsample_ratio: float = 1.0
 
+    # Cached backbone (VLM) features: if set, training uses precomputed backbone
+    # outputs from feat_*.pt in this dir and skips the backbone forward.
+    cached_backbone_dir: Optional[str] = None
+
     # DP Image Config
     image_crop_size: List[int] = field(default_factory=lambda: [244, 244])
     image_target_size: List[int] = field(default_factory=lambda: [224, 224])

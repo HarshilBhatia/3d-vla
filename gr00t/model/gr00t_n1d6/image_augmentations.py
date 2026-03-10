@@ -350,7 +350,7 @@ def build_image_transformations(
     train_image_transform = transforms.Compose(transform_list)
     eval_image_transform = transforms.Compose(
         [
-            # transforms.ToDtype(torch.get_default_dtype(), scale=True),
+            transforms.ToImage(),
             LetterBoxTransform(),
             transforms.Resize(size=image_target_size),
             transforms.CenterCrop(size=image_crop_size),

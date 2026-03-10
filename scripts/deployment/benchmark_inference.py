@@ -209,7 +209,7 @@ def benchmark_components(policy, observation, num_iterations=20, warmup=3):
         obs = observations[i % num_obs]
         collated_inputs = prepare_model_inputs(policy, obs)
         with torch.inference_mode():
-            backbone_inputs, action_inputs = policy.model.prepare_input(collated_inputs)
+            backbone_inputs, action_inputs, _ = policy.model.prepare_input(collated_inputs)
             backbone_outputs = policy.model.backbone(backbone_inputs)
             _ = policy.model.action_head.get_action(backbone_outputs, action_inputs)
     torch.cuda.synchronize()
@@ -229,7 +229,7 @@ def benchmark_components(policy, observation, num_iterations=20, warmup=3):
         torch.cuda.synchronize()
         start = time.perf_counter()
         with torch.inference_mode():
-            backbone_inputs, action_inputs = policy.model.prepare_input(collated_inputs)
+            backbone_inputs, action_inputs, _ = policy.model.prepare_input(collated_inputs)
             backbone_outputs = policy.model.backbone(backbone_inputs)
         torch.cuda.synchronize()
         end = time.perf_counter()

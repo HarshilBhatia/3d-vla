@@ -2,7 +2,8 @@ import json
 import os
 from pathlib import Path
 import re
-from typing import Any, Dict, Literal
+from typing import Any, Dict, Literal, Optional
+
 import warnings
 
 import albumentations as A
@@ -14,6 +15,7 @@ from gr00t.data.utils import parse_modality_configs, to_json_serializable
 import numpy as np
 from PIL import Image
 import torch
+import torch.nn.functional as F
 import torchvision.transforms.v2 as transforms
 from transformers import AutoProcessor, ProcessorMixin
 from transformers.feature_extraction_utils import BatchFeature
@@ -54,11 +56,15 @@ def build_processor(model_name: str, transformers_loading_kwargs: dict) -> Proce
 
 
 class Gr00tN1d6DataCollator:
+    # Keys produced by the backbone; when using cached backbone we inject these and drop backbone inputs.
+    _BACKBONE_INPUT_KEYS = ("input_ids", "attention_mask", "pixel_values", "image_grid_thw")
+
     def __init__(
         self,
         model_name: str,
         model_type: Literal["eagle"] = "eagle",
         transformers_loading_kwargs: dict = {},
+        cache_dir: Optional[str | Path] = None,
     ):
         ### We need to use the same  processor for padding input ids and concat
         self.processor = build_processor(model_name, transformers_loading_kwargs)
@@ -66,12 +72,23 @@ class Gr00tN1d6DataCollator:
         self.processor.tokenizer.padding_side = "left"
         self.model_type = model_type
         self.model_name = model_name
+        self.cache_dir = Path(cache_dir) if cache_dir is not None else None
 
     def __call__(self, features: list[Dict[str, Any]]) -> BatchFeature:
         batch = {}
         keys = list(set().union(*(elem.keys() for elem in features)))
+        use_cache = any("cache_global_idx" in elem for elem in features)
+
+        if use_cache:
+            if self.cache_dir is None:
+                raise ValueError(
+                    "data.cached_backbone_dir is required when features have cache_global_idx"
+                )
+            keys_to_skip = set(self._BACKBONE_INPUT_KEYS) | {"cache_global_idx"}
 
         for key in keys:
+            if use_cache and key in keys_to_skip:
+                continue
             values = [elem[key] for elem in features if key in elem]
             if key == "vlm_content":
                 # Handle vlm_content specially - extract text and images
@@ -99,6 +116,47 @@ class Gr00tN1d6DataCollator:
             else:
                 # state, state_mask, action and action_mask - stack to form batch dimension
                 batch[key] = torch.from_numpy(np.stack(values))
+
+        if use_cache:
+            cache_dir = Path(self.cache_dir)
+            backbone_features_list = []
+            backbone_attention_mask_list = []
+            image_mask_list = []
+            for elem in features:
+                idx = elem["cache_global_idx"]
+                data = torch.load(
+                    cache_dir / f"feat_{idx:08d}.pt",
+                    map_location="cpu",
+                    weights_only=True,
+                )
+                backbone_features_list.append(data["backbone_features"])
+                backbone_attention_mask_list.append(data["backbone_attention_mask"])
+                image_mask_list.append(data["image_mask"])
+            # Pad to max seq_len in batch (variable-length backbone outputs)
+            max_len = max(t.shape[0] for t in backbone_features_list)
+            padded_feats = []
+            padded_attn = []
+            padded_img = []
+            for feat, attn, imgm in zip(
+                backbone_features_list,
+                backbone_attention_mask_list,
+                image_mask_list,
+            ):
+                pad_len = max_len - feat.shape[0]
+                padded_feats.append(
+                    F.pad(feat.unsqueeze(0), (0, 0, 0, pad_len), value=0).squeeze(0)
+                )
+                attn_1d = attn.squeeze() if attn.dim() > 1 else attn
+                padded_attn.append(F.pad(attn_1d.unsqueeze(0), (0, pad_len), value=0).squeeze(0))
+                imgm_1d = imgm.squeeze() if imgm.dim() > 1 else imgm
+                imgm_pad = F.pad(
+                    imgm_1d.float().unsqueeze(0), (0, pad_len), value=0
+                ).squeeze(0)
+                padded_img.append(imgm_pad.bool())
+            batch["backbone_features"] = torch.stack(padded_feats)
+            batch["backbone_attention_mask"] = torch.stack(padded_attn)
+            batch["image_mask"] = torch.stack(padded_img)
+
         return BatchFeature(data={"inputs": batch})
 
     def __str__(self):

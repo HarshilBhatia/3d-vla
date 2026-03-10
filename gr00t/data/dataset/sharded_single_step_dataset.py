@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -123,6 +123,7 @@ class ShardedSingleStepDataset(ShardedDataset):
         episode_sampling_rate: float = 0.1,
         seed: int = 42,
         allow_padding: bool = False,
+        cache_dir: Optional[str | Path] = None,
     ):
         """Initialize single-step dataset with sharding configuration."""
         super().__init__(dataset_path)
@@ -134,6 +135,7 @@ class ShardedSingleStepDataset(ShardedDataset):
         self.episode_sampling_rate = episode_sampling_rate
         self.seed = seed
         self.allow_padding = allow_padding
+        self.cache_dir = Path(cache_dir) if cache_dir is not None else None
         self.processor = None
         self.rng = np.random.default_rng(seed)
         action_delta_indices = modality_configs["action"].delta_indices
@@ -263,6 +265,11 @@ class ShardedSingleStepDataset(ShardedDataset):
             episode_data = self.episode_loader[ep_idx]
             for step_index in step_indices:
                 datapoints.append(self.get_datapoint(episode_data, step_index))
+        if self.cache_dir is not None:
+            offset = sum(self.get_shard_length(s) for s in range(idx))
+            for i, dp in enumerate(datapoints):
+                if isinstance(dp, dict):
+                    dp["cache_global_idx"] = offset + i
         return datapoints
 
     def get_dataset_statistics(self) -> dict:

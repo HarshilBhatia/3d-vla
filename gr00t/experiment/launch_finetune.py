@@ -83,10 +83,15 @@ if __name__ == "__main__":
     config.training.max_steps = ft_config.max_steps
     config.training.weight_decay = ft_config.weight_decay
     config.training.warmup_ratio = ft_config.warmup_ratio
-    config.training.wandb_project = "finetune-gr00t-n1d6"
+    # Wandb: when use_wandb is True, experiment.run() inits wandb and Trainer reports metrics there
+    config.training.wandb_project = ft_config.wandb_project or "finetune-gr00t-n1d6"
+    if ft_config.wandb_run_name is not None:
+        config.training.experiment_name = ft_config.wandb_run_name
 
     config.data.shard_size = ft_config.shard_size
     config.data.episode_sampling_rate = ft_config.episode_sampling_rate
     config.data.num_shards_per_epoch = ft_config.num_shards_per_epoch
+    if ft_config.cached_backbone_dir is not None:
+        config.data.cached_backbone_dir = ft_config.cached_backbone_dir
 
     run(config)

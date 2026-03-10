@@ -180,6 +180,10 @@ class Gr00tN1d6Pipeline(ModelPipeline):
         dataset_factory = DatasetFactory(config=self.config)
         train_dataset, eval_dataset = dataset_factory.build(processor=self.processor)
 
+        cached_backbone_dir = getattr(self.config.data, "cached_backbone_dir", None)
+        if cached_backbone_dir is not None:
+            self.processor._collator.cache_dir = cached_backbone_dir
+
         # Save dataset statistics for inference
         stats = train_dataset.get_dataset_statistics()
         stats_dict = convert_tensors_to_lists(stats)

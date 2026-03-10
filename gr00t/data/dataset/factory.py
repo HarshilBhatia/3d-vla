@@ -56,6 +56,7 @@ class DatasetFactory:
                     episode_sampling_rate=self.config.data.episode_sampling_rate,
                     seed=self.config.data.seed,
                     allow_padding=self.config.data.allow_padding,
+                    cache_dir=getattr(self.config.data, "cached_backbone_dir", None),
                 )
                 datasets.append(dataset)
             dataset_lengths = np.array([len(dataset) for dataset in datasets])

@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Union
 
 from gr00t.configs.model.gr00t_n1d6 import Gr00tN1d6Config
 from gr00t.model.modules.dit import AlternateVLDiT, DiT
@@ -461,8 +461,33 @@ class Gr00tN1d6(PreTrainedModel):
             transformers_loading_kwargs=transformers_loading_kwargs,
         )
 
-    def prepare_input(self, inputs: dict) -> Tuple[BatchFeature, BatchFeature]:
-        """Prepare inputs for backbone and action head."""
+    def prepare_input(
+        self, inputs: dict
+    ) -> Tuple[Union[BatchFeature, None], BatchFeature, bool]:
+        """Prepare inputs for backbone and action head.
+
+        Returns:
+            (backbone_inputs_or_outputs, action_inputs, use_cached_backbone).
+            If use_cached_backbone is True, first element is cached backbone output (BatchFeature).
+            Otherwise it is backbone inputs to run through self.backbone.
+        """
+        use_cached = "backbone_features" in inputs
+        if use_cached:
+            backbone_outputs = BatchFeature(
+                data={
+                    "backbone_features": inputs["backbone_features"],
+                    "backbone_attention_mask": inputs["backbone_attention_mask"],
+                    "image_mask": inputs["image_mask"],
+                }
+            )
+            action_inputs = self.action_head.prepare_input(inputs)
+            def to_device_with_dtype(x):
+                if torch.is_floating_point(x):
+                    return x.to(self.device, dtype=self.dtype)
+                return x.to(self.device)
+            backbone_outputs = tree.map_structure(to_device_with_dtype, backbone_outputs)
+            action_inputs = tree.map_structure(to_device_with_dtype, action_inputs)
+            return backbone_outputs, action_inputs, True
 
         # NOTE -- currently the eval code doesn't use collator, so we need to add it here
         # this should ideally be fixed upstream
@@ -491,7 +516,7 @@ class Gr00tN1d6(PreTrainedModel):
         backbone_inputs = tree.map_structure(to_device_with_dtype, backbone_inputs)
         action_inputs = tree.map_structure(to_device_with_dtype, action_inputs)
 
-        return backbone_inputs, action_inputs
+        return backbone_inputs, action_inputs, False
 
     def forward(self, inputs: dict) -> BatchFeature:
         """
@@ -501,28 +526,29 @@ class Gr00tN1d6(PreTrainedModel):
             inputs: Dictionary containing:
                 - Eagle inputs (prefixed with 'eagle_')
                 - Action inputs (state, action, embodiment_id, etc.)
+                - Or cached backbone output (backbone_features, backbone_attention_mask, image_mask)
 
         Returns:
             BatchFeature containing loss and other outputs
         """
-        # Prepare inputs for backbone and action head
-        backbone_inputs, action_inputs = self.prepare_input(inputs)
-        backbone_outputs = self.backbone(backbone_inputs)
+        backbone_stuff, action_inputs, use_cached = self.prepare_input(inputs)
+        if use_cached:
+            backbone_outputs = backbone_stuff
+        else:
+            backbone_outputs = self.backbone(backbone_stuff)
         action_outputs = self.action_head(backbone_outputs, action_inputs)
-
         return action_outputs
 
     def get_action(self, inputs: dict) -> BatchFeature:
         """
         Generate actions using the complete model.
         """
-        # Prepare inputs for backbone and action head
-        backbone_inputs, action_inputs = self.prepare_input(inputs)
-
-        # Forward through backbone
-        backbone_outputs = self.backbone(backbone_inputs)
+        backbone_stuff, action_inputs, use_cached = self.prepare_input(inputs)
+        if use_cached:
+            backbone_outputs = backbone_stuff
+        else:
+            backbone_outputs = self.backbone(backbone_stuff)
         action_outputs = self.action_head.get_action(backbone_outputs, action_inputs)
-
         return action_outputs
 
     @property
