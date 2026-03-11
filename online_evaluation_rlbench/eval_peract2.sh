@@ -43,23 +43,6 @@ denoise_model=rectified_flow
 
 checkpoint=/home/harshilb/work/3d-vla/grogu_train_logs/baseline-rope_type-normal-pred-false-front-true/best.pth
 
-# /home/harshilb/work/3d-vla/grogu_train_logs/2scene-LEFalse-traj_scene_ropefalse-front-cam-true/best.pth
-
-# /home/harshilb/work/3d-vla/grogu_train_logs/full-3dfa-rope_type-normal-pred-false-front-false/best.pth
-
-
-
-
-
-# /home/harshilb/work/3d-vla/grogu_train_logs/baseline-rope_type-normal-pred-false-front-true/best.pth
-
-# /home/harshilb/work/3d-vla/grogu_train_logs/2scene-LEFalse-traj_scene_ropefalse-front-cam-true/best.pth
-
-# /home/harshilb/work/3d-vla/grogu_train_logs/2scene-ComRoPE-front_cam-false-traj_scene_rope-true/best.pth
-
-# /home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_deltaM_new-front_cam-true-cam_token-true-traj_scene_rope-true/best.pth
-# /home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_deltaM_new-front_cam-true-cam_token-true-traj_scene_rope-true/best.pth # old best                      
-
 checkpoint_dir=$(dirname "$checkpoint")
 
 learn_extrinsics=false

@@ -43,7 +43,8 @@ class DenoiseActor(BaseDenoiseActor):
                  use_com_rope=False,
                  com_rope_block_size=4,
                  com_rope_num_axes=3,
-                 com_rope_init_std=0.02):
+                 com_rope_init_std=0.02,
+                 dynamic_rope_from_camtoken=False):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -98,6 +99,7 @@ class DenoiseActor(BaseDenoiseActor):
             com_rope_block_size=com_rope_block_size,
             com_rope_num_axes=com_rope_num_axes,
             com_rope_init_std=com_rope_init_std,
+            dynamic_rope_from_camtoken=dynamic_rope_from_camtoken,
         )
         
         # Learnable camera extrinsics: axis-angle (3) + translation (3) = 6 params
@@ -217,16 +219,18 @@ class TransformerHead(BaseTransformerHead):
             sa_blocks_use_rope=sa_blocks_use_rope,
             predict_extrinsics=predict_extrinsics,
             learn_extrinsics=learn_extrinsics,
+            extrinsics_prediction_mode=kwargs.get("extrinsics_prediction_mode", 'delta_m'),
             use_com_rope=kwargs.get("use_com_rope", False),
             com_rope_block_size=kwargs.get("com_rope_block_size", 4),
             com_rope_num_axes=kwargs.get("com_rope_num_axes", 3),
             com_rope_init_std=kwargs.get("com_rope_init_std", 0.02),
+            dynamic_rope_from_camtoken=kwargs.get("dynamic_rope_from_camtoken", False),
         )
 
         # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
         self.learn_extrinsics = learn_extrinsics
         self.predict_extrinsics = predict_extrinsics
-        
+
         # Relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim, rope_type=rope_type)
 
@@ -277,6 +281,89 @@ class TransformerHead(BaseTransformerHead):
                               device=rel_traj_pos.device, dtype=rel_traj_pos.dtype)
         
         rel_pos = torch.cat([rel_traj_pos, rel_fps_pos, zero_pos], 1)
+        return rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos
+
+    def _precompute_rope_bases(self, traj_xyz, rgb3d_pos, fps_scene_pos, stopgrad_k):
+        """Pre-compute sin/cos bases for traj, scene, and fps positions (delta_M mode only).
+
+        Returns (traj_base, scene_base, fps_base), each [B, N, d//6, 6], detached.
+        Called once before the per-block loop; bases are reused with different delta_M each block.
+        """
+        traj_base = self.relative_pe_layer._compute_sincos_base(traj_xyz, stopgrad_k)
+        scene_base = self.relative_pe_layer._compute_sincos_base(rgb3d_pos, stopgrad_k)
+        fps_base = self.relative_pe_layer._compute_sincos_base(fps_scene_pos, stopgrad_k)
+        return traj_base, scene_base, fps_base
+
+    def _apply_delta_M_rope(self, traj_base, scene_base, fps_base, delta_M):
+        """Apply delta_M to pre-computed sin/cos bases and return RoPE positions.
+
+        Traj uses no delta_M (same as the full recompute path). Scene and fps get delta_M.
+
+        Returns (rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos).
+        """
+        rel_traj_pos = self.relative_pe_layer._finalize_from_base(traj_base, delta_M=None)
+        rel_scene_pos = self.relative_pe_layer._finalize_from_base(scene_base, delta_M=delta_M)
+        rel_fps_pos = self.relative_pe_layer._finalize_from_base(fps_base, delta_M=delta_M)
+
+        batch_size = traj_base.shape[0]
+        zero_pos = torch.zeros(
+            batch_size, 5, rel_traj_pos.shape[-2], rel_traj_pos.shape[-1],
+            device=traj_base.device, dtype=rel_traj_pos.dtype)
+        rel_pos = torch.cat([rel_traj_pos, rel_fps_pos, zero_pos], 1)
+
+        return rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos
+
+    def _recompute_rope(self, cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
+                        bases=None):
+        """
+        Predict delta_M or (R,T) from cam_feat and recompute 3D RoPE embeddings.
+
+        Args:
+            cam_feat: (B, C) — current camera token representation (attended or static)
+            traj_xyz: (B, T, 3)
+            orig_rgb3d_pos: (B, N, 3) — original (un-transformed) scene positions
+            orig_fps_scene_pos: (B, M, 3) — original fps scene positions
+            stopgrad_k: int
+            bases: optional (traj_base, scene_base, fps_base) from _precompute_rope_bases;
+                   if provided in delta_M mode, skips redundant sin/cos recomputation.
+
+        Returns:
+            (rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos)
+        """
+        allow_grad = self.training and (self.learn_extrinsics or self.predict_extrinsics)
+        cam_params_rt, delta_M = self._predict_from_cam_feat(cam_feat)
+
+        if cam_params_rt is not None:
+            # RT mode: always transform from original positions; no base cache applicable
+            rgb3d_pos = _transform_pcd_with_extrinsics(orig_rgb3d_pos, cam_params_rt)
+            fps_scene_pos = _transform_pcd_with_extrinsics(orig_fps_scene_pos, cam_params_rt)
+            delta_M = None
+        else:
+            rgb3d_pos = orig_rgb3d_pos
+            fps_scene_pos = orig_fps_scene_pos
+
+        # delta_M mode with pre-computed bases: skip sin/cos recomputation
+        if delta_M is not None and bases is not None:
+            traj_base, scene_base, fps_base = bases
+            rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos = self._apply_delta_M_rope(
+                traj_base, scene_base, fps_base, delta_M)
+        else:
+            rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
+            rel_scene_pos = self.relative_pe_layer(
+                rgb3d_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M)
+            rel_fps_pos = self.relative_pe_layer(
+                fps_scene_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M)
+
+            batch_size = traj_xyz.shape[0]
+            zero_pos = torch.zeros(
+                batch_size, 5, rel_traj_pos.shape[-2], rel_traj_pos.shape[-1],
+                device=traj_xyz.device, dtype=rel_traj_pos.dtype)
+            rel_pos = torch.cat([rel_traj_pos, rel_fps_pos, zero_pos], 1)
+
+        # Update last predicted cam params for W&B logging (last prediction wins)
+        last_pred = cam_params_rt if cam_params_rt is not None else delta_M
+        self._last_predicted_cam_params = last_pred.detach()
+
         return rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos
 
     def get_sa_feature_sequence(

@@ -1,15 +1,15 @@
 #!/bin/bash
-#SBATCH --job-name=baseline
+#SBATCH --job-name=full_deltaM_full
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=20
-#SBATCH --gres=gpu:2
+#SBATCH --cpus-per-task=50
+#SBATCH --gres=gpu:4
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --nodelist=grogu-2-9
+#SBATCH --nodelist=grogu-2-12
 
 echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
@@ -22,15 +22,15 @@ conda activate 3dfa
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=$(nvidia-smi -L | wc -l)
+okay 
 
+data=full
+main_dir=exp
 
-data=two
-
-
-experiment=baseline
+experiment=camtoken_deltaM_full
 # camtoken_deltaM
 
-run_log_dir=${experiment}_${data}
+run_log_dir=main_${experiment}_${data}
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 

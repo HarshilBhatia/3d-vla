@@ -174,6 +174,8 @@ class BaseTrainTester:
             model_kwargs['predict_extrinsics'] = self.args.predict_extrinsics
         if hasattr(self.args, 'extrinsics_prediction_mode'):
             model_kwargs['extrinsics_prediction_mode'] = self.args.extrinsics_prediction_mode
+        if hasattr(self.args, 'dynamic_rope_from_camtoken'):
+            model_kwargs['dynamic_rope_from_camtoken'] = self.args.dynamic_rope_from_camtoken
         
         # Add rope_type if available in args
         if hasattr(self.args, 'rope_type'):

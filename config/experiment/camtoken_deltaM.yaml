@@ -5,7 +5,7 @@
 use_front_camera_frame: true
 predict_extrinsics: true
 extrinsics_prediction_mode: delta_m
-
+dynamic_rope_from_camtoken: true
 
 use_com_rope: false
 com_rope_block_size: 3

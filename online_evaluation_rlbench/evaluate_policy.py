@@ -39,6 +39,7 @@ def load_models(args):
         sa_blocks_use_rope=args.sa_blocks_use_rope,
         predict_extrinsics=args.predict_extrinsics,
         extrinsics_prediction_mode=args.extrinsics_prediction_mode,
+        dynamic_rope_from_camtoken=args.dynamic_rope_from_camtoken,
         rope_type=args.rope_type,
         use_com_rope=args.use_com_rope,
         com_rope_block_size=args.com_rope_block_size,

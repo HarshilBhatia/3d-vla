@@ -92,7 +92,7 @@ rope_analysis_save_name: rope3d_frequency_norms.pt
 embedding_dim: 120
 num_attn_heads: 8
 num_vis_instr_attn_layers: 3
-num_history: 1
+num_history: 3
 num_shared_attn_layers: 4
 relative_action: false
 rotation_format: quat_xyzw
@@ -107,6 +107,7 @@ traj_scene_rope: true
 learn_extrinsics: false
 predict_extrinsics: false
 extrinsics_prediction_mode: null  # 'rt' = R,T (6D); 'delta_m' = 6x6 matrix
+dynamic_rope_from_camtoken: true  # re-predict delta_M/(R,T) from cam-token after each SA/CA block
 # use_front_camera_frame: canonical name; use for front-camera frame transform in data/eval
 use_front_camera_frame: false
 pc_rotate_by_front_camera: false

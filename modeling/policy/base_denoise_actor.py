@@ -419,16 +419,19 @@ class TransformerHead(nn.Module):
                  use_com_rope=False,
                  com_rope_block_size=4,
                  com_rope_num_axes=3,
-                 com_rope_init_std=0.02):
+                 com_rope_init_std=0.02,
+                 dynamic_rope_from_camtoken=False):
         super().__init__()
-        
+
         self.extrinsics_prediction_mode = extrinsics_prediction_mode.lower()
-        assert self.extrinsics_prediction_mode in ('rt', 'delta_m'), "extrinsics_prediction_mode must be 'rt' or 'delta_m'"
+        assert self.extrinsics_prediction_mode in ('rt', 'delta_m', 'delta_m_full'), \
+            "extrinsics_prediction_mode must be 'rt', 'delta_m', or 'delta_m_full'"
         print(f" ************** Predicting Extrinsics: {predict_extrinsics} (mode={self.extrinsics_prediction_mode}) **************")
 
         self.traj_scene_rope = traj_scene_rope
         self.sa_blocks_use_rope = sa_blocks_use_rope
         self.predict_extrinsics = predict_extrinsics
+        self.dynamic_rope_from_camtoken = dynamic_rope_from_camtoken
         # ComRoPE only when traj_scene_rope=True; else standard RoPE or none
         self.use_com_rope = use_com_rope and traj_scene_rope
         # Single branch key: none | standard | com (replaces repeated three-way conditionals)
@@ -626,7 +629,7 @@ class TransformerHead(nn.Module):
             nn.Linear(embedding_dim, 1)
         )
 
-        # 4. Predict extrinsics from cam_token: either R,T (6D) or delta_M (6x6)
+        # 4. Predict extrinsics from cam_token: either R,T (6D), delta_M (6x6), or delta_m_full (D×D)
         if predict_extrinsics:
             self.camera_proj = nn.Linear(embedding_dim, embedding_dim)
             if self.extrinsics_prediction_mode == 'rt':
@@ -635,7 +638,21 @@ class TransformerHead(nn.Module):
                     nn.ReLU(),
                     nn.Linear(embedding_dim, 6)  # axis_angle (3) + translation (3)
                 )
-            else:
+                # Init last layer so output ≈ 0 -> axis_angle=0, t=0 = identity transform at start
+                nn.init.normal_(self.camera_predictor[-1].weight, mean=0.0, std=0.01)
+                nn.init.zeros_(self.camera_predictor[-1].bias)
+            elif self.extrinsics_prediction_mode == 'delta_m_full':
+                D = (embedding_dim // 6) * 6
+                self._delta_m_full_dim = D
+                self.camera_predictor = nn.Sequential(
+                    nn.Linear(embedding_dim, embedding_dim),
+                    nn.ReLU(),
+                    nn.Linear(embedding_dim, D * D)  # D×D A_skew for full delta_M
+                )
+                # Init last layer so A_skew ≈ 0 -> delta_M = exp(A) ≈ I at start
+                nn.init.normal_(self.camera_predictor[-1].weight, mean=0.0, std=0.01)
+                nn.init.zeros_(self.camera_predictor[-1].bias)
+            else:  # delta_m
                 self.camera_predictor = nn.Sequential(
                     nn.Linear(embedding_dim, embedding_dim),
                     nn.ReLU(),
@@ -649,11 +666,47 @@ class TransformerHead(nn.Module):
             self, predict_extrinsics, self.extrinsics_prediction_mode
         )
 
+    def _predict_from_cam_feat(self, cam_feat):
+        """
+        Predict delta_M or (R,T) from an arbitrary camera feature tensor.
+
+        Args:
+            cam_feat: (B, C) — current camera token representation
+
+        Returns:
+            (cam_params_rt, delta_M): one is non-None depending on extrinsics_prediction_mode
+        """
+        h = self.camera_proj(cam_feat)
+        if self.extrinsics_prediction_mode == 'delta_m':
+            print('dm', end = ' ')
+            batch_size = cam_feat.shape[0]
+            A_skew = self.camera_predictor(h).view(batch_size, 6, 6)
+            A = A_skew - A_skew.transpose(-1, -2)
+            max_norm = 3.0
+            norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
+            A = A * (norm.clamp(max=max_norm) / norm)
+            delta_M = torch.linalg.matrix_exp(A)
+            return None, delta_M
+        elif self.extrinsics_prediction_mode == 'delta_m_full':
+            batch_size = cam_feat.shape[0]
+            print('dmf', end = ' ')
+
+            D = self._delta_m_full_dim
+            A_skew = self.camera_predictor(h).view(batch_size, D, D)
+            A = A_skew - A_skew.transpose(-1, -2)
+            max_norm = 3.0
+            norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
+            A = A * (norm.clamp(max=max_norm) / norm)
+            delta_M = torch.linalg.matrix_exp(A)
+            return None, delta_M
+        else:  # rt
+            return self.camera_predictor(h), None
+
     def _predict_rt(self, batch_size, device):
         """Predict axis-angle (3) + translation (3) from cam token. Returns (B, 6)."""
-        cam = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device)
-        h = self.camera_proj(cam.squeeze(1))
-        return self.camera_predictor(h)  # (B, 6)
+        cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device).squeeze(1)
+        rt, _ = self._predict_from_cam_feat(cam_feat)
+        return rt
 
     def _predict_delta_M(self, batch_size, device):
         """
@@ -663,16 +716,14 @@ class TransformerHead(nn.Module):
         Returns:
             delta_M: (B, 6, 6) orthogonal
         """
-        cam = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device)
-        h = self.camera_proj(cam.squeeze(1))
-        A_skew = self.camera_predictor(h).view(batch_size, 6, 6)
-        A = A_skew - A_skew.transpose(-1, -2)  # skew-symmetric
-        # Clamp norm to avoid matrix_exp overflow -> NaN (orthogonal exp(skew) is stable for small skew)
-        max_norm = 3.0  # ~pi, keep rotation in reasonable range
-        norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
-        A = A * (norm.clamp(max=max_norm) / norm)
-        delta_M = torch.linalg.matrix_exp(A)  # orthogonal by construction
+        cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device).squeeze(1)
+        _, delta_M = self._predict_from_cam_feat(cam_feat)
         return delta_M
+
+    def _recompute_rope(self, cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
+                        bases=None):
+        """Base-class stub; overridden in the 3D head."""
+        return None, None, None, None
 
     def transform_pcd_with_extrinsics(self, pcd, cam_params):
         
@@ -734,8 +785,50 @@ class TransformerHead(nn.Module):
         batch_size, device = trajectory.shape[0], trajectory.device
         cam_params_rt, delta_M, self._last_predicted_cam_params = self.extrinsics_predictor(batch_size, device)
 
-        if self._rope_mode != "none":
-            # RoPE path: compute positional embeddings and use them everywhere
+        if self._rope_mode != "none" and self.dynamic_rope_from_camtoken and self._rope_mode == "standard" and self.predict_extrinsics:
+            # Dynamic RoPE path: re-predict delta_M / (R,T) after every CA and SA block.
+            # Originals are kept so RT transforms are always applied from a clean base.
+            orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos
+            current_cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device).squeeze(1)
+
+            # Pre-compute sin/cos bases once; reuse across all blocks (delta_M mode only)
+            precomputed_bases = (
+                self._precompute_rope_bases(traj_xyz, rgb3d_pos, fps_scene_pos, stopgrad_k)
+                if self.extrinsics_prediction_mode == 'delta_m' else None
+            )
+
+            # Cross-attention: per-layer RoPE recompute (cam_feat is static, no update here)
+            for i in range(self.cross_attn.num_layers):
+                rel_traj_pos, rel_scene_pos, rel_pos, _ = self._recompute_rope(
+                    current_cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
+                    bases=precomputed_bases)
+                traj_feats = self.cross_attn.attn_layers[i](
+                    traj_feats, rgb3d_feats,
+                    seq1_pos=rel_traj_pos, seq2_pos=rel_scene_pos, ada_sgnl=time_embs)
+                traj_feats = self.cross_attn.ffw_layers[i](traj_feats, time_embs)
+
+            # Build the shared SA sequence (camera_token is last token at index -1)
+            features = self.get_sa_feature_sequence(
+                traj_feats, fps_scene_feats,
+                rgb3d_feats, rgb2d_feats, instr_feats
+            )
+
+            # Self-attention: per-layer RoPE recompute + cam_feat update from last token
+            for i in range(self.self_attn.num_layers):
+                rel_traj_pos, rel_scene_pos, rel_pos, _ = self._recompute_rope(
+                    current_cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
+                    bases=precomputed_bases)
+                features = self.self_attn.attn_layers[i](
+                    features, features,
+                    seq1_pos=rel_pos, seq2_pos=rel_pos, ada_sgnl=time_embs)
+                features = self.self_attn.ffw_layers[i](features, time_embs)
+                current_cam_feat = features[:, -1, :]  # camera token is last in SA sequence
+
+            sa_pos_xyz = None
+            rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1], sa_pos_xyz=sa_pos_xyz)
+            position, position_features = self.predict_pos(features, rel_pos, time_embs, traj_feats.shape[1], sa_pos_xyz=sa_pos_xyz)
+        elif self._rope_mode != "none":
+            # Static RoPE path: compute positional embeddings once and use them everywhere
             rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos = self.get_positional_embeddings(
                 traj_xyz, traj_feats,
                 rgb3d_pos, rgb3d_feats, rgb2d_feats, rgb2d_pos,

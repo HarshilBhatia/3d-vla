@@ -43,9 +43,9 @@ def make_extrinsics_predictor(head, predict_extrinsics, extrinsics_prediction_mo
     mode = extrinsics_prediction_mode.lower()
     if mode == 'rt':
         return RTExtrinsicsPredictor(head)
-    if mode == 'delta_m':
+    if mode in ('delta_m', 'delta_m_full'):
         return DeltaMExtrinsicsPredictor(head)
-    raise ValueError(f"extrinsics_prediction_mode must be 'rt' or 'delta_m', got {extrinsics_prediction_mode}")
+    raise ValueError(f"extrinsics_prediction_mode must be 'rt', 'delta_m', or 'delta_m_full', got {extrinsics_prediction_mode}")
 
 
 # ---- Output head self-attn (single call site for com / standard / none) ----

@@ -505,7 +505,11 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         # Optional: mix sin/cos with delta_M (from cam_token), before view/stack
         if delta_M is not None:
             feat = torch.stack([cosx, cosy, cosz, sinx, siny, sinz], dim=-1)  # [B, N, d//6, 6]
-            feat = torch.einsum('bnci,bji->bncj', feat, delta_M)  # feat @ delta_M.T -> [B, N, d//6, 6]
+            if delta_M.shape[-1] == 6:
+                feat = torch.einsum('bnci,bji->bncj', feat, delta_M)  # per-bin 6×6
+            else:  # full D×D path
+                bsz2, np2, nb, _ = feat.shape
+                feat = torch.einsum('bni,bji->bnj', feat.reshape(bsz2, np2, -1), delta_M).reshape(bsz2, np2, nb, 6)
             cosx, cosy, cosz = feat[..., 0], feat[..., 1], feat[..., 2]
             sinx, siny, sinz = feat[..., 3], feat[..., 4], feat[..., 5]
 
@@ -522,5 +526,77 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         # Only detach if gradients not allowed (for normal rope_type, grad flows through)
         if not allow_grad:
             position_code = position_code.detach()
+
+        return position_code
+
+    def _compute_sincos_base(self, XYZ, stopgrad_k=0):
+        """Compute raw sin/cos stack for XYZ without delta_M mixing.
+
+        Returns [B, N, d//6, 6] = [cosx, cosy, cosz, sinx, siny, sinz] stacked on last dim.
+        Always detached — use forward() when gradients through XYZ are needed.
+        """
+        bsize, npoint, _ = XYZ.shape
+        x_position, y_position, z_position = XYZ[..., 0:1], XYZ[..., 1:2], XYZ[..., 2:3]
+        dx = dy = self.feature_dim // 3
+        if dx % 2 == 1:
+            dx -= 1
+            dy -= 1
+        dz = self.feature_dim - dx - dy
+        div_term_x = torch.exp(
+            torch.arange(0, dx, 2, dtype=torch.float, device=XYZ.device)
+            * (-math.log(10000.0) / dx)
+        ).view(1, 1, -1)
+        div_term_y = torch.exp(
+            torch.arange(0, dy, 2, dtype=torch.float, device=XYZ.device)
+            * (-math.log(10000.0) / dy)
+        ).view(1, 1, -1)
+        div_term_z = torch.exp(
+            torch.arange(0, dz, 2, dtype=torch.float, device=XYZ.device)
+            * (-math.log(10000.0) / dz)
+        ).view(1, 1, -1)
+
+        sinx = torch.sin(x_position * div_term_x)
+        cosx = torch.cos(x_position * div_term_x)
+        siny = torch.sin(y_position * div_term_y)
+        cosy = torch.cos(y_position * div_term_y)
+        sinz = torch.sin(z_position * div_term_z)
+        cosz = torch.cos(z_position * div_term_z)
+
+        base = torch.stack([cosx, cosy, cosz, sinx, siny, sinz], dim=-1)  # [B, N, d//6, 6]
+        return base.detach()
+
+    def _finalize_from_base(self, base_feat, delta_M=None):
+        """Apply optional delta_M to pre-computed sin/cos base and return position_code [B,N,C,2].
+
+        Args:
+            base_feat: [B, N, d//6, 6] — output of _compute_sincos_base
+            delta_M: optional (B, 6, 6) matrix to mix sin/cos features
+
+        Returns:
+            position_code: [B, N, C, 2]
+        """
+        bsize, npoint = base_feat.shape[:2]
+
+        if delta_M is not None:
+            if delta_M.shape[-1] == 6:
+                feat = torch.einsum('bnci,bji->bncj', base_feat, delta_M)  # per-bin 6×6
+            else:  # full D×D path
+                bsz2, np2, nb, _ = base_feat.shape
+                feat = torch.einsum('bni,bji->bnj', base_feat.reshape(bsz2, np2, -1), delta_M).reshape(bsz2, np2, nb, 6)
+            cosx, cosy, cosz = feat[..., 0], feat[..., 1], feat[..., 2]
+            sinx, siny, sinz = feat[..., 3], feat[..., 4], feat[..., 5]
+        else:
+            cosx, cosy, cosz = base_feat[..., 0], base_feat[..., 1], base_feat[..., 2]
+            sinx, siny, sinz = base_feat[..., 3], base_feat[..., 4], base_feat[..., 5]
+
+        sinx, cosx, siny, cosy, sinz, cosz = map(
+            lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
+            [sinx, cosx, siny, cosy, sinz, cosz]
+        )
+
+        position_code = torch.stack([
+            torch.cat([cosx, cosy, cosz], dim=-1),
+            torch.cat([sinx, siny, sinz], dim=-1)
+        ], dim=-1)
 
         return position_code

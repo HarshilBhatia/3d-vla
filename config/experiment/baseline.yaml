@@ -8,4 +8,4 @@ predict_extrinsics: false
 extrinsics_prediction_mode: rt
 
 traj_scene_rope: false
-train_iters: 60000
+train_iters: 350000
