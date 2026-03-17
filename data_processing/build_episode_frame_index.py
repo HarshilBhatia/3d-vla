@@ -97,11 +97,22 @@ def main():
                         help="Directory with raw RAIL downloads (metadata_*.json files)")
     parser.add_argument("--output-dir", required=True, type=Path,
                         help="Where to write episode_frame_index.pt and serial_map.json")
-    parser.add_argument("--labs", nargs="+", default=["RAIL"])
+    parser.add_argument("--labs", nargs="+", default=None,
+                        help="Only include episodes from these labs. "
+                             "Cannot be combined with --allowed-indices-file.")
+    parser.add_argument("--allowed-indices-file", type=Path, default=None,
+                        help="Path to selected_episodes.json from select_episodes.py. "
+                             "When provided, uses episode_indices from the file, bypassing --labs.")
     parser.add_argument("--shard-size", type=int, default=10000)
     parser.add_argument("--episode-sampling-rate", type=float, default=0.1)
     parser.add_argument("--embodiment-tag", default="OXE_DROID")
     args = parser.parse_args()
+
+    if args.labs and args.allowed_indices_file:
+        raise ValueError(
+            "--labs and --allowed-indices-file are mutually exclusive. "
+            "Provide at most one episode filter."
+        )
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -112,6 +123,13 @@ def main():
     if args.labs:
         allowed_episode_indices = get_allowed_episode_indices(args.dataset_path, args.labs)
         print(f"Lab filter {args.labs}: {len(allowed_episode_indices)} episodes")
+    elif args.allowed_indices_file:
+        if not args.allowed_indices_file.exists():
+            raise ValueError(f"--allowed-indices-file not found: {args.allowed_indices_file}")
+        with open(args.allowed_indices_file) as _f:
+            _sel = json.load(_f)
+        allowed_episode_indices = set(_sel["episode_indices"])
+        print(f"allowed-indices-file: {len(allowed_episode_indices)} episodes")
 
     print("Building ShardedSingleStepDataset (same params as backbone cache)...")
     base_dataset = ShardedSingleStepDataset(

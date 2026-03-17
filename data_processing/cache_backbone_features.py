@@ -77,6 +77,10 @@ def parse_args():
     parser.add_argument("--labs", type=str, nargs="+", default=None,
                         help="Only cache episodes from these labs (e.g. --labs TRI AUTOLab). "
                              "Lab names are the prefix of the canonical episode ID (e.g. TRI+...).")
+    parser.add_argument("--allowed-indices-file", type=str, default=None,
+                        help="Path to a selected_episodes.json produced by select_episodes.py. "
+                             "When provided, uses episode_indices from the file as the allowed set, "
+                             "bypassing --labs. Cannot be combined with --labs.")
     return parser.parse_args()
 
 
@@ -143,10 +147,24 @@ def main():
         wait_for_stats_ready(stats_ready_path, args.stats_timeout_min, args.rank)
 
     # ── Load dataset (sharded, step-level) ─────────────────────────────────────
+    if args.labs and args.allowed_indices_file:
+        raise ValueError(
+            "--labs and --allowed-indices-file are mutually exclusive. "
+            "Provide at most one episode filter."
+        )
+
     allowed_episode_indices = None
     if args.labs:
         allowed_episode_indices = get_allowed_episode_indices(args.dataset_path, args.labs)
         print(f"[rank {args.rank}] Lab filter {args.labs}: {len(allowed_episode_indices)} episodes")
+    elif args.allowed_indices_file:
+        indices_path = Path(args.allowed_indices_file)
+        if not indices_path.exists():
+            raise ValueError(f"--allowed-indices-file not found: {indices_path}")
+        with open(indices_path) as _f:
+            _sel = json.load(_f)
+        allowed_episode_indices = set(_sel["episode_indices"])
+        print(f"[rank {args.rank}] allowed-indices-file: {len(allowed_episode_indices)} episodes")
 
     print(f"[rank {args.rank}] Loading dataset: {args.dataset_path}")
     base_dataset = ShardedSingleStepDataset(
