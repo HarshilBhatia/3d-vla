@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=multilab_baseline
-#SBATCH --output=logs/multilab_baseline_%j.log
-#SBATCH --error=logs/multilab_baseline_%j.err
+#SBATCH --job-name=multilab_baseline_ext2
+#SBATCH --output=logs/multilab_baseline_ext2_%j.log
+#SBATCH --error=logs/multilab_baseline_ext2_%j.err
 #SBATCH --time=48:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -15,7 +15,7 @@ source ~/.bashrc
 micromamba activate gr00t
 
 mkdir -p /u/hbhatia1/3d-vla/logs
-mkdir -p /work/hdd/bgkz/hbhatia1/outputs_multilab_baseline_v3
+mkdir -p /work/hdd/bgkz/hbhatia1/multilab_baseline_ext2
 
 cd /u/hbhatia1/3d-vla
 
@@ -23,16 +23,16 @@ NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
 echo "Using $NUM_GPUS GPUs on $(hostname)"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-WANDB_RUN_ID=${WANDB_RUN_ID:-$(cat /work/hdd/bgkz/hbhatia1/outputs_multilab_baseline_v3/.wandb_run_id 2>/dev/null || python -c "import wandb; print(wandb.util.generate_id())" | tee /work/hdd/bgkz/hbhatia1/outputs_multilab_baseline_v3/.wandb_run_id)}
+WANDB_RUN_ID=${WANDB_RUN_ID:-$(cat /work/hdd/bgkz/hbhatia1/multilab_baseline_ext2/.wandb_run_id 2>/dev/null || python -c "import wandb; print(wandb.util.generate_id())" | tee /work/hdd/bgkz/hbhatia1/multilab_baseline_ext2/.wandb_run_id)}
 
 MASTER_PORT=$(shuf -i 29500-30000 -n 1)
 torchrun --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
     -m gr00t.experiment.launch_finetune \
         --base-model-path            nvidia/GR00T-N1.6-3B \
-        --dataset-path               /work/nvme/bgkz/droid_raw_large_superset \
-        --embodiment-tag             OXE_DROID \
-        --output-dir                 /work/hdd/bgkz/hbhatia1/outputs_multilab_baseline_v3 \
-        --cached-backbone-dir        /work/nvme/bgkz/droid_multilab_cache \
+        --dataset-path               /work/hdd/bgkz/droid_raw_large_superset \
+        --embodiment-tag             OXE_DROID_EXT2 \
+        --output-dir                 /work/hdd/bgkz/hbhatia1/multilab_baseline_ext2 \
+        --cached-backbone-dir        /work/nvme/bgkz/droid_multilab_cache_ext2 \
         --allowed-indices-file       /work/nvme/bgkz/droid_multilab_depths/selected_episodes.json \
         --shard-size                 1024 \
         --episode-sampling-rate      0.1 \
@@ -47,4 +47,4 @@ torchrun --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
         --tune-diffusion-model \
         --use-wandb \
         --wandb-project              gr00t-droid \
-        --wandb-run-name             multilab-baseline-v3
+        --wandb-run-name             multilab-baseline-ext2

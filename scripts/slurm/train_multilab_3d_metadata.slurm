@@ -1,7 +1,7 @@
 #!/bin/bash
-#SBATCH --job-name=ml_3d_f1000_sc
-#SBATCH --output=logs/multilab_3d_freq1000_scratch_%j.log
-#SBATCH --error=logs/multilab_3d_freq1000_scratch_%j.err
+#SBATCH --job-name=multilab_3d_metadata
+#SBATCH --output=logs/multilab_3d_metadata_%j.log
+#SBATCH --error=logs/multilab_3d_metadata_%j.err
 #SBATCH --time=48:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -15,7 +15,7 @@ source ~/.bashrc
 micromamba activate gr00t
 
 mkdir -p /u/hbhatia1/3d-vla/logs
-mkdir -p /work/hdd/bgkz/hbhatia1/outputs_multilab_3d_freq1000_scratch
+mkdir -p /work/hdd/bgkz/hbhatia1/multilab_3d_metadata
 
 cd /u/hbhatia1/3d-vla
 
@@ -23,17 +23,17 @@ NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
 echo "Using $NUM_GPUS GPUs on $(hostname)"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-WANDB_RUN_ID=${WANDB_RUN_ID:-$(cat /work/hdd/bgkz/hbhatia1/outputs_multilab_3d_freq1000_scratch/.wandb_run_id 2>/dev/null || python -c "import wandb; print(wandb.util.generate_id())" | tee /work/hdd/bgkz/hbhatia1/outputs_multilab_3d_freq1000_scratch/.wandb_run_id)}
+WANDB_RUN_ID=${WANDB_RUN_ID:-$(cat /work/hdd/bgkz/hbhatia1/multilab_3d_metadata/.wandb_run_id 2>/dev/null || python -c "import wandb; print(wandb.util.generate_id())" | tee /work/hdd/bgkz/hbhatia1/multilab_3d_metadata/.wandb_run_id)}
 
 MASTER_PORT=$(shuf -i 29500-30000 -n 1)
 torchrun --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
     -m gr00t.experiment.launch_finetune \
         --base-model-path            nvidia/GR00T-N1.6-3B \
-        --dataset-path               /work/nvme/bgkz/droid_raw_large_superset \
-        --embodiment-tag             OXE_DROID \
-        --output-dir                 /work/hdd/bgkz/hbhatia1/outputs_multilab_3d_freq1000_scratch \
-        --cached-backbone-dir        /work/nvme/bgkz/droid_multilab_cache \
-        --use-3d-rope \
+        --dataset-path               /work/hdd/bgkz/droid_raw_large_superset \
+        --embodiment-tag             OXE_DROID_EXT2 \
+        --output-dir                 /work/hdd/bgkz/hbhatia1/multilab_3d_metadata \
+        --cached-backbone-dir        /work/nvme/bgkz/droid_multilab_cache_ext2 \
+        --depth-cache-dir            /work/nvme/bgkz/droid_multilab_depth_metadata_ext2 \
         --allowed-indices-file       /work/nvme/bgkz/droid_multilab_depths/selected_episodes.json \
         --shard-size                 1024 \
         --episode-sampling-rate      0.1 \
@@ -46,8 +46,7 @@ torchrun --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
         --no-tune-visual \
         --no-tune-projector \
         --tune-diffusion-model \
-        --reinit-action-head \
-        --rope-base-freq             1000.0 \
         --use-wandb \
         --wandb-project              gr00t-droid \
-        --wandb-run-name             multilab-3d-freq1000-scratch-v1
+        --wandb-run-name             multilab-3d-metadata-ext2 \
+        --use-3d-rope

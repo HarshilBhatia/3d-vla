@@ -15,7 +15,7 @@ source ~/.bashrc
 micromamba activate gr00t
 
 mkdir -p /u/hbhatia1/3d-vla/logs
-mkdir -p /work/hdd/bgkz/hbhatia1/outputs_multilab_3d
+mkdir -p /work/hdd/bgkz/hbhatia1/multilab_interRoPE
 
 cd /u/hbhatia1/3d-vla
 
@@ -23,7 +23,7 @@ NUM_GPUS=$(nvidia-smi --query-gpu=name --format=csv,noheader | wc -l)
 echo "Using $NUM_GPUS GPUs on $(hostname)"
 export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
 
-WANDB_RUN_ID=${WANDB_RUN_ID:-$(cat /work/hdd/bgkz/hbhatia1/outputs_multilab_3d_v2/.wandb_run_id 2>/dev/null || python -c "import wandb; print(wandb.util.generate_id())" | tee /work/hdd/bgkz/hbhatia1/outputs_multilab_3d_v2/.wandb_run_id)}
+WANDB_RUN_ID=${WANDB_RUN_ID:-$(cat /work/hdd/bgkz/hbhatia1/multilab_interRoPE/.wandb_run_id 2>/dev/null || python -c "import wandb; print(wandb.util.generate_id())" | tee /work/hdd/bgkz/hbhatia1/multilab_interRoPE/.wandb_run_id)}
 
 MASTER_PORT=$(shuf -i 29500-30000 -n 1)
 torchrun --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
@@ -31,9 +31,8 @@ torchrun --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
         --base-model-path            nvidia/GR00T-N1.6-3B \
         --dataset-path               /work/nvme/bgkz/droid_raw_large_superset \
         --embodiment-tag             OXE_DROID \
-        --output-dir                 /work/hdd/bgkz/hbhatia1/outputs_multilab_3d_v2 \
+        --output-dir                 /work/hdd/bgkz/hbhatia1/multilab_interRoPE \
         --cached-backbone-dir        /work/nvme/bgkz/droid_multilab_cache \
-        --use-3d-rope \
         --allowed-indices-file       /work/nvme/bgkz/droid_multilab_depths/selected_episodes.json \
         --shard-size                 1024 \
         --episode-sampling-rate      0.1 \
@@ -48,4 +47,5 @@ torchrun --nproc_per_node=$NUM_GPUS --master_port=$MASTER_PORT \
         --tune-diffusion-model \
         --use-wandb \
         --wandb-project              gr00t-droid \
-        --wandb-run-name             multilab-3d-v2
+        --wandb-run-name             multilab_interRoPE \
+        --use-3d-rope
