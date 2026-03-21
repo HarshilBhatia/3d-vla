@@ -70,7 +70,7 @@ def build_episode_frame_index(base_dataset, dataset_path: str) -> list[dict]:
 
 
 def build_serial_map(raw_dir: Path, canonical_ids: set[str]) -> dict:
-    """Build canonical_id → {ext1: serial, wrist: serial} from raw metadata JSONs."""
+    """Build canonical_id → {ext1: serial, ext2: serial, wrist: serial} from raw metadata JSONs."""
     serial_map = {}
     for ep_dir in raw_dir.iterdir():
         if not ep_dir.is_dir():
@@ -85,6 +85,7 @@ def build_serial_map(raw_dir: Path, canonical_ids: set[str]) -> dict:
         meta = json.loads(meta_files[0].read_text())
         serial_map[canonical_id] = {
             "ext1":  str(meta["ext1_cam_serial"]),
+            "ext2":  str(meta["ext2_cam_serial"]),
             "wrist": str(meta["wrist_cam_serial"]),
         }
     return serial_map
