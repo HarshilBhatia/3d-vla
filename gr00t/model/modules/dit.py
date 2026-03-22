@@ -88,13 +88,16 @@ class DeltaMPredictor(nn.Module):
 class ActionDeltaMPredictor(nn.Module):
     """State-token-conditioned orthogonal 6×6 RoPE rotation for action token queries.
 
-    Uses the current state token embedding [B, D] to predict a per-block orthogonal
-    6×6 deltaM via: Linear(D→D) → SiLU → Linear(D→36) → skew-sym → matrix_exp.
+    Architecture:
+      LayerNorm → SwiGLU (hidden=d_token, no bias) → Linear(d_token→36, no bias, zero-init)
+      → skew-sym → Frobenius-norm clip → matrix_exp → orthogonal [B, 6, 6]
 
-    Analogous to DeltaMPredictor (which conditions on register tokens to rotate image key RoPE),
-    but applied to action query RoPE and conditioned on the state token.
-
-    Small-normal weight init ensures A ≈ 0 at init → deltaM ≈ I (identity).
+    Design choices:
+    - LayerNorm: decouples head training from varying token scale across training.
+    - SwiGLU: multiplicative gate selectively suppresses near-zero rotation axes.
+    - No expansion (hidden = d_token): output is only 36 dims; expansion would overfit.
+    - No bias in gate/val: LayerNorm handles centering.
+    - Zero-init output: A_flat = 0 at init → deltaM = I (identity residual behavior).
     """
 
     def __init__(self, hidden_dim: int, max_norm: float = 3.0):
@@ -102,14 +105,13 @@ class ActionDeltaMPredictor(nn.Module):
         if hidden_dim < 1:
             raise ValueError(f"hidden_dim={hidden_dim} must be >= 1")
         self.max_norm = max_norm
-        self.mlp = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
-            nn.SiLU(),
-            nn.Linear(hidden_dim, 36),
-        )
-        # Zero-init last layer → A_flat = 0 → deltaM = I at init, regardless of input scale
-        nn.init.zeros_(self.mlp[-1].weight)
-        nn.init.zeros_(self.mlp[-1].bias)
+        self.norm = nn.LayerNorm(hidden_dim)
+        # SwiGLU gate and value projections — no bias (LayerNorm handles centering)
+        self.w_gate = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        self.w_val  = nn.Linear(hidden_dim, hidden_dim, bias=False)
+        # Output: d_token → 36 scalars for 6×6 Lie algebra element — no bias, zero-init
+        self.w_out  = nn.Linear(hidden_dim, 36, bias=False)
+        nn.init.zeros_(self.w_out.weight)
 
     def forward(self, state_token: torch.Tensor) -> torch.Tensor:
         """
@@ -119,8 +121,10 @@ class ActionDeltaMPredictor(nn.Module):
         Returns:
             delta_m: [B, 6, 6] orthogonal matrix.
         """
-        B = state_token.shape[0]
-        A = self.mlp(state_token).reshape(B, 6, 6)    # [B, 6, 6]
+        x = self.norm(state_token)
+        x = F.silu(self.w_gate(x)) * self.w_val(x)    # SwiGLU
+        B = x.shape[0]
+        A = self.w_out(x).reshape(B, 6, 6)             # [B, 6, 6]
         A = A - A.transpose(-1, -2)                    # skew-symmetric
         frob = A.norm(dim=(-2, -1), keepdim=True)
         safe_frob = frob.clamp(min=1e-8)
