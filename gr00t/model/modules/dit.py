@@ -85,6 +85,49 @@ class DeltaMPredictor(nn.Module):
         return delta_ms
 
 
+class ActionDeltaMPredictor(nn.Module):
+    """State-token-conditioned orthogonal 6×6 RoPE rotation for action token queries.
+
+    Uses the current state token embedding [B, D] to predict a per-block orthogonal
+    6×6 deltaM via: Linear(D→D) → SiLU → Linear(D→36) → skew-sym → matrix_exp.
+
+    Analogous to DeltaMPredictor (which conditions on register tokens to rotate image key RoPE),
+    but applied to action query RoPE and conditioned on the state token.
+
+    Small-normal weight init ensures A ≈ 0 at init → deltaM ≈ I (identity).
+    """
+
+    def __init__(self, hidden_dim: int, max_norm: float = 3.0):
+        super().__init__()
+        if hidden_dim < 1:
+            raise ValueError(f"hidden_dim={hidden_dim} must be >= 1")
+        self.max_norm = max_norm
+        self.mlp = nn.Sequential(
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.SiLU(),
+            nn.Linear(hidden_dim, 36),
+        )
+        # Zero-init last layer → A_flat = 0 → deltaM = I at init, regardless of input scale
+        nn.init.zeros_(self.mlp[-1].weight)
+        nn.init.zeros_(self.mlp[-1].bias)
+
+    def forward(self, state_token: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            state_token: [B, hidden_dim] — current state token embedding.
+
+        Returns:
+            delta_m: [B, 6, 6] orthogonal matrix.
+        """
+        B = state_token.shape[0]
+        A = self.mlp(state_token).reshape(B, 6, 6)    # [B, 6, 6]
+        A = A - A.transpose(-1, -2)                    # skew-symmetric
+        frob = A.norm(dim=(-2, -1), keepdim=True)
+        safe_frob = frob.clamp(min=1e-8)
+        A = A * (frob.clamp(max=self.max_norm) / safe_frob)
+        return torch.linalg.matrix_exp(A)              # [B, 6, 6] orthogonal
+
+
 class TimestepEncoder(nn.Module):
     def __init__(self, embedding_dim, compute_dtype=torch.float32):
         super().__init__()
@@ -223,13 +266,10 @@ class BasicTransformerBlock(nn.Module):
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.Tensor] = None,
         temb: Optional[torch.LongTensor] = None,
-        token_positions_3d: Optional[torch.Tensor] = None,
-        query_eef_position: Optional[torch.Tensor] = None,
-        apply_eef_to_state: bool = False,
-        apply_eef_to_actions: bool = False,
-        query_positions_3d: Optional[torch.Tensor] = None,
         rope_cos: Optional[torch.Tensor] = None,
         rope_sin: Optional[torch.Tensor] = None,
+        rope_cos_q: Optional[torch.Tensor] = None,
+        rope_sin_q: Optional[torch.Tensor] = None,
     ) -> torch.Tensor:
         # 0. Self-Attention / Cross-Attention
         if self.norm_type == "ada_norm":
@@ -240,57 +280,15 @@ class BasicTransformerBlock(nn.Module):
         if self.pos_embed is not None:
             norm_hidden_states = self.pos_embed(norm_hidden_states)
 
-        # Compute 3D RoPE cos/sin on the fly if positions are provided.
-        # Pre-computed rope_cos/sin (passed from AlternateVLDiT after deltaM rotation) take
-        # precedence over computing from token_positions_3d here.
+        # All RoPE cos/sin are pre-computed by AlternateVLDiT and passed in directly.
         cross_attention_kwargs = {}
-
         if encoder_hidden_states is not None:
-            from gr00t.model.gr00t_n1d6.rope_3d import compute_rope_cos_sin
-
-            # Use pre-computed (possibly deltaM-rotated) rope cos/sin if provided
             if rope_cos is not None and rope_sin is not None:
-                cross_attention_kwargs = {"rope_cos": rope_cos, "rope_sin": rope_sin}
-            elif token_positions_3d is not None:
-                rope_cos, rope_sin = compute_rope_cos_sin(
-                    token_positions_3d,
-                    precomputed_freqs=self.rope_freqs,  # [num_triplets], on correct device
-                    total_dim=self.dim,                 # 1536
-                )
-                cross_attention_kwargs = {"rope_cos": rope_cos, "rope_sin": rope_sin}
-
-            if cross_attention_kwargs:
-                # query_positions_3d (pre-built by AlternateVLDiT, covers all query tokens
-                # including register tokens) takes precedence over per-token eef logic.
-                if query_positions_3d is not None:
-                    rope_cos_q, rope_sin_q = compute_rope_cos_sin(
-                        query_positions_3d.to(dtype=torch.float32),
-                        precomputed_freqs=self.rope_freqs,
-                        total_dim=self.dim,
-                    )
-                    cross_attention_kwargs["rope_cos_q"] = rope_cos_q
-                    cross_attention_kwargs["rope_sin_q"] = rope_sin_q
-                elif query_eef_position is not None and (apply_eef_to_state or apply_eef_to_actions):
-                    # Fallback: rotate query tokens with R(p_eef) to give relative scores
-                    # Q·R(p_k - p_eef)·K. Flags are independent:
-                    #   apply_eef_to_state   (use_eef_relative_rope): state token (index 0) only
-                    #   apply_eef_to_actions (use_action_eef_rope):   action tokens (indices 1:) only
-                    B, seq_q, _ = norm_hidden_states.shape
-                    query_positions = torch.zeros(
-                        B, seq_q, 3, device=hidden_states.device, dtype=torch.float32
-                    )
-                    p_eef = query_eef_position.to(query_positions.dtype)
-                    if apply_eef_to_state:
-                        query_positions[:, 0, :] = p_eef
-                    if apply_eef_to_actions:
-                        query_positions[:, 1:, :] = p_eef.unsqueeze(1)
-                    rope_cos_q, rope_sin_q = compute_rope_cos_sin(
-                        query_positions,
-                        precomputed_freqs=self.rope_freqs,
-                        total_dim=self.dim,
-                    )
-                    cross_attention_kwargs["rope_cos_q"] = rope_cos_q
-                    cross_attention_kwargs["rope_sin_q"] = rope_sin_q
+                cross_attention_kwargs["rope_cos"] = rope_cos
+                cross_attention_kwargs["rope_sin"] = rope_sin
+            if rope_cos_q is not None and rope_sin_q is not None:
+                cross_attention_kwargs["rope_cos_q"] = rope_cos_q
+                cross_attention_kwargs["rope_sin_q"] = rope_sin_q
 
         attn_output = self.attn1(
             norm_hidden_states,
@@ -447,18 +445,20 @@ class AlternateVLDiT(DiT):
         self,
         *args,
         attend_text_every_n_blocks: int = 2,
-        use_eef_relative_rope: bool = False,
+        use_state_eef_rope: bool = False,
         use_action_eef_rope: bool = False,
         use_delta_m: bool = False,
         num_cameras: int = 2,
+        use_action_delta_m: bool = False,
         **kwargs,
     ):
         super().__init__(*args, **kwargs)
         self.attend_text_every_n_blocks = attend_text_every_n_blocks
-        self.use_eef_relative_rope = use_eef_relative_rope
+        self.use_state_eef_rope = use_state_eef_rope
         self.use_action_eef_rope = use_action_eef_rope
         self.use_delta_m = use_delta_m
         self.num_cameras = num_cameras
+        self.use_action_delta_m = use_action_delta_m
         # Install 3D RoPE processor on all cross-attention blocks (backward-compatible:
         # behaves as standard SDPA when rope_cos/rope_sin are not passed).
         from gr00t.model.gr00t_n1d6.rope_3d import RoPE3DCrossAttnProcessor
@@ -474,6 +474,9 @@ class AlternateVLDiT(DiT):
                 num_cameras=num_cameras,
                 backbone_dim=backbone_dim,
             )
+
+        if use_action_delta_m:
+            self.action_delta_m_pred = ActionDeltaMPredictor(hidden_dim=self.inner_dim)
 
     def forward(
         self,
@@ -492,6 +495,8 @@ class AlternateVLDiT(DiT):
 
         if self.use_delta_m and token_positions_3d is None:
             raise ValueError("use_delta_m=True requires token_positions_3d (--use-3d-rope)")
+        if self.use_action_delta_m and token_positions_3d is None:
+            raise ValueError("use_action_delta_m=True requires token_positions_3d (--use-3d-rope)")
 
         # Encode timesteps
         temb = self.timestep_encoder(timestep)
@@ -599,13 +604,12 @@ class AlternateVLDiT(DiT):
                             base_rope_cos, base_rope_sin, current_delta_ms, cam_token_indices
                         )
 
-                    # Build full query position tensor [B, T+K, 3] for register token RoPE
-                    query_pos_3d = None
-                    if curr_rope_cos is not None and (
-                        self.use_eef_relative_rope
-                        or self.use_action_eef_rope
-                        or (self.use_delta_m and camera_positions_3d is not None)
-                    ):
+                    # Build query position tensor [B, T+K, 3] then compute query RoPE.
+                    # All query RoPE is pre-computed here and passed directly to the block.
+                    rope_cos_q = None
+                    rope_sin_q = None
+                    if curr_rope_cos is not None:
+                        from gr00t.model.gr00t_n1d6.rope_3d import compute_rope_cos_sin
                         B_val = extended_hidden.shape[0]
                         seq_q = extended_hidden.shape[1]  # T+K (or T if not use_delta_m)
                         query_pos_3d = torch.zeros(
@@ -614,13 +618,25 @@ class AlternateVLDiT(DiT):
                         )
                         if eef_position_3d is not None:
                             p_eef = eef_position_3d.to(torch.float32)
-                            if self.use_eef_relative_rope:
+                            if self.use_state_eef_rope:
                                 query_pos_3d[:, 0, :] = p_eef
                             if self.use_action_eef_rope:
                                 query_pos_3d[:, 1:T, :] = p_eef.unsqueeze(1)
                         if self.use_delta_m and camera_positions_3d is not None:
-                            # Register tokens get camera optical center positions
                             query_pos_3d[:, T : T + K, :] = camera_positions_3d.to(torch.float32)
+                        rope_cos_q, rope_sin_q = compute_rope_cos_sin(
+                            query_pos_3d,
+                            precomputed_freqs=self.transformer_blocks[0].rope_freqs,
+                            total_dim=self.inner_dim,
+                        )
+                        if self.use_action_delta_m:
+                            from gr00t.model.gr00t_n1d6.rope_3d import apply_action_delta_m_to_rope
+                            state_tok = extended_hidden[:, 0, :]  # [B, D], re-read each block
+                            action_delta_m = self.action_delta_m_pred(state_tok)  # [B, 6, 6]
+                            rope_cos_q, rope_sin_q = apply_action_delta_m_to_rope(
+                                rope_cos_q, rope_sin_q, action_delta_m,
+                                action_start=1, action_end=T,
+                            )
 
                     extended_hidden = block(
                         extended_hidden,
@@ -630,7 +646,8 @@ class AlternateVLDiT(DiT):
                         temb=temb,
                         rope_cos=curr_rope_cos,
                         rope_sin=curr_rope_sin,
-                        query_positions_3d=query_pos_3d,
+                        rope_cos_q=rope_cos_q,
+                        rope_sin_q=rope_sin_q,
                     )
 
                     # After image block: compute new deltaM from updated register tokens

@@ -108,14 +108,15 @@ if __name__ == "__main__":
     if ft_config.depth_cache_dir is not None:
         config.data.depth_cache_dir = ft_config.depth_cache_dir
     config.data.use_3d_rope = ft_config.use_3d_rope
-    config.data.use_eef_relative_rope = ft_config.use_eef_relative_rope
+    config.data.use_state_eef_rope = ft_config.use_state_eef_rope
     config.data.use_action_eef_rope = ft_config.use_action_eef_rope
-    config.model.diffusion_model_cfg["use_eef_relative_rope"] = ft_config.use_eef_relative_rope
+    config.model.diffusion_model_cfg["use_state_eef_rope"] = ft_config.use_state_eef_rope
     config.model.diffusion_model_cfg["use_action_eef_rope"] = ft_config.use_action_eef_rope
     config.data.use_delta_m = ft_config.use_delta_m
     config.data.num_cameras = ft_config.num_cameras
     config.data.use_camera_positions = ft_config.use_camera_positions
     config.model.diffusion_model_cfg["use_delta_m"] = ft_config.use_delta_m
     config.model.diffusion_model_cfg["num_cameras"] = ft_config.num_cameras
+    config.model.diffusion_model_cfg["use_action_delta_m"] = ft_config.use_action_delta_m
 
     run(config)

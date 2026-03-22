@@ -164,6 +164,59 @@ def apply_delta_m_to_rope(
     return rope_cos, rope_sin
 
 
+def apply_action_delta_m_to_rope(
+    rope_cos_q: torch.Tensor,   # [B, seq_q, D//2]
+    rope_sin_q: torch.Tensor,   # [B, seq_q, D//2]
+    delta_m: torch.Tensor,      # [B, 6, 6]
+    action_start: int,          # first action token index (1, after state token)
+    action_end: int,            # one past last action token index (T, before register tokens)
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Apply a single orthogonal 6×6 deltaM to action token query RoPE values.
+
+    Operates on the contiguous slice [action_start:action_end] of the query sequence,
+    leaving the state token (index 0) and register tokens (indices T:) unchanged.
+
+    Args:
+        rope_cos_q: [B, seq_q, D//2] — query RoPE cosines.
+        rope_sin_q: [B, seq_q, D//2] — query RoPE sines.
+        delta_m:    [B, 6, 6] orthogonal matrix from ActionDeltaMPredictor.
+        action_start: first action token index (typically 1).
+        action_end:   one past last action token index (typically T = 1 + action_horizon).
+
+    Returns:
+        Modified (rope_cos_q, rope_sin_q) with deltaM applied to action token slice.
+    """
+    B, seq_q, half_D = rope_cos_q.shape
+    if half_D % 3 != 0:
+        raise ValueError(
+            f"rope_cos_q last dim {half_D} must be divisible by 3 (interleaved x/y/z triplets)"
+        )
+    n_act = action_end - action_start
+    if n_act <= 0:
+        raise ValueError(f"action_end={action_end} must be > action_start={action_start}")
+
+    num_triplets = half_D // 3
+
+    rope_cos_q = rope_cos_q.clone()
+    rope_sin_q = rope_sin_q.clone()
+
+    # Extract action slice and reshape to [B, n_act, num_triplets, 3]
+    cos_a = rope_cos_q[:, action_start:action_end, :].reshape(B, n_act, num_triplets, 3)
+    sin_a = rope_sin_q[:, action_start:action_end, :].reshape(B, n_act, num_triplets, 3)
+
+    # Stack to [B, n_act, num_triplets, 6]: [cos_x, cos_y, cos_z, sin_x, sin_y, sin_z]
+    feat = torch.cat([cos_a, sin_a], dim=-1)
+
+    # Apply [B, 6, 6] deltaM per frequency bin
+    feat = torch.einsum("bnci,bji->bncj", feat, delta_m.to(feat.dtype))
+
+    # Write back
+    rope_cos_q[:, action_start:action_end, :] = feat[..., :3].reshape(B, n_act, half_D).to(rope_cos_q.dtype)
+    rope_sin_q[:, action_start:action_end, :] = feat[..., 3:].reshape(B, n_act, half_D).to(rope_sin_q.dtype)
+
+    return rope_cos_q, rope_sin_q
+
+
 class RoPE3DCrossAttnProcessor:
     """Custom diffusers attention processor that applies 3D RoPE to keys in cross-attention.
 

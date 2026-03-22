@@ -93,7 +93,7 @@ class DataConfig:
     episode_index_path: Optional[str] = None
     depth_cache_dir: Optional[str] = None
     use_3d_rope: bool = False
-    use_eef_relative_rope: bool = False
+    use_state_eef_rope: bool = False
     use_action_eef_rope: bool = False
 
     # DP Image Config

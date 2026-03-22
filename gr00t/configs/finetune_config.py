@@ -97,7 +97,7 @@ class FinetuneConfig:
     use_3d_rope: bool = False
     """If True, load precomputed depth shard positions and apply 3D RoPE in DiT cross-attention."""
 
-    use_eef_relative_rope: bool = False
+    use_state_eef_rope: bool = False
     """
     If True, subtract the EEF position from token positions before applying 3D RoPE,
     giving relative positions p_k - p_eef. Requires use_3d_rope=True and depth shards
@@ -109,7 +109,7 @@ class FinetuneConfig:
     If True, apply the EEF position as the 3D RoPE query position for ALL query tokens
     (state token at index 0 AND all action/trajectory tokens at indices 1-16), not just
     the state token. This gives every query a position-relative view Q·R(p_k - p_eef)·K.
-    Requires use_3d_rope=True and use_eef_relative_rope=True.
+    Requires use_3d_rope=True and use_state_eef_rope=True.
     """
 
     rope_base_freq: float = 100.0
@@ -143,6 +143,16 @@ class FinetuneConfig:
     Requires depth shards produced by cache_depth_features.py with --cam2cam-json
     (the campos shards). If False, register tokens get zero 3D RoPE position.
     Only meaningful when use_delta_m=True.
+    """
+
+    use_action_delta_m: bool = False
+    """
+    If True, bolt an MLP onto the current state token to predict a per-block orthogonal 6×6
+    deltaM that rotates the 3D RoPE query values for all action tokens (indices 1:T).
+    Analogous to image deltaM for register tokens, but on the query side conditioned on the
+    robot's proprioceptive state. State token is re-read at each image cross-attn block so
+    the deltaM evolves as the state token is updated by self-attention.
+    Requires use_3d_rope=True.
     """
 
     reinit_action_head: bool = False

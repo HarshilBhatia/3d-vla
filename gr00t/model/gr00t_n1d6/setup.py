@@ -224,16 +224,16 @@ class Gr00tN1d6Pipeline(ModelPipeline):
             use_3d_rope = getattr(self.config.data, "use_3d_rope", False)
             depth_cache_dir = getattr(self.config.data, "depth_cache_dir", None) or cached_backbone_dir
             depth_shard_files = sorted(_Path(depth_cache_dir).glob("depth_shard_?????.pt")) if use_3d_rope else []
-            use_eef_relative_rope = getattr(self.config.data, "use_eef_relative_rope", False)
+            use_state_eef_rope = getattr(self.config.data, "use_state_eef_rope", False)
             use_action_eef_rope = getattr(self.config.data, "use_action_eef_rope", False)
             use_delta_m = getattr(self.config.data, "use_delta_m", False)
             use_camera_positions = getattr(self.config.data, "use_camera_positions", False)
-            need_eef = use_eef_relative_rope or use_action_eef_rope
+            need_eef = use_state_eef_rope or use_action_eef_rope
             need_camera_pos = use_delta_m and use_camera_positions
             if depth_shard_files:
                 import torch as _torch
                 print(f"[setup] Preloading {len(depth_shard_files)} depth shards "
-                      f"(use_eef_relative_rope={use_eef_relative_rope}, "
+                      f"(use_state_eef_rope={use_state_eef_rope}, "
                       f"use_action_eef_rope={use_action_eef_rope}, "
                       f"use_delta_m={use_delta_m}, "
                       f"use_camera_positions={use_camera_positions}) ...")
