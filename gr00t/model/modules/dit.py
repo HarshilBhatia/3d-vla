@@ -13,10 +13,13 @@ class DeltaMPredictor(nn.Module):
     """Per-image learnable orthogonal 6×6 RoPE rotation (deltaM).
 
     Converts a per-camera register token [B, D] into an orthogonal 6×6 matrix
-    via: Linear → skew-symmetric → Frobenius-norm clip → matrix_exp.
+    via: LayerNorm → SwiGLU → Linear(D→36) → skew-sym → Frobenius-norm clip → matrix_exp.
 
-    The 6×6 matrix rotates the [cos_x, cos_y, cos_z, sin_x, sin_y, sin_z]
-    components of 3D RoPE independently per frequency bin.
+    Architecture matches ActionDeltaMPredictor:
+    - LayerNorm: decouples head from varying register token scale.
+    - SwiGLU (no bias): multiplicative gate selectively activates Lie algebra axes.
+    - No expansion (hidden=d_token): output is only 36 dims.
+    - Zero-init output weight: A=0 at init → deltaM=I (identity residual behavior).
     """
 
     def __init__(
@@ -35,14 +38,13 @@ class DeltaMPredictor(nn.Module):
         # Register tokens start as meaningful projections of backbone features,
         # ensuring gradients flow through thumbnail_proj from step 0.
         self.thumbnail_proj = nn.Linear(backbone_dim, hidden_dim)
-        # Per-camera MLP: hidden_dim → 36 scalars (upper triangle of 6×6 skew-sym).
-        # Small-normal weights → A ≈ 0 at init → matrix_exp(0) = I (identity deltaM).
-        self.delta_m_mlps = nn.ModuleList(
-            [nn.Linear(hidden_dim, 36) for _ in range(num_cameras)]
-        )
-        for mlp in self.delta_m_mlps:
-            nn.init.normal_(mlp.weight, mean=0.0, std=0.01)
-            nn.init.zeros_(mlp.bias)
+        # Per-camera SwiGLU heads: LayerNorm → SwiGLU (no bias) → Linear(D→36, zero-init)
+        self.norms   = nn.ModuleList([nn.LayerNorm(hidden_dim) for _ in range(num_cameras)])
+        self.w_gates = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim, bias=False) for _ in range(num_cameras)])
+        self.w_vals  = nn.ModuleList([nn.Linear(hidden_dim, hidden_dim, bias=False) for _ in range(num_cameras)])
+        self.w_outs  = nn.ModuleList([nn.Linear(hidden_dim, 36, bias=False) for _ in range(num_cameras)])
+        for w_out in self.w_outs:
+            nn.init.zeros_(w_out.weight)
 
     def init_register_tokens(self, thumbnails: torch.Tensor) -> torch.Tensor:
         """Project thumbnails to DiT space.
@@ -74,14 +76,14 @@ class DeltaMPredictor(nn.Module):
             )
         delta_ms = []
         for c in range(self.num_cameras):
-            A_flat = self.delta_m_mlps[c](register_tokens[:, c, :])  # [B, 36]
-            A = A_flat.reshape(-1, 6, 6)                              # [B, 6, 6]
-            A = A - A.transpose(-1, -2)                               # skew-symmetric
-            # Frobenius norm clip: prevents very large rotations early in training
+            x = self.norms[c](register_tokens[:, c, :])
+            x = F.silu(self.w_gates[c](x)) * self.w_vals[c](x)  # SwiGLU
+            A = self.w_outs[c](x).reshape(-1, 6, 6)              # [B, 6, 6]
+            A = A - A.transpose(-1, -2)                           # skew-symmetric
             frob = A.norm(dim=(-2, -1), keepdim=True)
             safe_frob = frob.clamp(min=1e-8)
             A = A * (frob.clamp(max=self.max_norm) / safe_frob)
-            delta_ms.append(torch.linalg.matrix_exp(A))               # [B, 6, 6]
+            delta_ms.append(torch.linalg.matrix_exp(A))          # [B, 6, 6]
         return delta_ms
 
 
