@@ -1,5 +1,6 @@
 import json
 import os
+import pickle
 from pathlib import Path
 import re
 from typing import Any, Dict, Literal, Optional
@@ -43,6 +44,7 @@ EMBODIMENT_TAG_TO_PROJECTOR_INDEX = {
     "oxe_google": 0,
     "oxe_widowx": 1,
     "oxe_droid": 16,
+    "oxe_droid_ext2": 16,
     "new_embodiment": 10,
 }
 
@@ -59,12 +61,22 @@ class Gr00tN1d6DataCollator:
     # Keys produced by the backbone; when using cached backbone we inject these and drop backbone inputs.
     _BACKBONE_INPUT_KEYS = ("input_ids", "attention_mask", "pixel_values", "image_grid_thw")
 
+    # Eagle resizes 180×320 DROID images to 168×308 (fixed, verified empirically).
+    # With pixels_per_token=784 (28×28), the token grid is 6×11=66 patches per camera.
+    # The first camera (exterior) occupies the first block of image tokens; wrist comes second.
+    _DROID_RESIZED_H = 168
+    _DROID_RESIZED_W = 308
+    _DROID_TOKEN_STRIDE = 28   # stride in pixels per token (sqrt(pixels_per_token))
+    _DROID_GRID_ROWS = 6       # _DROID_RESIZED_H // _DROID_TOKEN_STRIDE
+    _DROID_GRID_COLS = 11      # _DROID_RESIZED_W // _DROID_TOKEN_STRIDE
+
     def __init__(
         self,
         model_name: str,
         model_type: Literal["eagle"] = "eagle",
         transformers_loading_kwargs: dict = {},
         cache_dir: Optional[str | Path] = None,
+        raw_dir: Optional[str | Path] = None,
     ):
         ### We need to use the same  processor for padding input ids and concat
         self.processor = build_processor(model_name, transformers_loading_kwargs)
@@ -73,6 +85,56 @@ class Gr00tN1d6DataCollator:
         self.model_type = model_type
         self.model_name = model_name
         self.cache_dir = Path(cache_dir) if cache_dir is not None else None
+        self.raw_dir = Path(raw_dir) if raw_dir is not None else Path("/work/nvme/bgkz/droid_rail_raw")
+        self._cache_index = None
+        self._shard_cache: dict = {}  # shard_idx -> loaded backbone shard (LRU=1)
+        self._depth_cache: dict = {}  # (canonical_id, serial) -> np.ndarray (T, H, W)
+        self._ext_extrinsics_cache: dict = {}  # canonical_id -> 4×4 np.ndarray (static, ext1)
+        self._wrist_extrinsics_cache: dict = {}  # canonical_id -> np.ndarray (T, 6) from trajectory.h5
+        self._intrinsics_cache: dict = {}  # (canonical_id, serial) -> [fx,fy,cx,cy]
+
+        # Depth shard cache: populated by setup.py after cache_dir is injected.
+        # shard_idx -> Tensor [N, seq_len, 3]
+        self._depth_shard_cache: Optional[dict] = None
+        # EEF position shard cache: populated by setup.py alongside depth shards.
+        # shard_idx -> Tensor [N, 3]
+        self._eef_shard_cache: Optional[dict] = None
+            
+
+    
+
+    def _load_feat(self, idx: int) -> dict:
+        """Load backbone features (and optionally 3D positions) for a single sample."""
+        cache_dir = Path(self.cache_dir)
+        if self._cache_index is None:
+            self._cache_index = torch.load(
+                cache_dir / "index.pt", weights_only=True
+            )
+        shard_idx = int(self._cache_index["shard_idx"][idx])
+        row       = int(self._cache_index["row"][idx])
+        if shard_idx not in self._shard_cache:
+            if len(self._shard_cache) >= 1:
+                self._shard_cache.pop(next(iter(self._shard_cache)))  # evict oldest
+            self._shard_cache[shard_idx] = torch.load(
+                cache_dir / f"shard_{shard_idx:05d}.pt",
+                weights_only=True,
+                map_location="cpu",
+            )
+        shard = self._shard_cache[shard_idx]
+        result = {
+            "backbone_features":       shard["backbone_features"][row],
+            "backbone_attention_mask": shard["backbone_attention_mask"][row],
+            "image_mask":              shard["image_mask"][row],
+        }
+
+        # 3D token positions from preloaded depth shards (zero I/O at training time).
+        # Populated by setup.py after cache_dir is set.
+        if self._depth_shard_cache is not None and shard_idx in self._depth_shard_cache:
+            result["token_positions_3d"] = self._depth_shard_cache[shard_idx][row]
+        if self._eef_shard_cache is not None and shard_idx in self._eef_shard_cache:
+            result["eef_position_3d"] = self._eef_shard_cache[shard_idx][row]  # [3]
+
+        return result
 
     def __call__(self, features: list[Dict[str, Any]]) -> BatchFeature:
         batch = {}
@@ -118,30 +180,33 @@ class Gr00tN1d6DataCollator:
                 batch[key] = torch.from_numpy(np.stack(values))
 
         if use_cache:
-            cache_dir = Path(self.cache_dir)
             backbone_features_list = []
             backbone_attention_mask_list = []
             image_mask_list = []
+            token_positions_3d_list = []
+            eef_position_3d_list = []
             for elem in features:
-                idx = elem["cache_global_idx"]
-                data = torch.load(
-                    cache_dir / f"feat_{idx:08d}.pt",
-                    map_location="cpu",
-                    weights_only=True,
-                )
+                data = self._load_feat(elem["cache_global_idx"])
                 backbone_features_list.append(data["backbone_features"])
                 backbone_attention_mask_list.append(data["backbone_attention_mask"])
                 image_mask_list.append(data["image_mask"])
+                if "token_positions_3d" in data:
+                    token_positions_3d_list.append(data["token_positions_3d"])
+                if "eef_position_3d" in data:
+                    eef_position_3d_list.append(data["eef_position_3d"])
             # Pad to max seq_len in batch (variable-length backbone outputs)
             max_len = max(t.shape[0] for t in backbone_features_list)
             padded_feats = []
             padded_attn = []
             padded_img = []
-            for feat, attn, imgm in zip(
+            padded_pos = []
+            has_positions = len(token_positions_3d_list) == len(features)
+            has_eef = len(eef_position_3d_list) == len(features)
+            for i, (feat, attn, imgm) in enumerate(zip(
                 backbone_features_list,
                 backbone_attention_mask_list,
                 image_mask_list,
-            ):
+            )):
                 pad_len = max_len - feat.shape[0]
                 padded_feats.append(
                     F.pad(feat.unsqueeze(0), (0, 0, 0, pad_len), value=0).squeeze(0)
@@ -153,9 +218,20 @@ class Gr00tN1d6DataCollator:
                     imgm_1d.float().unsqueeze(0), (0, pad_len), value=0
                 ).squeeze(0)
                 padded_img.append(imgm_pad.bool())
+                if has_positions:
+                    pos = token_positions_3d_list[i]  # [seq_len, 3]
+                    padded_pos.append(
+                        F.pad(pos.unsqueeze(0), (0, 0, 0, pad_len), value=0).squeeze(0)
+                    )
             batch["backbone_features"] = torch.stack(padded_feats)
             batch["backbone_attention_mask"] = torch.stack(padded_attn)
             batch["image_mask"] = torch.stack(padded_img)
+            if has_positions:
+                batch["token_positions_3d"] = torch.stack(padded_pos)  # [B, seq_len, 3]
+            if has_eef:
+                # EEF position passed separately — used to rotate the query (state token)
+                # in DiT cross-attention, giving true relative RoPE: Q·R(p_k - p_eef)·K.
+                batch["eef_position_3d"] = torch.stack(eef_position_3d_list).float()  # [B, 3]
 
         return BatchFeature(data={"inputs": batch})
 
@@ -427,12 +503,17 @@ class Gr00tN1d6Processor(BaseProcessor):
         else:
             language = content.text
 
-        vlm_inputs = self._get_vlm_inputs(
-            image_keys=image_keys,
-            images=content.images,
-            image_transform=image_transform,
-            language=language,
-        )
+        # Skip VLM processing when images are absent (cached backbone mode).
+        # backbone features (input_ids, pixel_values, etc.) are loaded from cache by the collator.
+        if content.images:
+            vlm_inputs = self._get_vlm_inputs(
+                image_keys=image_keys,
+                images=content.images,
+                image_transform=image_transform,
+                language=language,
+            )
+        else:
+            vlm_inputs = {}
 
         transformed_inputs = {
             "state": normalized_states.to(torch.get_default_dtype()),

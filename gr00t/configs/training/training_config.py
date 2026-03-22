@@ -31,6 +31,9 @@ class TrainingConfig:
 
     start_from_checkpoint: Optional[str] = None
 
+    reinit_action_head: bool = False
+    """If True, randomly reinitialize action head weights after loading the pretrained model."""
+
     # Mixed precision
     tf32: bool = True
     fp16: bool = False
@@ -89,6 +92,12 @@ class TrainingConfig:
 
     # Max number of retries in training for fault tolerance
     max_retries: int = 3
+
+    eval_only: bool = False
+    """If True, skip training and run a forward-pass eval on the train dataset (no gradients)."""
+
+    resume_from_checkpoint: str | None = None
+    """Path to a specific checkpoint to resume from."""
 
     # For testing.
     assert_loss_less_than: float | None = None

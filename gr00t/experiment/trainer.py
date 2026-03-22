@@ -241,6 +241,25 @@ class Gr00tTrainer(Trainer):
 
         return torch.utils.data.DataLoader(self.train_dataset, **dataloader_params)
 
+    def _load_optimizer_and_scheduler(self, checkpoint):
+        """Skip optimizer state when backbone is absent (skip_backbone=True).
+
+        The saved optimizer state contains backbone parameter groups that no
+        longer exist, so loading it would raise a size-mismatch ValueError.
+        """
+        model = self.model
+        # unwrap DDP / FSDP if needed
+        if hasattr(model, "module"):
+            model = model.module
+        skip = getattr(getattr(model, "config", None), "skip_backbone", False)
+        if skip:
+            logging.warning(
+                "skip_backbone=True: skipping optimizer/scheduler state from checkpoint "
+                "(backbone parameter groups are absent). Optimizer starts fresh."
+            )
+            return
+        super()._load_optimizer_and_scheduler(checkpoint)
+
     def train(
         self,
         resume_from_checkpoint=None,

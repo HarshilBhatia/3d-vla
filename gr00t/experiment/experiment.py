@@ -175,8 +175,8 @@ def run(config: Config):
     processor = pipeline.return_processor()
     processor.save_pretrained(processor_dir)
 
-    # deepspeed config
-    if config.training.num_gpus > 1 and not config.training.use_ddp:
+    # deepspeed config — disabled for eval_only (ZeRO requires stage 3 for inference)
+    if config.training.num_gpus > 1 and not config.training.use_ddp and not config.training.eval_only:
         deepspeed_config = config.get_deepspeed_config()
     else:
         deepspeed_config = None
@@ -211,7 +211,7 @@ def run(config: Config):
         report_to="wandb" if config.training.use_wandb else "none",
         seed=config.data.seed,
         deepspeed=deepspeed_config,
-        ddp_find_unused_parameters=False,
+        ddp_find_unused_parameters=True,
         ddp_bucket_cap_mb=config.training.ddp_bucket_cap_mb,
         eval_strategy=config.training.eval_strategy,
         eval_steps=config.training.eval_steps,
@@ -253,6 +253,36 @@ def run(config: Config):
             initial_actions_path = save_cfg_dir / INITIAL_ACTIONS_FILENAME
             save_initial_actions(initial_actions, initial_actions_path)
             logging.info(f"Saved {len(initial_actions)} initial actions to {initial_actions_path}")
+
+    # Eval-only mode: forward pass on rank 0, no gradients, no weight updates
+    if config.training.eval_only:
+        if not config.training.resume_from_checkpoint:
+            raise ValueError("--eval-only requires --resume-from-checkpoint to be set")
+        logging.info("📊 eval_only=True — running forward-pass eval, no training")
+        if global_rank == 0:
+            from torch.utils.data import DataLoader
+            model.eval()
+            device = next(model.parameters()).device
+            loader = DataLoader(
+                train_dataset,
+                batch_size=config.training.eval_batch_size,
+                collate_fn=data_collator,
+                num_workers=0,
+            )
+            total_loss, n_batches = 0.0, 0
+            with torch.no_grad():
+                for batch in loader:
+                    batch = {k: v.to(device) if hasattr(v, "to") else v for k, v in batch.items()}
+                    loss = model(**batch).loss
+                    total_loss += loss.item()
+                    n_batches += 1
+                    if n_batches % 10 == 0:
+                        logging.info(f"  batch {n_batches}  loss={total_loss / n_batches:.4f}")
+                    if n_batches >= 50:
+                        break
+            avg_loss = total_loss / max(n_batches, 1)
+            logging.info(f"Eval loss (avg over {n_batches} batches): {avg_loss:.4f}")
+        return
 
     # Train
     logging.info("🚀 Starting training...")

@@ -218,9 +218,11 @@ class Gr00tN1d6ActionHead(nn.Module):
         sa_embs = torch.cat((state_features, action_features), dim=1)
         vl_attn_mask = backbone_output.backbone_attention_mask
 
-        if self.config.use_alternate_vl_dit:
+        if self.config.use_alternate_vl_dit: # TRUE
             image_mask = backbone_output.image_mask
             backbone_attention_mask = backbone_output.backbone_attention_mask
+            token_positions_3d = backbone_output.get("token_positions_3d", None)
+            eef_position_3d = backbone_output.get("eef_position_3d", None)
             model_output, _ = self.model(
                 hidden_states=sa_embs,
                 encoder_hidden_states=vl_embeds,
@@ -229,6 +231,8 @@ class Gr00tN1d6ActionHead(nn.Module):
                 return_all_hidden_states=True,
                 image_mask=image_mask,
                 backbone_attention_mask=backbone_attention_mask,
+                token_positions_3d=token_positions_3d,
+                eef_position_3d=eef_position_3d,
             )
         else:
             model_output, _ = self.model(
@@ -342,6 +346,8 @@ class Gr00tN1d6ActionHead(nn.Module):
                     timestep=timesteps_tensor,
                     image_mask=backbone_output.image_mask,
                     backbone_attention_mask=backbone_output.backbone_attention_mask,
+                    token_positions_3d=backbone_output.get("token_positions_3d", None),
+                    eef_position_3d=backbone_output.get("eef_position_3d", None),
                 )
             else:
                 model_output = self.model(
@@ -437,19 +443,22 @@ class Gr00tN1d6(PreTrainedModel):
         super().__init__(config)
         self.config = config
 
-        backbone_cls = get_backbone_cls(config)
-        self.backbone = backbone_cls(
-            model_name=config.model_name,
-            tune_llm=config.tune_llm,
-            tune_visual=config.tune_visual,
-            select_layer=config.select_layer,
-            reproject_vision=config.reproject_vision,
-            use_flash_attention=config.use_flash_attention,
-            load_bf16=config.load_bf16,
-            tune_top_llm_layers=config.tune_top_llm_layers,
-            trainable_params_fp32=config.backbone_trainable_params_fp32,
-            transformers_loading_kwargs=transformers_loading_kwargs,
-        )
+        if config.skip_backbone:
+            self.backbone = None
+        else:
+            backbone_cls = get_backbone_cls(config)
+            self.backbone = backbone_cls(
+                model_name=config.model_name,
+                tune_llm=config.tune_llm,
+                tune_visual=config.tune_visual,
+                select_layer=config.select_layer,
+                reproject_vision=config.reproject_vision,
+                use_flash_attention=config.use_flash_attention,
+                load_bf16=config.load_bf16,
+                tune_top_llm_layers=config.tune_top_llm_layers,
+                trainable_params_fp32=config.backbone_trainable_params_fp32,
+                transformers_loading_kwargs=transformers_loading_kwargs,
+            )
 
         # Initialize action head
         self.action_head = Gr00tN1d6ActionHead(config)
@@ -473,13 +482,16 @@ class Gr00tN1d6(PreTrainedModel):
         """
         use_cached = "backbone_features" in inputs
         if use_cached:
-            backbone_outputs = BatchFeature(
-                data={
-                    "backbone_features": inputs["backbone_features"],
-                    "backbone_attention_mask": inputs["backbone_attention_mask"],
-                    "image_mask": inputs["image_mask"],
-                }
-            )
+            cached_data = {
+                "backbone_features": inputs["backbone_features"],
+                "backbone_attention_mask": inputs["backbone_attention_mask"],
+                "image_mask": inputs["image_mask"],
+            }
+            if "token_positions_3d" in inputs:
+                cached_data["token_positions_3d"] = inputs["token_positions_3d"]
+            if "eef_position_3d" in inputs:
+                cached_data["eef_position_3d"] = inputs["eef_position_3d"]
+            backbone_outputs = BatchFeature(data=cached_data)
             action_inputs = self.action_head.prepare_input(inputs)
             def to_device_with_dtype(x):
                 if torch.is_floating_point(x):
@@ -535,6 +547,8 @@ class Gr00tN1d6(PreTrainedModel):
         if use_cached:
             backbone_outputs = backbone_stuff
         else:
+            if self.backbone is None:
+                raise ValueError("backbone is None (skip_backbone=True) but no cached features provided")
             backbone_outputs = self.backbone(backbone_stuff)
         action_outputs = self.action_head(backbone_outputs, action_inputs)
         return action_outputs
@@ -547,6 +561,8 @@ class Gr00tN1d6(PreTrainedModel):
         if use_cached:
             backbone_outputs = backbone_stuff
         else:
+            if self.backbone is None:
+                raise ValueError("backbone is None (skip_backbone=True) but no cached features provided")
             backbone_outputs = self.backbone(backbone_stuff)
         action_outputs = self.action_head.get_action(backbone_outputs, action_inputs)
         return action_outputs

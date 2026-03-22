@@ -343,6 +343,49 @@ MODALITY_CONFIGS = {
             ],
         ),
     },
+    "oxe_droid_ext2": {
+        "video": ModalityConfig(
+            delta_indices=[0],
+            modality_keys=[
+                "exterior_image_1_left",
+                "exterior_image_2_left",
+            ],
+        ),
+        "state": ModalityConfig(
+            delta_indices=[0],
+            modality_keys=[
+                "joint_position",
+                "gripper_position",
+            ],
+        ),
+        "action": ModalityConfig(
+            delta_indices=list(range(0, 32)),
+            modality_keys=[
+                "joint_position",
+                "gripper_position",
+            ],
+            action_configs=[
+                # joint_position
+                ActionConfig(
+                    rep=ActionRepresentation.RELATIVE,
+                    type=ActionType.NON_EEF,
+                    format=ActionFormat.DEFAULT,
+                ),
+                # gripper_position
+                ActionConfig(
+                    rep=ActionRepresentation.ABSOLUTE,
+                    type=ActionType.NON_EEF,
+                    format=ActionFormat.DEFAULT,
+                ),
+            ],
+        ),
+        "language": ModalityConfig(
+            delta_indices=[0],
+            modality_keys=[
+                "annotation.language.language_instruction",
+            ],
+        ),
+    },
 }
 
 

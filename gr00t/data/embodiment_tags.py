@@ -49,6 +49,11 @@ class EmbodimentTag(Enum):
     The Open-X-Embodiment DROID robot with relative joint position actions.
     """
 
+    OXE_DROID_EXT2 = "oxe_droid_ext2"
+    """
+    DROID with exterior_image_1_left + exterior_image_2_left (both external cameras, no wrist).
+    """
+
     BEHAVIOR_R1_PRO = "behavior_r1_pro"
     """
     The Behavior R1 Pro robot.

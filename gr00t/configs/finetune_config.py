@@ -1,5 +1,6 @@
 # Finetune config used for single node post-training.
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import List, Optional
 
 from gr00t.data.embodiment_tags import EmbodimentTag
 
@@ -16,14 +17,14 @@ class FinetuneConfig:
     """
 
     # --- Data and Model Paths ---
-    base_model_path: str
-    """Path to the pretrained base model checkpoint (e.g., Hugging Face model hub or local directory)."""
-
     dataset_path: str
     """Path to the dataset root directory containing trajectory data for fine-tuning."""
 
     embodiment_tag: EmbodimentTag
     """Identifier specifying which embodiment (robot configuration) this fine-tuning run targets."""
+
+    base_model_path: str = "nvidia/GR00T-N1.6-3B"
+    """Path to the pretrained base model checkpoint (e.g., Hugging Face model hub or local directory)."""
 
     modality_config_path: str | None = None
     """
@@ -37,6 +38,90 @@ class FinetuneConfig:
     cache_backbone_features.py). Training will skip the backbone forward and only run the action head.
     Dataset path and shard/seed must match the run that created the cache.
     """
+
+    depth_dir: str | None = None
+    """
+    If set, load depth frames on-the-fly from this directory to compute 3D token positions
+    for 3D RoPE in DiT cross-attention. Directory must contain depth.blosc / intrinsics.npy
+    per episode/camera (produced by data_processing/extract_svo_depth.py).
+    Also requires episode_frame_index.pkl and serial_map.json (from build_episode_frame_index.py).
+    Must be used together with cached_backbone_dir.
+    """
+
+    episode_index_path: str | None = None
+    """
+    Path to episode_frame_index.pkl (maps cache global_idx → canonical_id + frame_idx).
+    If None and depth_dir is set, defaults to {depth_dir}/episode_frame_index.pkl.
+    """
+
+    labs: Optional[List[str]] = field(default=None)
+    """
+    If set, only include episodes from these labs (e.g. ["RAIL", "TRI"]).
+    Must match the --labs filter used when creating the cache.
+    """
+
+    allowed_indices_file: Optional[str] = None
+    """
+    Path to a selected_episodes.json produced by select_episodes.py.
+    When set, uses episode_indices from the file as the allowed set, bypassing --labs.
+    Must match the --allowed-indices-file used when creating the cache.
+    Cannot be combined with --labs.
+    """
+
+    resume_from_checkpoint: Optional[str] = None
+    """
+    Path to a specific checkpoint to resume from.
+    If None, resumes from the latest checkpoint in output_dir (if any).
+    """
+
+    eval_only: bool = False
+    """
+    If True, skip training and run a single forward-pass eval on the train dataset (no gradients).
+    Useful for comparing checkpoints. Requires --resume-from-checkpoint to be set.
+    """
+
+    rope_position_noise_std: float = 0.0
+    """
+    Standard deviation of Gaussian noise added to all 3D token positions before computing
+    3D RoPE during training. Units are meters (same as the position coordinates).
+    0.0 disables noise. Only applies during training, not eval/inference.
+    """
+
+    depth_cache_dir: str | None = None
+    """
+    If set, load depth shards (depth_shard_?????.pt) from this directory instead of
+    cached_backbone_dir. Allows using a different extrinsics source for 3D RoPE while
+    reusing the same backbone cache. Requires use_3d_rope=True.
+    """
+
+    use_3d_rope: bool = False
+    """If True, load precomputed depth shard positions and apply 3D RoPE in DiT cross-attention."""
+
+    use_eef_relative_rope: bool = False
+    """
+    If True, subtract the EEF position from token positions before applying 3D RoPE,
+    giving relative positions p_k - p_eef. Requires use_3d_rope=True and depth shards
+    regenerated with eef_position_3d (cache_depth_features.py after the EEF caching update).
+    """
+
+    use_action_eef_rope: bool = False
+    """
+    If True, apply the EEF position as the 3D RoPE query position for ALL query tokens
+    (state token at index 0 AND all action/trajectory tokens at indices 1-16), not just
+    the state token. This gives every query a position-relative view Q·R(p_k - p_eef)·K.
+    Requires use_3d_rope=True and use_eef_relative_rope=True.
+    """
+
+    rope_base_freq: float = 100.0
+    """
+    Base frequency for 3D RoPE. Controls the range of spatial frequencies encoded.
+    Default 100.0 — tuned for robot workspace positions in meters (±7m range).
+    With rope_base_freq=100, all 8 frequency pairs produce meaningful angles over this range.
+    (LLaMA uses 10000 for token indices 0..10000, which is wrong for meter-scale positions.)
+    """
+
+    reinit_action_head: bool = False
+    """If True, randomly reinitialize action head weights after loading the pretrained model."""
 
     # --- Model Tuning Flags ---
     tune_llm: bool = False

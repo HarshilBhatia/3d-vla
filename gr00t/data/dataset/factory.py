@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 import numpy as np
 import torch
 from tqdm import tqdm
@@ -9,6 +12,16 @@ from gr00t.data.embodiment_tags import EmbodimentTag
 from gr00t.data.interfaces import BaseProcessor
 from gr00t.data.stats import generate_rel_stats, generate_stats
 from gr00t.experiment.dist_utils import barrier
+
+
+def _get_allowed_episode_indices(dataset_path: str, labs: list[str]) -> set:
+    id_map_path = Path(dataset_path) / "meta" / "episode_index_to_id.json"
+    id_map = json.load(open(id_map_path))
+    lab_set = set(labs)
+    return {
+        int(idx) for idx, meta in id_map.items()
+        if meta["canonical_id"].split("+")[0] in lab_set
+    }
 
 
 class DatasetFactory:
@@ -47,6 +60,23 @@ class DatasetFactory:
                     generate_stats(dataset_path)
                     generate_rel_stats(dataset_path, EmbodimentTag(embodiment_tag))
                 barrier()
+                labs = getattr(dataset_spec, "labs", None) or []
+                allowed_indices_file = getattr(dataset_spec, "allowed_indices_file", None)
+                if labs and allowed_indices_file:
+                    raise ValueError(
+                        "labs and allowed_indices_file are mutually exclusive. "
+                        "Provide at most one episode filter."
+                    )
+                if allowed_indices_file:
+                    _path = Path(allowed_indices_file)
+                    if not _path.exists():
+                        raise ValueError(f"allowed_indices_file not found: {_path}")
+                    _sel = json.load(open(_path))
+                    allowed_episode_indices = set(_sel["episode_indices"])
+                else:
+                    allowed_episode_indices = (
+                        _get_allowed_episode_indices(dataset_path, labs) if labs else None
+                    )
                 dataset = ShardedSingleStepDataset(
                     dataset_path=dataset_path,
                     embodiment_tag=EmbodimentTag(embodiment_tag),
@@ -57,6 +87,7 @@ class DatasetFactory:
                     seed=self.config.data.seed,
                     allow_padding=self.config.data.allow_padding,
                     cache_dir=getattr(self.config.data, "cached_backbone_dir", None),
+                    allowed_episode_indices=allowed_episode_indices,
                 )
                 datasets.append(dataset)
             dataset_lengths = np.array([len(dataset) for dataset in datasets])

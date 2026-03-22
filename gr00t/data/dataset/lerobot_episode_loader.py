@@ -440,7 +440,7 @@ class LeRobotEpisodeLoader:
             raise ValueError(f"Language key {lang_key} not supported")
         return new_languages
 
-    def __getitem__(self, idx: int) -> pd.DataFrame:
+    def __getitem__(self, idx: int, skip_video: bool = False) -> pd.DataFrame:
         """
         Load complete episode data as a processed DataFrame.
 
@@ -450,6 +450,8 @@ class LeRobotEpisodeLoader:
 
         Args:
             idx: Episode index to load
+            skip_video: If True, skip video decoding (used in cached backbone mode where
+                        backbone features are already cached and video is not needed).
 
         Returns:
             DataFrame with columns for all modalities and timestamps, with video frames
@@ -478,15 +480,16 @@ class LeRobotEpisodeLoader:
         actual_length = min(len(df), nominal_length)
         df = df.iloc[:actual_length]
 
-        # Load synchronized video data
-        video_data = self._load_video_data(episode_id, np.arange(actual_length))
+        if not skip_video:
+            # Load synchronized video data
+            video_data = self._load_video_data(episode_id, np.arange(actual_length))
 
-        # Add video frames to dataframe as PIL Images
-        for key in video_data.keys():
-            assert len(video_data[key]) == len(df), (
-                f"Video data for {key} has length {len(video_data[key])} but dataframe has length {len(df)}"
-            )
-            df[f"video.{key}"] = [frame for frame in video_data[key]]
+            # Add video frames to dataframe as PIL Images
+            for key in video_data.keys():
+                assert len(video_data[key]) == len(df), (
+                    f"Video data for {key} has length {len(video_data[key])} but dataframe has length {len(df)}"
+                )
+                df[f"video.{key}"] = [frame for frame in video_data[key]]
 
         return df
 

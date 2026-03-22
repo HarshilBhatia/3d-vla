@@ -63,6 +63,9 @@ class Gr00tN1d6Config(PretrainedConfig):
     attn_dropout: float = 0.2
     use_vlln: bool = True
     max_seq_len: int = 1024
+    # Skip backbone loading (e.g. when using cached backbone features)
+    skip_backbone: bool = False
+
     # Diffusion model type selection
     use_alternate_vl_dit: bool = True  # True for AlternateVLDiT, False for DiT
     attend_text_every_n_blocks: int = 2

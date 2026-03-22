@@ -46,6 +46,8 @@ if __name__ == "__main__":
                         "dataset_paths": [ft_config.dataset_path],
                         "mix_ratio": 1.0,
                         "embodiment_tag": embodiment_tag,
+                        "labs": ft_config.labs or [],
+                        "allowed_indices_file": ft_config.allowed_indices_file,
                     }
                 ],
             }
@@ -88,10 +90,27 @@ if __name__ == "__main__":
     if ft_config.wandb_run_name is not None:
         config.training.experiment_name = ft_config.wandb_run_name
 
+    config.model.diffusion_model_cfg["rope_position_noise_std"] = ft_config.rope_position_noise_std
+    config.model.diffusion_model_cfg["rope_base_freq"] = ft_config.rope_base_freq
+    config.training.reinit_action_head = ft_config.reinit_action_head
+    config.training.eval_only = ft_config.eval_only
+    config.training.resume_from_checkpoint = ft_config.resume_from_checkpoint
+
     config.data.shard_size = ft_config.shard_size
     config.data.episode_sampling_rate = ft_config.episode_sampling_rate
     config.data.num_shards_per_epoch = ft_config.num_shards_per_epoch
     if ft_config.cached_backbone_dir is not None:
         config.data.cached_backbone_dir = ft_config.cached_backbone_dir
+    if ft_config.depth_dir is not None:
+        config.data.depth_dir = ft_config.depth_dir
+    if ft_config.episode_index_path is not None:
+        config.data.episode_index_path = ft_config.episode_index_path
+    if ft_config.depth_cache_dir is not None:
+        config.data.depth_cache_dir = ft_config.depth_cache_dir
+    config.data.use_3d_rope = ft_config.use_3d_rope
+    config.data.use_eef_relative_rope = ft_config.use_eef_relative_rope
+    config.data.use_action_eef_rope = ft_config.use_action_eef_rope
+    config.model.diffusion_model_cfg["use_eef_relative_rope"] = ft_config.use_eef_relative_rope
+    config.model.diffusion_model_cfg["use_action_eef_rope"] = ft_config.use_action_eef_rope
 
     run(config)

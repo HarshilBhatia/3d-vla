@@ -168,3 +168,9 @@ offline_open_loop_eval_plots/
 /data
 
 outputs_*/
+
+*.mp4
+*.png
+*.rrd
+*.pkl
+*.drawio

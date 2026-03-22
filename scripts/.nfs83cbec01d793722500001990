@@ -1,0 +1,8 @@
+#!/bin/bash
+micromamba run -n gr00t python data_processing/droid_visualiser.py \
+    --dataset-dir /work/nvme/bgkz/droid_raw_large_superset \
+    --raw-dir /work/nvme/bgkz/droid_multilab_raw \
+    --depth-dir /work/nvme/bgkz/droid_multilab_depths \
+    --episode-idx 0 \
+    --max-timesteps 30 \
+    --serve

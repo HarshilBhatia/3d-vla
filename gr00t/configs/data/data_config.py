@@ -31,6 +31,15 @@ class SingleDatasetConfig:
     # If not provided, falls back to dataset_paths for evaluation
     val_dataset_path: Optional[str] = None
 
+    # Optional lab filter — only include episodes whose canonical ID starts with one of these prefixes
+    # e.g. ["RAIL", "TRI"]  — if None/empty, all labs are included
+    labs: Optional[List[str]] = None
+
+    # Alternative episode filter: path to selected_episodes.json from select_episodes.py.
+    # When set, uses episode_indices from the file, bypassing labs.
+    # Cannot be combined with labs.
+    allowed_indices_file: Optional[str] = None
+
 
 @dataclass
 class DataConfig:
@@ -77,6 +86,15 @@ class DataConfig:
     # Cached backbone (VLM) features: if set, training uses precomputed backbone
     # outputs from feat_*.pt in this dir and skips the backbone forward.
     cached_backbone_dir: Optional[str] = None
+
+    # On-the-fly depth loading for 3D RoPE: if set, collator loads depth frames from this dir
+    # and computes token_positions_3d on the fly for DiT cross-attention.
+    depth_dir: Optional[str] = None
+    episode_index_path: Optional[str] = None
+    depth_cache_dir: Optional[str] = None
+    use_3d_rope: bool = False
+    use_eef_relative_rope: bool = False
+    use_action_eef_rope: bool = False
 
     # DP Image Config
     image_crop_size: List[int] = field(default_factory=lambda: [244, 244])

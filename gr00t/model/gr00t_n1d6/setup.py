@@ -16,6 +16,10 @@ import torch
 from transformers import AutoModel, AutoProcessor
 
 
+import pickle
+from pathlib import Path as _Path
+
+
 # Convert tensors to lists for JSON serialization
 def convert_tensors_to_lists(obj):
     """Recursively convert tensors to lists in nested dictionaries/lists."""
@@ -65,9 +69,12 @@ class Gr00tN1d6Pipeline(ModelPipeline):
 
         # Build transformers loading kwargs from training config
 
+        use_cached_backbone = getattr(self.config.data, "cached_backbone_dir", None) is not None
+
         if self.config.training.start_from_checkpoint is not None:
             model, loading_info = AutoModel.from_pretrained(
                 self.config.training.start_from_checkpoint,
+                skip_backbone=use_cached_backbone,
                 tune_llm=self.config.model.tune_llm,
                 tune_visual=self.config.model.tune_visual,
                 tune_projector=self.config.model.tune_projector,
@@ -93,9 +100,16 @@ class Gr00tN1d6Pipeline(ModelPipeline):
                 logging.info("mask_token not in checkpoint - initialized")
 
         else:
+            self.config.model.skip_backbone = use_cached_backbone
             model = self.model_class(
                 self.config.model, transformers_loading_kwargs=self.transformers_loading_kwargs
             )
+
+        if self.config.training.reinit_action_head:
+            for module in model.action_head.modules():
+                if hasattr(module, "reset_parameters"):
+                    module.reset_parameters()
+            logging.info("Action head weights randomly reinitialized (reinit_action_head=True)")
 
         print(colored(f"Model Config: {model.config}", "yellow"))
         if get_rank() == 0:
@@ -182,7 +196,31 @@ class Gr00tN1d6Pipeline(ModelPipeline):
 
         cached_backbone_dir = getattr(self.config.data, "cached_backbone_dir", None)
         if cached_backbone_dir is not None:
-            self.processor._collator.cache_dir = cached_backbone_dir
+            self.processor._collator.cache_dir = _Path(cached_backbone_dir)
+            collator = self.processor._collator
+            use_3d_rope = getattr(self.config.data, "use_3d_rope", False)
+            depth_cache_dir = getattr(self.config.data, "depth_cache_dir", None) or cached_backbone_dir
+            depth_shard_files = sorted(_Path(depth_cache_dir).glob("depth_shard_?????.pt")) if use_3d_rope else []
+            use_eef_relative_rope = getattr(self.config.data, "use_eef_relative_rope", False)
+            use_action_eef_rope = getattr(self.config.data, "use_action_eef_rope", False)
+            need_eef = use_eef_relative_rope or use_action_eef_rope
+            if depth_shard_files:
+                import torch as _torch
+                print(f"[setup] Preloading {len(depth_shard_files)} depth shards "
+                      f"(use_eef_relative_rope={use_eef_relative_rope}, use_action_eef_rope={use_action_eef_rope}) ...")
+                collator._depth_shard_cache = {}
+                collator._eef_shard_cache = {}
+                for p in depth_shard_files:
+                    shard_idx = int(p.stem.split("_")[-1])
+                    data = _torch.load(p, weights_only=True, map_location="cpu")
+                    # share_memory_() puts the tensor in shared memory so DataLoader
+                    # workers get a handle (not a copy) — zero extra RAM per worker.
+                    collator._depth_shard_cache[shard_idx] = data["token_positions_3d"].share_memory_()
+                    if need_eef and "eef_position_3d" in data:
+                        collator._eef_shard_cache[shard_idx] = data["eef_position_3d"].share_memory_()
+                total_mb = sum(v.nbytes for v in collator._depth_shard_cache.values()) / 1e6
+                has_eef = len(collator._eef_shard_cache) > 0
+                print(f"[setup] Depth shards loaded ({total_mb:.0f} MB), EEF shards loaded: {has_eef}")
 
         # Save dataset statistics for inference
         stats = train_dataset.get_dataset_statistics()

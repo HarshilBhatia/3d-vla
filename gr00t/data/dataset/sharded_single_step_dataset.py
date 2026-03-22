@@ -124,6 +124,7 @@ class ShardedSingleStepDataset(ShardedDataset):
         seed: int = 42,
         allow_padding: bool = False,
         cache_dir: Optional[str | Path] = None,
+        allowed_episode_indices: Optional[set] = None,
     ):
         """Initialize single-step dataset with sharding configuration."""
         super().__init__(dataset_path)
@@ -136,6 +137,7 @@ class ShardedSingleStepDataset(ShardedDataset):
         self.seed = seed
         self.allow_padding = allow_padding
         self.cache_dir = Path(cache_dir) if cache_dir is not None else None
+        self.allowed_episode_indices = allowed_episode_indices
         self.processor = None
         self.rng = np.random.default_rng(seed)
         action_delta_indices = modality_configs["action"].delta_indices
@@ -166,7 +168,10 @@ class ShardedSingleStepDataset(ShardedDataset):
         - Diversity within shards (mix of episodes and timesteps)
         - Reproducible sharding based on seed
         """
-        shuffled_episode_indices = self.rng.permutation(len(self.episode_loader.episode_lengths))
+        all_indices = np.arange(len(self.episode_loader.episode_lengths))
+        if self.allowed_episode_indices is not None:
+            all_indices = all_indices[np.isin(all_indices, list(self.allowed_episode_indices))]
+        shuffled_episode_indices = self.rng.permutation(all_indices)
         num_splits = int(1 / self.episode_sampling_rate)
 
         assert len(shuffled_episode_indices) > 0, (
@@ -216,7 +221,12 @@ class ShardedSingleStepDataset(ShardedDataset):
         """Return the number of shards in the dataset."""
         return len(self.shard_lengths)
 
-    def get_datapoint(self, episode_data: pd.DataFrame, step_index: int) -> dict:
+    def get_datapoint(
+        self,
+        episode_data: pd.DataFrame,
+        step_index: int,
+        modality_configs: dict | None = None,
+    ) -> dict:
         """
         Extract and process a single timestep from episode data.
 
@@ -226,6 +236,8 @@ class ShardedSingleStepDataset(ShardedDataset):
         Args:
             episode_data: Complete episode DataFrame from LeRobotEpisodeLoader
             step_index: Timestep index within the episode to extract
+            modality_configs: Override modality configs (e.g. without video in cached mode).
+                              Defaults to self.modality_configs.
 
         Returns:
             Processed datapoint ready for model training
@@ -234,8 +246,9 @@ class ShardedSingleStepDataset(ShardedDataset):
             AssertionError: If processor is not set before calling this method
         """
         assert self.processor is not None, "Processor must be set before getting datapoints"
+        configs = modality_configs if modality_configs is not None else self.modality_configs
         vla_step_data = extract_step_data(
-            episode_data, step_index, self.modality_configs, self.embodiment_tag, self.allow_padding
+            episode_data, step_index, configs, self.embodiment_tag, self.allow_padding
         )
         # Apply processor to convert to model inputs
         messages = [{"type": MessageType.EPISODE_STEP.value, "content": vla_step_data}]
@@ -252,6 +265,10 @@ class ShardedSingleStepDataset(ShardedDataset):
         Loads the required episodes and extracts all timesteps assigned to this shard,
         applying the configured processor to each timestep.
 
+        When cache_dir is set (cached backbone mode), video decoding is skipped entirely
+        since backbone features are read from the cache. Only parquet data (actions, states,
+        language) is loaded, making shard loading ~10x faster.
+
         Args:
             idx: Shard index to load
 
@@ -260,12 +277,22 @@ class ShardedSingleStepDataset(ShardedDataset):
         """
         episodes = self.sharded_episodes[idx]
         datapoints = []
+
+        # In cached backbone mode, skip video decoding — backbone features come from cache.
+        # Use modality configs without video so extract_step_data doesn't look for video columns.
+        cached_mode = self.cache_dir is not None
+        modality_configs = (
+            {k: v for k, v in self.modality_configs.items() if k != "video"}
+            if cached_mode else self.modality_configs
+        )
+
         for ep_idx, step_indices in episodes:
-            # Load episode data once per episode in shard
-            episode_data = self.episode_loader[ep_idx]
+            # Load episode data once per episode in shard (skip video in cached mode)
+            episode_data = self.episode_loader.__getitem__(ep_idx, skip_video=cached_mode)
             for step_index in step_indices:
-                datapoints.append(self.get_datapoint(episode_data, step_index))
-        if self.cache_dir is not None:
+                datapoints.append(self.get_datapoint(episode_data, step_index, modality_configs))
+
+        if cached_mode:
             offset = sum(self.get_shard_length(s) for s in range(idx))
             for i, dp in enumerate(datapoints):
                 if isinstance(dp, dict):

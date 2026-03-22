@@ -69,11 +69,13 @@ class BasicTransformerBlock(nn.Module):
         ff_inner_dim: Optional[int] = None,
         ff_bias: bool = True,
         attention_out_bias: bool = True,
+        rope_base_freq: float = 10000.0,
     ):
         super().__init__()
         self.dim = dim
         self.num_attention_heads = num_attention_heads
         self.attention_head_dim = attention_head_dim
+        self.rope_base_freq = rope_base_freq
         self.dropout = dropout
         self.cross_attention_dim = cross_attention_dim
         self.activation_fn = activation_fn
@@ -128,6 +130,16 @@ class BasicTransformerBlock(nn.Module):
         else:
             self.final_dropout = None
 
+        # Precompute 3D RoPE frequency table over the full embedding dim (interleaved layout).
+        # num_triplets = dim // 6 unique frequencies per axis (256 for dim=1536).
+        if dim % 6 != 0:
+            raise ValueError(f"dim={dim} must be divisible by 6 for interleaved 3D RoPE")
+        num_triplets = dim // 6
+        rope_freqs = 1.0 / (
+            rope_base_freq ** (torch.arange(num_triplets, dtype=torch.float32) / num_triplets)
+        )
+        self.register_buffer("rope_freqs", rope_freqs, persistent=False)
+
     def forward(
         self,
         hidden_states: torch.Tensor,
@@ -135,8 +147,12 @@ class BasicTransformerBlock(nn.Module):
         encoder_hidden_states: Optional[torch.Tensor] = None,
         encoder_attention_mask: Optional[torch.Tensor] = None,
         temb: Optional[torch.LongTensor] = None,
+        token_positions_3d: Optional[torch.Tensor] = None,
+        query_eef_position: Optional[torch.Tensor] = None,
+        apply_eef_to_state: bool = False,
+        apply_eef_to_actions: bool = False,
     ) -> torch.Tensor:
-        # 0. Self-Attention
+        # 0. Self-Attention / Cross-Attention
         if self.norm_type == "ada_norm":
             norm_hidden_states = self.norm1(hidden_states, temb)
         else:
@@ -145,12 +161,48 @@ class BasicTransformerBlock(nn.Module):
         if self.pos_embed is not None:
             norm_hidden_states = self.pos_embed(norm_hidden_states)
 
+        # Compute 3D RoPE cos/sin on the fly if positions are provided
+        cross_attention_kwargs = {}
+
+        if token_positions_3d is not None and encoder_hidden_states is not None:
+            from gr00t.model.gr00t_n1d6.rope_3d import compute_rope_cos_sin
+            rope_cos, rope_sin = compute_rope_cos_sin(
+                token_positions_3d,
+                precomputed_freqs=self.rope_freqs,  # [num_triplets], on correct device
+                total_dim=self.dim,                 # 1536
+            )
+            cross_attention_kwargs = {"rope_cos": rope_cos, "rope_sin": rope_sin}
+
+            # Rotate query tokens with R(p_eef) to give relative cross-attention scores
+            # Q·R(p_k - p_eef)·K. Flags are independent:
+            #   apply_eef_to_state   (use_eef_relative_rope): state token (index 0) only
+            #   apply_eef_to_actions (use_action_eef_rope):   action tokens (indices 1:) only
+            # Both can be set simultaneously. Either or neither may be set.
+            if query_eef_position is not None and (apply_eef_to_state or apply_eef_to_actions):
+                B, seq_q, _ = norm_hidden_states.shape
+                query_positions = torch.zeros(
+                    B, seq_q, 3, device=hidden_states.device, dtype=torch.float32
+                )
+                p_eef = query_eef_position.to(query_positions.dtype)
+                if apply_eef_to_state:
+                    query_positions[:, 0, :] = p_eef
+                if apply_eef_to_actions:
+                    query_positions[:, 1:, :] = p_eef.unsqueeze(1)
+                rope_cos_q, rope_sin_q = compute_rope_cos_sin(
+                    query_positions,
+                    precomputed_freqs=self.rope_freqs,
+                    total_dim=self.dim,
+                )
+                cross_attention_kwargs["rope_cos_q"] = rope_cos_q
+                cross_attention_kwargs["rope_sin_q"] = rope_sin_q
+
         attn_output = self.attn1(
             norm_hidden_states,
             encoder_hidden_states=encoder_hidden_states,
             attention_mask=(
                 encoder_attention_mask if encoder_hidden_states is not None else attention_mask
             ),
+            **cross_attention_kwargs,
         )
         if self.final_dropout:
             attn_output = self.final_dropout(attn_output)
@@ -193,6 +245,8 @@ class DiT(ModelMixin, ConfigMixin):
         positional_embeddings: Optional[str] = "sinusoidal",
         interleave_self_attention=False,
         cross_attention_dim: Optional[int] = None,
+        rope_position_noise_std: float = 0.0,
+        rope_base_freq: float = 10000.0,
     ):
         super().__init__()
 
@@ -226,6 +280,7 @@ class DiT(ModelMixin, ConfigMixin):
                     num_positional_embeddings=self.config.max_num_positional_embeddings,
                     final_dropout=final_dropout,
                     cross_attention_dim=curr_cross_attention_dim,
+                    rope_base_freq=rope_base_freq,
                 )
             ]
         self.transformer_blocks = nn.ModuleList(all_blocks)
@@ -292,9 +347,17 @@ class AlternateVLDiT(DiT):
     during cross-attention processing.
     """
 
-    def __init__(self, *args, attend_text_every_n_blocks: int = 2, **kwargs):
+    def __init__(self, *args, attend_text_every_n_blocks: int = 2, use_eef_relative_rope: bool = False, use_action_eef_rope: bool = False, **kwargs):
         super().__init__(*args, **kwargs)
         self.attend_text_every_n_blocks = attend_text_every_n_blocks
+        self.use_eef_relative_rope = use_eef_relative_rope
+        self.use_action_eef_rope = use_action_eef_rope
+        # Install 3D RoPE processor on all cross-attention blocks (backward-compatible:
+        # behaves as standard SDPA when rope_cos/rope_sin are not passed).
+        from gr00t.model.gr00t_n1d6.rope_3d import RoPE3DCrossAttnProcessor
+        for idx, block in enumerate(self.transformer_blocks):
+            if idx % 2 == 0:  # cross-attention blocks
+                block.attn1.set_processor(RoPE3DCrossAttnProcessor())
 
     def forward(
         self,
@@ -305,6 +368,8 @@ class AlternateVLDiT(DiT):
         return_all_hidden_states: bool = False,
         image_mask: Optional[torch.Tensor] = None,
         backbone_attention_mask: Optional[torch.Tensor] = None,
+        token_positions_3d: Optional[torch.Tensor] = None,
+        eef_position_3d: Optional[torch.Tensor] = None,
     ):
         assert image_mask is not None, "Image mask is required"
 
@@ -321,6 +386,11 @@ class AlternateVLDiT(DiT):
 
         image_attention_mask = image_mask & backbone_attention_mask
         non_image_attention_mask = (~image_mask) & backbone_attention_mask
+
+        # Augment 3D positions with Gaussian noise (training and eval when std > 0)
+
+        if token_positions_3d is not None and self.config.rope_position_noise_std > 0.0:
+            token_positions_3d = token_positions_3d + torch.randn_like(token_positions_3d) * self.config.rope_position_noise_std
 
         all_hidden_states = [hidden_states]
         assert self.config.interleave_self_attention, "Interleave self attention must be enabled"
@@ -339,11 +409,15 @@ class AlternateVLDiT(DiT):
             else:
                 # Cross-attention blocks - alternate between non-image and image tokens
                 if idx % (2 * self.attend_text_every_n_blocks) == 0:
-                    # Attend to non-image tokens
+                    # Attend to non-image (text) tokens — no 3D RoPE
                     curr_encoder_attention_mask = non_image_attention_mask
+                    curr_positions_3d = None
+                    curr_eef = None
                 else:
-                    # Attend to image tokens
+                    # Attend to image tokens — apply 3D RoPE if positions available
                     curr_encoder_attention_mask = image_attention_mask
+                    curr_positions_3d = token_positions_3d
+                    curr_eef = eef_position_3d  # rotate query token(s) with R(p_eef)
 
                 hidden_states = block(
                     hidden_states,
@@ -351,6 +425,10 @@ class AlternateVLDiT(DiT):
                     encoder_hidden_states=encoder_hidden_states,
                     encoder_attention_mask=curr_encoder_attention_mask,
                     temb=temb,
+                    token_positions_3d=curr_positions_3d,
+                    query_eef_position=curr_eef if curr_positions_3d is not None else None,
+                    apply_eef_to_state=self.use_eef_relative_rope,
+                    apply_eef_to_actions=self.use_action_eef_rope,
                 )
             all_hidden_states.append(hidden_states)
 
