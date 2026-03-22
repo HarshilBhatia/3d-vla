@@ -11,8 +11,8 @@ if os.path.join(ROOT_DIR, 'PyRep') not in sys.path:
 # ==============================================================================
 # CONFIGURATION TOGGLE
 # ==============================================================================
-# Set this to the user name
-ENV = os.getenv("USER_NAME") 
+# Set this to the user name (default LUQMAN when unset, e.g. in sbatch)
+ENV = os.getenv("USER_NAME") or "LUQMAN"
 
 CONFIGS = {
     "LUQMAN": {
@@ -35,9 +35,10 @@ CONFIGS = {
 # ==============================================================================
 # RESOLVED PATHS
 # ==============================================================================
-RAW_ROOT = CONFIGS[ENV]["RAW_ROOT"]
-ZARR_ROOT = CONFIGS[ENV]["ZARR_ROOT"]
-USER_DATA = CONFIGS[ENV]["USER_DATA"]
+_env = ENV if ENV in CONFIGS else "LUQMAN"
+RAW_ROOT = CONFIGS[_env]["RAW_ROOT"]
+ZARR_ROOT = CONFIGS[_env]["ZARR_ROOT"]
+USER_DATA = CONFIGS[_env]["USER_DATA"]
 
 if __name__ == "__main__":
     import sys

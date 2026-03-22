@@ -1,19 +1,27 @@
 main_dir=Peract2
 
 # Specify the task you want to train on
-TASK=bimanual_lift_tray
+TASK=${TASK:-bimanual_lift_tray}
 
 DATA_PATH=$(pwd)
 
-train_data_dir=$DATA_PATH/Peract2_zarr/$TASK/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/$TASK/val.zarr
+if [ "$TASK" = "all" ]; then
+    train_data_dir=$DATA_PATH/Peract2_zarr/all/train.zarr
+    eval_data_dir=$DATA_PATH/Peract2_zarr/all/val.zarr
+    filter_tasks=None
+else
+    train_data_dir=$DATA_PATH/Peract2_zarr/$TASK/train.zarr
+    eval_data_dir=$DATA_PATH/Peract2_zarr/$TASK/val.zarr
+    filter_tasks=$TASK
+fi
+
 train_instructions=instructions/peract2/instructions.json
 val_instructions=instructions/peract2/instructions.json
 
 dataset=Peract2_3dfront_3dwrist
 num_workers=4
-B=16  # Reduced from 64 to avoid OOM - you can increase if you have more GPU memory
-B_val=16
+B=${BATCH_SIZE:-16}  # Reduced from 64 to avoid OOM - you can increase if you have more GPU memory
+B_val=${BATCH_SIZE:-16}
 chunk_size=1
 memory_limit=8  # this means 8GB CPU RAM per worker per GPU,
 # but it will never reach that, because these datasets are small
@@ -130,4 +138,4 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM \
     --rotate_axis $rotate_axis \
     --wandb_project $wandb_project \
     ${wandb_name:+--wandb_name $wandb_name} \
-    --filter_tasks $TASK
+    --filter_tasks $filter_tasks
