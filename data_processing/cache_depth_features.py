@@ -243,28 +243,34 @@ def compute_positions_for_episode(
     """
     token_results = {}
     eef_results = {}
+    cam_pos_results = {}  # {row: np.ndarray [num_cameras, 3]}
 
     def zeros_for_row(row):
         seq_len = image_masks[row].shape[0]
         return np.zeros((seq_len, 3), dtype=np.float32)
 
+    num_cameras = 2  # ext1 + (ext2 or wrist)
+
     if valid_ids is not None and canonical_id not in valid_ids:
         for row, _ in frame_entries:
             token_results[row] = zeros_for_row(row)
             eef_results[row] = np.zeros(3, dtype=np.float32)
-        return token_results, eef_results
+            cam_pos_results[row] = np.zeros((num_cameras, 3), dtype=np.float32)
+        return token_results, eef_results, cam_pos_results
 
     serials = serial_map.get(canonical_id)
     if serials is None:
         for row, _ in frame_entries:
             token_results[row] = zeros_for_row(row)
             eef_results[row] = np.zeros(3, dtype=np.float32)
-        return token_results, eef_results
+            cam_pos_results[row] = np.zeros((num_cameras, 3), dtype=np.float32)
+        return token_results, eef_results, cam_pos_results
 
     ext1_serial  = serials["ext1"]
     cam2_serial  = serials["ext2"] if use_ext2 else serials["wrist"]
 
     # Load per-episode data once
+    T_ext1 = None
     try:
         depth_ext1   = load_depth_episode(depth_dir, canonical_id, ext1_serial)
         intr_ext1    = load_intrinsics(depth_dir, canonical_id, ext1_serial)
@@ -275,6 +281,8 @@ def compute_positions_for_episode(
     except Exception:
         depth_ext1 = None
 
+    T_cam2_static = None
+    cam2_dofs = None
     try:
         depth_cam2  = load_depth_episode(depth_dir, canonical_id, cam2_serial)
         intr_cam2   = load_intrinsics(depth_dir, canonical_id, cam2_serial)
@@ -284,15 +292,22 @@ def compute_positions_for_episode(
                 T_cam2_static = get_ext2_cam2base_cam2cam(cam2cam, canonical_id)
             else:
                 T_cam2_static = get_ext2_cam2base(raw_dir, canonical_id)
-            cam2_dofs = None  # not used for ext2
         else:
             # wrist: per-timestep extrinsics from trajectory.h5
-            T_cam2_static = None
             cam2_dofs = get_wrist_extrinsics_array(raw_dir, canonical_id, cam2_serial)
     except Exception:
         depth_cam2 = None
 
     eef_dofs = get_eef_positions_array(raw_dir, canonical_id)  # (T, 3) or None
+
+    # Extract camera optical centers from extrinsics (T_cam2base[:3, 3] = camera origin in base frame)
+    # These are static per-episode for ext1/ext2 (from cam2cam), or per-timestep for wrist.
+    ext1_optical_center = T_ext1[:3, 3].astype(np.float32) if T_ext1 is not None else np.zeros(3, dtype=np.float32)
+    if use_ext2:
+        # ext2 has static extrinsics
+        cam2_optical_center_static = T_cam2_static[:3, 3].astype(np.float32) if T_cam2_static is not None else np.zeros(3, dtype=np.float32)
+    else:
+        cam2_optical_center_static = None  # wrist is per-timestep
 
     for row, frame_idx in frame_entries:
         mask = image_masks[row]  # (seq_len,) bool
@@ -313,14 +328,13 @@ def compute_positions_for_episode(
                 pass
 
         # Camera 2: ext2 (static) or wrist (per-timestep)
+        T_cam2 = None
         if depth_cam2 is not None:
             fi = min(frame_idx, depth_cam2.shape[0] - 1)
             if use_ext2:
                 T_cam2 = T_cam2_static
             else:
-                if cam2_dofs is None:
-                    T_cam2 = None
-                else:
+                if cam2_dofs is not None:
                     fi_dof = min(frame_idx, len(cam2_dofs) - 1)
                     T_cam2 = dof_to_mat(cam2_dofs[fi_dof])
             if T_cam2 is not None:
@@ -338,7 +352,18 @@ def compute_positions_for_episode(
         else:
             eef_results[row] = np.zeros(3, dtype=np.float32)
 
-    return token_results, eef_results
+        # Camera optical centers [num_cameras, 3]
+        cam_pos = np.zeros((num_cameras, 3), dtype=np.float32)
+        cam_pos[0] = ext1_optical_center
+        if use_ext2:
+            cam_pos[1] = cam2_optical_center_static
+        else:
+            # Wrist: extract from per-timestep extrinsics
+            if T_cam2 is not None:
+                cam_pos[1] = T_cam2[:3, 3].astype(np.float32)
+        cam_pos_results[row] = cam_pos
+
+    return token_results, eef_results, cam_pos_results
 
 
 # ── Main ─────────────────────────────────────────────────────────────────────
@@ -446,12 +471,13 @@ def main():
             by_episode[entry["canonical_id"]].append((row, entry["frame_idx"]))
 
         # Allocate output tensors
-        all_positions = np.zeros((shard_size, seq_len, 3), dtype=np.float32)
-        all_eef       = np.zeros((shard_size, 3),           dtype=np.float32)
+        all_positions    = np.zeros((shard_size, seq_len, 3), dtype=np.float32)
+        all_eef          = np.zeros((shard_size, 3),           dtype=np.float32)
+        all_camera_pos   = np.zeros((shard_size, 2, 3),        dtype=np.float32)
 
         # Process episode by episode (one depth load per episode)
         for canonical_id, frame_entries in by_episode.items():
-            token_results, eef_results = compute_positions_for_episode(
+            token_results, eef_results, cam_pos_results = compute_positions_for_episode(
                 canonical_id, frame_entries, image_masks,
                 depth_dir, raw_dir, serial_map, valid_ids,
                 cam2cam=cam2cam,
@@ -461,11 +487,14 @@ def main():
                 all_positions[row, :pos.shape[0]] = pos
             for row, eef in eef_results.items():
                 all_eef[row] = eef
+            for row, cam_pos in cam_pos_results.items():
+                all_camera_pos[row] = cam_pos
 
         # Save
         result = {
-            "token_positions_3d": torch.from_numpy(all_positions),
-            "eef_position_3d":    torch.from_numpy(all_eef),
+            "token_positions_3d":  torch.from_numpy(all_positions),
+            "eef_position_3d":     torch.from_numpy(all_eef),
+            "camera_positions_3d": torch.from_numpy(all_camera_pos),
         }
         tmp_path = out_path.with_suffix(".tmp")
         torch.save(result, tmp_path)

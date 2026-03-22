@@ -11,7 +11,7 @@ Interleaved layout across D dims:
 
 Text and wrist tokens get position [0,0,0] → cos=1, sin=0 → identity rotation.
 """
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 import torch
 import torch.nn.functional as F
@@ -104,6 +104,64 @@ def apply_3d_rope_to_keys(
     sin_full = sin_h.repeat(1, 1, 1, 2)
 
     return K * cos_full - _rotate_half(K) * sin_full
+
+
+def apply_delta_m_to_rope(
+    rope_cos: torch.Tensor,                    # [B, S, D//2]
+    rope_sin: torch.Tensor,                    # [B, S, D//2]
+    delta_ms: List[torch.Tensor],              # list of [B, 6, 6], one per camera
+    cam_token_indices: List[torch.Tensor],     # list of LongTensors, per-camera token positions in seq
+) -> Tuple[torch.Tensor, torch.Tensor]:
+    """Apply per-camera orthogonal 6×6 deltaM rotation to the RoPE cos/sin features.
+
+    The interleaved layout of rope_cos/sin is [cos_x0, cos_y0, cos_z0, cos_x1, ...].
+    Reshaping to [B, S, num_triplets, 3] gives [cos_x, cos_y, cos_z] per frequency bin.
+    Concatenating cos and sin gives a 6-component feature [cos_x, cos_y, cos_z, sin_x, sin_y, sin_z]
+    per frequency bin, which deltaM rotates.
+
+    Args:
+        rope_cos: [B, S, D//2] — RoPE cosines (interleaved x/y/z triplets).
+        rope_sin: [B, S, D//2] — RoPE sines.
+        delta_ms: list of num_cameras × [B, 6, 6] orthogonal matrices.
+        cam_token_indices: list of num_cameras LongTensors, each with token positions in [0, S).
+
+    Returns:
+        Modified (rope_cos, rope_sin) with per-camera deltaM applied.
+    """
+    if len(delta_ms) != len(cam_token_indices):
+        raise ValueError(
+            f"len(delta_ms)={len(delta_ms)} != len(cam_token_indices)={len(cam_token_indices)}"
+        )
+
+    B, S, half_D = rope_cos.shape
+    if half_D % 3 != 0:
+        raise ValueError(f"rope_cos last dim {half_D} must be divisible by 3 (interleaved x/y/z triplets)")
+    num_triplets = half_D // 3  # = D // 6, e.g. 256 for D=1536
+
+    rope_cos = rope_cos.clone()
+    rope_sin = rope_sin.clone()
+
+    for delta_m, token_indices in zip(delta_ms, cam_token_indices):
+        if len(token_indices) == 0:
+            continue
+        n_c = len(token_indices)
+
+        # Extract per-camera cos/sin and reshape to [B, n_c, num_triplets, 3]
+        cos_c = rope_cos[:, token_indices, :].reshape(B, n_c, num_triplets, 3)
+        sin_c = rope_sin[:, token_indices, :].reshape(B, n_c, num_triplets, 3)
+
+        # Stack to [B, n_c, num_triplets, 6]: [cos_x, cos_y, cos_z, sin_x, sin_y, sin_z]
+        feat = torch.cat([cos_c, sin_c], dim=-1)  # [B, n_c, num_triplets, 6]
+
+        # Apply per-camera 6×6 deltaM: rotate each freq bin's 6-component feature
+        # einsum 'bnci,bji->bncj': for each batch and freq bin, apply [B, 6, 6] matrix
+        feat = torch.einsum("bnci,bji->bncj", feat, delta_m.to(feat.dtype))
+
+        # Write back — cast to rope_cos dtype to handle autocast contexts
+        rope_cos[:, token_indices, :] = feat[..., :3].reshape(B, n_c, half_D).to(rope_cos.dtype)
+        rope_sin[:, token_indices, :] = feat[..., 3:].reshape(B, n_c, half_D).to(rope_sin.dtype)
+
+    return rope_cos, rope_sin
 
 
 class RoPE3DCrossAttnProcessor:

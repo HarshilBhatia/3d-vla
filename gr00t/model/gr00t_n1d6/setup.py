@@ -105,6 +105,29 @@ class Gr00tN1d6Pipeline(ModelPipeline):
                 self.config.model, transformers_loading_kwargs=self.transformers_loading_kwargs
             )
 
+        # If use_delta_m is requested but the checkpoint config didn't include it,
+        # inject DeltaMPredictor post-hoc (new weights, randomly initialized).
+        use_delta_m = self.config.model.diffusion_model_cfg.get("use_delta_m", False)
+        num_cameras = self.config.model.diffusion_model_cfg.get("num_cameras", 2)
+        dit = model.action_head.model
+        if use_delta_m and not getattr(dit, "use_delta_m", False):
+            from gr00t.model.modules.dit import DeltaMPredictor
+            backbone_dim = dit.config.cross_attention_dim or 2048
+            dit.use_delta_m = True
+            dit.num_cameras = num_cameras
+            dit.delta_m_pred = DeltaMPredictor(
+                hidden_dim=dit.inner_dim,
+                num_cameras=num_cameras,
+                backbone_dim=backbone_dim,
+            )
+            # Move to same device/dtype as the rest of the DiT
+            ref_param = next(dit.parameters())
+            dit.delta_m_pred = dit.delta_m_pred.to(device=ref_param.device, dtype=ref_param.dtype)
+            logging.info(
+                f"Injected DeltaMPredictor into DiT post-hoc "
+                f"(num_cameras={num_cameras}, backbone_dim={backbone_dim})"
+            )
+
         if self.config.training.reinit_action_head:
             for module in model.action_head.modules():
                 if hasattr(module, "reset_parameters"):
@@ -203,13 +226,20 @@ class Gr00tN1d6Pipeline(ModelPipeline):
             depth_shard_files = sorted(_Path(depth_cache_dir).glob("depth_shard_?????.pt")) if use_3d_rope else []
             use_eef_relative_rope = getattr(self.config.data, "use_eef_relative_rope", False)
             use_action_eef_rope = getattr(self.config.data, "use_action_eef_rope", False)
+            use_delta_m = getattr(self.config.data, "use_delta_m", False)
+            use_camera_positions = getattr(self.config.data, "use_camera_positions", False)
             need_eef = use_eef_relative_rope or use_action_eef_rope
+            need_camera_pos = use_delta_m and use_camera_positions
             if depth_shard_files:
                 import torch as _torch
                 print(f"[setup] Preloading {len(depth_shard_files)} depth shards "
-                      f"(use_eef_relative_rope={use_eef_relative_rope}, use_action_eef_rope={use_action_eef_rope}) ...")
+                      f"(use_eef_relative_rope={use_eef_relative_rope}, "
+                      f"use_action_eef_rope={use_action_eef_rope}, "
+                      f"use_delta_m={use_delta_m}, "
+                      f"use_camera_positions={use_camera_positions}) ...")
                 collator._depth_shard_cache = {}
                 collator._eef_shard_cache = {}
+                collator._camera_pos_shard_cache = {}
                 for p in depth_shard_files:
                     shard_idx = int(p.stem.split("_")[-1])
                     data = _torch.load(p, weights_only=True, map_location="cpu")
@@ -218,9 +248,14 @@ class Gr00tN1d6Pipeline(ModelPipeline):
                     collator._depth_shard_cache[shard_idx] = data["token_positions_3d"].share_memory_()
                     if need_eef and "eef_position_3d" in data:
                         collator._eef_shard_cache[shard_idx] = data["eef_position_3d"].share_memory_()
+                    if need_camera_pos and "camera_positions_3d" in data:
+                        collator._camera_pos_shard_cache[shard_idx] = data["camera_positions_3d"].share_memory_()
                 total_mb = sum(v.nbytes for v in collator._depth_shard_cache.values()) / 1e6
                 has_eef = len(collator._eef_shard_cache) > 0
-                print(f"[setup] Depth shards loaded ({total_mb:.0f} MB), EEF shards loaded: {has_eef}")
+                has_cam_pos = len(collator._camera_pos_shard_cache) > 0
+                print(f"[setup] Depth shards loaded ({total_mb:.0f} MB), "
+                      f"EEF shards loaded: {has_eef}, "
+                      f"camera position shards loaded: {has_cam_pos}")
 
         # Save dataset statistics for inference
         stats = train_dataset.get_dataset_statistics()

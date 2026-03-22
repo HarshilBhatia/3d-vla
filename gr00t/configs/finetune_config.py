@@ -120,6 +120,31 @@ class FinetuneConfig:
     (LLaMA uses 10000 for token indices 0..10000, which is wrong for meter-scale positions.)
     """
 
+    use_delta_m: bool = False
+    """
+    If True, add per-camera register tokens derived from mean-pooled image features.
+    Each register token attends through all DiT blocks, and after each image cross-attn block
+    its state is used to predict a per-camera orthogonal 6×6 deltaM matrix that rotates the
+    3D RoPE sin/cos features before the next image cross-attn block.
+    Requires use_3d_rope=True. Register tokens get 3D RoPE positions from camera_positions_3d
+    (optical centers stored in depth shards). Must re-run cache_depth_features.py to add them.
+    """
+
+    num_cameras: int = 2
+    """
+    Number of cameras (register tokens) for deltaM. Must match the embodiment.
+    OXE_DROID_EXT2: 2 (ext1 + ext2). OXE_DROID: 2 (ext1 + wrist).
+    """
+
+    use_camera_positions: bool = False
+    """
+    If True, load camera_positions_3d from depth shards and use them as 3D RoPE positions
+    for deltaM register tokens (optical centers T_cam2base[:3,3]).
+    Requires depth shards produced by cache_depth_features.py with --cam2cam-json
+    (the campos shards). If False, register tokens get zero 3D RoPE position.
+    Only meaningful when use_delta_m=True.
+    """
+
     reinit_action_head: bool = False
     """If True, randomly reinitialize action head weights after loading the pretrained model."""
 

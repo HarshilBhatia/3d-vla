@@ -223,6 +223,7 @@ class Gr00tN1d6ActionHead(nn.Module):
             backbone_attention_mask = backbone_output.backbone_attention_mask
             token_positions_3d = backbone_output.get("token_positions_3d", None)
             eef_position_3d = backbone_output.get("eef_position_3d", None)
+            camera_positions_3d = backbone_output.get("camera_positions_3d", None)
             model_output, _ = self.model(
                 hidden_states=sa_embs,
                 encoder_hidden_states=vl_embeds,
@@ -233,6 +234,7 @@ class Gr00tN1d6ActionHead(nn.Module):
                 backbone_attention_mask=backbone_attention_mask,
                 token_positions_3d=token_positions_3d,
                 eef_position_3d=eef_position_3d,
+                camera_positions_3d=camera_positions_3d,
             )
         else:
             model_output, _ = self.model(

@@ -99,6 +99,9 @@ class Gr00tN1d6DataCollator:
         # EEF position shard cache: populated by setup.py alongside depth shards.
         # shard_idx -> Tensor [N, 3]
         self._eef_shard_cache: Optional[dict] = None
+        # Camera position shard cache: populated by setup.py when use_delta_m=True.
+        # shard_idx -> Tensor [N, num_cameras, 3]
+        self._camera_pos_shard_cache: Optional[dict] = None
             
 
     
@@ -133,6 +136,8 @@ class Gr00tN1d6DataCollator:
             result["token_positions_3d"] = self._depth_shard_cache[shard_idx][row]
         if self._eef_shard_cache is not None and shard_idx in self._eef_shard_cache:
             result["eef_position_3d"] = self._eef_shard_cache[shard_idx][row]  # [3]
+        if self._camera_pos_shard_cache is not None and shard_idx in self._camera_pos_shard_cache:
+            result["camera_positions_3d"] = self._camera_pos_shard_cache[shard_idx][row]  # [num_cameras, 3]
 
         return result
 
@@ -185,6 +190,7 @@ class Gr00tN1d6DataCollator:
             image_mask_list = []
             token_positions_3d_list = []
             eef_position_3d_list = []
+            camera_positions_3d_list = []
             for elem in features:
                 data = self._load_feat(elem["cache_global_idx"])
                 backbone_features_list.append(data["backbone_features"])
@@ -194,6 +200,8 @@ class Gr00tN1d6DataCollator:
                     token_positions_3d_list.append(data["token_positions_3d"])
                 if "eef_position_3d" in data:
                     eef_position_3d_list.append(data["eef_position_3d"])
+                if "camera_positions_3d" in data:
+                    camera_positions_3d_list.append(data["camera_positions_3d"])
             # Pad to max seq_len in batch (variable-length backbone outputs)
             max_len = max(t.shape[0] for t in backbone_features_list)
             padded_feats = []
@@ -202,6 +210,7 @@ class Gr00tN1d6DataCollator:
             padded_pos = []
             has_positions = len(token_positions_3d_list) == len(features)
             has_eef = len(eef_position_3d_list) == len(features)
+            has_camera_pos = len(camera_positions_3d_list) == len(features)
             for i, (feat, attn, imgm) in enumerate(zip(
                 backbone_features_list,
                 backbone_attention_mask_list,
@@ -232,6 +241,10 @@ class Gr00tN1d6DataCollator:
                 # EEF position passed separately — used to rotate the query (state token)
                 # in DiT cross-attention, giving true relative RoPE: Q·R(p_k - p_eef)·K.
                 batch["eef_position_3d"] = torch.stack(eef_position_3d_list).float()  # [B, 3]
+            if has_camera_pos:
+                # Camera optical centers [B, num_cameras, 3] — used as RoPE position for
+                # per-image register tokens in deltaM.
+                batch["camera_positions_3d"] = torch.stack(camera_positions_3d_list).float()  # [B, K, 3]
 
         return BatchFeature(data={"inputs": batch})
 
