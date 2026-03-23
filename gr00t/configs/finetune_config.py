@@ -104,7 +104,7 @@ class FinetuneConfig:
     regenerated with eef_position_3d (cache_depth_features.py after the EEF caching update).
     """
 
-    use_action_eef_rope: bool = False
+    use_action_eef_rope: bool = True
     """
     If True, apply the EEF position as the 3D RoPE query position for ALL query tokens
     (state token at index 0 AND all action/trajectory tokens at indices 1-16), not just
