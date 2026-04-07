@@ -45,7 +45,7 @@ import zarr
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from data_processing.rlbench_utils import keypoint_discovery, image_to_float_array
 
-NCAM = 4
+NCAM = 3
 NHAND = 1
 IM_SIZE = 256
 DEPTH_SCALE = 2 ** 24 - 1

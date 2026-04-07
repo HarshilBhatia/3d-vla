@@ -93,14 +93,12 @@ def save_orbital_episode(demo, ep_path, group, orbital_extrinsics):
     os.makedirs(ep_path, exist_ok=True)
 
     cam_attrs = [
-        ("orbital_left_rgb",          "orbital_left_rgb",          "rgb"),
-        ("orbital_left_depth",        "orbital_left_depth",        "depth"),
-        ("orbital_right_rgb",         "orbital_right_rgb",         "rgb"),
-        ("orbital_right_depth",       "orbital_right_depth",       "depth"),
-        ("over_shoulder_left_rgb",    "over_shoulder_left_rgb",    "rgb"),
-        ("over_shoulder_left_depth",  "over_shoulder_left_depth",  "depth"),
-        ("over_shoulder_right_rgb",   "over_shoulder_right_rgb",   "rgb"),
-        ("over_shoulder_right_depth", "over_shoulder_right_depth", "depth"),
+        ("orbital_left_rgb",   "orbital_left_rgb",   "rgb"),
+        ("orbital_left_depth", "orbital_left_depth", "depth"),
+        ("orbital_right_rgb",  "orbital_right_rgb",  "rgb"),
+        ("orbital_right_depth","orbital_right_depth","depth"),
+        ("wrist_rgb",          "wrist_rgb",          "rgb"),
+        ("wrist_depth",        "wrist_depth",        "depth"),
     ]
 
     for attr, folder_name, kind in cam_attrs:
@@ -171,12 +169,11 @@ def save_debug_video(demo, video_out, image_size):
     frames = []
     for obs in demo:
         panels = [
-            _get_rgb(obs, "orbital_left_rgb",        image_size),
-            _get_rgb(obs, "orbital_right_rgb",        image_size),
-            _get_rgb(obs, "over_shoulder_left_rgb",   image_size),
-            _get_rgb(obs, "over_shoulder_right_rgb",  image_size),
+            _get_rgb(obs, "orbital_left_rgb",  image_size),
+            _get_rgb(obs, "orbital_right_rgb",  image_size),
+            _get_rgb(obs, "wrist_rgb",          image_size),
         ]
-        frames.append(np.concatenate(panels, axis=1))  # (H, 4*W, 3)
+        frames.append(np.concatenate(panels, axis=1))  # (H, 3*W, 3)
 
     out_dir = os.path.dirname(os.path.abspath(video_out))
     if out_dir:
@@ -199,7 +196,7 @@ def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
         print("[WARN] Could not save debug zarr: {}".format(e))
         return
 
-    NCAM = 4
+    NCAM = 3
     NHAND = 1
 
     compressor = Blosc(cname="lz4", clevel=1, shuffle=Blosc.SHUFFLE)
@@ -242,35 +239,27 @@ def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
             obs      = demo[k]
             obs_next = demo[key_frames[idx + 1]]
 
-            # RGB — orbital attrs; shoulder from perception_data
+            # RGB — orbital attrs; wrist from perception_data
             rgb_list = [
-                _get_rgb(obs, "orbital_left_rgb",       image_size).transpose(2, 0, 1),
-                _get_rgb(obs, "orbital_right_rgb",       image_size).transpose(2, 0, 1),
-                _get_rgb(obs, "over_shoulder_left_rgb",  image_size).transpose(2, 0, 1),
-                _get_rgb(obs, "over_shoulder_right_rgb", image_size).transpose(2, 0, 1),
+                _get_rgb(obs, "orbital_left_rgb",  image_size).transpose(2, 0, 1),
+                _get_rgb(obs, "orbital_right_rgb",  image_size).transpose(2, 0, 1),
+                _get_rgb(obs, "wrist_rgb",          image_size).transpose(2, 0, 1),
             ]
             rgb = np.stack(rgb_list)[np.newaxis]
 
             # Depth
             depth_list = [
-                _get_depth(obs, "orbital_left_depth",       image_size),
-                _get_depth(obs, "orbital_right_depth",       image_size),
-                _get_depth(obs, "over_shoulder_left_depth",  image_size),
-                _get_depth(obs, "over_shoulder_right_depth", image_size),
+                _get_depth(obs, "orbital_left_depth",  image_size),
+                _get_depth(obs, "orbital_right_depth",  image_size),
+                _get_depth(obs, "wrist_depth",          image_size),
             ]
             depth = np.stack(depth_list).astype(np.float16)[np.newaxis]
 
             # Extrinsics / intrinsics
-            E_osl = np.array(obs.misc.get("over_shoulder_left_camera_extrinsics",
-                                          np.eye(4)), dtype=np.float32)
-            E_osr = np.array(obs.misc.get("over_shoulder_right_camera_extrinsics",
-                                          np.eye(4)), dtype=np.float32)
-            K_osl = np.array(obs.misc.get("over_shoulder_left_camera_intrinsics",
-                                          np.eye(3)), dtype=np.float32)
-            K_osr = np.array(obs.misc.get("over_shoulder_right_camera_intrinsics",
-                                          np.eye(3)), dtype=np.float32)
-            extr = np.stack([E_left, E_right, E_osl, E_osr]).astype(np.float16)[np.newaxis]
-            intr = np.stack([K_left, K_right, K_osl, K_osr]).astype(np.float16)[np.newaxis]
+            E_wrist = np.array(obs.misc.get("wrist_camera_extrinsics", np.eye(4)), dtype=np.float32)
+            K_wrist = np.array(obs.misc.get("wrist_camera_intrinsics", np.eye(3)), dtype=np.float32)
+            extr = np.stack([E_left, E_right, E_wrist]).astype(np.float16)[np.newaxis]
+            intr = np.stack([K_left, K_right, K_wrist]).astype(np.float16)[np.newaxis]
 
             # Proprioception
             def _eef(o):
@@ -346,13 +335,7 @@ def capture_orbital_extrinsics(left_sensor, right_sensor):
 # ---------------------------------------------------------------------------
 
 def make_obs_config(image_size):
-    """ObservationConfig enabling over_shoulder cameras + extrinsics/intrinsics.
-
-    Only over_shoulder_left and over_shoulder_right are included — these are the
-    cameras that physically exist in the panda scene (cam_over_shoulder_left /
-    cam_over_shoulder_right).  Adding 'front' or 'wrist' here causes Scene.__init__
-    to look for cam_front / cam_wrist which are absent in this scene setup.
-    """
+    """ObservationConfig enabling wrist camera + extrinsics/intrinsics."""
     from pyrep.const import RenderMode
     from rlbench.observation_config import ObservationConfig, CameraConfig
 
@@ -365,8 +348,7 @@ def make_obs_config(image_size):
 
     obs_config = ObservationConfig(
         camera_configs={
-            "over_shoulder_left":  on,
-            "over_shoulder_right": on,
+            "wrist": on,
         },
         joint_velocities=True,
         joint_positions=True,
