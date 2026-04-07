@@ -1,0 +1,92 @@
+{
+  "place_cups": [
+    "G1",
+    "G2",
+    "G3"
+  ],
+  "close_jar": [
+    "G2",
+    "G3",
+    "G4"
+  ],
+  "insert_onto_square_peg": [
+    "G3",
+    "G4",
+    "G5"
+  ],
+  "light_bulb_in": [
+    "G4",
+    "G5",
+    "G6"
+  ],
+  "meat_off_grill": [
+    "G5",
+    "G6",
+    "G1"
+  ],
+  "open_drawer": [
+    "G6",
+    "G1",
+    "G2"
+  ],
+  "place_shape_in_shape_sorter": [
+    "G1",
+    "G2",
+    "G3"
+  ],
+  "place_wine_at_rack_location": [
+    "G2",
+    "G3",
+    "G4"
+  ],
+  "push_buttons": [
+    "G3",
+    "G4",
+    "G5"
+  ],
+  "put_groceries_in_cupboard": [
+    "G4",
+    "G5",
+    "G6"
+  ],
+  "put_item_in_drawer": [
+    "G5",
+    "G6",
+    "G1"
+  ],
+  "put_money_in_safe": [
+    "G6",
+    "G1",
+    "G2"
+  ],
+  "reach_and_drag": [
+    "G1",
+    "G2",
+    "G3"
+  ],
+  "slide_block_to_color_target": [
+    "G2",
+    "G3",
+    "G4"
+  ],
+  "stack_blocks": [
+    "G3",
+    "G4",
+    "G5"
+  ],
+  "stack_cups": [
+    "G4",
+    "G5",
+    "G6"
+  ],
+  "sweep_to_dustpan_of_size": [
+    "G5",
+    "G6",
+    "G1"
+  ],
+  "turn_tap": [
+    "G6",
+    "G1",
+    "G2"
+  ]
+}

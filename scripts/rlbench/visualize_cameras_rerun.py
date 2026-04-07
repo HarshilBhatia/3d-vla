@@ -21,6 +21,7 @@ Then copy camera_viz.rrd to your machine and open with:
 """
 
 import argparse
+import json
 import os
 import sys
 
@@ -55,27 +56,61 @@ def R_to_pyrep_quat(R):
 
 # ── Candidate camera positions ───────────────────────────────────────────────
 
-def structured_cameras(center, radius, z_table):
-    """10 pre-defined positions that give good workspace coverage."""
+def orbital_cameras(center, radius, z_table,
+                    elevations_deg=(10, 35, 60),
+                    n_per_side=6, seed=42):
+    """6 cameras around azimuth 225° (left of front) and 6 around 135° (right).
+
+    Angles are standard math convention: 0°=+x, 90°=+y, 180°=-x (front).
+    225° = front-left (+45° from front), 135° = front-right (-45° from front).
+
+    Each group: 2 cameras per elevation level with random perturbations
+    az ± U(-5°, 5°), el ± U(-2°, 2°).
+    """
+    rng   = np.random.default_rng(seed)
     cx, cy, cz = center
-    r = radius
-    configs = [
-        ("front",          [cx - r*1.8, cy,          cz + r*0.2]),
-        ("front_high",     [cx - r*1.4, cy,          cz + r*0.9]),
-        ("left_shoulder",  [cx - r*0.2, cy + r*1.5,  cz + r*1.3]),
-        ("right_shoulder", [cx - r*0.2, cy - r*1.5,  cz + r*1.3]),
-        ("overhead",       [cx,          cy,          cz + r*2.2]),
-        ("left_side",      [cx + r*0.4,  cy + r*1.9,  cz + r*0.4]),
-        ("right_side",     [cx + r*0.4,  cy - r*1.9,  cz + r*0.4]),
-        ("back_high",      [cx + r*1.6,  cy,          cz + r*1.0]),
-        ("front_low",      [cx - r*2.0, cy,          cz - r*0.2]),
-        ("wrist_approx",   [cx + r*0.1, cy + r*0.3, cz + r*0.15]),
-    ]
+    orb_r = radius * 2
+
+    n_el  = len(elevations_deg)
+    per_el = n_per_side // n_el   # 2 cameras per elevation per side
+
     cameras = []
-    for name, pos_list in configs:
-        pos = np.array(pos_list, dtype=float)
-        pos[2] = max(pos[2], z_table + 0.05)
-        cameras.append({"name": name, "pos": pos, "R": look_at(pos, center)})
+    for base_az, side_name in [[45, 'L'], [315, "R"]]:
+        for el_deg in elevations_deg:
+            for j in range(per_el):
+                az_deg = base_az + [-5,5][j]
+                el_deg_p = el_deg + rng.uniform(-2, 2)
+
+                az  = np.radians(az_deg)
+                el  = np.radians(el_deg_p)
+                pos = np.array([
+                    cx + orb_r * np.cos(el) * np.cos(az),
+                    cy + orb_r * np.cos(el) * np.sin(az),
+                    cz + orb_r * np.sin(el),
+                ])
+                pos[2] = max(pos[2], z_table + 0.05)
+                name = "{}_el{:02.0f}_{:d}".format(side_name, el_deg, j)
+                cameras.append({"name": name, "pos": pos, "R": look_at(pos, center)})
+
+    return cameras
+
+
+def save_cameras(cameras, path):
+    data = [{"name": c["name"],
+             "pos": c["pos"].tolist(),
+             "R":   c["R"].tolist()} for c in cameras]
+    with open(path, "w") as f:
+        json.dump(data, f, indent=2)
+    print("[INFO] Saved {} cameras to {}".format(len(data), path))
+
+
+def load_cameras(path):
+    with open(path) as f:
+        data = json.load(f)
+    cameras = [{"name": c["name"],
+                "pos": np.array(c["pos"]),
+                "R":   np.array(c["R"])} for c in data]
+    print("[INFO] Loaded {} cameras from {}".format(len(cameras), path))
     return cameras
 
 
@@ -123,6 +158,10 @@ def parse_args():
                    help="Output .rrd file (default: camera_viz.rrd)")
     p.add_argument("--spawn",       action="store_true",
                    help="Spawn Rerun viewer directly (needs X display)")
+    p.add_argument("--cameras-file", default=None, metavar="PATH",
+                   help="JSON file to load/save orbital cameras. "
+                        "If it exists, cameras are loaded (no recompute); "
+                        "otherwise they are computed and saved.")
     return p.parse_args()
 
 
@@ -165,8 +204,10 @@ def main():
                        image_size=sz, render_mode=RenderMode.OPENGL3)
     off = CameraConfig(); off.set_all(False)
 
-    all_known = ["front", "over_shoulder_left", "over_shoulder_right",
-                 "wrist", "wrist_left", "wrist_right"]
+    if args.bimanual:
+        all_known = ["front", "wrist_left", "wrist_right"]
+    else:
+        all_known = ["front", "over_shoulder_left", "over_shoulder_right", "wrist"]
     cam_cfgs  = {n: (on if n in scene_cam_names else off) for n in all_known}
 
     obs_config = ObservationConfig(
@@ -233,8 +274,13 @@ def main():
     merged_cols = np.concatenate(all_cols, axis=0)
     print("[INFO] Total: {:,} world points".format(len(merged_pts)))
 
-    # ── Create 10 candidate VisionSensors ─────────────────────────────────────
-    candidate_cams = structured_cameras(center, ws_radius, z_table)
+    # ── Create orbital candidate VisionSensors ────────────────────────────────
+    if args.cameras_file and os.path.exists(args.cameras_file):
+        candidate_cams = load_cameras(args.cameras_file)
+    else:
+        candidate_cams = orbital_cameras(center, ws_radius, z_table)
+        if args.cameras_file:
+            save_cameras(candidate_cams, args.cameras_file)
     candidate_data = []   # (name, E, K, rgb_img)
 
     for cam in candidate_cams:

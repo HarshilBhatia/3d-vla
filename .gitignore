@@ -50,3 +50,7 @@ peract_test.zip
 peract2_raw/*
 Peract2_zarr/*
 .scratch/
+
+debug_videos/
+grogu_train_logs/
+orbital_viz/*
