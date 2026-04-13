@@ -26,6 +26,7 @@ import json
 import os
 import pickle
 import sys
+import time
 
 import numpy as np
 from PIL import Image
@@ -346,10 +347,12 @@ def make_obs_config(image_size):
         depth_in_meters=True,
     )
 
+    # Don't pass rgb=False/depth=False/point_cloud=False for unused cameras —
+    # _set_camera_properties() calls .remove() on them, permanently deleting them
+    # from the scene. OrbitalScene.__init__ then can't find them on the second
+    # Scene.__init__ call. Just leave unused cameras at their defaults.
     obs_config = ObservationConfig(
-        camera_configs={
-            "wrist": on,
-        },
+        wrist_camera=on,
         joint_velocities=True,
         joint_positions=True,
         joint_forces=False,
@@ -399,31 +402,66 @@ def parse_args():
 def collect_one_episode(task_env, scene, cam_left, cam_right, image_size, fov_deg):
     """
     Reset task, place orbital sensors, collect one demo, remove sensors.
-    Returns (demo, orbital_extrinsics) or (None, None) on failure.
+    Returns (demo, orbital_extrinsics, timing_dict) or (None, None, None) on failure.
     """
+    print("[STEP] Resetting task environment...")
+    t0 = time.perf_counter()
     task_env.reset()
+    t_reset = time.perf_counter() - t0
+    print("[STEP] Task reset done ({:.2f}s)".format(t_reset))
 
+    print("[STEP] Spawning orbital sensors (image_size={}, fov={:.1f}deg)...".format(image_size, fov_deg))
+    t1 = time.perf_counter()
     left_sensor  = create_orbital_sensor(cam_left["pos"],  cam_left["R"],  image_size, fov_deg)
     right_sensor = create_orbital_sensor(cam_right["pos"], cam_right["R"], image_size, fov_deg)
     scene.set_orbital_sensors(left_sensor, right_sensor)
     orbital_extrinsics = capture_orbital_extrinsics(left_sensor, right_sensor)
+    t_sensors = time.perf_counter() - t1
+    print("[STEP] Sensors ready ({:.2f}s)".format(t_sensors))
 
     demo = None
+    t_demos = 0.0
+    step_timers = {}
     for attempt in range(5):
         try:
+            print("[STEP] Running demo (attempt {}/5)...".format(attempt + 1))
+            scene.reset_step_timers()
+            t2 = time.perf_counter()
             demo, = task_env.get_demos(amount=1, live_demos=True)
+            t_demos = time.perf_counter() - t2
+            step_timers = scene.get_step_timers()
+            n = step_timers["n_steps"]
+            t_traj = max(0.0, t_demos - step_timers["obs_wrist"]
+                                       - step_timers["obs_orbital"]
+                                       - step_timers["physics"])
+            print("[STEP] Demo collected: {} steps in {:.2f}s ({:.2f}s/step)".format(
+                len(demo), t_demos, t_demos / max(len(demo), 1)))
+            print("[STEP]   per-step breakdown (avg over {} sim steps):".format(n))
+            print("[STEP]     traj={:.3f}s  physics={:.3f}s  obs_wrist={:.3f}s  obs_orbital={:.3f}s".format(
+                t_traj   / max(n, 1),
+                step_timers["physics"]     / max(n, 1),
+                step_timers["obs_wrist"]   / max(n, 1),
+                step_timers["obs_orbital"] / max(n, 1),
+            ))
             break
         except Exception as e:
             print("[WARN] Attempt {}/5 failed: {}".format(attempt + 1, e))
 
+    print("[STEP] Cleaning up sensors...")
+    t3 = time.perf_counter()
     scene.clear_orbital_sensors()
     left_sensor.remove()
     right_sensor.remove()
+    t_cleanup = time.perf_counter() - t3
+    print("[STEP] Cleanup done ({:.2f}s)".format(t_cleanup))
 
     if demo is None:
         print("[ERROR] All attempts failed; skipping episode.")
-        return None, None
-    return demo, orbital_extrinsics
+        return None, None, None
+
+    timing = dict(reset=t_reset, sensors=t_sensors, demos=t_demos, cleanup=t_cleanup,
+                  **step_timers)
+    return demo, orbital_extrinsics, timing
 
 
 def main():
@@ -472,16 +510,29 @@ def main():
                 print("[SKIP] {}/{} already exists.".format(args.task, group))
                 continue
 
-            demo, orbital_extrinsics = collect_one_episode(
+            demo, orbital_extrinsics, timing = collect_one_episode(
                 task_env, scene, cam_left, cam_right,
                 args.image_size, args.fov_deg,
             )
             if demo is None:
                 continue
+            print("[TIME] reset={:.2f}s sensors={:.2f}s demos={:.2f}s cleanup={:.2f}s steps={}".format(
+                timing["reset"], timing["sensors"], timing["demos"], timing["cleanup"], len(demo)))
+            t_vid0 = time.perf_counter()
             save_debug_video(demo, video_out, args.image_size)
+            t_video = time.perf_counter() - t_vid0
+            print("[TIME] video={:.2f}s ({} frames → {})".format(t_video, len(demo), video_out))
+            t_zarr0 = time.perf_counter()
             save_debug_zarr(demo, zarr_path, group,
                             orbital_extrinsics=orbital_extrinsics,
                             image_size=args.image_size)
+            t_zarr = time.perf_counter() - t_zarr0
+            print("[TIME] zarr={:.2f}s → {}".format(t_zarr, zarr_path))
+            t_total = timing["reset"] + timing["sensors"] + timing["demos"] + timing["cleanup"] + t_video + t_zarr
+            print("[TIME] total={:.2f}s (collect={:.2f}s save={:.2f}s)".format(
+                t_total,
+                timing["reset"] + timing["sensors"] + timing["demos"] + timing["cleanup"],
+                t_video + t_zarr))
 
         else:
             # Normal collection: n_episodes per group
@@ -504,18 +555,31 @@ def main():
                     print("[RESUME] {}/{} from episode {}.".format(
                         args.task, group, ep_start))
 
+            ep_times = []
             for ep_idx in range(ep_start, args.n_episodes):
                 print("[INFO] {}/{} episode {}/{}".format(
                     args.task, group, ep_idx + 1, args.n_episodes))
-                demo, orbital_extrinsics = collect_one_episode(
+                demo, orbital_extrinsics, timing = collect_one_episode(
                     task_env, scene, cam_left, cam_right,
                     args.image_size, args.fov_deg,
                 )
                 if demo is None:
                     continue
+                t_collect = timing["reset"] + timing["sensors"] + timing["demos"] + timing["cleanup"]
+                print("[TIME]  reset={:.2f}s sensors={:.2f}s demos={:.2f}s cleanup={:.2f}s steps={}".format(
+                    timing["reset"], timing["sensors"], timing["demos"], timing["cleanup"], len(demo)))
                 ep_path = os.path.join(base_path, "episode_{}".format(ep_idx))
+                print("[STEP] Saving episode to {}...".format(ep_path))
+                t1 = time.perf_counter()
                 save_orbital_episode(demo, ep_path, group, orbital_extrinsics)
-                print("[SAVED] {}".format(ep_path))
+                t_save = time.perf_counter() - t1
+                print("[TIME]  save={:.2f}s → {}".format(t_save, ep_path))
+                t_total = t_collect + t_save
+                ep_times.append(t_total)
+                avg = sum(ep_times) / len(ep_times)
+                remaining = (args.n_episodes - ep_idx - 1) * avg
+                print("[SAVED] {} | collect={:.1f}s save={:.1f}s total={:.1f}s avg={:.1f}s eta={:.1f}s".format(
+                    ep_path, t_collect, t_save, t_total, avg, remaining))
 
     env.shutdown()
     print("[DONE]")

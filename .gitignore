@@ -54,3 +54,7 @@ Peract2_zarr/*
 debug_videos/
 grogu_train_logs/
 orbital_viz/*
+
+CoppeliaSim_Edu_V4_1_0_Ubuntu20_04/
+logs/
+*.deb

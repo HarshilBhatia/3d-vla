@@ -27,7 +27,7 @@ Zarr schema (matches Peract2_zarr / peract2_to_zarr.py):
   variation        (N,)                   uint8
   camera_group     (N,)                   uint8   (1-6)
 
-Camera order:  [orbital_left, orbital_right, over_shoulder_left, over_shoulder_right]
+Camera order:  [orbital_left, orbital_right, wrist]
 """
 import argparse
 import json
@@ -35,6 +35,34 @@ import os
 import pickle
 import sys
 from pathlib import Path
+
+# Stub unpickler to avoid RLBench/PyRep/CoppeliaSim import chain
+class Stub:
+    def __init__(self, *args, **kwargs):
+        pass
+    def __setstate__(self, state):
+        self.__dict__.update(state)
+    def __getattr__(self, name):
+        return self.__dict__.get(name, Stub())
+    def __len__(self):
+        if hasattr(self, '_observations'):
+            return len(self._observations)
+        return 0
+    def __getitem__(self, key):
+        if hasattr(self, '_observations'):
+            return self._observations[key]
+        if isinstance(key, int):
+            return Stub()
+        return self.__dict__.get(key, Stub())
+
+class CustomUnpickler(pickle.Unpickler):
+    def find_class(self, module, name):
+        if name == 'list': return list
+        if name == 'dict': return dict
+        try:
+            return super().find_class(module, name)
+        except (AttributeError, ModuleNotFoundError, ImportError):
+            return Stub
 
 import numpy as np
 from numcodecs import Blosc
@@ -63,8 +91,7 @@ PERACT_TASKS = [
 CAMERAS = [
     "orbital_left",
     "orbital_right",
-    "over_shoulder_left",
-    "over_shoulder_right",
+    "wrist",
 ]
 
 
@@ -167,7 +194,7 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=IM_SIZE):
         return 0
 
     with open(low_dim_path, "rb") as f:
-        demo = pickle.load(f)
+        demo = CustomUnpickler(f).load()
 
     key_frames = keypoint_discovery(demo, bimanual=False)
     key_frames.insert(0, 0)
@@ -194,22 +221,20 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=IM_SIZE):
 
         # ── Depth ─────────────────────────────────────────────────────────────
         depth_list = []
-        cam_keys = [None, None, "over_shoulder_left", "over_shoulder_right"]
+        cam_keys = [None, None, "wrist"]
         for cam, cam_key in zip(CAMERAS, cam_keys):
             d = load_depth_metres(ep_path, cam, k, obs, cam_key)
             depth_list.append(d)
         depth = np.stack(depth_list).astype(np.float16)[np.newaxis]  # (1, NCAM, H, W)
 
         # ── Extrinsics ────────────────────────────────────────────────────────
-        E_osl = load_extrinsics_from_misc(obs, "over_shoulder_left")
-        E_osr = load_extrinsics_from_misc(obs, "over_shoulder_right")
-        extr  = np.stack([E_ol, E_or, E_osl, E_osr]).astype(np.float16)
+        E_wrist = load_extrinsics_from_misc(obs, "wrist")
+        extr  = np.stack([E_ol, E_or, E_wrist]).astype(np.float16)
         extr  = extr[np.newaxis]  # (1, NCAM, 4, 4)
 
         # ── Intrinsics ────────────────────────────────────────────────────────
-        K_osl = load_intrinsics_from_misc(obs, "over_shoulder_left")
-        K_osr = load_intrinsics_from_misc(obs, "over_shoulder_right")
-        intr  = np.stack([K_ol, K_or, K_osl, K_osr]).astype(np.float16)
+        K_wrist = load_intrinsics_from_misc(obs, "wrist")
+        intr  = np.stack([K_ol, K_or, K_wrist]).astype(np.float16)
         intr  = intr[np.newaxis]  # (1, NCAM, 3, 3)
 
         # ── Proprioception (EEF pose) ─────────────────────────────────────────
@@ -269,6 +294,8 @@ def parse_args():
     p.add_argument("--image-size", type=int, default=IM_SIZE)
     p.add_argument("--tasks",      default=None,
                    help="Comma-separated task list (default: all 18 PerAct)")
+    p.add_argument("--groups",     default=None,
+                   help="Comma-separated camera groups to include (e.g. G2,G3). Default: all groups present.")
     p.add_argument("--overwrite",  action="store_true",
                    help="Remove existing zarr and rebuild")
     return p.parse_args()
@@ -281,6 +308,9 @@ def main():
     if args.tasks:
         tasks = [t.strip() for t in args.tasks.split(",")]
     task2id = {t: i for i, t in enumerate(PERACT_TASKS)}
+    allowed_groups = None
+    if args.groups:
+        allowed_groups = set(g.strip() for g in args.groups.split(","))
 
     if os.path.exists(args.out):
         if args.overwrite:
@@ -326,6 +356,8 @@ def main():
 
             groups = sorted(os.listdir(task_root))
             for group_str in groups:
+                if allowed_groups is not None and group_str not in allowed_groups:
+                    continue
                 group_root = os.path.join(task_root, group_str)
                 if not os.path.isdir(group_root):
                     continue

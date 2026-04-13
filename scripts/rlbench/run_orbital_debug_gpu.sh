@@ -1,17 +1,22 @@
 #!/usr/bin/env bash
 # ─────────────────────────────────────────────────────────────────────────────
-# run_orbital_debug.sh
+# run_orbital_debug_gpu.sh
 #
-# Generate 54 debug videos + zarrs (18 tasks × 3 groups each).
-# One CoppeliaSim launch per task — all 3 groups collected in that session.
-# 18 launches instead of 54, saving ~66% of startup overhead.
+# GPU variant of run_orbital_debug.sh.
+# Uses EGL headless rendering (no Xvfb) via Apptainer --nv.
 #
-# Output per (task, group) pair:
-#   debug_videos/${TASK}_${GROUP}.mp4        ← 4-panel video
-#   debug_videos/${TASK}_${GROUP}.mp4.zarr/  ← single-episode zarr
+# Requirements:
+#   - Run on a GPU node (Slurm: #SBATCH --gres=gpu:1)
+#   - Container sandbox must have NVIDIA bind-mount stubs created
+#     (see: touch /usr/bin/nvidia-smi etc. inside sandbox)
 #
-# Usage (from repo root):
-#   xvfb-run -a bash scripts/rlbench/run_orbital_debug.sh
+# Usage (from repo root, inside --nv Apptainer session OR directly via Slurm):
+#   bash scripts/rlbench/run_orbital_debug_gpu.sh
+#
+# Or via Slurm:
+#   sbatch --gres=gpu:1 --wrap \
+#     "apptainer exec --nv containers/3dfa-sandbox \
+#      bash scripts/rlbench/run_orbital_debug_gpu.sh"
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail
 
@@ -29,10 +34,21 @@ if [ ! -f "${MAPPING}" ]; then
     exit 1
 fi
 
+# Verify GPU is accessible
+if ! nvidia-smi &>/dev/null; then
+    echo "[ERROR] nvidia-smi not found. Run inside 'apptainer exec --nv' on a GPU node."
+    exit 1
+fi
+echo "[GPU] $(nvidia-smi --query-gpu=name,memory.total --format=csv,noheader | head -1)"
 
+# CoppeliaSim's bundled libqeglfs.so depends on the system libQt5EglFSDeviceIntegration.so.5
+# which is a different Qt version — causes a fatal version mismatch.
+# Use offscreen instead: Qt renders headlessly with no version conflict, while
+# CoppeliaSim's own OpenGL context (created independently) still gets GPU acceleration.
+export QT_QPA_PLATFORM=offscreen
 unset DISPLAY
-unset QT_QPA_PLATFORM
-exec xvfb-run -a python3 - <<PYEOF
+
+python3 - <<PYEOF
 import json, os, subprocess, sys
 
 repo_root    = "${REPO_ROOT}"
@@ -44,14 +60,13 @@ script       = "${SCRIPT}"
 with open(mapping_path) as f:
     mapping = json.load(f)
 
-total  = len(mapping)  # one launch per task
+total  = len(mapping)
 done   = 0
 failed = []
 
 for task, groups in mapping.items():
     done += 1
     for group in groups:
-        # Check if this (task, group) zarr already exists
         zarr_path = os.path.join(video_dir, "{}_{}.mp4.zarr".format(task, group))
         if os.path.exists(zarr_path):
             print("[SKIP] {}/{} — already done.".format(task, group))
@@ -69,7 +84,7 @@ for task, groups in mapping.items():
             "--video-only",
             "--video-dir",    video_dir,
         ]
-        env = {k: v for k, v in __import__("os").environ.items() if k != "QT_QPA_PLATFORM"}
+        env = {**__import__("os").environ, "QT_QPA_PLATFORM": "offscreen"}
         try:
             subprocess.run(cmd, check=True, env=env)
         except subprocess.CalledProcessError as e:
