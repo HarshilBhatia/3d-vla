@@ -49,3 +49,5 @@ peract_test.zip
 
 peract2_raw/*
 Peract2_zarr/*
+logs/*
+*.rrd
