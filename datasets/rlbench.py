@@ -180,6 +180,11 @@ class Peract2Dataset(RLBenchDataset):
     camera_inds2d = None
 
 
+
+class PeractDatasetOrbital(RLBenchDataset):
+    pass
+
+
 class Peract2SingleCamDataset(RLBenchDataset):
     """RLBench dataset under Peract2 setup with only front camera.
     

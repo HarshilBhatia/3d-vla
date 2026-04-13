@@ -39,6 +39,7 @@ wandb_watch_model: false
 # checkpoint: path to .pth for resume or eval_only; null = train from scratch
 checkpoint: null
 val_freq: 4000
+last_ckpt_freq: 2000
 interm_ckpt_freq: 10000
 # eval_only: true = run validation only (no training); trainer uses run_mode=eval_offline
 eval_only: false
@@ -106,11 +107,13 @@ traj_scene_rope: true
 
 learn_extrinsics: false
 predict_extrinsics: false
-extrinsics_prediction_mode: null  # 'rt' = R,T (6D); 'delta_m' = 6x6 matrix
+extrinsics_prediction_mode: delta_m  # 'rt' = R,T (6D); 'delta_m' = 6x6 matrix
 dynamic_rope_from_camtoken: true  # re-predict delta_M/(R,T) from cam-token after each SA/CA block
 # use_front_camera_frame: canonical name; use for front-camera frame transform in data/eval
 use_front_camera_frame: false
 pc_rotate_by_front_camera: false
+# miscalibration_noise_level: null = no noise; "small" / "medium" / "large" = constant per-camera extrinsics noise
+miscalibration_noise_level: null
 
 # RoPE: traj_scene_rope, sa_blocks_use_rope, use_com_rope come from config/rope_mode/<name>.yaml
 

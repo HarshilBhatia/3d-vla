@@ -7,6 +7,7 @@ import torch
 from torch.nn import functional as F
 
 from .base import DataPreprocessor
+from utils.pytorch3d_transforms import axis_angle_to_matrix
 
 
 
@@ -38,12 +39,41 @@ def _apply_offset_to_extrinsics(extrinsics_i0, R, t, device, dtype):
     return T @ extrinsics_i0
 
 
+def _load_miscalibration_noise(level):
+    """Load per-camera extrinsics noise for a given level ('small'/'medium'/'large').
+    Returns (cameras, noise_dict) where cameras is the ordered list of camera names
+    and noise_dict maps camera_name -> {'R_noise': (3,3) tensor, 't_noise': (3,) tensor}.
+    """
+    path = os.path.join(
+        os.path.dirname(__file__), "..", "..",
+        "instructions", "miscalibration_noise.json"
+    )
+    with open(path) as f:
+        data = json.load(f)
+    if level not in data["levels"]:
+        raise ValueError(f"Unknown miscalibration_noise_level '{level}'. "
+                         f"Choose from: {list(data['levels'].keys())}")
+    cameras = data["cameras"]  # ordered list of camera names
+    noise = {}
+    for cam, vals in data["levels"][level].items():
+        if cam.startswith("_"):
+            continue
+        aa = torch.tensor(vals["axis_angle_rad"], dtype=torch.float32)
+        t = torch.tensor(vals["translation_m"], dtype=torch.float32)
+        noise[cam] = {
+            "R_noise": axis_angle_to_matrix(aa),  # (3, 3)
+            "t_noise": t                           # (3,)
+        }
+    return cameras, noise
+
+
 class RLBenchDataPreprocessor(DataPreprocessor):
 
     def __init__(self, keypose_only=False, num_history=1,
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
                  use_front_camera_frame=False, pc_rotate_by_front_camera=False,
-                 task_extrinsics_offsets_path=None):
+                 task_extrinsics_offsets_path=None,
+                 miscalibration_noise_level=None):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,
@@ -53,6 +83,15 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             pc_rotate_by_front_camera=pc_rotate_by_front_camera
         )
         self.task_offsets = _load_task_extrinsics_offsets()
+
+        # Miscalibration noise: None or dict camera_name -> {R_noise, t_noise}
+        self.miscal_noise = None
+        self.miscal_cameras = None
+        if miscalibration_noise_level is not None:
+            self.miscal_cameras, self.miscal_noise = _load_miscalibration_noise(miscalibration_noise_level)
+            print(f"Miscalibration noise enabled: level='{miscalibration_noise_level}', "
+                  f"cameras={self.miscal_cameras}")
+
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
                 degrees=0,
@@ -140,6 +179,23 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         )
         return rotated.reshape(B, ncam, 3, H, W).to(original_dtype)
 
+    def _apply_miscalibration(self, extrinsics):
+        """Perturb extrinsics with constant per-camera noise to simulate miscalibration.
+
+        Applies R_new = R_noise @ R_stored and t_new = t_stored + t_noise in the world
+        frame.  extrinsics is (B, ncam, 4, 4) camera-to-world; returned copy is perturbed.
+        Camera order follows self.miscal_cameras (from the noise file's "cameras" list).
+        """
+        ext = extrinsics.clone().float()
+        for cam_idx, cam_name in enumerate(self.miscal_cameras):
+            if cam_name not in self.miscal_noise:
+                continue
+            R_noise = self.miscal_noise[cam_name]["R_noise"].to(ext.device)  # (3, 3)
+            t_noise = self.miscal_noise[cam_name]["t_noise"].to(ext.device)  # (3,)
+            ext[:, cam_idx, :3, :3] = R_noise @ ext[:, cam_idx, :3, :3]
+            ext[:, cam_idx, :3, 3] += t_noise
+        return ext.to(extrinsics.dtype)
+
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
                     augment=False, task=None):
         """
@@ -147,6 +203,10 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         depths of shape (B, ncam, h_i, w_i).
         Assume the 3d cameras go before 2d cameras.
         """
+        # Optionally perturb extrinsics to simulate camera miscalibration
+        if self.miscal_noise is not None:
+            extrinsics = self._apply_miscalibration(extrinsics)
+
         # Get point cloud from depth (in world coordinates)
         pcds = self.depth2cloud(
             depth.cuda(non_blocking=True).to(torch.bfloat16),

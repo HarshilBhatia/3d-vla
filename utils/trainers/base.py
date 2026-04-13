@@ -40,7 +40,8 @@ class BaseTrainTester:
             custom_imsize=self.args.custom_img_size,
             depth2cloud=fetch_depth2cloud(self.args.dataset),
             use_front_camera_frame=getattr(self.args, 'use_front_camera_frame', False),
-            pc_rotate_by_front_camera=getattr(self.args, 'pc_rotate_by_front_camera', False)
+            pc_rotate_by_front_camera=getattr(self.args, 'pc_rotate_by_front_camera', False),
+            miscalibration_noise_level=getattr(self.args, 'miscalibration_noise_level', None)
         )
 
         if dist.get_rank() == 0 and self.run_mode == "train":
@@ -405,6 +406,16 @@ class BaseTrainTester:
 
             self.train_one_step(model, optimizer, scaler, lr_scheduler, sample, step_id)
             self.ema.step(model, ema_model, self.args.use_ema, step_id)
+
+            if (step_id + 1) % self.args.last_ckpt_freq == 0 and dist.get_rank() == 0:
+                last_path = self.args.log_dir / "last.pth"
+                torch.save({
+                    "weight": model.state_dict(),
+                    "ema_weight": ema_model.state_dict() if self.args.use_ema else None,
+                    "optimizer": optimizer.state_dict(),
+                    "iter": step_id + 1,
+                    "best_loss": best_loss
+                }, last_path)
 
             if (step_id + 1) % self.args.val_freq == 0 and dist.get_rank() == 0:
                 print("Train evaluation.......")
