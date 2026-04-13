@@ -87,6 +87,8 @@ if __name__ == "__main__":
     # Bimanual vs single-arm utils
     if args.bimanual:
         from online_evaluation_rlbench.utils_with_bimanual_rlbench import RLBenchEnv, Actioner
+    elif "orbital" in args.dataset.lower():
+        from online_evaluation_rlbench.utils_with_orbital_rlbench import RLBenchEnv, Actioner
     elif "peract" in args.dataset.lower():
         from online_evaluation_rlbench.utils_with_rlbench import RLBenchEnv, Actioner
     else:
@@ -108,6 +110,20 @@ if __name__ == "__main__":
         np.random.seed(args.seed)
         random.seed(args.seed)
 
+        # Per-backend extra kwargs
+        if "orbital" in args.dataset.lower():
+            _env_extra = dict(
+                cameras_file=str(args.cameras_file),
+                task_group_mapping_file=str(args.task_group_mapping_file),
+                fov_deg=float(args.fov_deg),
+                miscalibration_noise_level=args.miscalibration_noise_level,
+            )
+        else:
+            _env_extra = dict(
+                use_front_camera_frame=args.use_front_camera_frame,
+                pc_rotate_by_front_camera=args.pc_rotate_by_front_camera,
+            )
+
         # Load RLBench environment
         env = RLBenchEnv(
             data_path=args.data_dir,
@@ -118,8 +134,7 @@ if __name__ == "__main__":
             headless=bool(args.headless),
             apply_cameras=dataset_class.cameras,
             collision_checking=bool(args.collision_checking),
-            use_front_camera_frame=args.use_front_camera_frame,
-            pc_rotate_by_front_camera=args.pc_rotate_by_front_camera,
+            **_env_extra,
         )
 
         # Actioner (runs the policy online)

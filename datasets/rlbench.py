@@ -181,6 +181,14 @@ class Peract2Dataset(RLBenchDataset):
 
 
 
+class OrbitalWristDataset(RLBenchDataset):
+    """Single-arm orbital + wrist dataset: orbital_left, orbital_right, wrist."""
+    cameras = ("orbital_left", "orbital_right", "wrist")
+    camera_inds = None
+    train_copies = 10
+    camera_inds2d = None
+
+
 class PeractDatasetOrbital(RLBenchDataset):
     pass
 
