@@ -14,6 +14,8 @@ if os.path.join(ROOT_DIR, 'PyRep') not in sys.path:
 # Set this to the user name
 ENV = os.getenv("USER_NAME") 
 
+
+
 CONFIGS = {
     "LUQMAN": {
         "RAW_ROOT": "/home/lzaceria/mscv/3dvla/3d-vla/peract2_raw",
@@ -24,11 +26,6 @@ CONFIGS = {
         "RAW_ROOT": "peract2_raw",
         "ZARR_ROOT": "Peract2_zarr",
         "USER_DATA": "",
-    },
-    "ORIGINAL": {
-        "RAW_ROOT": "/data/group_data/katefgroup/VLA/peract2_raw_squash",
-        "ZARR_ROOT": "/data/user_data/ngkanats/zarr_datasets/Peract2_zarr",
-        "USER_DATA": "/data/user_data/ngkanats",
     }
 }
 

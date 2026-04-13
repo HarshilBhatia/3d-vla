@@ -1,60 +1,18 @@
 """Online evaluation script on RLBench."""
 
-import argparse
-import random
-from pathlib import Path
 import json
 import os
+import random
+import sys
+from pathlib import Path
 
-import torch
 import numpy as np
+import torch
 
 from datasets import fetch_dataset_class
 from modeling.policy import fetch_model_class
-from utils.common_utils import str2bool, str_none, round_floats
-
-
-def parse_arguments():
-    parser = argparse.ArgumentParser("Parse arguments for main.py")
-    # Tuples: (name, type, default)
-    arguments = [
-        # Testing arguments
-        ('checkpoint', str_none, None),
-        ('task', str, "close_jar"),
-        ('max_tries', int, 10),
-        ('max_steps', int, 25),
-        ('headless', str2bool, False),
-        ('collision_checking', str2bool, False),
-        ('seed', int, 0),
-        # Dataset arguments
-        ('data_dir', Path, Path(__file__).parent / "demos"),
-        ('dataset', str, "Peract"),
-        ('image_size', str, "256,256"),
-        # Logging arguments
-        ('output_file', Path, Path(__file__).parent / "eval.json"),
-        # Model arguments: general policy type
-        ('model_type', str, 'denoise3d'),
-        ('bimanual', str2bool, False),
-        ('prediction_len', int, 1),
-        # Model arguments: encoder
-        ('backbone', str, "clip"),
-        ('fps_subsampling_factor', int, 5),
-        # Model arguments: encoder and head
-        ('embedding_dim', int, 144),
-        ('num_attn_heads', int, 9),
-        ('num_vis_instr_attn_layers', int, 2),
-        ('num_history', int, 0),
-        # Model arguments: head
-        ('num_shared_attn_layers', int, 4),
-        ('relative_action', str2bool, False),
-        ('rotation_format', str, 'quat_xyzw'),
-        ('denoise_timesteps', int, 10),
-        ('denoise_model', str, "rectified_flow")
-    ]
-    for arg in arguments:
-        parser.add_argument(f'--{arg[0]}', type=arg[1], default=arg[2])
-
-    return parser.parse_args()
+from utils.common_utils import round_floats
+from utils.hydra_utils import get_config, get_config_path
 
 
 def load_models(args):
@@ -63,6 +21,8 @@ def load_models(args):
     model_class = fetch_model_class(args.model_type)
     model = model_class(
         backbone=args.backbone,
+        finetune_backbone=args.finetune_backbone,
+        finetune_text_encoder=args.finetune_text_encoder,
         num_vis_instr_attn_layers=args.num_vis_instr_attn_layers,
         fps_subsampling_factor=args.fps_subsampling_factor,
         embedding_dim=args.embedding_dim,
@@ -73,13 +33,25 @@ def load_models(args):
         relative=args.relative_action,
         rotation_format=args.rotation_format,
         denoise_timesteps=args.denoise_timesteps,
-        denoise_model=args.denoise_model
+        denoise_model=args.denoise_model,
+        learn_extrinsics=args.learn_extrinsics,
+        traj_scene_rope=args.traj_scene_rope,
+        sa_blocks_use_rope=args.sa_blocks_use_rope,
+        predict_extrinsics=args.predict_extrinsics,
+        extrinsics_prediction_mode=args.extrinsics_prediction_mode,
+        dynamic_rope_from_camtoken=args.dynamic_rope_from_camtoken,
+        rope_type=args.rope_type,
+        use_com_rope=args.use_com_rope,
+        com_rope_block_size=args.com_rope_block_size,
+        com_rope_num_axes=args.com_rope_num_axes,
+        com_rope_init_std=args.com_rope_init_std,
     )
 
     # Load model weights
     model_dict = torch.load(
         args.checkpoint, map_location="cpu", weights_only=True
     )
+
     model_dict_weight = {}
     for key in model_dict["weight"]:
         _key = key[7:]
@@ -91,10 +63,22 @@ def load_models(args):
 
 
 if __name__ == "__main__":
-    # Arguments
-    args = parse_arguments()
+    # Compose config from config/config.yaml + CLI overrides (e.g. checkpoint=path task=close_jar)
+    args = get_config(
+        overrides=sys.argv[1:],
+        config_name="config",
+        config_path=get_config_path(),
+    )
+    # Resolve relative paths relative to this script's directory
+    _script_dir = Path(__file__).resolve().parent
+    if args.data_dir is not None and not args.data_dir.is_absolute():
+        args.data_dir = _script_dir / args.data_dir
+    if args.output_file is not None and not args.output_file.is_absolute():
+        args.output_file = _script_dir / args.output_file
+
     print("Arguments:")
-    print(args)
+    for k, v in sorted(vars(args).items()):
+        print(f"  {k}: {v}")
     print("-" * 100)
 
     # Save results here
@@ -133,7 +117,9 @@ if __name__ == "__main__":
             apply_pc=True,
             headless=bool(args.headless),
             apply_cameras=dataset_class.cameras,
-            collision_checking=bool(args.collision_checking)
+            collision_checking=bool(args.collision_checking),
+            use_front_camera_frame=args.use_front_camera_frame,
+            pc_rotate_by_front_camera=args.pc_rotate_by_front_camera,
         )
 
         # Actioner (runs the policy online)

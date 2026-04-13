@@ -7,12 +7,13 @@ class RLBenchTrainTester(BaseTrainTester):
 
     @torch.no_grad()
     def prepare_batch(self, sample, augment=False):
+
         sample["action"] = self.preprocessor.process_actions(sample["action"])
         proprio = self.preprocessor.process_proprio(sample["proprioception"])
         rgbs, pcds = self.preprocessor.process_obs(
             sample["rgb"], sample["rgb2d"],
             sample["depth"], sample["extrinsics"], sample["intrinsics"],
-            augment=augment
+            augment=augment, task = sample["task"]
         )
         return (
             sample["action"],
