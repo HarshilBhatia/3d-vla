@@ -1,0 +1,8 @@
+# Default experiment: no overrides. Use as base; override run_log_dir etc. from CLI or script.
+# Run: python main.py experiment=default
+
+
+use_front_camera_frame: False
+predict_extrinsics: true
+extrinsics_prediction_mode: delta_m
+dynamic_rope_from_camtoken: true

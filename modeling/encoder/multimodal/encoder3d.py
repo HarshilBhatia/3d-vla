@@ -20,7 +20,9 @@ class Encoder(BaseEncoder):
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
                  finetune_backbone=False,
-                 finetune_text_encoder=False):
+                 finetune_text_encoder=False,
+                 learn_extrinsics=False,
+                 rope_type='normal'):
         super().__init__(
             backbone=backbone,
             embedding_dim=embedding_dim,
@@ -31,6 +33,9 @@ class Encoder(BaseEncoder):
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder
         )
+        
+        # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
+        self.learn_extrinsics = learn_extrinsics
 
         # Postprocess scene features
         if self._backbone_name == 'clip':
@@ -42,7 +47,7 @@ class Encoder(BaseEncoder):
             self.rgb2d_proj = nn.Linear(1024, embedding_dim)
 
         # 3D relative positional embeddings
-        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
+        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim, rope_type=rope_type)
 
         # Proprioception learnable encoding if 3D is used
         self.curr_gripper_embed = nn.Embedding(nhist, embedding_dim)
@@ -56,7 +61,7 @@ class Encoder(BaseEncoder):
         self.camera_ids = nn.Embedding(2, embedding_dim)
         self.pos_embed_2d = SinusoidalPosEmb(embedding_dim)
 
-    def encode_proprio(self, proprio, context_feats, context_pos):
+    def encode_proprio(self, proprio, context_feats, context_pos, stopgrad_k=0):
         """
         Compute proprioception features.
 
@@ -64,6 +69,7 @@ class Encoder(BaseEncoder):
             - proprio: (B, nhist, 3+)
             - context_feats: (B, npt, C)
             - context_pos: (B, npt, 3)
+            - stopgrad_k: number of bins to zero out in backward (for RoPE stopgrad)
 
         Returns:
             - gripper_feats: (B, nhist, F)
@@ -74,8 +80,11 @@ class Encoder(BaseEncoder):
         )
 
         # Rotary positional encoding
-        proprio_pos = self.relative_pe_layer(proprio[..., :3])
-        context_pos = self.relative_pe_layer(context_pos)
+        proprio_pos = self.relative_pe_layer(proprio[..., :3], stopgrad_k=stopgrad_k)
+        # Allow gradients for context_pos if learning extrinsics
+        # This is needed because point cloud positions depend on learned camera parameters
+        # allow_grad = self.training and self.learn_extrinsics
+        context_pos = self.relative_pe_layer(context_pos, allow_grad=False, stopgrad_k=stopgrad_k) # this is to encode the proprio, don't need to backprop here.
 
         # Attention to scene tokens
         proprio_feats = self.gripper_context_head(
@@ -115,12 +124,13 @@ class Encoder(BaseEncoder):
         rgb3d_feats = self.feature_pyramid(rgb3d_feats)[self.output_level]
         feat_h, feat_w = rgb3d_feats.shape[-2:]
         # Merge different cameras
+
         rgb3d_feats = einops.rearrange(
             rgb3d_feats,
             "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
         )
         # Attention from vision to language
-        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1]
+        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1] # NOTE: Doesn't make sense to me.  why do this here ?
 
         # Point cloud
         num_cameras = pcd.shape[1]
@@ -136,7 +146,9 @@ class Encoder(BaseEncoder):
             "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
         )
 
+
         # 2D camera features (don't support mixed cameras in this release)
         rgb2d_feats = None
+
 
         return rgb3d_feats, rgb2d_feats, pcd, instr_feats

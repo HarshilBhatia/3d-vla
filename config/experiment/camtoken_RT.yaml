@@ -1,0 +1,13 @@
+# Default experiment: no overrides. Use as base; override run_log_dir etc. from CLI or script.
+# Run: python main.py experiment=default
+
+
+use_front_camera_frame: true
+predict_extrinsics: true
+extrinsics_prediction_mode: rt
+
+
+use_com_rope: false
+com_rope_block_size: 3
+com_rope_num_axes: 3
+com_rope_init_std: 0.02

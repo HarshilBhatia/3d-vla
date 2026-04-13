@@ -28,18 +28,18 @@ LINK = 'https://dataset.cs.washington.edu/fox/bimanual/image_size_256'
 
 ALL_TASKS = [
     'bimanual_push_box',
-    'bimanual_lift_ball',
-    'bimanual_dual_push_buttons',
-    'bimanual_pick_plate',
-    'bimanual_put_item_in_drawer',
-    'bimanual_put_bottle_in_fridge',
-    'bimanual_handover_item',
-    'bimanual_pick_laptop',
-    'bimanual_straighten_rope',
-    'bimanual_sweep_to_dustpan',
-    'bimanual_lift_tray',
-    'bimanual_handover_item_easy',
-    'bimanual_take_tray_out_of_oven'
+    # 'bimanual_lift_ball',
+    # 'bimanual_dual_push_buttons',
+    # 'bimanual_pick_plate',
+    # 'bimanual_put_item_in_drawer',
+    # 'bimanual_put_bottle_in_fridge',
+    # 'bimanual_handover_item',
+    # 'bimanual_pick_laptop',
+    # 'bimanual_straighten_rope',
+    # 'bimanual_sweep_to_dustpan',
+    # 'bimanual_lift_tray',
+    # 'bimanual_handover_item_easy',
+    # 'bimanual_take_tray_out_of_oven'
 ]
 
 if args.tasks is not None:
@@ -51,7 +51,8 @@ else:
     tasks = ALL_TASKS
 
 
-for split in ['train', 'val']:
+# for split in ['train', 'val']:
+for split in ['val']:
     os.makedirs(f'{STORE_PATH}/{split}', exist_ok=True)
     for task in tasks:
         if os.path.exists(f'{STORE_PATH}/{split}/{task}'):

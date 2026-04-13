@@ -7,6 +7,11 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
+from utils.data_preprocessors.rlbench import (
+    _load_task_extrinsics_offsets,
+    _apply_offset_to_extrinsics,
+)
+
 from rlbench.observation_config import ObservationConfig, CameraConfig
 from rlbench.environment import Environment
 from rlbench.action_modes.action_mode import BimanualMoveArmThenGripper
@@ -56,7 +61,7 @@ class Mover:
             # Peract2 takes (right, left) action, but we predict (left, right)
             action_collision = action_collision[::-1]
             action_collision = action_collision.ravel()
-            obs, reward, terminate = self._task.step(action_collision, ret_obs=True)
+            obs, reward, terminate = self._task.step(action_collision)
 
             # Check if we reached the desired pose (planner may be inaccurate)
             l_pos = obs.left.gripper_pose[:3]
@@ -139,12 +144,18 @@ class RLBenchEnv:
         apply_pc=False,
         headless=False,
         apply_cameras=("over_shoulder_left", "over_shoulder_right", "wrist_left", "wrist_right", "front"),
-        collision_checking=False
+        collision_checking=False,
+        use_front_camera_frame=False,
+        pc_rotate_by_front_camera=False,
     ):
 
         # setup required inputs
         self.data_path = data_path
         self.apply_cameras = apply_cameras
+        self._task_str = task_str
+        self._use_front_camera_frame = use_front_camera_frame
+        self._pc_rotate_by_front_camera = pc_rotate_by_front_camera
+        self.task_offsets = _load_task_extrinsics_offsets()
 
         # setup RLBench environments
         self.obs_config = self.create_obs_config(
@@ -160,6 +171,54 @@ class RLBenchEnv:
             headless=headless, robot_setup="dual_panda"
         )
 
+    def _apply_front_camera_frame_transform(self, pcd, extrinsics, front_index, task_str):
+        """
+        Same logic as utils.data_preprocessors.rlbench.RLBenchDataPreprocessor when
+        use_front_camera_frame=True: task-based extrinsics offset then transform
+        pcd to front camera frame.
+        extrinsics: (1, ncam, 4, 4), pcd: (1, ncam, 3, H, W).
+        """
+        ext = extrinsics.clone()
+        offsets = self.task_offsets
+        if task_str and task_str in offsets:
+            R, t = offsets[task_str]
+            ext[0, front_index] = _apply_offset_to_extrinsics(
+                ext[0, front_index], R, t, ext.device, ext.dtype
+            )
+        return self._transform_pcd_to_front_frame(pcd, ext, front_index)
+
+    def _transform_pcd_to_front_frame(self, pcds, extrinsics, front_index):
+        """
+        Transform point clouds from world frame to front camera frame.
+        extrinsics: (1, ncam, 4, 4) camera-to-world; front_index: which camera is front.
+        """
+        B, ncam, _, H, W = pcds.shape
+        front_cam_to_world = extrinsics[:, front_index : front_index + 1].float()
+        world_to_front = torch.linalg.inv(front_cam_to_world)
+        pcds_flat = pcds.float().reshape(B, ncam, 3, H * W)
+        ones = torch.ones(B, ncam, 1, H * W, device=pcds.device, dtype=torch.float32)
+        pcds_homo = torch.cat([pcds_flat, ones], dim=2)
+        world_to_front = world_to_front.expand(B, ncam, 4, 4)
+        pcds_front_homo = torch.matmul(
+            world_to_front.reshape(B * ncam, 4, 4),
+            pcds_homo.reshape(B * ncam, 4, H * W),
+        )
+        pcds_front = pcds_front_homo[:, :3].reshape(B, ncam, 3, H, W)
+        # print('transforming pcd to front frame')
+        return pcds_front.to(pcds.dtype)
+
+    def _rotate_pcd_by_front_camera(self, pcds, extrinsics, front_index):
+        """Rotate point clouds by front camera R^T only (no translation)."""
+        B, ncam, _, H, W = pcds.shape
+        R_c2w = extrinsics[:, front_index : front_index + 1, :3, :3].float()
+        R_w2c = R_c2w.transpose(-1, -2).expand(B, ncam, 3, 3)
+        pcds_flat = pcds.float().reshape(B, ncam, 3, H * W)
+        rotated = torch.matmul(
+            R_w2c.reshape(B * ncam, 3, 3),
+            pcds_flat.reshape(B * ncam, 3, H * W),
+        )
+        return rotated.reshape(B, ncam, 3, H, W).to(pcds.dtype)
+
     def get_rgb_pcd_gripper_from_obs(self, obs):
         """
         Return rgb, pcd, and gripper from a given observation
@@ -174,6 +233,31 @@ class RLBenchEnv:
             torch.tensor(obs.perception_data["{}_point_cloud".format(cam)]).float().permute(2, 0, 1)
             for cam in self.apply_cameras
         ]).unsqueeze(0)  # 1, N, C, H, W
+
+        # Apply same front-camera frame logic as in training (data_preprocessors/rlbench.py)
+        if self._use_front_camera_frame and getattr(obs, "misc", None) is not None:
+            try:
+                ext_list = [obs.misc.get("{}_camera_extrinsics".format(cam)) for cam in self.apply_cameras]
+                if all(e is not None for e in ext_list):
+                    extrinsics = torch.tensor(
+                        np.stack(ext_list), dtype=torch.float32, device=pcd.device
+                    ).unsqueeze(0)  # 1, ncam, 4, 4
+                    front_index = list(self.apply_cameras).index("front") if "front" in self.apply_cameras else 0
+                    pcd = self._apply_front_camera_frame_transform(pcd, extrinsics, front_index, self._task_str)
+            except (KeyError, ValueError):
+                pass
+        if self._pc_rotate_by_front_camera and getattr(obs, "misc", None) is not None:
+            try:
+                ext_list = [obs.misc.get("{}_camera_extrinsics".format(cam)) for cam in self.apply_cameras]
+                if all(e is not None for e in ext_list):
+                    extrinsics = torch.tensor(
+                        np.stack(ext_list), dtype=torch.float32, device=pcd.device
+                    ).unsqueeze(0)
+                    front_index = list(self.apply_cameras).index("front") if "front" in self.apply_cameras else 0
+                    pcd = self._rotate_pcd_by_front_camera(pcd, extrinsics, front_index)
+            except (KeyError, ValueError):
+                pass
+
         # action is an array of length 16 = (7+1)*2
         gripper = torch.from_numpy(np.concatenate([
             obs.left.gripper_pose, [obs.left.gripper_open],

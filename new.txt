@@ -1,0 +1,975 @@
+(base) harshilb@euclid:~/work$ conda activate 3dfa
+(3dfa) harshilb@euclid:~/work$ pip list
+Package                            Version
+---------------------------------- -------------------
+alabaster                          0.7.12
+anaconda-client                    1.7.2
+anaconda-navigator                 1.10.0
+anaconda-project                   0.8.3
+argh                               0.26.2
+argon2-cffi                        20.1.0
+asn1crypto                         1.4.0
+astroid                            2.4.2
+astropy                            4.0.2
+async-generator                    1.10
+atomicwrites                       1.4.0
+attrs                              20.3.0
+autopep8                           1.5.4
+Babel                              2.8.1
+backcall                           0.2.0
+backports.functools-lru-cache      1.6.4
+backports.shutil-get-terminal-size 1.0.0
+backports.tempfile                 1.0
+backports.weakref                  1.0.post1
+beautifulsoup4                     4.9.3
+bitarray                           1.6.1
+bkcharts                           0.2
+bleach                             3.2.1
+bokeh                              2.2.3
+boto                               2.49.0
+Bottleneck                         1.3.2
+brotlipy                           0.7.0
+certifi                            2020.6.20
+cffi                               1.14.3
+chardet                            3.0.4
+click                              7.1.2
+cloudpickle                        1.6.0
+clyent                             1.2.2
+colorama                           0.4.4
+conda                              22.9.0
+conda-build                        3.24.0
+conda-package-handling             2.2.0
+conda-package-streaming            0.9.0
+conda-verify                       3.4.2
+contextlib2                        0.6.0.post1
+cryptography                       3.1.1
+cycler                             0.10.0
+Cython                             0.29.21
+cytoolz                            0.11.0
+dask                               2.30.0
+decorator                          4.4.2
+defusedxml                         0.6.0
+diff-match-patch                   20200713
+distributed                        2.30.1
+docutils                           0.16
+entrypoints                        0.3
+et-xmlfile                         1.0.1
+fastcache                          1.1.0
+filelock                           3.0.12
+flake8                             3.8.4
+Flask                              1.1.2
+fsspec                             0.8.3
+future                             0.18.2
+gevent                             20.9.0
+glob2                              0.7
+gmpy2                              2.0.8
+greenlet                           0.4.17
+h5py                               2.10.0
+HeapDict                           1.0.1
+html5lib                           1.1
+idna                               2.10
+imageio                            2.9.0
+imagesize                          1.2.0
+importlib-metadata                 2.0.0
+iniconfig                          1.1.1
+intervaltree                       3.1.0
+ipykernel                          5.3.4
+ipython                            7.19.0
+ipython-genutils                   0.2.0
+ipywidgets                         7.5.1
+isort                              5.6.4
+itsdangerous                       1.1.0
+jdcal                              1.4.1
+jedi                               0.17.1
+jeepney                            0.5.0
+Jinja2                             2.11.2
+joblib                             0.17.0
+json5                              0.9.5
+jsonschema                         3.2.0
+jupyter                            1.0.0
+jupyter-client                     6.1.7
+jupyter-console                    6.2.0
+jupyter-core                       4.6.3
+jupyterlab                         2.2.6
+jupyterlab-pygments                0.1.2
+jupyterlab-server                  1.2.0
+keyring                            21.4.0
+kiwisolver                         1.3.0
+lazy-object-proxy                  1.4.3
+libarchive-c                       2.9
+llvmlite                           0.34.0
+locket                             0.2.0
+lxml                               4.6.1
+MarkupSafe                         1.1.1
+matplotlib                         3.3.2
+mccabe                             0.6.1
+mistune                            0.8.4
+mkl-fft                            1.2.0
+mkl-random                         1.1.1
+mkl-service                        2.3.0
+mock                               4.0.2
+more-itertools                     8.6.0
+mpmath                             1.1.0
+msgpack                            1.0.0
+multipledispatch                   0.6.0
+navigator-updater                  0.2.1
+nbclient                           0.5.1
+nbconvert                          6.0.7
+nbformat                           5.0.8
+nest-asyncio                       1.4.2
+networkx                           2.5
+nltk                               3.5
+nose                               1.3.7
+notebook                           6.1.4
+numba                              0.51.2
+numexpr                            2.7.1
+numpy                              1.19.2
+numpydoc                           1.1.0
+olefile                            0.46
+openpyxl                           3.0.5
+packaging                          20.4
+pandas                             1.1.3
+pandocfilters                      1.4.3
+parso                              0.7.0
+partd                              1.1.0
+path                               15.0.0
+pathlib2                           2.3.5
+pathtools                          0.1.2
+patsy                              0.5.1
+pep8                               1.7.1
+pexpect                            4.8.0
+pickleshare                        0.7.5
+Pillow                             8.0.1
+pip                                20.2.4
+pkginfo                            1.6.1
+pluggy                             0.13.1
+ply                                3.11
+prometheus-client                  0.8.0
+prompt-toolkit                     3.0.8
+psutil                             5.7.2
+ptyprocess                         0.6.0
+py                                 1.9.0
+pycodestyle                        2.6.0
+pycosat                            0.6.3
+pycparser                          2.20
+pycurl                             7.43.0.6
+pydocstyle                         5.1.1
+pyflakes                           2.2.0
+Pygments                           2.7.2
+pylint                             2.6.0
+pyodbc                             4.0.0-unsupported
+pyOpenSSL                          19.1.0
+pyparsing                          2.4.7
+pyrsistent                         0.17.3
+PySocks                            1.7.1
+pytest                             0.0.0
+python-dateutil                    2.8.1
+python-jsonrpc-server              0.4.0
+python-language-server             0.35.1
+pytz                               2020.1
+PyWavelets                         1.1.1
+pyxdg                              0.27
+PyYAML                             5.3.1
+pyzmq                              19.0.2
+QDarkStyle                         2.8.1
+QtAwesome                          1.0.1
+qtconsole                          4.7.7
+QtPy                               1.9.0
+regex                              2020.10.15
+requests                           2.24.0
+rope                               0.18.0
+Rtree                              0.9.4
+ruamel-yaml                        0.15.87
+scikit-image                       0.17.2
+scikit-learn                       0.23.2
+scipy                              1.5.2
+seaborn                            0.11.0
+SecretStorage                      3.1.2
+Send2Trash                         1.5.0
+setuptools                         50.3.1.post20201107
+simplegeneric                      0.8.1
+singledispatch                     3.4.0.3
+sip                                4.19.13
+six                                1.15.0
+snowballstemmer                    2.0.0
+sortedcollections                  1.2.1
+sortedcontainers                   2.2.2
+soupsieve                          2.0.1
+Sphinx                             3.2.1
+sphinxcontrib-applehelp            1.0.2
+sphinxcontrib-devhelp              1.0.2
+sphinxcontrib-htmlhelp             1.0.3
+sphinxcontrib-jsmath               1.0.1
+sphinxcontrib-qthelp               1.0.3
+sphinxcontrib-serializinghtml      1.1.4
+sphinxcontrib-websupport           1.2.4
+spyder                             4.1.5
+spyder-kernels                     1.9.4
+SQLAlchemy                         1.3.20
+statsmodels                        0.12.0
+sympy                              1.6.2
+tables                             3.6.1
+tblib                              1.7.0
+terminado                          0.9.1
+testpath                           0.4.4
+threadpoolctl                      2.1.0
+tifffile                           2020.10.1
+toml                               0.10.1
+tomli                              2.0.1
+toolz                              0.11.1
+tornado                            6.0.4
+tqdm                               4.50.2
+traitlets                          5.0.5
+typing-extensions                  3.7.4.3
+ujson                              4.0.1
+unicodecsv                         0.14.1
+urllib3                            1.25.11
+watchdog                           0.10.3
+wcwidth                            0.2.5
+webencodings                       0.5.1
+Werkzeug                           1.0.1
+wheel                              0.35.1
+widgetsnbextension                 3.5.1
+wrapt                              1.11.2
+wurlitzer                          2.0.1
+xlrd                               1.2.0
+XlsxWriter                         1.3.7
+xlwt                               1.3.0
+xmltodict                          0.12.0
+yapf                               0.30.0
+zict                               2.0.0
+zipp                               3.4.0
+zope.event                         4.5.0
+zope.interface                     5.1.2
+zstandard                          0.15.2
+(3dfa) harshilb@euclid:~/work$ vim ~/.bashrc
+(3dfa) harshilb@euclid:~/work$ source /home/harshilb/miniforge3/etc/profile.d/conda.sh
+(3dfa) harshilb@euclid:~/work$ conda activate 3dfa
+(3dfa) harshilb@euclid:~/work$ pip list
+Package                            Version
+---------------------------------- -------------------
+alabaster                          0.7.12
+anaconda-client                    1.7.2
+anaconda-navigator                 1.10.0
+anaconda-project                   0.8.3
+argh                               0.26.2
+argon2-cffi                        20.1.0
+asn1crypto                         1.4.0
+astroid                            2.4.2
+astropy                            4.0.2
+async-generator                    1.10
+atomicwrites                       1.4.0
+attrs                              20.3.0
+autopep8                           1.5.4
+Babel                              2.8.1
+backcall                           0.2.0
+backports.functools-lru-cache      1.6.4
+backports.shutil-get-terminal-size 1.0.0
+backports.tempfile                 1.0
+backports.weakref                  1.0.post1
+beautifulsoup4                     4.9.3
+bitarray                           1.6.1
+bkcharts                           0.2
+bleach                             3.2.1
+bokeh                              2.2.3
+boto                               2.49.0
+Bottleneck                         1.3.2
+brotlipy                           0.7.0
+certifi                            2020.6.20
+cffi                               1.14.3
+chardet                            3.0.4
+click                              7.1.2
+cloudpickle                        1.6.0
+clyent                             1.2.2
+colorama                           0.4.4
+conda                              22.9.0
+conda-build                        3.24.0
+conda-package-handling             2.2.0
+conda-package-streaming            0.9.0
+conda-verify                       3.4.2
+contextlib2                        0.6.0.post1
+cryptography                       3.1.1
+cycler                             0.10.0
+Cython                             0.29.21
+cytoolz                            0.11.0
+dask                               2.30.0
+decorator                          4.4.2
+defusedxml                         0.6.0
+diff-match-patch                   20200713
+distributed                        2.30.1
+docutils                           0.16
+entrypoints                        0.3
+et-xmlfile                         1.0.1
+fastcache                          1.1.0
+filelock                           3.0.12
+flake8                             3.8.4
+Flask                              1.1.2
+fsspec                             0.8.3
+future                             0.18.2
+gevent                             20.9.0
+glob2                              0.7
+gmpy2                              2.0.8
+greenlet                           0.4.17
+h5py                               2.10.0
+HeapDict                           1.0.1
+html5lib                           1.1
+idna                               2.10
+imageio                            2.9.0
+imagesize                          1.2.0
+importlib-metadata                 2.0.0
+iniconfig                          1.1.1
+intervaltree                       3.1.0
+ipykernel                          5.3.4
+ipython                            7.19.0
+ipython-genutils                   0.2.0
+ipywidgets                         7.5.1
+isort                              5.6.4
+itsdangerous                       1.1.0
+jdcal                              1.4.1
+jedi                               0.17.1
+jeepney                            0.5.0
+Jinja2                             2.11.2
+joblib                             0.17.0
+json5                              0.9.5
+jsonschema                         3.2.0
+jupyter                            1.0.0
+jupyter-client                     6.1.7
+jupyter-console                    6.2.0
+jupyter-core                       4.6.3
+jupyterlab                         2.2.6
+jupyterlab-pygments                0.1.2
+jupyterlab-server                  1.2.0
+keyring                            21.4.0
+kiwisolver                         1.3.0
+lazy-object-proxy                  1.4.3
+libarchive-c                       2.9
+llvmlite                           0.34.0
+locket                             0.2.0
+lxml                               4.6.1
+MarkupSafe                         1.1.1
+matplotlib                         3.3.2
+mccabe                             0.6.1
+mistune                            0.8.4
+mkl-fft                            1.2.0
+mkl-random                         1.1.1
+mkl-service                        2.3.0
+mock                               4.0.2
+more-itertools                     8.6.0
+mpmath                             1.1.0
+msgpack                            1.0.0
+multipledispatch                   0.6.0
+navigator-updater                  0.2.1
+nbclient                           0.5.1
+nbconvert                          6.0.7
+nbformat                           5.0.8
+nest-asyncio                       1.4.2
+networkx                           2.5
+nltk                               3.5
+nose                               1.3.7
+notebook                           6.1.4
+numba                              0.51.2
+numexpr                            2.7.1
+numpy                              1.19.2
+numpydoc                           1.1.0
+olefile                            0.46
+openpyxl                           3.0.5
+packaging                          20.4
+pandas                             1.1.3
+pandocfilters                      1.4.3
+parso                              0.7.0
+partd                              1.1.0
+path                               15.0.0
+pathlib2                           2.3.5
+pathtools                          0.1.2
+patsy                              0.5.1
+pep8                               1.7.1
+pexpect                            4.8.0
+pickleshare                        0.7.5
+Pillow                             8.0.1
+pip                                20.2.4
+pkginfo                            1.6.1
+pluggy                             0.13.1
+ply                                3.11
+prometheus-client                  0.8.0
+prompt-toolkit                     3.0.8
+psutil                             5.7.2
+ptyprocess                         0.6.0
+py                                 1.9.0
+pycodestyle                        2.6.0
+pycosat                            0.6.3
+pycparser                          2.20
+pycurl                             7.43.0.6
+pydocstyle                         5.1.1
+pyflakes                           2.2.0
+Pygments                           2.7.2
+pylint                             2.6.0
+pyodbc                             4.0.0-unsupported
+pyOpenSSL                          19.1.0
+pyparsing                          2.4.7
+pyrsistent                         0.17.3
+PySocks                            1.7.1
+pytest                             0.0.0
+python-dateutil                    2.8.1
+python-jsonrpc-server              0.4.0
+python-language-server             0.35.1
+pytz                               2020.1
+PyWavelets                         1.1.1
+pyxdg                              0.27
+PyYAML                             5.3.1
+pyzmq                              19.0.2
+QDarkStyle                         2.8.1
+QtAwesome                          1.0.1
+qtconsole                          4.7.7
+QtPy                               1.9.0
+regex                              2020.10.15
+requests                           2.24.0
+rope                               0.18.0
+Rtree                              0.9.4
+ruamel-yaml                        0.15.87
+scikit-image                       0.17.2
+scikit-learn                       0.23.2
+scipy                              1.5.2
+seaborn                            0.11.0
+SecretStorage                      3.1.2
+Send2Trash                         1.5.0
+setuptools                         50.3.1.post20201107
+simplegeneric                      0.8.1
+singledispatch                     3.4.0.3
+sip                                4.19.13
+six                                1.15.0
+snowballstemmer                    2.0.0
+sortedcollections                  1.2.1
+sortedcontainers                   2.2.2
+soupsieve                          2.0.1
+Sphinx                             3.2.1
+sphinxcontrib-applehelp            1.0.2
+sphinxcontrib-devhelp              1.0.2
+sphinxcontrib-htmlhelp             1.0.3
+sphinxcontrib-jsmath               1.0.1
+sphinxcontrib-qthelp               1.0.3
+sphinxcontrib-serializinghtml      1.1.4
+sphinxcontrib-websupport           1.2.4
+spyder                             4.1.5
+spyder-kernels                     1.9.4
+SQLAlchemy                         1.3.20
+statsmodels                        0.12.0
+sympy                              1.6.2
+tables                             3.6.1
+tblib                              1.7.0
+terminado                          0.9.1
+testpath                           0.4.4
+threadpoolctl                      2.1.0
+tifffile                           2020.10.1
+toml                               0.10.1
+tomli                              2.0.1
+toolz                              0.11.1
+tornado                            6.0.4
+tqdm                               4.50.2
+traitlets                          5.0.5
+typing-extensions                  3.7.4.3
+ujson                              4.0.1
+unicodecsv                         0.14.1
+urllib3                            1.25.11
+watchdog                           0.10.3
+wcwidth                            0.2.5
+webencodings                       0.5.1
+Werkzeug                           1.0.1
+wheel                              0.35.1
+widgetsnbextension                 3.5.1
+wrapt                              1.11.2
+wurlitzer                          2.0.1
+xlrd                               1.2.0
+XlsxWriter                         1.3.7
+xlwt                               1.3.0
+xmltodict                          0.12.0
+yapf                               0.30.0
+zict                               2.0.0
+zipp                               3.4.0
+zope.event                         4.5.0
+zope.interface                     5.1.2
+zstandard                          0.15.2
+(3dfa) harshilb@euclid:~/work$ pip list | grep "torch"
+(3dfa) harshilb@euclid:~/work$ conda info --envs
+
+# conda environments:
+#
+# * -> active
+# + -> frozen
+base                     /home/harshilb/miniforge3
+3dfa                 *   /home/harshilb/miniforge3/envs/3dfa
+
+(3dfa) harshilb@euclid:~/work$ which pip
+/usr/local/anaconda3/bin/pip
+(3dfa) harshilb@euclid:~/work$ /home/harshilb/miniforge3/envs/3dfa/bin/pip list | grep torch
+WARNING: Ignoring invalid distribution -riton (/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages)
+torch                     2.0.1+cu117
+torchaudio                2.0.2+cu117
+torchvision               0.15.2+cu117
+(3dfa) harshilb@euclid:~/work$ export PATH="/home/harshilb/miniforge3/envs/3dfa/bin:$PATH"
+(3dfa) harshilb@euclid:~/work$ pip list | grep torch
+WARNING: Ignoring invalid distribution -riton (/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages)
+torch                     2.0.1+cu117
+torchaudio                2.0.2+cu117
+torchvision               0.15.2+cu117
+(3dfa) harshilb@euclid:~/work$ bash 3d-vla/online_evaluation_rlbench/eval_peract2.sh
+python: can't open file '/home/harshilb/work/online_evaluation_rlbench/evaluate_policy.py': [Errno 2] No such file or dire
+ctory
+python: can't open file '/home/harshilb/work/online_evaluation_rlbench/collect_results.py': [Errno 2] No such file or dire
+ctory
+(3dfa) harshilb@euclid:~/work$ cd 3d-vla/
+(3dfa) harshilb@euclid:~/work/3d-vla$ bash online_evaluation_rlbench/eval_peract2.sh
+Arguments:
+Namespace(checkpoint='/home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_baseline-front_cam-false-cam_token-false-
+traj_scene_rope-false/best.pth', task='bimanual_push_box', max_tries=2, max_steps=25, headless=True, collision_checking=Fa
+lse, seed=0, data_dir=PosixPath('peract2_test'), dataset='Peract2_3dfront_3dwrist', image_size='256,256', output_file=Posi
+xPath('/home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_baseline-front_cam-false-cam_token-false-traj_scene_rope
+-false/seed0/bimanual_push_box/eval.json'), fp16=False, model_type='denoise3d', bimanual=True, keypose_only=True, pre_toke
+nize=True, custom_img_size=None, workspace_normalizer_buffer=0.04, prediction_len=1, backbone='clip', finetune_backbone=Fa
+lse, finetune_text_encoder=False, fps_subsampling_factor=4, embedding_dim=120, num_attn_heads=8, num_vis_instr_attn_layers
+=3, num_history=3, num_shared_attn_layers=4, relative_action=False, rotation_format='quat_xyzw', denoise_timesteps=5, deno
+ise_model='rectified_flow', learn_extrinsics=False, predict_extrinsics=False, use_front_camera_frame=False, pc_rotate_by_f
+ront_camera=False, traj_scene_rope=False, rope_type='normal', rope_schedule_type='linear', rope_schedule_start_k=0, rope_s
+chedule_end_k=0, rope_schedule_steps=100000, sa_blocks_use_rope=True, use_com_rope=False, com_rope_block_size=3, com_rope_
+num_axes=3, com_rope_init_std=0.02)
+----------------------------------------------------------------------------------------------------
+Loading model from /home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_baseline-front_cam-false-cam_token-false-tra
+j_scene_rope-false/best.pth
+ ************** Predicting Extrinsics: True **************
+Using traj_scene_rope = False (no RoPE)
+learn_extrinsics: False
+predict_extrinsics: False
+rope_type: normal
+ ************** Predicting Extrinsics: False **************
+Using traj_scene_rope = False (no RoPE)
+/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages/torch/_utils.py:776: UserWarning: TypedStorage is depreca
+ted. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if
+ you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.stora
+ge()
+  return self.fget.__get__(instance, owner)()
+WARNING:root:not sure how _robot_shapes are used is used.
+  0%|                                                                                               | 0/1 [00:00<?, ?it/s]
+bimanual_push_box Variation 0 Demo 0 Reward 1.00 max_reward 1.00 SR: 1/1 SR: 1.00/1 # valid demos 1
+bimanual_push_box Variation 0 Demo 1 Reward 1.00 max_reward 1.00 SR: 2/2 SR: 2.00/2 # valid demos 2
+bimanual_push_box Variation 0 Demo 2 Reward 1.00 max_reward 1.00 SR: 3/3 SR: 3.00/3 # valid demos 3
+bimanual_push_box Variation 0 Demo 3 Reward 1.00 max_reward 1.00 SR: 4/4 SR: 4.00/4 # valid demos 4
+bimanual_push_box Variation 0 Demo 4 Reward 1.00 max_reward 1.00 SR: 5/5 SR: 5.00/5 # valid demos 5
+bimanual_push_box Variation 0 Demo 5 Reward 1.00 max_reward 1.00 SR: 6/6 SR: 6.00/6 # valid demos 6
+bimanual_push_box Variation 0 Demo 6 Reward 1.00 max_reward 1.00 SR: 7/7 SR: 7.00/7 # valid demos 7
+bimanual_push_box Variation 0 Demo 7 Reward 1.00 max_reward 1.00 SR: 8/8 SR: 8.00/8 # valid demos 8
+bimanual_push_box Variation 0 Demo 8 Reward 1.00 max_reward 1.00 SR: 9/9 SR: 9.00/9 # valid demos 9
+bimanual_push_box Variation 0 Demo 9 Reward 1.00 max_reward 1.00 SR: 10/10 SR: 10.00/10 # valid demos 10
+bimanual_push_box Variation 0 Demo 10 Reward 1.00 max_reward 1.00 SR: 11/11 SR: 11.00/11 # valid demos 11
+bimanual_push_box Variation 0 Demo 11 Reward 1.00 max_reward 1.00 SR: 12/12 SR: 12.00/12 # valid demos 12
+bimanual_push_box Variation 0 Demo 12 Reward 1.00 max_reward 1.00 SR: 13/13 SR: 13.00/13 # valid demos 13
+bimanual_push_box Variation 0 Demo 13 Reward 1.00 max_reward 1.00 SR: 14/14 SR: 14.00/14 # valid demos 14
+bimanual_push_box Variation 0 Demo 14 Reward 1.00 max_reward 1.00 SR: 15/15 SR: 15.00/15 # valid demos 15
+bimanual_push_box Variation 0 Demo 15 Reward 1.00 max_reward 1.00 SR: 16/16 SR: 16.00/16 # valid demos 16
+bimanual_push_box Variation 0 Demo 16 Reward 1.00 max_reward 1.00 SR: 17/17 SR: 17.00/17 # valid demos 17
+bimanual_push_box Variation 0 Demo 17 Reward 1.00 max_reward 1.00 SR: 18/18 SR: 18.00/18 # valid demos 18
+bimanual_push_box Variation 0 Demo 18 Reward 1.00 max_reward 1.00 SR: 19/19 SR: 19.00/19 # valid demos 19
+bimanual_push_box Variation 0 Demo 19 Reward 1.00 max_reward 1.00 SR: 20/20 SR: 20.00/20 # valid demos 20
+bimanual_push_box Variation 0 Demo 20 Reward 1.00 max_reward 1.00 SR: 21/21 SR: 21.00/21 # valid demos 21
+bimanual_push_box Variation 0 Demo 21 Reward 1.00 max_reward 1.00 SR: 22/22 SR: 22.00/22 # valid demos 22
+bimanual_push_box Variation 0 Demo 22 Reward 0.00 max_reward 0.00 SR: 22/23 SR: 22.00/23 # valid demos 23
+bimanual_push_box Variation 0 Demo 23 Reward 1.00 max_reward 1.00 SR: 23/24 SR: 23.00/24 # valid demos 24
+bimanual_push_box Variation 0 Demo 24 Reward 1.00 max_reward 1.00 SR: 24/25 SR: 24.00/25 # valid demos 25
+bimanual_push_box Variation 0 Demo 25 Reward 1.00 max_reward 1.00 SR: 25/26 SR: 25.00/26 # valid demos 26
+bimanual_push_box Variation 0 Demo 26 Reward 1.00 max_reward 1.00 SR: 26/27 SR: 26.00/27 # valid demos 27
+bimanual_push_box Variation 0 Demo 27 Reward 1.00 max_reward 1.00 SR: 27/28 SR: 27.00/28 # valid demos 28
+bimanual_push_box Variation 0 Demo 28 Reward 1.00 max_reward 1.00 SR: 28/29 SR: 28.00/29 # valid demos 29
+bimanual_push_box Variation 0 Demo 29 Reward 1.00 max_reward 1.00 SR: 29/30 SR: 29.00/30 # valid demos 30
+bimanual_push_box Variation 0 Demo 30 Reward 1.00 max_reward 1.00 SR: 30/31 SR: 30.00/31 # valid demos 31
+bimanual_push_box Variation 0 Demo 31 Reward 1.00 max_reward 1.00 SR: 31/32 SR: 31.00/32 # valid demos 32
+bimanual_push_box Variation 0 Demo 32 Reward 1.00 max_reward 1.00 SR: 32/33 SR: 32.00/33 # valid demos 33
+bimanual_push_box Variation 0 Demo 33 Reward 0.00 max_reward 0.00 SR: 32/34 SR: 32.00/34 # valid demos 34
+bimanual_push_box Variation 0 Demo 34 Reward 1.00 max_reward 1.00 SR: 33/35 SR: 33.00/35 # valid demos 35
+bimanual_push_box Variation 0 Demo 35 Reward 1.00 max_reward 1.00 SR: 34/36 SR: 34.00/36 # valid demos 36
+bimanual_push_box Variation 0 Demo 36 Reward 1.00 max_reward 1.00 SR: 35/37 SR: 35.00/37 # valid demos 37
+bimanual_push_box Variation 0 Demo 37 Reward 1.00 max_reward 1.00 SR: 36/38 SR: 36.00/38 # valid demos 38
+bimanual_push_box Variation 0 Demo 38 Reward 1.00 max_reward 1.00 SR: 37/39 SR: 37.00/39 # valid demos 39
+bimanual_push_box Variation 0 Demo 39 Reward 1.00 max_reward 1.00 SR: 38/40 SR: 38.00/40 # valid demos 40
+bimanual_push_box Variation 0 Demo 40 Reward 1.00 max_reward 1.00 SR: 39/41 SR: 39.00/41 # valid demos 41
+bimanual_push_box Variation 0 Demo 41 Reward 1.00 max_reward 1.00 SR: 40/42 SR: 40.00/42 # valid demos 42
+bimanual_push_box Variation 0 Demo 42 Reward 1.00 max_reward 1.00 SR: 41/43 SR: 41.00/43 # valid demos 43
+bimanual_push_box Variation 0 Demo 43 Reward 1.00 max_reward 1.00 SR: 42/44 SR: 42.00/44 # valid demos 44
+bimanual_push_box Variation 0 Demo 44 Reward 1.00 max_reward 1.00 SR: 43/45 SR: 43.00/45 # valid demos 45
+bimanual_push_box Variation 0 Demo 45 Reward 1.00 max_reward 1.00 SR: 44/46 SR: 44.00/46 # valid demos 46
+bimanual_push_box Variation 0 Demo 46 Reward 1.00 max_reward 1.00 SR: 45/47 SR: 45.00/47 # valid demos 47
+bimanual_push_box Variation 0 Demo 47 Reward 1.00 max_reward 1.00 SR: 46/48 SR: 46.00/48 # valid demos 48
+bimanual_push_box Variation 0 Demo 48 Reward 1.00 max_reward 1.00 SR: 47/49 SR: 47.00/49 # valid demos 49
+bimanual_push_box Variation 0 Demo 49 Reward 1.00 max_reward 1.00 SR: 48/50 SR: 48.00/50 # valid demos 50
+bimanual_push_box Variation 0 Demo 50 Reward 1.00 max_reward 1.00 SR: 49/51 SR: 49.00/51 # valid demos 51
+bimanual_push_box Variation 0 Demo 51 Reward 1.00 max_reward 1.00 SR: 50/52 SR: 50.00/52 # valid demos 52
+bimanual_push_box Variation 0 Demo 52 Reward 1.00 max_reward 1.00 SR: 51/53 SR: 51.00/53 # valid demos 53
+bimanual_push_box Variation 0 Demo 53 Reward 1.00 max_reward 1.00 SR: 52/54 SR: 52.00/54 # valid demos 54
+bimanual_push_box Variation 0 Demo 54 Reward 1.00 max_reward 1.00 SR: 53/55 SR: 53.00/55 # valid demos 55
+bimanual_push_box Variation 0 Demo 55 Reward 1.00 max_reward 1.00 SR: 54/56 SR: 54.00/56 # valid demos 56
+bimanual_push_box Variation 0 Demo 56 Reward 1.00 max_reward 1.00 SR: 55/57 SR: 55.00/57 # valid demos 57
+bimanual_push_box Variation 0 Demo 57 Reward 1.00 max_reward 1.00 SR: 56/58 SR: 56.00/58 # valid demos 58
+bimanual_push_box Variation 0 Demo 58 Reward 1.00 max_reward 1.00 SR: 57/59 SR: 57.00/59 # valid demos 59
+bimanual_push_box Variation 0 Demo 59 Reward 0.00 max_reward 0.00 SR: 57/60 SR: 57.00/60 # valid demos 60
+bimanual_push_box Variation 0 Demo 60 Reward 0.00 max_reward 0.00 SR: 57/61 SR: 57.00/61 # valid demos 61
+bimanual_push_box Variation 0 Demo 61 Reward 1.00 max_reward 1.00 SR: 58/62 SR: 58.00/62 # valid demos 62
+bimanual_push_box Variation 0 Demo 62 Reward 1.00 max_reward 1.00 SR: 59/63 SR: 59.00/63 # valid demos 63
+bimanual_push_box Variation 0 Demo 63 Reward 1.00 max_reward 1.00 SR: 60/64 SR: 60.00/64 # valid demos 64
+bimanual_push_box Variation 0 Demo 64 Reward 1.00 max_reward 1.00 SR: 61/65 SR: 61.00/65 # valid demos 65
+bimanual_push_box Variation 0 Demo 65 Reward 1.00 max_reward 1.00 SR: 62/66 SR: 62.00/66 # valid demos 66
+bimanual_push_box Variation 0 Demo 66 Reward 1.00 max_reward 1.00 SR: 63/67 SR: 63.00/67 # valid demos 67
+bimanual_push_box Variation 0 Demo 67 Reward 1.00 max_reward 1.00 SR: 64/68 SR: 64.00/68 # valid demos 68
+bimanual_push_box Variation 0 Demo 68 Reward 1.00 max_reward 1.00 SR: 65/69 SR: 65.00/69 # valid demos 69
+bimanual_push_box Variation 0 Demo 69 Reward 1.00 max_reward 1.00 SR: 66/70 SR: 66.00/70 # valid demos 70
+bimanual_push_box Variation 0 Demo 70 Reward 1.00 max_reward 1.00 SR: 67/71 SR: 67.00/71 # valid demos 71
+bimanual_push_box Variation 0 Demo 71 Reward 0.00 max_reward 0.00 SR: 67/72 SR: 67.00/72 # valid demos 72
+bimanual_push_box Variation 0 Demo 72 Reward 1.00 max_reward 1.00 SR: 68/73 SR: 68.00/73 # valid demos 73
+bimanual_push_box Variation 0 Demo 73 Reward 0.00 max_reward 0.00 SR: 68/74 SR: 68.00/74 # valid demos 74
+bimanual_push_box Variation 0 Demo 74 Reward 1.00 max_reward 1.00 SR: 69/75 SR: 69.00/75 # valid demos 75
+bimanual_push_box Variation 0 Demo 75 Reward 1.00 max_reward 1.00 SR: 70/76 SR: 70.00/76 # valid demos 76
+bimanual_push_box Variation 0 Demo 76 Reward 1.00 max_reward 1.00 SR: 71/77 SR: 71.00/77 # valid demos 77
+bimanual_push_box Variation 0 Demo 77 Reward 0.00 max_reward 0.00 SR: 71/78 SR: 71.00/78 # valid demos 78
+bimanual_push_box Variation 0 Demo 78 Reward 1.00 max_reward 1.00 SR: 72/79 SR: 72.00/79 # valid demos 79
+bimanual_push_box Variation 0 Demo 79 Reward 1.00 max_reward 1.00 SR: 73/80 SR: 73.00/80 # valid demos 80
+bimanual_push_box Variation 0 Demo 80 Reward 1.00 max_reward 1.00 SR: 74/81 SR: 74.00/81 # valid demos 81
+bimanual_push_box Variation 0 Demo 81 Reward 1.00 max_reward 1.00 SR: 75/82 SR: 75.00/82 # valid demos 82
+bimanual_push_box Variation 0 Demo 82 Reward 1.00 max_reward 1.00 SR: 76/83 SR: 76.00/83 # valid demos 83
+bimanual_push_box Variation 0 Demo 83 Reward 1.00 max_reward 1.00 SR: 77/84 SR: 77.00/84 # valid demos 84
+bimanual_push_box Variation 0 Demo 84 Reward 1.00 max_reward 1.00 SR: 78/85 SR: 78.00/85 # valid demos 85
+bimanual_push_box Variation 0 Demo 85 Reward 1.00 max_reward 1.00 SR: 79/86 SR: 79.00/86 # valid demos 86
+bimanual_push_box Variation 0 Demo 86 Reward 1.00 max_reward 1.00 SR: 80/87 SR: 80.00/87 # valid demos 87
+bimanual_push_box Variation 0 Demo 87 Reward 1.00 max_reward 1.00 SR: 81/88 SR: 81.00/88 # valid demos 88
+bimanual_push_box Variation 0 Demo 88 Reward 1.00 max_reward 1.00 SR: 82/89 SR: 82.00/89 # valid demos 89
+bimanual_push_box Variation 0 Demo 89 Reward 1.00 max_reward 1.00 SR: 83/90 SR: 83.00/90 # valid demos 90
+bimanual_push_box Variation 0 Demo 90 Reward 1.00 max_reward 1.00 SR: 84/91 SR: 84.00/91 # valid demos 91
+bimanual_push_box Variation 0 Demo 91 Reward 1.00 max_reward 1.00 SR: 85/92 SR: 85.00/92 # valid demos 92
+bimanual_push_box Variation 0 Demo 92 Reward 1.00 max_reward 1.00 SR: 86/93 SR: 86.00/93 # valid demos 93
+bimanual_push_box Variation 0 Demo 93 Reward 1.00 max_reward 1.00 SR: 87/94 SR: 87.00/94 # valid demos 94
+bimanual_push_box Variation 0 Demo 94 Reward 1.00 max_reward 1.00 SR: 88/95 SR: 88.00/95 # valid demos 95
+bimanual_push_box Variation 0 Demo 95 Reward 1.00 max_reward 1.00 SR: 89/96 SR: 89.00/96 # valid demos 96
+bimanual_push_box Variation 0 Demo 96 Reward 1.00 max_reward 1.00 SR: 90/97 SR: 90.00/97 # valid demos 97
+bimanual_push_box Variation 0 Demo 97 Reward 1.00 max_reward 1.00 SR: 91/98 SR: 91.00/98 # valid demos 98
+bimanual_push_box Variation 0 Demo 98 Reward 1.00 max_reward 1.00 SR: 92/99 SR: 92.00/99 # valid demos 99
+bimanual_push_box Variation 0 Demo 99 Reward 1.00 max_reward 1.00 SR: 93/100 SR: 93.00/100 # valid demos 100
+100%|██████████████████████████████████████████████████████████████████████████████████████| 1/1 [10:17<00:00, 617.53s/it]
+[CoppeliaSim:loadinfo]   done.
+
+bimanual_push_box variation success rates: {0: 93, 'mean': 0.93}
+bimanual_push_box mean success rate: 0.93
+Traceback (most recent call last):
+  File "/home/harshilb/work/3d-vla/online_evaluation_rlbench/evaluate_policy.py", line 205, in <module>
+    with open(args.output_file, "w") as f:
+FileNotFoundError: [Errno 2] No such file or directory: '/home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_baseli
+ne-front_cam-false-cam_token-false-traj_scene_rope-false/seed0/bimanual_push_box/eval.json'
+online_evaluation_rlbench/eval_peract2.sh: line 106: -com_rope_block_size: command not found
+Traceback (most recent call last):
+  File "/home/harshilb/work/3d-vla/online_evaluation_rlbench/collect_results.py", line 17, in <module>
+    tasks = sorted(os.listdir(FOLDER))
+FileNotFoundError: [Errno 2] No such file or directory: '/home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_baseli
+ne-front_cam-false-cam_token-false-traj_scene_rope-false/seed0/'
+(3dfa) harshilb@euclid:~/work/3d-vla$ bash online_evaluation_rlbench/eval_peract2.sh
+Arguments:
+Namespace(checkpoint='/home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_baseline-front_cam-false-cam_token-false-
+traj_scene_rope-false/best.pth', task='bimanual_push_box', max_tries=2, max_steps=25, headless=True, collision_checking=Fa
+lse, seed=0, data_dir=PosixPath('peract2_test'), dataset='Peract2_3dfront_3dwrist', image_size='256,256', output_file=Posi
+xPath('/home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_baseline-front_cam-false-cam_token-false-traj_scene_rope
+-false/seed0/bimanual_push_box/eval.json'), fp16=False, model_type='denoise3d', bimanual=True, keypose_only=True, pre_toke
+nize=True, custom_img_size=None, workspace_normalizer_buffer=0.04, prediction_len=1, backbone='clip', finetune_backbone=Fa
+lse, finetune_text_encoder=False, fps_subsampling_factor=4, embedding_dim=120, num_attn_heads=8, num_vis_instr_attn_layers
+=3, num_history=3, num_shared_attn_layers=4, relative_action=False, rotation_format='quat_xyzw', denoise_timesteps=5, deno
+ise_model='rectified_flow', learn_extrinsics=False, predict_extrinsics=False, extrinsics_prediction_mode='delta_m', use_fr
+ont_camera_frame=False, pc_rotate_by_front_camera=False, traj_scene_rope=False, rope_type='normal', rope_schedule_type='li
+near', rope_schedule_start_k=0, rope_schedule_end_k=0, rope_schedule_steps=100000, sa_blocks_use_rope=True, use_com_rope=F
+alse, com_rope_block_size=3, com_rope_num_axes=3, com_rope_init_std=0.02)
+----------------------------------------------------------------------------------------------------
+Loading model from /home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_baseline-front_cam-false-cam_token-false-tra
+j_scene_rope-false/best.pth
+ ************** Predicting Extrinsics: True (mode=delta_m) **************
+Using traj_scene_rope = False (no RoPE)
+learn_extrinsics: False
+predict_extrinsics: False
+extrinsics_prediction_mode: delta_m
+rope_type: normal
+ ************** Predicting Extrinsics: False (mode=delta_m) **************
+Using traj_scene_rope = False (no RoPE)
+/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages/torch/_utils.py:776: UserWarning: TypedStorage is depreca
+ted. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if
+ you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.stora
+ge()
+  return self.fget.__get__(instance, owner)()
+WARNING:root:not sure how _robot_shapes are used is used.
+  0%|                                                                                               | 0/1 [00:00<?, ?it/s]
+bimanual_push_box Variation 0 Demo 0 Reward 1.00 max_reward 1.00 SR: 1/1 SR: 1.00/1 # valid demos 1
+bimanual_push_box Variation 0 Demo 1 Reward 1.00 max_reward 1.00 SR: 2/2 SR: 2.00/2 # valid demos 2
+bimanual_push_box Variation 0 Demo 2 Reward 1.00 max_reward 1.00 SR: 3/3 SR: 3.00/3 # valid demos 3
+bimanual_push_box Variation 0 Demo 3 Reward 1.00 max_reward 1.00 SR: 4/4 SR: 4.00/4 # valid demos 4
+bimanual_push_box Variation 0 Demo 4 Reward 1.00 max_reward 1.00 SR: 5/5 SR: 5.00/5 # valid demos 5
+bimanual_push_box Variation 0 Demo 5 Reward 1.00 max_reward 1.00 SR: 6/6 SR: 6.00/6 # valid demos 6
+bimanual_push_box Variation 0 Demo 6 Reward 1.00 max_reward 1.00 SR: 7/7 SR: 7.00/7 # valid demos 7
+bimanual_push_box Variation 0 Demo 7 Reward 1.00 max_reward 1.00 SR: 8/8 SR: 8.00/8 # valid demos 8
+bimanual_push_box Variation 0 Demo 8 Reward 1.00 max_reward 1.00 SR: 9/9 SR: 9.00/9 # valid demos 9
+bimanual_push_box Variation 0 Demo 9 Reward 1.00 max_reward 1.00 SR: 10/10 SR: 10.00/10 # valid demos 10
+bimanual_push_box Variation 0 Demo 10 Reward 1.00 max_reward 1.00 SR: 11/11 SR: 11.00/11 # valid demos 11
+bimanual_push_box Variation 0 Demo 11 Reward 1.00 max_reward 1.00 SR: 12/12 SR: 12.00/12 # valid demos 12
+bimanual_push_box Variation 0 Demo 12 Reward 1.00 max_reward 1.00 SR: 13/13 SR: 13.00/13 # valid demos 13
+bimanual_push_box Variation 0 Demo 13 Reward 1.00 max_reward 1.00 SR: 14/14 SR: 14.00/14 # valid demos 14
+bimanual_push_box Variation 0 Demo 14 Reward 1.00 max_reward 1.00 SR: 15/15 SR: 15.00/15 # valid demos 15
+bimanual_push_box Variation 0 Demo 15 Reward 1.00 max_reward 1.00 SR: 16/16 SR: 16.00/16 # valid demos 16
+bimanual_push_box Variation 0 Demo 16 Reward 1.00 max_reward 1.00 SR: 17/17 SR: 17.00/17 # valid demos 17
+bimanual_push_box Variation 0 Demo 17 Reward 1.00 max_reward 1.00 SR: 18/18 SR: 18.00/18 # valid demos 18
+bimanual_push_box Variation 0 Demo 18 Reward 1.00 max_reward 1.00 SR: 19/19 SR: 19.00/19 # valid demos 19
+bimanual_push_box Variation 0 Demo 19 Reward 1.00 max_reward 1.00 SR: 20/20 SR: 20.00/20 # valid demos 20
+bimanual_push_box Variation 0 Demo 20 Reward 1.00 max_reward 1.00 SR: 21/21 SR: 21.00/21 # valid demos 21
+bimanual_push_box Variation 0 Demo 21 Reward 1.00 max_reward 1.00 SR: 22/22 SR: 22.00/22 # valid demos 22
+bimanual_push_box Variation 0 Demo 22 Reward 0.00 max_reward 0.00 SR: 22/23 SR: 22.00/23 # valid demos 23
+bimanual_push_box Variation 0 Demo 23 Reward 1.00 max_reward 1.00 SR: 23/24 SR: 23.00/24 # valid demos 24
+bimanual_push_box Variation 0 Demo 24 Reward 1.00 max_reward 1.00 SR: 24/25 SR: 24.00/25 # valid demos 25
+bimanual_push_box Variation 0 Demo 25 Reward 1.00 max_reward 1.00 SR: 25/26 SR: 25.00/26 # valid demos 26
+bimanual_push_box Variation 0 Demo 26 Reward 1.00 max_reward 1.00 SR: 26/27 SR: 26.00/27 # valid demos 27
+bimanual_push_box Variation 0 Demo 27 Reward 1.00 max_reward 1.00 SR: 27/28 SR: 27.00/28 # valid demos 28
+bimanual_push_box Variation 0 Demo 28 Reward 0.00 max_reward 0.00 SR: 27/29 SR: 27.00/29 # valid demos 29
+bimanual_push_box Variation 0 Demo 29 Reward 1.00 max_reward 1.00 SR: 28/30 SR: 28.00/30 # valid demos 30
+bimanual_push_box Variation 0 Demo 30 Reward 1.00 max_reward 1.00 SR: 29/31 SR: 29.00/31 # valid demos 31
+bimanual_push_box Variation 0 Demo 31 Reward 1.00 max_reward 1.00 SR: 30/32 SR: 30.00/32 # valid demos 32
+bimanual_push_box Variation 0 Demo 32 Reward 1.00 max_reward 1.00 SR: 31/33 SR: 31.00/33 # valid demos 33
+bimanual_push_box Variation 0 Demo 33 Reward 0.00 max_reward 0.00 SR: 31/34 SR: 31.00/34 # valid demos 34
+bimanual_push_box Variation 0 Demo 34 Reward 1.00 max_reward 1.00 SR: 32/35 SR: 32.00/35 # valid demos 35
+bimanual_push_box Variation 0 Demo 35 Reward 1.00 max_reward 1.00 SR: 33/36 SR: 33.00/36 # valid demos 36
+bimanual_push_box Variation 0 Demo 36 Reward 1.00 max_reward 1.00 SR: 34/37 SR: 34.00/37 # valid demos 37
+^C (SIGINT)
+The X11 connection broke (error 1). Did the X11 server die?
+^C (SIGINT)
+^C (SIGINT)
+^C (SIGINT)
+^C (SIGINT)
+QMutex: destroying locked mutex
+^C (SIGINT)
+
+(3dfa) harshilb@euclid:~/work/3d-vla$ bash online_evaluation_rlbench/eval_peract2.sh
+Arguments:
+Namespace(checkpoint='home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_deltaM-front_cam-true-cam_token-true
+-traj_scene_rope-true/best.pth', task='bimanual_push_box', max_tries=2, max_steps=25, headless=True, collision_checking=Fa
+lse, seed=0, data_dir=PosixPath('peract2_test'), dataset='Peract2_3dfront_3dwrist', image_size='256,256', output_file=Posi
+xPath('home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_deltaM-front_cam-true-cam_token-true-traj_scene_rop
+e-true/seed0/bimanual_push_box/eval.json'), fp16=False, model_type='denoise3d', bimanual=True, keypose_only=True, pre_toke
+nize=True, custom_img_size=None, workspace_normalizer_buffer=0.04, prediction_len=1, backbone='clip', finetune_backbone=Fa
+lse, finetune_text_encoder=False, fps_subsampling_factor=4, embedding_dim=120, num_attn_heads=8, num_vis_instr_attn_layers
+=3, num_history=3, num_shared_attn_layers=4, relative_action=False, rotation_format='quat_xyzw', denoise_timesteps=5, deno
+ise_model='rectified_flow', learn_extrinsics=False, predict_extrinsics=True, extrinsics_prediction_mode='delta_m', use_fro
+nt_camera_frame=True, pc_rotate_by_front_camera=False, traj_scene_rope=True, rope_type='normal', rope_schedule_type='linea
+r', rope_schedule_start_k=0, rope_schedule_end_k=0, rope_schedule_steps=100000, sa_blocks_use_rope=True, use_com_rope=Fals
+e, com_rope_block_size=3, com_rope_num_axes=3, com_rope_init_std=0.02)
+----------------------------------------------------------------------------------------------------
+Loading model from home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_deltaM-front_cam-true-cam_token-true-tr
+aj_scene_rope-true/best.pth
+ ************** Predicting Extrinsics: True (mode=delta_m) **************
+Using traj_scene_rope = True (standard RoPE)
+learn_extrinsics: False
+predict_extrinsics: True
+extrinsics_prediction_mode: delta_m
+rope_type: normal
+ ************** Predicting Extrinsics: True (mode=delta_m) **************
+Using traj_scene_rope = True (standard RoPE)
+Traceback (most recent call last):
+  File "/home/harshilb/work/3d-vla/online_evaluation_rlbench/evaluate_policy.py", line 158, in <module>
+    model = load_models(args)
+  File "/home/harshilb/work/3d-vla/online_evaluation_rlbench/evaluate_policy.py", line 122, in load_models
+    model_dict = torch.load(
+  File "/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages/torch/serialization.py", line 791, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File "/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages/torch/serialization.py", line 271, in _open_file_
+like
+    return _open_file(name_or_buffer, mode)
+  File "/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages/torch/serialization.py", line 252, in __init__
+    super().__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: 'home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_d
+eltaM-front_cam-true-cam_token-true-traj_scene_rope-true/best.pth'
+Traceback (most recent call last):
+  File "/home/harshilb/work/3d-vla/online_evaluation_rlbench/collect_results.py", line 20, in <module>
+    with open(f'{FOLDER}/{folder}/eval.json') as fid:
+FileNotFoundError: [Errno 2] No such file or directory: 'home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_d
+eltaM-front_cam-true-cam_token-true-traj_scene_rope-true/seed0//bimanual_push_box/eval.json'
+(3dfa) harshilb@euclid:~/work/3d-vla$ conda activate 3dfa
+(3dfa) harshilb@euclid:~/work/3d-vla$ bash online_evaluation_rlbench/eval_peract2.sh
+Arguments:
+Namespace(checkpoint='home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_deltaM-front_cam-true-cam_token-true
+-traj_scene_rope-true/best.pth', task='bimanual_push_box', max_tries=2, max_steps=25, headless=True, collision_checking=Fa
+lse, seed=0, data_dir=PosixPath('peract2_test'), dataset='Peract2_3dfront_3dwrist', image_size='256,256', output_file=Posi
+xPath('home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_deltaM-front_cam-true-cam_token-true-traj_scene_rop
+e-true/seed0/bimanual_push_box/eval.json'), fp16=False, model_type='denoise3d', bimanual=True, keypose_only=True, pre_toke
+nize=True, custom_img_size=None, workspace_normalizer_buffer=0.04, prediction_len=1, backbone='clip', finetune_backbone=Fa
+lse, finetune_text_encoder=False, fps_subsampling_factor=4, embedding_dim=120, num_attn_heads=8, num_vis_instr_attn_layers
+=3, num_history=3, num_shared_attn_layers=4, relative_action=False, rotation_format='quat_xyzw', denoise_timesteps=5, deno
+ise_model='rectified_flow', learn_extrinsics=False, predict_extrinsics=True, extrinsics_prediction_mode='delta_m', use_fro
+nt_camera_frame=True, pc_rotate_by_front_camera=False, traj_scene_rope=True, rope_type='normal', rope_schedule_type='linea
+r', rope_schedule_start_k=0, rope_schedule_end_k=0, rope_schedule_steps=100000, sa_blocks_use_rope=True, use_com_rope=Fals
+e, com_rope_block_size=3, com_rope_num_axes=3, com_rope_init_std=0.02)
+----------------------------------------------------------------------------------------------------
+Loading model from home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_deltaM-front_cam-true-cam_token-true-tr
+aj_scene_rope-true/best.pth
+ ************** Predicting Extrinsics: True (mode=delta_m) **************
+Using traj_scene_rope = True (standard RoPE)
+learn_extrinsics: False
+predict_extrinsics: True
+extrinsics_prediction_mode: delta_m
+rope_type: normal
+ ************** Predicting Extrinsics: True (mode=delta_m) **************
+Using traj_scene_rope = True (standard RoPE)
+Traceback (most recent call last):
+  File "/home/harshilb/work/3d-vla/online_evaluation_rlbench/evaluate_policy.py", line 158, in <module>
+    model = load_models(args)
+  File "/home/harshilb/work/3d-vla/online_evaluation_rlbench/evaluate_policy.py", line 122, in load_models
+    model_dict = torch.load(
+  File "/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages/torch/serialization.py", line 791, in load
+    with _open_file_like(f, 'rb') as opened_file:
+  File "/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages/torch/serialization.py", line 271, in _open_file_
+like
+    return _open_file(name_or_buffer, mode)
+  File "/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages/torch/serialization.py", line 252, in __init__
+    super().__init__(open(name, mode))
+FileNotFoundError: [Errno 2] No such file or directory: 'home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_d
+eltaM-front_cam-true-cam_token-true-traj_scene_rope-true/best.pth'
+Traceback (most recent call last):
+  File "/home/harshilb/work/3d-vla/online_evaluation_rlbench/collect_results.py", line 20, in <module>
+    with open(f'{FOLDER}/{folder}/eval.json') as fid:
+FileNotFoundError: [Errno 2] No such file or directory: 'home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_learn_d
+eltaM-front_cam-true-cam_token-true-traj_scene_rope-true/seed0//bimanual_push_box/eval.json'
+(3dfa) harshilb@euclid:~/work/3d-vla$ bash online_evaluation_rlbench/eval_peract2.sh
+Arguments:
+Namespace(checkpoint='/home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_deltaM_new-front_cam-true-cam_token-true-
+traj_scene_rope-true/best.pth', task='bimanual_push_box', max_tries=2, max_steps=25, headless=True, collision_checking=Fal
+se, seed=0, data_dir=PosixPath('peract2_test'), dataset='Peract2_3dfront_3dwrist', image_size='256,256', output_file=Posix
+Path('/home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_deltaM_new-front_cam-true-cam_token-true-traj_scene_rope-
+true/seed0/bimanual_push_box/eval.json'), fp16=False, model_type='denoise3d', bimanual=True, keypose_only=True, pre_tokeni
+ze=True, custom_img_size=None, workspace_normalizer_buffer=0.04, prediction_len=1, backbone='clip', finetune_backbone=Fals
+e, finetune_text_encoder=False, fps_subsampling_factor=4, embedding_dim=120, num_attn_heads=8, num_vis_instr_attn_layers=3
+, num_history=3, num_shared_attn_layers=4, relative_action=False, rotation_format='quat_xyzw', denoise_timesteps=5, denois
+e_model='rectified_flow', learn_extrinsics=False, predict_extrinsics=True, extrinsics_prediction_mode='delta_m', use_front
+_camera_frame=True, pc_rotate_by_front_camera=False, traj_scene_rope=True, rope_type='normal', rope_schedule_type='linear'
+, rope_schedule_start_k=0, rope_schedule_end_k=0, rope_schedule_steps=100000, sa_blocks_use_rope=True, use_com_rope=False,
+ com_rope_block_size=3, com_rope_num_axes=3, com_rope_init_std=0.02)
+----------------------------------------------------------------------------------------------------
+Loading model from /home/harshilb/work/3d-vla/grogu_train_logs/Peract2/2scene_deltaM_new-front_cam-true-cam_token-true-tra
+j_scene_rope-true/best.pth
+ ************** Predicting Extrinsics: True (mode=delta_m) **************
+Using traj_scene_rope = True (standard RoPE)
+learn_extrinsics: False
+predict_extrinsics: True
+extrinsics_prediction_mode: delta_m
+rope_type: normal
+ ************** Predicting Extrinsics: True (mode=delta_m) **************
+Using traj_scene_rope = True (standard RoPE)
+/home/harshilb/miniforge3/envs/3dfa/lib/python3.10/site-packages/torch/_utils.py:776: UserWarning: TypedStorage is depreca
+ted. It will be removed in the future and UntypedStorage will be the only storage class. This should only matter to you if
+ you are using storages directly.  To access UntypedStorage directly, use tensor.untyped_storage() instead of tensor.stora
+ge()
+  return self.fget.__get__(instance, owner)()
+WARNING:root:not sure how _robot_shapes are used is used.
+  0%|                                                                                               | 0/1 [00:00<?, ?it/s]
+bimanual_push_box Variation 0 Demo 0 Reward 1.00 max_reward 1.00 SR: 1/1 SR: 1.00/1 # valid demos 1
+bimanual_push_box Variation 0 Demo 1 Reward 1.00 max_reward 1.00 SR: 2/2 SR: 2.00/2 # valid demos 2
+bimanual_push_box Variation 0 Demo 2 Reward 1.00 max_reward 1.00 SR: 3/3 SR: 3.00/3 # valid demos 3
+bimanual_push_box Variation 0 Demo 3 Reward 1.00 max_reward 1.00 SR: 4/4 SR: 4.00/4 # valid demos 4
+bimanual_push_box Variation 0 Demo 4 Reward 1.00 max_reward 1.00 SR: 5/5 SR: 5.00/5 # valid demos 5
+bimanual_push_box Variation 0 Demo 5 Reward 1.00 max_reward 1.00 SR: 6/6 SR: 6.00/6 # valid demos 6
+bimanual_push_box Variation 0 Demo 6 Reward 1.00 max_reward 1.00 SR: 7/7 SR: 7.00/7 # valid demos 7
+bimanual_push_box Variation 0 Demo 7 Reward 1.00 max_reward 1.00 SR: 8/8 SR: 8.00/8 # valid demos 8
+bimanual_push_box Variation 0 Demo 8 Reward 1.00 max_reward 1.00 SR: 9/9 SR: 9.00/9 # valid demos 9
+bimanual_push_box Variation 0 Demo 9 Reward 0.00 max_reward 0.00 SR: 9/10 SR: 9.00/10 # valid demos 10
+bimanual_push_box Variation 0 Demo 10 Reward 1.00 max_reward 1.00 SR: 10/11 SR: 10.00/11 # valid demos 11
+bimanual_push_box Variation 0 Demo 11 Reward 1.00 max_reward 1.00 SR: 11/12 SR: 11.00/12 # valid demos 12
+bimanual_push_box Variation 0 Demo 12 Reward 1.00 max_reward 1.00 SR: 12/13 SR: 12.00/13 # valid demos 13
+bimanual_push_box Variation 0 Demo 13 Reward 1.00 max_reward 1.00 SR: 13/14 SR: 13.00/14 # valid demos 14
+bimanual_push_box Variation 0 Demo 14 Reward 1.00 max_reward 1.00 SR: 14/15 SR: 14.00/15 # valid demos 15
+bimanual_push_box Variation 0 Demo 15 Reward 1.00 max_reward 1.00 SR: 15/16 SR: 15.00/16 # valid demos 16
+bimanual_push_box Variation 0 Demo 16 Reward 1.00 max_reward 1.00 SR: 16/17 SR: 16.00/17 # valid demos 17
+bimanual_push_box Variation 0 Demo 17 Reward 1.00 max_reward 1.00 SR: 17/18 SR: 17.00/18 # valid demos 18
+bimanual_push_box Variation 0 Demo 18 Reward 1.00 max_reward 1.00 SR: 18/19 SR: 18.00/19 # valid demos 19
+bimanual_push_box Variation 0 Demo 19 Reward 1.00 max_reward 1.00 SR: 19/20 SR: 19.00/20 # valid demos 20
+bimanual_push_box Variation 0 Demo 20 Reward 1.00 max_reward 1.00 SR: 20/21 SR: 20.00/21 # valid demos 21
+bimanual_push_box Variation 0 Demo 21 Reward 1.00 max_reward 1.00 SR: 21/22 SR: 21.00/22 # valid demos 22
+bimanual_push_box Variation 0 Demo 22 Reward 1.00 max_reward 1.00 SR: 22/23 SR: 22.00/23 # valid demos 23
+bimanual_push_box Variation 0 Demo 23 Reward 1.00 max_reward 1.00 SR: 23/24 SR: 23.00/24 # valid demos 24
+bimanual_push_box Variation 0 Demo 24 Reward 1.00 max_reward 1.00 SR: 24/25 SR: 24.00/25 # valid demos 25
+bimanual_push_box Variation 0 Demo 25 Reward 1.00 max_reward 1.00 SR: 25/26 SR: 25.00/26 # valid demos 26
+bimanual_push_box Variation 0 Demo 26 Reward 1.00 max_reward 1.00 SR: 26/27 SR: 26.00/27 # valid demos 27
+bimanual_push_box Variation 0 Demo 27 Reward 1.00 max_reward 1.00 SR: 27/28 SR: 27.00/28 # valid demos 28
+bimanual_push_box Variation 0 Demo 28 Reward 1.00 max_reward 1.00 SR: 28/29 SR: 28.00/29 # valid demos 29
+bimanual_push_box Variation 0 Demo 29 Reward 1.00 max_reward 1.00 SR: 29/30 SR: 29.00/30 # valid demos 30
+bimanual_push_box Variation 0 Demo 30 Reward 1.00 max_reward 1.00 SR: 30/31 SR: 30.00/31 # valid demos 31
+bimanual_push_box Variation 0 Demo 31 Reward 1.00 max_reward 1.00 SR: 31/32 SR: 31.00/32 # valid demos 32
+bimanual_push_box Variation 0 Demo 32 Reward 1.00 max_reward 1.00 SR: 32/33 SR: 32.00/33 # valid demos 33
+bimanual_push_box Variation 0 Demo 33 Reward 0.00 max_reward 0.00 SR: 32/34 SR: 32.00/34 # valid demos 34
+bimanual_push_box Variation 0 Demo 34 Reward 1.00 max_reward 1.00 SR: 33/35 SR: 33.00/35 # valid demos 35
+bimanual_push_box Variation 0 Demo 35 Reward 1.00 max_reward 1.00 SR: 34/36 SR: 34.00/36 # valid demos 36
+bimanual_push_box Variation 0 Demo 36 Reward 1.00 max_reward 1.00 SR: 35/37 SR: 35.00/37 # valid demos 37
+bimanual_push_box Variation 0 Demo 37 Reward 1.00 max_reward 1.00 SR: 36/38 SR: 36.00/38 # valid demos 38
+bimanual_push_box Variation 0 Demo 38 Reward 1.00 max_reward 1.00 SR: 37/39 SR: 37.00/39 # valid demos 39
+bimanual_push_box Variation 0 Demo 39 Reward 1.00 max_reward 1.00 SR: 38/40 SR: 38.00/40 # valid demos 40
+bimanual_push_box Variation 0 Demo 40 Reward 1.00 max_reward 1.00 SR: 39/41 SR: 39.00/41 # valid demos 41
+bimanual_push_box Variation 0 Demo 41 Reward 1.00 max_reward 1.00 SR: 40/42 SR: 40.00/42 # valid demos 42
+bimanual_push_box Variation 0 Demo 42 Reward 1.00 max_reward 1.00 SR: 41/43 SR: 41.00/43 # valid demos 43
+bimanual_push_box Variation 0 Demo 43 Reward 1.00 max_reward 1.00 SR: 42/44 SR: 42.00/44 # valid demos 44
+bimanual_push_box Variation 0 Demo 44 Reward 1.00 max_reward 1.00 SR: 43/45 SR: 43.00/45 # valid demos 45
+bimanual_push_box Variation 0 Demo 45 Reward 1.00 max_reward 1.00 SR: 44/46 SR: 44.00/46 # valid demos 46
+bimanual_push_box Variation 0 Demo 46 Reward 1.00 max_reward 1.00 SR: 45/47 SR: 45.00/47 # valid demos 47
+bimanual_push_box Variation 0 Demo 47 Reward 1.00 max_reward 1.00 SR: 46/48 SR: 46.00/48 # valid demos 48
+bimanual_push_box Variation 0 Demo 48 Reward 1.00 max_reward 1.00 SR: 47/49 SR: 47.00/49 # valid demos 49
+bimanual_push_box Variation 0 Demo 49 Reward 1.00 max_reward 1.00 SR: 48/50 SR: 48.00/50 # valid demos 50
+bimanual_push_box Variation 0 Demo 50 Reward 1.00 max_reward 1.00 SR: 49/51 SR: 49.00/51 # valid demos 51
+bimanual_push_box Variation 0 Demo 51 Reward 1.00 max_reward 1.00 SR: 50/52 SR: 50.00/52 # valid demos 52
+bimanual_push_box Variation 0 Demo 52 Reward 1.00 max_reward 1.00 SR: 51/53 SR: 51.00/53 # valid demos 53
+bimanual_push_box Variation 0 Demo 53 Reward 1.00 max_reward 1.00 SR: 52/54 SR: 52.00/54 # valid demos 54
+bimanual_push_box Variation 0 Demo 54 Reward 1.00 max_reward 1.00 SR: 53/55 SR: 53.00/55 # valid demos 55
+bimanual_push_box Variation 0 Demo 55 Reward 1.00 max_reward 1.00 SR: 54/56 SR: 54.00/56 # valid demos 56
+bimanual_push_box Variation 0 Demo 56 Reward 0.00 max_reward 0.00 SR: 54/57 SR: 54.00/57 # valid demos 57
+bimanual_push_box Variation 0 Demo 57 Reward 1.00 max_reward 1.00 SR: 55/58 SR: 55.00/58 # valid demos 58
+bimanual_push_box Variation 0 Demo 58 Reward 0.00 max_reward 0.00 SR: 55/59 SR: 55.00/59 # valid demos 59
+bimanual_push_box Variation 0 Demo 59 Reward 1.00 max_reward 1.00 SR: 56/60 SR: 56.00/60 # valid demos 60
+bimanual_push_box Variation 0 Demo 60 Reward 1.00 max_reward 1.00 SR: 57/61 SR: 57.00/61 # valid demos 61
+bimanual_push_box Variation 0 Demo 61 Reward 1.00 max_reward 1.00 SR: 58/62 SR: 58.00/62 # valid demos 62
+bimanual_push_box Variation 0 Demo 62 Reward 1.00 max_reward 1.00 SR: 59/63 SR: 59.00/63 # valid demos 63
+bimanual_push_box Variation 0 Demo 63 Reward 1.00 max_reward 1.00 SR: 60/64 SR: 60.00/64 # valid demos 64
+bimanual_push_box Variation 0 Demo 64 Reward 1.00 max_reward 1.00 SR: 61/65 SR: 61.00/65 # valid demos 65
+bimanual_push_box Variation 0 Demo 65 Reward 1.00 max_reward 1.00 SR: 62/66 SR: 62.00/66 # valid demos 66
+bimanual_push_box Variation 0 Demo 66 Reward 1.00 max_reward 1.00 SR: 63/67 SR: 63.00/67 # valid demos 67
+bimanual_push_box Variation 0 Demo 67 Reward 1.00 max_reward 1.00 SR: 64/68 SR: 64.00/68 # valid demos 68
+bimanual_push_box Variation 0 Demo 68 Reward 1.00 max_reward 1.00 SR: 65/69 SR: 65.00/69 # valid demos 69
+bimanual_push_box Variation 0 Demo 69 Reward 1.00 max_reward 1.00 SR: 66/70 SR: 66.00/70 # valid demos 70
+bimanual_push_box Variation 0 Demo 70 Reward 1.00 max_reward 1.00 SR: 67/71 SR: 67.00/71 # valid demos 71
+bimanual_push_box Variation 0 Demo 71 Reward 1.00 max_reward 1.00 SR: 68/72 SR: 68.00/72 # valid demos 72
+bimanual_push_box Variation 0 Demo 72 Reward 1.00 max_reward 1.00 SR: 69/73 SR: 69.00/73 # valid demos 73
+bimanual_push_box Variation 0 Demo 73 Reward 1.00 max_reward 1.00 SR: 70/74 SR: 70.00/74 # valid demos 74
+bimanual_push_box Variation 0 Demo 74 Reward 1.00 max_reward 1.00 SR: 71/75 SR: 71.00/75 # valid demos 75
+bimanual_push_box Variation 0 Demo 75 Reward 1.00 max_reward 1.00 SR: 72/76 SR: 72.00/76 # valid demos 76
+bimanual_push_box Variation 0 Demo 76 Reward 1.00 max_reward 1.00 SR: 73/77 SR: 73.00/77 # valid demos 77
+bimanual_push_box Variation 0 Demo 77 Reward 1.00 max_reward 1.00 SR: 74/78 SR: 74.00/78 # valid demos 78
+bimanual_push_box Variation 0 Demo 78 Reward 1.00 max_reward 1.00 SR: 75/79 SR: 75.00/79 # valid demos 79
+bimanual_push_box Variation 0 Demo 79 Reward 1.00 max_reward 1.00 SR: 76/80 SR: 76.00/80 # valid demos 80
+bimanual_push_box Variation 0 Demo 80 Reward 1.00 max_reward 1.00 SR: 77/81 SR: 77.00/81 # valid demos 81
+bimanual_push_box Variation 0 Demo 81 Reward 1.00 max_reward 1.00 SR: 78/82 SR: 78.00/82 # valid demos 82
+bimanual_push_box Variation 0 Demo 82 Reward 1.00 max_reward 1.00 SR: 79/83 SR: 79.00/83 # valid demos 83
+bimanual_push_box Variation 0 Demo 83 Reward 1.00 max_reward 1.00 SR: 80/84 SR: 80.00/84 # valid demos 84
+bimanual_push_box Variation 0 Demo 84 Reward 1.00 max_reward 1.00 SR: 81/85 SR: 81.00/85 # valid demos 85
+bimanual_push_box Variation 0 Demo 85 Reward 1.00 max_reward 1.00 SR: 82/86 SR: 82.00/86 # valid demos 86
+bimanual_push_box Variation 0 Demo 86 Reward 1.00 max_reward 1.00 SR: 83/87 SR: 83.00/87 # valid demos 87
+bimanual_push_box Variation 0 Demo 87 Reward 1.00 max_reward 1.00 SR: 84/88 SR: 84.00/88 # valid demos 88
+bimanual_push_box Variation 0 Demo 88 Reward 1.00 max_reward 1.00 SR: 85/89 SR: 85.00/89 # valid demos 89
+bimanual_push_box Variation 0 Demo 89 Reward 0.00 max_reward 0.00 SR: 85/90 SR: 85.00/90 # valid demos 90
+bimanual_push_box Variation 0 Demo 90 Reward 1.00 max_reward 1.00 SR: 86/91 SR: 86.00/91 # valid demos 91
+bimanual_push_box Variation 0 Demo 91 Reward 1.00 max_reward 1.00 SR: 87/92 SR: 87.00/92 # valid demos 92
+bimanual_push_box Variation 0 Demo 92 Reward 1.00 max_reward 1.00 SR: 88/93 SR: 88.00/93 # valid demos 93
+bimanual_push_box Variation 0 Demo 93 Reward 1.00 max_reward 1.00 SR: 89/94 SR: 89.00/94 # valid demos 94
+bimanual_push_box Variation 0 Demo 94 Reward 1.00 max_reward 1.00 SR: 90/95 SR: 90.00/95 # valid demos 95
+bimanual_push_box Variation 0 Demo 95 Reward 1.00 max_reward 1.00 SR: 91/96 SR: 91.00/96 # valid demos 96
+bimanual_push_box Variation 0 Demo 96 Reward 1.00 max_reward 1.00 SR: 92/97 SR: 92.00/97 # valid demos 97
+bimanual_push_box Variation 0 Demo 97 Reward 1.00 max_reward 1.00 SR: 93/98 SR: 93.00/98 # valid demos 98
+bimanual_push_box Variation 0 Demo 98 Reward 1.00 max_reward 1.00 SR: 94/99 SR: 94.00/99 # valid demos 99
+bimanual_push_box Variation 0 Demo 99 Reward 1.00 max_reward 1.00 SR: 95/100 SR: 95.00/100 # valid demos 100
+100%|█████████████████████████████████████████████████████████████████████████████████████| 1/1 [25:10<00:00, 1510.75s/it]
+[CoppeliaSim:loadinfo]   done.
+
+bimanual_push_box variation success rates: {0: 95, 'mean': 0.95}
+bimanual_push_box mean success rate: 0.95
+bimanual_push_box 95.0
+Mean on 1 tasks 95.0
+(3dfa) harshilb@euclid:~/work/3d-vla$ bash online_evaluation_rlbench/eval_peract2.shork/3d-vla$ bash online_evaluation_rlb
+
+

@@ -1,23 +1,11 @@
 exp=peract2
 tasks=(
-    bimanual_push_box
-    bimanual_lift_ball
-    bimanual_dual_push_buttons
     bimanual_pick_plate
-    bimanual_put_item_in_drawer
-    bimanual_put_bottle_in_fridge
-    bimanual_handover_item
-    bimanual_pick_laptop
-    bimanual_straighten_rope
-    bimanual_sweep_to_dustpan
-    bimanual_lift_tray
-    bimanual_handover_item_easy
-    bimanual_take_tray_out_of_oven
 )
 
 
 # Testing arguments
-checkpoint=peract2.pth
+
 checkpoint_alias=my_awesome_peract2_model  # or something ugly
 # like: denoise3d-Peract2_3dfront_3dwrist-C120-B64-lr1e-4-constant-H3-rectified_flow
 
@@ -28,7 +16,7 @@ collision_checking=false
 seed=0
 
 # Dataset arguments
-data_dir=$(python3 paths.py RAW_ROOT)/test/
+data_dir=peract2_test/
 dataset=Peract2_3dfront_3dwrist
 image_size=256,256
 
@@ -51,35 +39,66 @@ rotation_format=quat_xyzw
 denoise_timesteps=5
 denoise_model=rectified_flow
 
-num_ckpts=${#tasks[@]}
-for ((i=0; i<$num_ckpts; i++)); do
-    xvfb-run -a python online_evaluation_rlbench/evaluate_policy.py \
-        --checkpoint $checkpoint \
-        --task ${tasks[$i]} \
-        --max_tries $max_tries \
-        --max_steps $max_steps \
-        --headless $headless \
-        --collision_checking $collision_checking \
-        --seed $seed \
-        --data_dir $data_dir \
-        --dataset $dataset \
-        --image_size $image_size \
-        --output_file eval_logs/$exp/$checkpoint_alias/seed$seed/${tasks[$i]}/eval.json  \
-        --model_type $model_type \
-        --bimanual $bimanual \
-        --prediction_len $prediction_len \
-        --backbone $backbone \
-        --fps_subsampling_factor $fps_subsampling_factor \
-        --embedding_dim $embedding_dim \
-        --num_attn_heads $num_attn_heads \
-        --num_vis_instr_attn_layers $num_vis_instr_attn_layers \
-        --num_history $num_history \
-        --num_shared_attn_layers $num_shared_attn_layers \
-        --relative_action $relative_action \
-        --rotation_format $rotation_format \
-        --denoise_timesteps $denoise_timesteps \
-        --denoise_model $denoise_model
-done
+
+
+checkpoint=/home/harshilb/work/3d-vla/grogu_train_logs/baseline-rope_type-normal-pred-false-front-true/best.pth
+
+checkpoint_dir=$(dirname "$checkpoint")
+
+learn_extrinsics=false
+traj_scene_rope=true
+
+front_camera_frame=false
+predict_extrinsics=false
+
+extrinsics_prediction_mode=delta_m
+
+rope_type=normal
+
+
+use_com_rope=false
+com_rope_block_size=3
+com_rope_num_axes=3
+com_rope_init_std=0.02
+
+
+# Hydra overrides: key=value (no --). Canonical flag: use_front_camera_frame.
+CUDA_VISIBLE_DEVICES=1 xvfb-run -a python online_evaluation_rlbench/evaluate_policy.py \
+    checkpoint="$checkpoint" \
+    task="${tasks[$i]}" \
+    max_tries=$max_tries \
+    max_steps=$max_steps \
+    headless=$headless \
+    collision_checking=$collision_checking \
+    seed=$seed \
+    data_dir="$data_dir" \
+    dataset=$dataset \
+    image_size=$image_size \
+    output_file="$checkpoint_dir/seed$seed/${tasks[$i]}/eval.json" \
+    model_type=$model_type \
+    bimanual=$bimanual \
+    prediction_len=$prediction_len \
+    backbone=$backbone \
+    fps_subsampling_factor=$fps_subsampling_factor \
+    embedding_dim=$embedding_dim \
+    num_attn_heads=$num_attn_heads \
+    num_vis_instr_attn_layers=$num_vis_instr_attn_layers \
+    num_history=$num_history \
+    num_shared_attn_layers=$num_shared_attn_layers \
+    relative_action=$relative_action \
+    rotation_format=$rotation_format \
+    denoise_timesteps=$denoise_timesteps \
+    denoise_model=$denoise_model \
+    learn_extrinsics=$learn_extrinsics \
+    traj_scene_rope=$traj_scene_rope \
+    use_front_camera_frame=$front_camera_frame \
+    predict_extrinsics=$predict_extrinsics \
+    extrinsics_prediction_mode=$extrinsics_prediction_mode \
+    rope_type=$rope_type \
+    use_com_rope=$use_com_rope \
+    com_rope_block_size=$com_rope_block_size \
+    com_rope_num_axes=$com_rope_num_axes \
+    com_rope_init_std=$com_rope_init_std
 
 python online_evaluation_rlbench/collect_results.py \
-    --folder eval_logs/$exp/$checkpoint_alias/seed$seed/
+    --folder $checkpoint_dir/seed$seed/

@@ -1,0 +1,11 @@
+# Default experiment: no overrides. Use as base; override run_log_dir etc. from CLI or script.
+# Run: python main.py experiment=default
+
+
+
+use_front_camera_frame: true
+predict_extrinsics: false
+extrinsics_prediction_mode: rt
+
+traj_scene_rope: false
+train_iters: 60000
