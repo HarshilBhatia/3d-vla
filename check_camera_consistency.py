@@ -30,7 +30,7 @@ class CustomUnpickler(pickle.Unpickler):
 
 from paths import RAW_ROOT
 
-TASK = "bimanual_push_box"
+TASK = "bimanual_lift_tray"
 ROOT = RAW_ROOT
 SPLIT = "train"
 

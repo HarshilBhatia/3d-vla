@@ -18,7 +18,7 @@ ENV = os.getenv("USER_NAME")
 
 CONFIGS = {
     "LUQMAN": {
-        "RAW_ROOT": "/home/lzaceria/mscv/3dvla/3d-vla/peract2_test",
+        "RAW_ROOT": "/home/lzaceria/mscv/3dvla/3d-vla/peract2_raw",
         "ZARR_ROOT": "/home/lzaceria/mscv/3dvla/3d-vla/Peract2_zarr",
         "USER_DATA": "/home/lzaceria/mscv/3dvla/3d-vla",
     },

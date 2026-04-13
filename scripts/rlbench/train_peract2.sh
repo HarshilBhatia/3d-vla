@@ -1,16 +1,14 @@
 main_dir=Peract2
 
+# Specify the task you want to train on
+TASK=bimanual_lift_tray
+
 DATA_PATH=$(pwd)
 
-train_data_dir=$DATA_PATH/Peract2_zarr/bimanual_lift_tray/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/bimanual_lift_tray/val.zarr
-
-# train_data_dir=$DATA_PATH/Peract2_zarr/train.zarr
-# eval_data_dir=$DATA_PATH/Peract2_zarr/val.zarr
-
-train_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
-val_instructions=instructions/peract2/instructions_bimanual_lift_tray.json
-
+train_data_dir=$DATA_PATH/Peract2_zarr/$TASK/train.zarr
+eval_data_dir=$DATA_PATH/Peract2_zarr/$TASK/val.zarr
+train_instructions=instructions/peract2/instructions.json
+val_instructions=instructions/peract2/instructions.json
 
 dataset=Peract2_3dfront_3dwrist
 num_workers=8
