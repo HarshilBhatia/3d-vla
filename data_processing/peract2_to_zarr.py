@@ -1,8 +1,18 @@
+"""
+PerAct2 raw demos → zarr (same layout as 3dfa/3D-VLA).
+
+Camera extrinsics: 4x4 camera-to-world per camera, from RLBench/PyRep
+(VisionSensor.get_matrix()). See PERACT2_CAMERA_EXTRINSICS.md.
+
+Optional transform (RGB/depth unchanged): --rotate-extrinsics-deg (e.g. 10 around world Z)
+and --translate-extrinsics "dx,dy,dz" in meters apply E_new = T_global @ E to all extrinsics.
+"""
 import argparse
 import json
 import os
 import pickle
 import sys
+import time
 
 # Centralized Stub and Unpickler to avoid backend dependencies
 class Stub:
@@ -48,6 +58,8 @@ from data_processing.rlbench_utils import (
     image_to_float_array,
     store_instructions
 )
+from scipy.spatial.transform import Rotation as R
+from scipy.ndimage import rotate as ndimage_rotate
 
 # =========================
 # CONSTANTS
@@ -85,6 +97,8 @@ def parse_arguments():
         ('root', str, RAW_ROOT),
         ('tgt', str, ZARR_ROOT),
         ('tasks', str, None),  # comma-separated list
+        ('rotate_extrinsics_deg', float, 0.0),  # e.g. 10 for +10 deg around world Z
+        ('translate_extrinsics', str, "0,0,0"),  # dx,dy,dz in meters (world frame)
     ]
 
     for name, typ, default in arguments:
@@ -92,17 +106,78 @@ def parse_arguments():
 
     return parser.parse_args()
 
+
+def _parse_translate(s: str):
+    """Parse 'dx,dy,dz' into (dx, dy, dz) floats."""
+    parts = [p.strip() for p in s.split(",")]
+    if len(parts) != 3:
+        raise ValueError(f"translate must be 'dx,dy,dz', got {s!r}")
+    return tuple(float(x) for x in parts)
+
+
+def apply_extrinsics_transform(
+    extrinsics: np.ndarray,
+    rotate_deg: float = 0.0,
+    rotate_axis: str = "z",
+    translate: tuple[float, float, float] = (0.0, 0.0, 0.0),
+) -> np.ndarray:
+    """Apply a global transform to camera-to-world matrices: E_new = T_global @ E.
+
+    T_global = [R|t; 0 0 0 1]: rotation (degrees around axis) then translation (meters in world).
+    extrinsics: (T, NCAM, 4, 4). Returns same shape, float16.
+    """
+    if rotate_deg == 0 and translate == (0.0, 0.0, 0.0):
+        return extrinsics.astype(np.float16)
+    T = np.eye(4, dtype=np.float64)
+    if rotate_deg != 0:
+        T[:3, :3] = R.from_euler(rotate_axis, np.deg2rad(rotate_deg)).as_matrix()
+    T[:3, 3] = np.array(translate, dtype=np.float64)
+    out = np.einsum("ij,...jk->...ik", T, extrinsics.astype(np.float64))
+    return out.astype(np.float16)
+
+
+def rotate_images_for_transform(
+    rgb: np.ndarray,
+    depth: np.ndarray,
+    rotate_deg: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Rotate RGB and depth so the view matches rotated extrinsics.
+
+    Camera +rotate_deg around Z => image content rotates -rotate_deg in the image plane.
+    rgb: (T, NCAM, 3, H, W) uint8. depth: (T, NCAM, H, W) float16.
+    """
+    if rotate_deg == 0:
+        return rgb, depth
+    angle = -rotate_deg
+    out_rgb = np.empty_like(rgb)
+    out_depth = np.empty_like(depth)
+    for t in range(rgb.shape[0]):
+        for c in range(rgb.shape[1]):
+            for ch in range(3):
+                out_rgb[t, c, ch] = ndimage_rotate(
+                    rgb[t, c, ch], angle, axes=(0, 1), reshape=False, order=1,
+                    mode="constant", cval=0
+                )
+            out_depth[t, c] = ndimage_rotate(
+                depth[t, c], angle, axes=(0, 1), reshape=False, order=1,
+                mode="constant", cval=0
+            )
+    return out_rgb, out_depth
+
+
 # =========================
 # ZARR CREATION
 # =========================
-def all_tasks_main(split, tasks):
+def all_tasks_main(split, tasks, rotate_extrinsics_deg: float = 0.0, translate_extrinsics: tuple[float, float, float] = (0.0, 0.0, 0.0)):
+    """Process all tasks for one split; write to zarr. Returns number of rollouts (episodes) written."""
     filename = f"{STORE_PATH}/{split}.zarr"
 
     if os.path.exists(filename):
         print(f"[SKIP] Zarr file {filename} already exists.")
-        return
+        return 0
 
     task2id = {task: i for i, task in enumerate(tasks)}
+    n_rollouts = 0
     compressor = Blosc(cname='lz4', clevel=1, shuffle=Blosc.SHUFFLE)
 
     with zarr.open_group(filename, mode="w") as zarr_file:
@@ -206,6 +281,10 @@ def all_tasks_main(split, tasks):
                     depth.append(np.stack(cam_d))
                 depth = np.stack(depth).astype(np.float16)
 
+                # When applying rotation to extrinsics, rotate images so the view matches
+                if rotate_extrinsics_deg != 0:
+                    rgb, depth = rotate_images_for_transform(rgb, depth, rotate_extrinsics_deg)
+
                 # Proprioception (EEF)
                 states = np.stack([
                     np.concatenate([
@@ -239,7 +318,12 @@ def all_tasks_main(split, tasks):
                 extrinsics = np.stack([
                     np.stack([demo[k].misc[f'{cam}_camera_extrinsics'] for cam in CAMERAS])
                     for k in key_frames[:-1]
-                ]).astype(np.float16)
+                ])
+                extrinsics = apply_extrinsics_transform(
+                    extrinsics,
+                    rotate_deg=rotate_extrinsics_deg,
+                    translate=translate_extrinsics,
+                )
 
                 intrinsics = np.stack([
                     np.stack([demo[k].misc[f'{cam}_camera_intrinsics'] for cam in CAMERAS])
@@ -271,6 +355,8 @@ def all_tasks_main(split, tasks):
                 zarr_file['intrinsics'].append(intrinsics)
                 zarr_file['task_id'].append(task_id)
                 zarr_file['variation'].append(variation)
+                n_rollouts += 1
+        return n_rollouts
 
 # =========================
 # UTILS
@@ -298,8 +384,29 @@ if __name__ == "__main__":
 
     os.makedirs(STORE_PATH, exist_ok=True)
 
+    translate = (0.0, 0.0, 0.0)
+    try:
+        translate = _parse_translate(args.translate_extrinsics)
+    except ValueError as e:
+        raise SystemExit(f"Invalid --translate_extrinsics: {e}") from e
+    if args.rotate_extrinsics_deg != 0 or translate != (0.0, 0.0, 0.0):
+        print(f"[INFO] Transform: rotate {args.rotate_extrinsics_deg}° around Z, translate {translate} (m)")
+
+    total_rollouts = 0
+    total_start = time.perf_counter()
     for split in ['train', 'val']:
-        all_tasks_main(split, tasks)
+        split_start = time.perf_counter()
+        n = all_tasks_main(
+            split, tasks,
+            rotate_extrinsics_deg=args.rotate_extrinsics_deg,
+            translate_extrinsics=translate,
+        )
+        total_rollouts += n
+        elapsed = time.perf_counter() - split_start
+        print(f"[TIME] {split}: {n} rollouts in {elapsed:.1f}s")
+
+    total_elapsed = time.perf_counter() - total_start
+    print(f"[TOTAL] {total_rollouts} rollouts in {total_elapsed:.1f}s ({total_elapsed / 60:.1f} min)")
 
     os.makedirs('instructions/peract2', exist_ok=True)
     instr_dict = store_instructions(ROOT, tasks)

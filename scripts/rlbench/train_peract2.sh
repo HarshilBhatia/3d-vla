@@ -1,12 +1,20 @@
 main_dir=Peract2
 
 # Specify the task you want to train on
-TASK=bimanual_lift_tray
+TASK=${TASK:-bimanual_lift_tray}
 
 DATA_PATH=$(pwd)
 
-train_data_dir=$DATA_PATH/Peract2_zarr/$TASK/train.zarr
-eval_data_dir=$DATA_PATH/Peract2_zarr/$TASK/val.zarr
+if [ "$TASK" = "all" ]; then
+    train_data_dir=$DATA_PATH/Peract2_zarr/all/train.zarr
+    eval_data_dir=$DATA_PATH/Peract2_zarr/all/val.zarr
+    filter_tasks=None
+else
+    train_data_dir=$DATA_PATH/Peract2_zarr/$TASK/train.zarr
+    eval_data_dir=$DATA_PATH/Peract2_zarr/$TASK/val.zarr
+    filter_tasks=$TASK
+fi
+
 train_instructions=instructions/peract2/instructions.json
 val_instructions=instructions/peract2/instructions.json
 
