@@ -62,13 +62,17 @@ class RLBenchDataset(BaseDataset):
         ]
 
     def _get_instr(self, idx):
-        return [
-            random.choice(self._instructions[self.tasks[int(t)]][str(int(v))])
-            for t, v in zip(
-                self.annos['task_id'][idx:idx + self.chunk_size],
-                self.annos['variation'][idx:idx + self.chunk_size]
-            )
-        ]
+        result = []
+        for t, v in zip(
+            self.annos['task_id'][idx:idx + self.chunk_size],
+            self.annos['variation'][idx:idx + self.chunk_size]
+        ):
+            task_instrs = self._instructions[self.tasks[int(t)]]
+            var_key = str(int(v))
+            if var_key not in task_instrs:
+                var_key = random.choice(list(task_instrs.keys()))
+            result.append(random.choice(task_instrs[var_key]))
+        return result
 
     def _get_rgb2d(self, idx):
         if self.camera_inds2d is not None:

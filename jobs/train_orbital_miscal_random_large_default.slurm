@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=miscal_small
+#SBATCH --job-name=miscal_default
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=50
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:8
 #SBATCH --mem=200G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
@@ -24,16 +24,21 @@ ngpus=$(nvidia-smi -L | wc -l)
 
 data=orbital
 main_dir=Orbital
-experiment=orb_deltaM_full
+experiment=default
 
-run_log_dir=miscal_small_deltaM_full
+run_log_dir=miscal_random_variation_default
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
-WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
+
+WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT --max-restarts 3 \
     main.py \
     data=$data \
     experiment=$experiment \
     exp_log_dir=$main_dir \
     run_log_dir=$run_log_dir \
     checkpoint=$checkpoint \
-    miscalibration_noise_level=small
+    backbone=siglip2 \
+    miscal_max_angle_deg=5.0 \
+    miscal_max_translation_m=0.05 \
+    train_iters=400000 \
+    num_workers=2

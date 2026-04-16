@@ -14,6 +14,7 @@ class Encoder(BaseEncoder):
 
     def __init__(self,
                  backbone="clip",
+                 text_backbone=None,
                  embedding_dim=60,
                  nhist=1,
                  num_attn_heads=9,
@@ -25,6 +26,7 @@ class Encoder(BaseEncoder):
                  rope_type='normal'):
         super().__init__(
             backbone=backbone,
+            text_backbone=text_backbone,
             embedding_dim=embedding_dim,
             nhist=nhist,
             num_attn_heads=num_attn_heads,
@@ -45,6 +47,10 @@ class Encoder(BaseEncoder):
                 embedding_dim, output_level="res3"
             )
             self.rgb2d_proj = nn.Linear(1024, embedding_dim)
+        elif self._backbone_name == 'siglip2':
+            self.siglip2_proj = nn.Conv2d(self.backbone.hidden_size, embedding_dim, kernel_size=1)
+        elif self._backbone_name == 'dino':
+            self.dino_proj = nn.Conv2d(self.backbone.hidden_size, embedding_dim, kernel_size=1)
 
         # 3D relative positional embeddings
         self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim, rope_type=rope_type)
@@ -150,5 +156,102 @@ class Encoder(BaseEncoder):
         # 2D camera features (don't support mixed cameras in this release)
         rgb2d_feats = None
 
+        return rgb3d_feats, rgb2d_feats, pcd, instr_feats
+
+    def encode_siglip2(self, rgb3d, rgb2d, pcd, text):
+        """
+        Compute visual features/pos embeddings using SigLIP2.
+
+        Args:
+            - rgb3d: (B, ncam3d, 3, H, W), rgb obs of 3D cameras
+            - rgb2d: (B, ncam2d, 3, H, W), rgb obs of 2D cameras (unused)
+            - pcd: (B, ncam3d, 3, H, W)
+            - text: pre-tokenized token IDs (B, L)
+
+        Returns:
+            - rgb3d_feats: (B, Np, F)
+            - rgb2d_feats: None
+            - pcd: (B, Np, 3)
+            - instr_feats: (B, L, F)
+        """
+        # Encode language
+        instruction = self.text_encoder(text)
+        instr_feats = self.instruction_encoder(instruction)
+
+        # 3D camera features
+        num_cameras = rgb3d.shape[1]
+        rgb3d = einops.rearrange(rgb3d, "bt ncam c h w -> (bt ncam) c h w")
+        rgb3d = self.normalize(rgb3d)
+        rgb3d_feats = self.backbone(rgb3d)            # (bt*ncam, hidden_size, h, w)
+        rgb3d_feats = self.siglip2_proj(rgb3d_feats)  # (bt*ncam, F, h, w)
+        feat_h, feat_w = rgb3d_feats.shape[-2:]
+        rgb3d_feats = einops.rearrange(
+            rgb3d_feats,
+            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
+        )
+        # Attention from vision to language
+        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1]
+
+        # Point cloud: interpolate to ViT spatial resolution
+        num_cameras_pcd = pcd.shape[1]
+        pcd = F.interpolate(
+            einops.rearrange(pcd, "bt ncam c h w -> (bt ncam) c h w"),
+            (feat_h, feat_w),
+            mode='bilinear'
+        )
+        pcd = einops.rearrange(
+            pcd,
+            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras_pcd
+        )
+
+        rgb2d_feats = None
 
         return rgb3d_feats, rgb2d_feats, pcd, instr_feats
+
+    def encode_dino(self, rgb3d, rgb2d, pcd, text):
+        """
+        Compute visual features/pos embeddings using DINOv2 + CLIP text.
+
+        Args:
+            - rgb3d: (B, ncam3d, 3, H, W), rgb obs of 3D cameras
+            - rgb2d: (B, ncam2d, 3, H, W), rgb obs of 2D cameras (unused)
+            - pcd: (B, ncam3d, 3, H, W)
+            - text: pre-tokenized token IDs (B, L) when text_backbone='clip'
+
+        Returns:
+            - rgb3d_feats: (B, Np, F)
+            - rgb2d_feats: None
+            - pcd: (B, Np, 3)
+            - instr_feats: (B, L, F)
+        """
+        # Encode language
+        instruction = self.text_encoder(text)
+        instr_feats = self.instruction_encoder(instruction)
+
+        # 3D camera features
+        num_cameras = rgb3d.shape[1]
+        rgb3d = einops.rearrange(rgb3d, "bt ncam c h w -> (bt ncam) c h w")
+        rgb3d = self.normalize(rgb3d)
+        rgb3d_feats = self.backbone(rgb3d)           # (bt*ncam, hidden_size, h, w)
+        rgb3d_feats = self.dino_proj(rgb3d_feats)    # (bt*ncam, F, h, w)
+        feat_h, feat_w = rgb3d_feats.shape[-2:]
+        rgb3d_feats = einops.rearrange(
+            rgb3d_feats,
+            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
+        )
+        # Attention from vision to language
+        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1]
+
+        # Point cloud: interpolate to DINOv2 spatial resolution
+        num_cameras_pcd = pcd.shape[1]
+        pcd = F.interpolate(
+            einops.rearrange(pcd, "bt ncam c h w -> (bt ncam) c h w"),
+            (feat_h, feat_w),
+            mode='bilinear'
+        )
+        pcd = einops.rearrange(
+            pcd,
+            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras_pcd
+        )
+
+        return rgb3d_feats, None, pcd, instr_feats

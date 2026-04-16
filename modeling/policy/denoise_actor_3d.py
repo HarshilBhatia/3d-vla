@@ -14,6 +14,7 @@ class DenoiseActor(BaseDenoiseActor):
     def __init__(self,
                  # Encoder arguments
                  backbone="clip",
+                 text_backbone=None,
                  finetune_backbone=False,
                  finetune_text_encoder=False,
                  num_vis_instr_attn_layers=2,
@@ -72,6 +73,7 @@ class DenoiseActor(BaseDenoiseActor):
         # Vision-language encoder, runs only once
         self.encoder = Encoder(
             backbone=backbone,
+            text_backbone=text_backbone,
             embedding_dim=embedding_dim,
             nhist=nhist * nhand,
             num_attn_heads=num_attn_heads,

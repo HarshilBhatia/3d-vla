@@ -1,6 +1,7 @@
 """Main script for training and testing."""
 
 import os
+from datetime import timedelta
 from pathlib import Path
 import sys
 
@@ -12,10 +13,14 @@ from utils.trainers import fetch_train_tester
 from utils.hydra_utils import get_config, get_config_path
 
 
-def suppress_output_on_non_main():
-    if int(os.environ.get("RANK", 0)) != 0:
-        sys.stdout = open(os.devnull, "w")
-        sys.stderr = open(os.devnull, "w")
+def redirect_non_main_output(log_dir: Path):
+    """Send non-rank-0 output to per-rank log files instead of /dev/null so errors are visible."""
+    rank = int(os.environ.get("RANK", 0))
+    if rank != 0:
+        log_dir.mkdir(exist_ok=True, parents=True)
+        f = open(log_dir / f"rank_{rank}.log", "w", buffering=1)
+        sys.stdout = f
+        sys.stderr = f
 
 
 if __name__ == '__main__':
@@ -47,11 +52,20 @@ if __name__ == '__main__':
     )
     print("Device count:", torch.cuda.device_count())
     args.local_rank = int(os.environ["LOCAL_RANK"])
-    suppress_output_on_non_main()
+
+    # Redirect non-rank-0 output to per-rank log files (not /dev/null) so errors are visible
+    redirect_non_main_output(log_dir / "rank_logs")
+
+    # Short NCCL timeout: detect hung ranks in 120s instead of the default 600s.
+    # When a rank dies the job fails fast, torchrun --max-restarts restarts from checkpoint.
+    os.environ.setdefault("TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC", "120")
 
     # DDP initialization
     torch.cuda.set_device(args.local_rank)
-    torch.distributed.init_process_group(backend='nccl', init_method='env://')
+    torch.distributed.init_process_group(
+        backend='nccl', init_method='env://',
+        timeout=timedelta(seconds=120),
+    )
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
     torch.backends.cudnn.deterministic = False

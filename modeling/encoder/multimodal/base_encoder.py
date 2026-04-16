@@ -10,6 +10,7 @@ class Encoder(nn.Module):
 
     def __init__(self,
                  backbone="clip",
+                 text_backbone=None,
                  embedding_dim=60,
                  nhist=1,
                  num_attn_heads=9,
@@ -20,9 +21,11 @@ class Encoder(nn.Module):
         super().__init__()
         self.subsampling_factor = fps_subsampling_factor
         self._backbone_name = backbone
+        # text_backbone defaults to backbone for backward compatibility
+        self._text_backbone_name = text_backbone if text_backbone is not None else backbone
 
         # Instruction encoder
-        self.text_encoder, _dim = fetch_text_encoders(backbone)
+        self.text_encoder, _dim = fetch_text_encoders(self._text_backbone_name)
         if self.text_encoder is not None:  # is None when using a VLM
             for p in self.text_encoder.parameters():
                 p.requires_grad = finetune_text_encoder
@@ -34,7 +37,7 @@ class Encoder(nn.Module):
             p.requires_grad = finetune_backbone
 
         # Attention from vision to language
-        if backbone == 'clip':
+        if backbone in ('clip', 'siglip2', 'dino'):
             self.vl_attention = AttentionModule(
                 num_layers=num_vis_instr_attn_layers, d_model=embedding_dim,
                 dim_fw=4 * embedding_dim, n_heads=num_attn_heads, pre_norm=False
@@ -65,6 +68,8 @@ class Encoder(nn.Module):
         """
         vl_enc_fn = {
             'clip': self.encode_clip,
+            'siglip2': self.encode_siglip2,
+            'dino': self.encode_dino,
         }[self._backbone_name]
         # Compute scene features/positional embeddings, language embeddings
         rgb3d_feats, rgb2d_feats, pcd, instr_feats = vl_enc_fn(
@@ -120,6 +125,10 @@ class Encoder(nn.Module):
             - pcd: (B, Np, 3)
             - instr_feats: (B, L, F)
         """
+        return None, None, None, None
+
+    def encode_dino(self, rgb3d, rgb2d, pcd, text):
+        """Stub — implemented in subclass."""
         return None, None, None, None
 
     def run_dps(self, features, pos):

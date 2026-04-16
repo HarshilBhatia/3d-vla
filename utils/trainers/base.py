@@ -41,7 +41,9 @@ class BaseTrainTester:
             depth2cloud=fetch_depth2cloud(self.args.dataset),
             use_front_camera_frame=getattr(self.args, 'use_front_camera_frame', False),
             pc_rotate_by_front_camera=getattr(self.args, 'pc_rotate_by_front_camera', False),
-            miscalibration_noise_level=getattr(self.args, 'miscalibration_noise_level', None)
+            miscalibration_noise_level=getattr(self.args, 'miscalibration_noise_level', None),
+            miscal_max_angle_deg=getattr(self.args, 'miscal_max_angle_deg', None),
+            miscal_max_translation_m=getattr(self.args, 'miscal_max_translation_m', None)
         )
 
         if dist.get_rank() == 0 and self.run_mode == "train":
@@ -147,6 +149,7 @@ class BaseTrainTester:
         # Build model kwargs
         model_kwargs = dict(
             backbone=self.args.backbone,
+            text_backbone=getattr(self.args, 'text_backbone', None),
             finetune_backbone=self.args.finetune_backbone,
             finetune_text_encoder=self.args.finetune_text_encoder,
             num_vis_instr_attn_layers=self.args.num_vis_instr_attn_layers,
@@ -318,7 +321,8 @@ class BaseTrainTester:
 
         # Get model
         model = self.get_model()
-        self.tokenizer = fetch_tokenizers(self.args.backbone)
+        _text_backbone = getattr(self.args, 'text_backbone', None) or self.args.backbone
+        self.tokenizer = fetch_tokenizers(_text_backbone)
         if not os.path.exists(self.args.checkpoint):
             normalizer = self.get_workspace_normalizer()
             model.workspace_normalizer.copy_(normalizer)
@@ -335,7 +339,8 @@ class BaseTrainTester:
         # don't receive gradients, which should be investigated and fixed
         model = DistributedDataParallel(
             model, device_ids=[self.args.local_rank],
-            broadcast_buffers=False, find_unused_parameters=True
+            broadcast_buffers=False, find_unused_parameters=True,
+            gradient_as_bucket_view=True,
         )
         
         # NOW create optimizer with CUDA/DDP parameters
@@ -365,7 +370,13 @@ class BaseTrainTester:
         # Check for a checkpoint
         start_iter, best_loss = 0, None
         if self.args.checkpoint:
-            start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer)
+            if os.path.exists(self.args.checkpoint):
+                start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer)
+                print(f"[Rank {dist.get_rank()}] Loaded checkpoint: {self.args.checkpoint} (resuming from step {start_iter})")
+            else:
+                print(f"[Rank {dist.get_rank()}] Checkpoint not found: {self.args.checkpoint} — starting from scratch")
+        else:
+            print(f"[Rank {dist.get_rank()}] No checkpoint specified — starting from scratch")
         print(model.module.workspace_normalizer)
 
         # Eval only (offline validation, no training)
@@ -397,14 +408,30 @@ class BaseTrainTester:
             try:
                 sample = next(iter_loader)
             except StopIteration:
-                # when the iterator is exhausted, we need to reset it
-                # and increment the epoch
                 epoch += 1
                 train_sampler.set_epoch(epoch)
                 iter_loader = iter(train_loader)
                 sample = next(iter_loader)
 
-            self.train_one_step(model, optimizer, scaler, lr_scheduler, sample, step_id)
+            try:
+                self.train_one_step(model, optimizer, scaler, lr_scheduler, sample, step_id)
+            except Exception as e:
+                # Save an emergency checkpoint before dying so the next torchrun restart
+                # (--max-restarts) picks up from the current step instead of the last
+                # periodic save.  Only rank 0 writes to avoid races.
+                print(f"[Rank {dist.get_rank()}] Step {step_id} failed: {e}", flush=True)
+                if dist.get_rank() == 0:
+                    emergency_path = self.args.log_dir / "last.pth"
+                    torch.save({
+                        "weight": model.state_dict(),
+                        "ema_weight": ema_model.state_dict() if self.args.use_ema else None,
+                        "optimizer": optimizer.state_dict(),
+                        "iter": step_id,
+                        "best_loss": best_loss,
+                    }, emergency_path)
+                    print(f"Emergency checkpoint saved to {emergency_path}", flush=True)
+                raise  # re-raise so the process exits and torchrun can restart
+
             self.ema.step(model, ema_model, self.args.use_ema, step_id)
 
             if (step_id + 1) % self.args.last_ckpt_freq == 0 and dist.get_rank() == 0:
@@ -488,13 +515,8 @@ class BaseTrainTester:
         """Run a single training step."""
         optimizer.zero_grad()
 
-        # Compute RoPE stopgrad K based on schedule
         stopgrad_k = self.compute_rope_stopgrad_k(step_id) if step_id is not None else 0
-
-        # Forward pass
         loss = self._model_forward(model, sample, training=True, stopgrad_k=stopgrad_k)
-
-        # Backward pass
         scaler.scale(loss).backward()
 
         # Clip gradients

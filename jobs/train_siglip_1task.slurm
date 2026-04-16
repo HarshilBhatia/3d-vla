@@ -30,7 +30,7 @@ train_instructions=instructions/peract2/instructions_${DATASET_NAME}.json
 val_instructions=instructions/peract2/instructions_${DATASET_NAME}.json
 
 experiment=default
-run_log_dir=clip_${experiment}_${DATASET_NAME}
+run_log_dir=new_siglip_${experiment}_${DATASET_NAME}
 checkpoint=train_logs/exp/${run_log_dir}/last.pth
 
 echo "DATASET_NAME:      $DATASET_NAME"
@@ -39,10 +39,11 @@ echo "eval_data_dir:     $eval_data_dir"
 echo "experiment:        $experiment"
 echo "run_log_dir:       $run_log_dir"
 
-WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT --max-restarts 3 \
+WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
     data=single \
     experiment=$experiment \
+    backbone=siglip2 \
     train_data_dir="$train_data_dir" \
     eval_data_dir="$eval_data_dir" \
     train_instructions="$train_instructions" \

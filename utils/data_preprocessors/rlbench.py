@@ -73,7 +73,9 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
                  use_front_camera_frame=False, pc_rotate_by_front_camera=False,
                  task_extrinsics_offsets_path=None,
-                 miscalibration_noise_level=None):
+                 miscalibration_noise_level=None,
+                 miscal_max_angle_deg=None,
+                 miscal_max_translation_m=None):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,
@@ -84,13 +86,22 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         )
         self.task_offsets = _load_task_extrinsics_offsets()
 
-        # Miscalibration noise: None or dict camera_name -> {R_noise, t_noise}
+        # Fixed miscalibration: None or dict camera_name -> {R_noise, t_noise}
         self.miscal_noise = None
         self.miscal_cameras = None
         if miscalibration_noise_level is not None:
             self.miscal_cameras, self.miscal_noise = _load_miscalibration_noise(miscalibration_noise_level)
             print(f"Miscalibration noise enabled: level='{miscalibration_noise_level}', "
                   f"cameras={self.miscal_cameras}")
+
+        # Random miscalibration: sample fresh noise per batch up to explicit bounds
+        self.miscal_max_aa_rad = None
+        self.miscal_max_t_m = None
+        if miscal_max_angle_deg is not None and miscal_max_translation_m is not None:
+            self.miscal_max_aa_rad = float(miscal_max_angle_deg) * (np.pi / 180.0)
+            self.miscal_max_t_m = float(miscal_max_translation_m)
+            print(f"Miscalibration random noise enabled: max_angle={miscal_max_angle_deg} deg, "
+                  f"max_translation={miscal_max_translation_m} m")
 
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
@@ -196,6 +207,25 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             ext[:, cam_idx, :3, 3] += t_noise
         return ext.to(extrinsics.dtype)
 
+    def _apply_random_miscalibration(self, extrinsics):
+        """Perturb extrinsics with freshly sampled noise each call.
+
+        For each camera, independently samples:
+          axis_angle ~ Uniform(-max_aa_rad, +max_aa_rad)  per component
+          translation ~ Uniform(-max_t_m,   +max_t_m)     per component
+        extrinsics is (B, ncam, 4, 4) camera-to-world; returned copy is perturbed.
+        """
+        ext = extrinsics.clone().float()
+        ncam = ext.shape[1]
+        for cam_idx in range(ncam):
+            aa = torch.empty(3).uniform_(-self.miscal_max_aa_rad, self.miscal_max_aa_rad)
+            t  = torch.empty(3).uniform_(-self.miscal_max_t_m,   self.miscal_max_t_m)
+            R_noise = axis_angle_to_matrix(aa).to(ext.device)  # (3, 3)
+            t_noise = t.to(ext.device)                         # (3,)
+            ext[:, cam_idx, :3, :3] = R_noise @ ext[:, cam_idx, :3, :3]
+            ext[:, cam_idx, :3, 3] += t_noise
+        return ext.to(extrinsics.dtype)
+
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
                     augment=False, task=None):
         """
@@ -206,6 +236,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         # Optionally perturb extrinsics to simulate camera miscalibration
         if self.miscal_noise is not None:
             extrinsics = self._apply_miscalibration(extrinsics)
+        elif self.miscal_max_aa_rad is not None:
+            extrinsics = self._apply_random_miscalibration(extrinsics)
 
         # Get point cloud from depth (in world coordinates)
         pcds = self.depth2cloud(

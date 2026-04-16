@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=siglip_1task
+#SBATCH --job-name=dino_1task
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=50
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:8
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
@@ -30,7 +30,7 @@ train_instructions=instructions/peract2/instructions_${DATASET_NAME}.json
 val_instructions=instructions/peract2/instructions_${DATASET_NAME}.json
 
 experiment=default
-run_log_dir=clip_${experiment}_${DATASET_NAME}
+run_log_dir=new_dino_${experiment}_${DATASET_NAME}
 checkpoint=train_logs/exp/${run_log_dir}/last.pth
 
 echo "DATASET_NAME:      $DATASET_NAME"
@@ -39,10 +39,12 @@ echo "eval_data_dir:     $eval_data_dir"
 echo "experiment:        $experiment"
 echo "run_log_dir:       $run_log_dir"
 
-WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT --max-restarts 3 \
+WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
     data=single \
     experiment=$experiment \
+    backbone=dino \
+    text_backbone=clip \
     train_data_dir="$train_data_dir" \
     eval_data_dir="$eval_data_dir" \
     train_instructions="$train_instructions" \
