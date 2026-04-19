@@ -24,7 +24,9 @@ def compute_metrics(pred, gt):
         tr + 'pos_l2': pos_l2.mean(-1),
         tr + 'pos_acc_001': (pos_l2 < 0.01).float().mean(-1),
         tr + 'rot_l1': quat_l1.mean(-1),
-        tr + 'rot_acc_0025': (quat_l1 < 0.025).float().mean(-1)
+        tr + 'rot_acc_0025': (quat_l1 < 0.025).float().mean(-1),
+        # Per-sample gripper correctness (averaged over trajectory length)
+        tr + 'gripper': openess.float().flatten(1).mean(-1),
     }
 
     return ret_1, ret_2

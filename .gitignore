@@ -50,5 +50,13 @@ peract_test.zip
 peract2_raw/*
 Peract2_zarr/*
 
-logs/ 
+logs/
 wandb/
+.scratch/
+
+debug_videos/
+grogu_train_logs/
+orbital_viz/*
+
+CoppeliaSim_Edu_V4_1_0_Ubuntu20_04/
+*.deb
