@@ -41,6 +41,7 @@ class Encoder(BaseEncoder):
 
         # Postprocess scene features
         if self._backbone_name == 'clip':
+            # self.backbone.to(memory_format=torch.channels_last)
             self.output_level = "res3"
             self.feature_pyramid = EfficientFeaturePyramidNetwork(
                 [64, 256, 512, 1024, 2048],
@@ -123,11 +124,18 @@ class Encoder(BaseEncoder):
         # 3D camera features
         num_cameras = rgb3d.shape[1]
         # Pass each view independently through backbone
+
         rgb3d = einops.rearrange(rgb3d, "bt ncam c h w -> (bt ncam) c h w")
-        rgb3d = self.normalize(rgb3d)
-        rgb3d_feats = self.backbone(rgb3d)
-        # Pass visual features through feature pyramid network
-        rgb3d_feats = self.feature_pyramid(rgb3d_feats)[self.output_level]
+
+        rgb3d = self.normalize(rgb3d).contiguous()
+        # rgb3d = self.normalize(rgb3d).to(memory_format=torch.channels_last)
+        # print(rgb3d.shape, rgb3d.dtype)
+        with torch.cuda.amp.autocast():
+            rgb3d_feats = self.backbone(rgb3d)
+            # print(self.backbone.)
+            # Pass visual features through feature pyramid network
+            rgb3d_feats = self.feature_pyramid(rgb3d_feats)[self.output_level]
+
         feat_h, feat_w = rgb3d_feats.shape[-2:]
         # Merge different cameras
 

@@ -143,7 +143,7 @@ class DenoiseActor(nn.Module):
         for t_ind, t in enumerate(timesteps):
             out = self.policy_forward_pass(
                 trajectory,
-                t * torch.ones(len(trajectory)).to(device).long(),
+                t * torch.ones(len(trajectory), device=device, dtype=torch.long),
                 fixed_inputs,
                 stopgrad_k=stopgrad_k
             )
@@ -704,7 +704,7 @@ class TransformerHead(nn.Module):
 
     def _predict_rt(self, batch_size, device):
         """Predict axis-angle (3) + translation (3) from cam token. Returns (B, 6)."""
-        cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device).squeeze(1)
+        cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
         rt, _ = self._predict_from_cam_feat(cam_feat)
         return rt
 
@@ -716,7 +716,7 @@ class TransformerHead(nn.Module):
         Returns:
             delta_M: (B, 6, 6) orthogonal
         """
-        cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device).squeeze(1)
+        cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
         _, delta_M = self._predict_from_cam_feat(cam_feat)
         return delta_M
 
@@ -789,7 +789,7 @@ class TransformerHead(nn.Module):
             # Dynamic RoPE path: re-predict delta_M / (R,T) after every CA and SA block.
             # Originals are kept so RT transforms are always applied from a clean base.
             orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos
-            current_cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).to(device).squeeze(1)
+            current_cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
 
             # Pre-compute sin/cos bases once; reuse across all blocks (delta_M mode only)
             precomputed_bases = (

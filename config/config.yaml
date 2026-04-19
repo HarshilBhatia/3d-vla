@@ -27,6 +27,12 @@ base_log_dir: train_logs
 exp_log_dir: exp
 run_log_dir: run
 
+# === Benchmarking ===
+benchmark: false              # enable per-rank timing/memory logging to benchmark_rank*.txt
+benchmark_warmup_steps: 0     # steps to discard before recording (GPU/CUDA warmup)
+benchmark_log_freq: 50        # flush interval in steps
+benchmark_dummy_data: false   # skip zarr/NFS entirely; use random in-memory tensors
+
 # === Wandb ===
 use_wandb: true
 wandb_project: 3d_flowmatch_actor

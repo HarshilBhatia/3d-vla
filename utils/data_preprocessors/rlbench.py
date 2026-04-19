@@ -197,12 +197,14 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         frame.  extrinsics is (B, ncam, 4, 4) camera-to-world; returned copy is perturbed.
         Camera order follows self.miscal_cameras (from the noise file's "cameras" list).
         """
-        ext = extrinsics.clone().float()
+        # Single copy: fuse clone + float cast
+        ext = extrinsics.to(dtype=torch.float32, copy=True)
         for cam_idx, cam_name in enumerate(self.miscal_cameras):
             if cam_name not in self.miscal_noise:
                 continue
-            R_noise = self.miscal_noise[cam_name]["R_noise"].to(ext.device)  # (3, 3)
-            t_noise = self.miscal_noise[cam_name]["t_noise"].to(ext.device)  # (3,)
+            # Noise tensors are pre-moved to CPU at load time; .to() is a no-op here
+            R_noise = self.miscal_noise[cam_name]["R_noise"]  # (3, 3)
+            t_noise = self.miscal_noise[cam_name]["t_noise"]  # (3,)
             ext[:, cam_idx, :3, :3] = R_noise @ ext[:, cam_idx, :3, :3]
             ext[:, cam_idx, :3, 3] += t_noise
         return ext.to(extrinsics.dtype)
@@ -215,15 +217,15 @@ class RLBenchDataPreprocessor(DataPreprocessor):
           translation ~ Uniform(-max_t_m,   +max_t_m)     per component
         extrinsics is (B, ncam, 4, 4) camera-to-world; returned copy is perturbed.
         """
-        ext = extrinsics.clone().float()
+        # Single copy: fuse clone + float cast
+        ext = extrinsics.to(dtype=torch.float32, copy=True)
         ncam = ext.shape[1]
-        for cam_idx in range(ncam):
-            aa = torch.empty(3).uniform_(-self.miscal_max_aa_rad, self.miscal_max_aa_rad)
-            t  = torch.empty(3).uniform_(-self.miscal_max_t_m,   self.miscal_max_t_m)
-            R_noise = axis_angle_to_matrix(aa).to(ext.device)  # (3, 3)
-            t_noise = t.to(ext.device)                         # (3,)
-            ext[:, cam_idx, :3, :3] = R_noise @ ext[:, cam_idx, :3, :3]
-            ext[:, cam_idx, :3, 3] += t_noise
+        # Vectorize over cameras: sample all at once, no per-cam CPU->GPU copies
+        aa = torch.empty(ncam, 3).uniform_(-self.miscal_max_aa_rad, self.miscal_max_aa_rad)
+        t  = torch.empty(ncam, 3).uniform_(-self.miscal_max_t_m,   self.miscal_max_t_m)
+        R_noise = axis_angle_to_matrix(aa)  # (ncam, 3, 3)
+        ext[:, :, :3, :3] = R_noise.unsqueeze(0) @ ext[:, :, :3, :3]
+        ext[:, :, :3, 3] += t.unsqueeze(0)
         return ext.to(extrinsics.dtype)
 
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
@@ -240,19 +242,22 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             extrinsics = self._apply_random_miscalibration(extrinsics)
 
         # Get point cloud from depth (in world coordinates)
-        pcds = self.depth2cloud(
-            depth.cuda(non_blocking=True).to(torch.bfloat16),
-            extrinsics.cuda(non_blocking=True).to(torch.bfloat16),
-            intrinsics.cuda(non_blocking=True).to(torch.bfloat16)
-        )
+        # Fuse H2D + dtype cast into a single copy_ per tensor
+        with torch.profiler.record_function("process_obs/depth2cloud_H2D"):
+            pcds = self.depth2cloud(
+                depth.to(device='cuda', dtype=torch.bfloat16, non_blocking=True),
+                extrinsics.to(device='cuda', dtype=torch.bfloat16, non_blocking=True),
+                intrinsics.to(device='cuda', dtype=torch.bfloat16, non_blocking=True)
+            )
 
         # Handle non-wrist cameras, which may require augmentations
         if augment:
             b, nc, _, h, w = rgbs.shape
-            obs = torch.cat((
-                rgbs.cuda(non_blocking=True).half() / 255,
-                pcds[:, :rgbs.size(1)].half()
-            ), 2)  # (B, ncam, 6, H, W)
+            with torch.profiler.record_function("process_obs/rgb_H2D_augment"):
+                obs = torch.cat((
+                    rgbs.to(device='cuda', dtype=torch.float16, non_blocking=True) / 255,
+                    pcds[:, :rgbs.size(1)].half()
+                ), 2)  # (B, ncam, 6, H, W)
             obs = obs.reshape(-1, 6, h, w)
             obs = self.aug(obs)
             # Convert to full precision
@@ -260,7 +265,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             pcd_3d = obs[:, 3:].reshape(b, nc, 3, h, w).float()
         else:
             # Simply convert to full precision
-            rgb_3d = rgbs.cuda(non_blocking=True).float() / 255
+            with torch.profiler.record_function("process_obs/rgb_H2D"):
+                rgb_3d = rgbs.to(device='cuda', dtype=torch.float32, non_blocking=True) / 255
             pcd_3d = pcds[:, :rgb_3d.size(1)].float()
         if self.custom_imsize is not None and self.custom_imsize != rgb_3d.size(-1):
             b, nc, _, _, _ = rgb_3d.shape
@@ -272,7 +278,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         # Handle wrist cameras, no augmentations
         rgb_2d = None
         if rgb2d is not None:
-            rgb_2d = rgb2d.cuda(non_blocking=True).float() / 255
+            with torch.profiler.record_function("process_obs/rgb2d_H2D"):
+                rgb_2d = rgb2d.to(device='cuda', dtype=torch.float32, non_blocking=True) / 255
             if self.custom_imsize is not None and self.custom_imsize != rgb_2d.size(-1):
                 b, nc, _, _, _ = rgb_2d.shape
                 rgb_2d = F.interpolate(

@@ -32,8 +32,9 @@ class BaseDataset(Dataset):
 
 
         # Load all annotations lazily
-
+        print(f"  Opening zarr: {root}", flush=True)
         self.annos = read_zarr_with_cache(root, mem_gb=mem_limit)
+        print(f"  Zarr opened, running sanity check...", flush=True)
 
         # Sanity check
         len_ = len(self.annos['action'])

@@ -24,17 +24,43 @@ def round_floats(o):
     return o
 
 
-def count_parameters(model):
-    print(
-        "Trainable model parameters:",
-        sum(p.numel() for p in model.parameters() if p.requires_grad)
-    )
-    # Print number of trainable parameters for main modules
+def _fmt(n):
+    if n >= 1e9:
+        return f"{n/1e9:.2f}B"
+    if n >= 1e6:
+        return f"{n/1e6:.2f}M"
+    if n >= 1e3:
+        return f"{n/1e3:.1f}K"
+    return str(n)
+
+
+def count_parameters(model, depth=1):
+    total = sum(p.numel() for p in model.parameters())
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    frozen = total - trainable
+
+    rows = []
     for name, submodule in model.named_modules():
-        if '.' not in name:
-            submodule_params = sum(
-                p.numel() for p in submodule.parameters()
-                if p.requires_grad
-            )
-            if submodule_params > 0:
-                print(f"{name} - trainable params: {submodule_params}")
+        level = name.count('.')
+        if level >= depth or (level == 0 and name == ''):
+            continue
+        tr = sum(p.numel() for p in submodule.parameters() if p.requires_grad)
+        fr = sum(p.numel() for p in submodule.parameters() if not p.requires_grad)
+        if tr + fr == 0:
+            continue
+        indent = "  " * level
+        rows.append((indent + name, tr, fr))
+
+    name_w = max((len(r[0]) for r in rows), default=4)
+    tr_w = max((len(_fmt(r[1])) for r in rows), default=8)
+
+    print(f"\n{'─'*60}")
+    print(f"  Model parameters")
+    print(f"  Total:     {_fmt(total):>10}   Trainable: {_fmt(trainable):>10}   Frozen: {_fmt(frozen):>10}")
+    print(f"{'─'*60}")
+    header = f"  {'Module':<{name_w}}   {'Trainable':>{tr_w}}   Frozen"
+    print(header)
+    print(f"  {'-'*( len(header)-2)}")
+    for name, tr, fr in rows:
+        print(f"  {name:<{name_w}}   {_fmt(tr):>{tr_w}}   {_fmt(fr)}")
+    print(f"{'─'*60}\n")

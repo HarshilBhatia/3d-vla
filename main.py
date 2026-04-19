@@ -37,24 +37,26 @@ if __name__ == '__main__':
     if not args.base_log_dir.is_absolute():
         args.base_log_dir = Path(__file__).resolve().parent / args.base_log_dir
 
-    print("Arguments:")
-    for k, v in sorted(vars(args).items()):
-        print(f"  {k}: {v}")
-    print("-" * 100)
-
     log_dir = args.base_log_dir / args.exp_log_dir / args.run_log_dir
     args.log_dir = log_dir
     log_dir.mkdir(exist_ok=True, parents=True)
-    print("Logging:", log_dir)
-    print(
-        "Available devices (CUDA_VISIBLE_DEVICES):",
-        os.environ.get("CUDA_VISIBLE_DEVICES")
-    )
-    print("Device count:", torch.cuda.device_count())
     args.local_rank = int(os.environ["LOCAL_RANK"])
 
     # Redirect non-rank-0 output to per-rank log files (not /dev/null) so errors are visible
     redirect_non_main_output(log_dir / "rank_logs")
+
+    rank = int(os.environ.get("RANK", 0))
+    if rank == 0:
+        print("Arguments:")
+        for k, v in sorted(vars(args).items()):
+            print(f"  {k}: {v}")
+        print("-" * 100)
+        print("Logging:", log_dir)
+        print(
+            "Available devices (CUDA_VISIBLE_DEVICES):",
+            os.environ.get("CUDA_VISIBLE_DEVICES")
+        )
+        print("Device count:", torch.cuda.device_count())
 
     # Short NCCL timeout: detect hung ranks in 120s instead of the default 600s.
     # When a rank dies the job fails fast, torchrun --max-restarts restarts from checkpoint.

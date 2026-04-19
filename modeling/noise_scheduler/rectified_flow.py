@@ -54,15 +54,14 @@ class RFScheduler:
         
         # Interpolate between Z0 and Z1
         texp = t.view([b, *([1] * len(x.shape[1:]))])
-        zt = (1 - texp) * x + texp * z1
-        return zt.to(x.dtype)
+        return (1 - texp) * x + texp * z1
 
     def step(self, model_output, timestep_ind, sample):
         zt = sample
         vc = model_output
 
-        timestep = self.timesteps[timestep_ind].to(vc.device)
-        prev_t = self.prev_timesteps[timestep_ind].to(vc.device)
+        timestep = self.timesteps[timestep_ind]
+        prev_t = self.prev_timesteps[timestep_ind]
         dt = timestep - prev_t
         pred_prev_sample = zt - dt * vc  # z_t'
 

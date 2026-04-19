@@ -1,6 +1,7 @@
 from copy import deepcopy
 import os
 import random
+import time
 
 import numpy as np
 import torch
@@ -11,6 +12,7 @@ import torch.distributed as dist
 from torch.utils.data import DataLoader
 from torch.nn.parallel import DistributedDataParallel
 from torch.utils.tensorboard import SummaryWriter
+from torch.profiler import profile, ProfilerActivity
 from tqdm import trange, tqdm
 import wandb
 
@@ -20,7 +22,7 @@ from ..depth2cloud import fetch_depth2cloud
 from ..data_preprocessors import fetch_data_preprocessor
 from ..ema import EMA
 from ..schedulers import fetch_scheduler
-from .utils import compute_metrics
+from .utils import compute_metrics, BenchmarkLogger
 
 
 class BaseTrainTester:
@@ -34,6 +36,8 @@ class BaseTrainTester:
         # Single semantic for train vs offline eval (Option B: derived from eval_only; can migrate to --mode later)
         self.run_mode = "eval_offline" if getattr(args, "eval_only", False) else "train"
 
+        self.benchmark_logger = None
+
         self.preprocessor = fetch_data_preprocessor(self.args.dataset)(
             self.args.keypose_only,
             self.args.num_history,
@@ -45,6 +49,9 @@ class BaseTrainTester:
             miscal_max_angle_deg=getattr(self.args, 'miscal_max_angle_deg', None),
             miscal_max_translation_m=getattr(self.args, 'miscal_max_translation_m', None)
         )
+
+        gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else ""
+        self.amp_dtype = torch.float32 if "Quadro RTX 6000" in gpu_name else torch.bfloat16
 
         if dist.get_rank() == 0 and self.run_mode == "train":
             self.writer = SummaryWriter(log_dir=args.log_dir)
@@ -195,10 +202,12 @@ class BaseTrainTester:
         if hasattr(self.args, 'com_rope_init_std'):
             model_kwargs['com_rope_init_std'] = self.args.com_rope_init_std
 
-        print(f'model_kwargs: {model_kwargs}')
+        if dist.get_rank() == 0:
+            print(f'model_kwargs: {model_kwargs}')
 
+        print(f"[Rank {dist.get_rank()}] Instantiating model (loads backbone weights)...", flush=True)
         _model = self.model_cls(**model_kwargs)
-
+        print(f"[Rank {dist.get_rank()}] Model instantiated.", flush=True)
 
         # Print basic modules' parameters
         if dist.get_rank() == 0:
@@ -316,33 +325,49 @@ class BaseTrainTester:
 
     def main(self):
         """Run main training/testing pipeline."""
-        # Get loaders
-        train_loader, val_loader, train_sampler = self.get_loaders()
+        rank = dist.get_rank()
 
-        # Get model
+        print(f"[Rank {rank}] Building data loaders...", flush=True)
+        train_loader, val_loader, train_sampler = self.get_loaders()
+        print(f"[Rank {rank}] Data loaders ready.", flush=True)
+
+        print(f"[Rank {rank}] Building model...", flush=True)
         model = self.get_model()
+        print(f"[Rank {rank}] Loading tokenizer...", flush=True)
         _text_backbone = getattr(self.args, 'text_backbone', None) or self.args.backbone
         self.tokenizer = fetch_tokenizers(_text_backbone)
-        if not os.path.exists(self.args.checkpoint):
+        print(f"[Rank {rank}] Model + tokenizer ready.", flush=True)
+
+        dummy = getattr(self.args, 'benchmark_dummy_data', False)
+        if not dummy and not os.path.exists(self.args.checkpoint):
             normalizer = self.get_workspace_normalizer()
             model.workspace_normalizer.copy_(normalizer)
             dist.barrier(device_ids=[torch.cuda.current_device()])
 
+        print(f"[Rank {rank}] Moving model to GPU and wrapping DDP...", flush=True)
         # Move model to devices FIRST before creating optimizer
         if torch.cuda.is_available():
             model = model.cuda()
             # Enable TF32 for faster matmuls on Ampere+ GPUs
             torch.set_float32_matmul_precision('high')
+
+        # Compile before DDP so torch.compile sees the raw module graph
+        if self.args.use_compile:
+            model.compute_loss = torch.compile(model.compute_loss, fullgraph=True)
+
         # Wrap in DDP
         # Note: find_unused_parameters=False for better performance
         # If you get unused parameter warnings, it means some model parameters
         # don't receive gradients, which should be investigated and fixed
         model = DistributedDataParallel(
             model, device_ids=[self.args.local_rank],
-            broadcast_buffers=False, find_unused_parameters=True,
-            gradient_as_bucket_view=True,
+            static_graph=True,
+            find_unused_parameters=False,
+            bucket_cap_mb=10,
         )
-        
+
+        print(f"[Rank {rank}] DDP ready.", flush=True)
+
         # NOW create optimizer with CUDA/DDP parameters
         optimizer = self.get_optimizer(model)
         if self.run_mode == "train" and self.args.train_iters is None:
@@ -352,11 +377,7 @@ class BaseTrainTester:
         lr_scheduler = fetch_scheduler(
             self.args.lr_scheduler, optimizer, self.args.train_iters
         )
-        scaler = torch.GradScaler()
-        
-        # Compile after everything else
-        if self.args.use_compile:
-            model.module.compute_loss = torch.compile(model.module.compute_loss, fullgraph=True)
+        scaler = torch.GradScaler(enabled=self.amp_dtype != torch.float32)
         
         # Watch model with wandb
         if dist.get_rank() == 0 and self.run_mode == "train":
@@ -367,9 +388,9 @@ class BaseTrainTester:
         ema_model = deepcopy(model)
         self.ema = EMA()
 
-        # Check for a checkpoint
+        # Check for a checkpoint (skipped when benchmark_dummy_data=true so start_iter stays 0)
         start_iter, best_loss = 0, None
-        if self.args.checkpoint:
+        if not dummy and self.args.checkpoint:
             if os.path.exists(self.args.checkpoint):
                 start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer)
                 print(f"[Rank {dist.get_rank()}] Loaded checkpoint: {self.args.checkpoint} (resuming from step {start_iter})")
@@ -401,10 +422,39 @@ class BaseTrainTester:
         epoch = start_iter // samples_per_epoch + 1
         train_sampler.set_epoch(epoch)  # ensures new batches are sampled
 
+        # Initialize per-rank benchmark logger (enabled via benchmark=true in config/CLI)
+        bench_warmup = getattr(self.args, 'benchmark_warmup_steps', 0)
+        self._profiler = None
+        self._profile_start_step = None
+        self._profile_n_steps = None
+        if getattr(self.args, 'benchmark', False):
+            bench_freq = getattr(self.args, 'benchmark_log_freq', 50)
+            rank = dist.get_rank()
+            bench_path = self.args.log_dir / f"benchmark_rank{rank}.txt"
+            self.benchmark_logger = BenchmarkLogger(bench_path, rank, dist.get_world_size(), bench_freq)
+            if rank == 0:
+                print(f"Benchmark logging enabled → {bench_path} "
+                      f"(warmup={bench_warmup} steps, log every {bench_freq} steps)")
+            # torch.profiler runs on rank 0 only, starting after warmup
+            if dist.get_rank() == 0:
+                n = getattr(self.args, 'benchmark_profile_steps', 10)
+                self._profile_start_step = start_iter + bench_warmup
+                self._profile_n_steps = n
+                trace_dir = str(self.args.log_dir / "profile_trace")
+                self._profiler = profile(
+                    activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
+                    record_shapes=True,
+                    with_stack=True,
+                    on_trace_ready=torch.profiler.tensorboard_trace_handler(trace_dir),
+                )
+                print(f"Torch profiler will capture {n} steps starting at step {self._profile_start_step}")
+                print(f"Trace will be written to {trace_dir} — view with: tensorboard --logdir {trace_dir}")
+
         # Training loop
         model.train()
         iter_loader = iter(train_loader)
         for step_id in trange(start_iter, self.args.train_iters):
+            t_step_start = time.perf_counter()
             try:
                 sample = next(iter_loader)
             except StopIteration:
@@ -412,9 +462,14 @@ class BaseTrainTester:
                 train_sampler.set_epoch(epoch)
                 iter_loader = iter(train_loader)
                 sample = next(iter_loader)
+            data_ms = (time.perf_counter() - t_step_start) * 1000
+
+            # Enter profiler before the step so all n steps are fully captured
+            if self._profiler is not None and step_id == self._profile_start_step:
+                self._profiler.__enter__()
 
             try:
-                self.train_one_step(model, optimizer, scaler, lr_scheduler, sample, step_id)
+                timing = self.train_one_step(model, optimizer, scaler, lr_scheduler, sample, step_id)
             except Exception as e:
                 # Save an emergency checkpoint before dying so the next torchrun restart
                 # (--max-restarts) picks up from the current step instead of the last
@@ -433,6 +488,53 @@ class BaseTrainTester:
                 raise  # re-raise so the process exits and torchrun can restart
 
             self.ema.step(model, ema_model, self.args.use_ema, step_id)
+
+            if self.benchmark_logger is not None and timing is not None:
+                if step_id == bench_warmup - 1:
+                    # warmup just finished — reset peak so measured window is clean
+                    torch.cuda.reset_peak_memory_stats()
+                if step_id >= bench_warmup:
+                    total_ms = (time.perf_counter() - t_step_start) * 1000
+                    batch_size = sample['action'].shape[0]
+                    self.benchmark_logger.record(
+                        data_ms, timing['fwd_ms'], timing['bwd_ms'], timing['opt_ms'], total_ms, batch_size
+                    )
+                    if (step_id + 1) % self.benchmark_logger.log_freq == 0:
+                        self.benchmark_logger.flush(step_id + 1)
+
+            if self._profiler is not None and step_id >= self._profile_start_step:
+                self._profiler.step()
+
+                steps_profiled = step_id - self._profile_start_step + 1
+                if steps_profiled >= self._profile_n_steps:
+                    self._profiler.__exit__(None, None, None)
+                    stats = self._profiler.key_averages()
+                    print("\n" + "─" * 80)
+                    print(f"Torch Profiler — top ops by CUDA time (steps {self._profile_start_step}–{step_id})")
+                    print("─" * 80)
+                    print(stats.table(sort_by="cuda_time_total", row_limit=20))
+                    print("─" * 80)
+                    def _cuda_us(s):
+                        for attr in ('cuda_time_total', 'self_cuda_time_total',
+                                     'device_time_total', 'self_device_time_total'):
+                            if hasattr(s, attr):
+                                return getattr(s, attr)
+                        return s.cpu_time_total
+
+                    nccl_stats = sorted(
+                        [s for s in stats if "nccl" in s.key.lower()],
+                        key=_cuda_us, reverse=True,
+                    )
+                    if nccl_stats:
+                        print(f"\nNCCL communication ops:")
+                        print(f"  {'Name':<40} | {'CUDA Total (us)':<16} | Calls")
+                        print(f"  {'-'*40}-+-{'-'*16}-+------")
+                        for s in nccl_stats:
+                            print(f"  {s.key:<40} | {_cuda_us(s):<16.2f} | {s.count}")
+                    else:
+                        print("\nNo NCCL ops captured (all-reduce may be async/overlapped).")
+
+                    self._profiler = None  # don't profile again
 
             if (step_id + 1) % self.args.last_ckpt_freq == 0 and dist.get_rank() == 0:
                 last_path = self.args.log_dir / "last.pth"
@@ -474,17 +576,20 @@ class BaseTrainTester:
         pass  # implement in children
 
     def _model_forward(self, model, sample, training=True, stopgrad_k=0):
-        action, action_mask, rgbs, rgb2d, pcds, instr, prop = self.prepare_batch(
-            sample, augment=training
-        )
-        if self.args.pre_tokenize:
-            instr = self.tokenizer(instr).cuda(non_blocking=True)
-        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-            out = model(
-                action, action_mask, rgbs, rgb2d, pcds, instr, prop,
-                run_inference=not training,
-                stopgrad_k=stopgrad_k
+        with torch.profiler.record_function("step/prepare_batch"):
+            action, action_mask, rgbs, rgb2d, pcds, instr, prop = self.prepare_batch(
+                sample, augment=training
             )
+        if self.args.pre_tokenize:
+            with torch.profiler.record_function("step/tokenize"):
+                instr = self.tokenizer(instr).cuda(non_blocking=True)
+        with torch.profiler.record_function("step/model_forward"):
+            with torch.autocast(device_type="cuda", dtype=self.amp_dtype):
+                out = model(
+                    action, action_mask, rgbs, rgb2d, pcds, instr, prop,
+                    run_inference=not training,
+                    stopgrad_k=stopgrad_k
+                )
         return out  # loss if training, else action
     
     def compute_rope_stopgrad_k(self, step_id):
@@ -512,13 +617,29 @@ class BaseTrainTester:
         return int(k_float)
 
     def train_one_step(self, model, optimizer, scaler, lr_scheduler, sample, step_id=None):
-        """Run a single training step."""
+        """Run a single training step. Returns GPU timing dict when benchmark_logger is set."""
         optimizer.zero_grad()
 
         stopgrad_k = self.compute_rope_stopgrad_k(step_id) if step_id is not None else 0
-        loss = self._model_forward(model, sample, training=True, stopgrad_k=stopgrad_k)
-        scaler.scale(loss).backward()
 
+        # CUDA Events for accurate GPU-side timing (negligible overhead)
+        t_fwd_s = torch.cuda.Event(enable_timing=True)
+        t_fwd_e = torch.cuda.Event(enable_timing=True)
+        t_bwd_s = torch.cuda.Event(enable_timing=True)
+        t_bwd_e = torch.cuda.Event(enable_timing=True)
+        t_opt_s = torch.cuda.Event(enable_timing=True)
+        t_opt_e = torch.cuda.Event(enable_timing=True)
+
+        t_fwd_s.record()
+        loss = self._model_forward(model, sample, training=True, stopgrad_k=stopgrad_k)
+        t_fwd_e.record()
+
+        t_bwd_s.record()
+        scaler.scale(loss).backward()
+        # bwd_ms includes DDP NCCL allreduce (overlapped but contributes to latency)
+        t_bwd_e.record()
+
+        t_opt_s.record()
         # Clip gradients
         scaler.unscale_(optimizer)
         grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
@@ -529,6 +650,7 @@ class BaseTrainTester:
 
         # Step the lr scheduler
         lr_scheduler.step()
+        t_opt_e.record()
         
         # Log training metrics
         if dist.get_rank() == 0 and step_id is not None:
@@ -588,11 +710,19 @@ class BaseTrainTester:
             if getattr(self.args, 'use_wandb', True):
                 wandb.log(metrics, step=step_id)
 
+        if self.benchmark_logger is not None:
+            torch.cuda.synchronize()
+            return {
+                'fwd_ms': t_fwd_s.elapsed_time(t_fwd_e),
+                'bwd_ms': t_bwd_s.elapsed_time(t_bwd_e),
+                'opt_ms': t_opt_s.elapsed_time(t_opt_e),
+            }
+        return None
+
     @torch.inference_mode()
     def evaluate_nsteps(self, model, loader, step_id, val_iters, split='val'):
         """Run a given number of evaluation steps."""
         values = {}
-        device = next(model.parameters()).device
         model.eval()
 
         for i, sample in tqdm(enumerate(loader)):
@@ -600,38 +730,28 @@ class BaseTrainTester:
                 break
 
             pred_action = self._model_forward(model, sample, training=False)
-            gt_action = sample["action"].cuda(non_blocking=True)
+            gt_action = sample["action"].to(device='cuda', non_blocking=True)
             if self.args.relative_action:
-                pred_action = relative_to_absolute(
-                    pred_action[:, :, 0],
-                    sample["proprioception"].cuda(non_blocking=True)[:, :, 0]
-                )
-                gt_action = relative_to_absolute(
-                    gt_action[:, :, 0],
-                    sample["proprioception"].cuda(non_blocking=True)[:, :, 0]
-                )
+                prop = sample["proprioception"].to(device='cuda', non_blocking=True)[:, :, 0]
+                pred_action = relative_to_absolute(pred_action[:, :, 0], prop)
+                gt_action = relative_to_absolute(gt_action[:, :, 0], prop)
 
             losses, losses_B = compute_metrics(pred_action, gt_action)
 
-            # Gather global statistics
+            # Gather global statistics — collect into lists, stack once at the end
             for n, l in losses.items():
                 key = f"{split}-losses/mean/{n}"
-                if key not in values:
-                    values[key] = torch.Tensor([]).to(device)
-                values[key] = torch.cat([values[key], l.unsqueeze(0)])
+                values.setdefault(key, []).append(l)
 
             # Gather per-task statistics
             tasks = np.array(sample["task"])
             for n, l in losses_B.items():
                 for task in np.unique(tasks):
                     key = f"{split}-loss/{task}/{n}"
-                    l_task = l[tasks == task].mean()
-                    if key not in values:
-                        values[key] = torch.Tensor([]).to(device)
-                    values[key] = torch.cat([values[key], l_task.unsqueeze(0)])
+                    values.setdefault(key, []).append(l[tasks == task].mean())
 
         # Log all statistics
-        values = {k: v.mean().item() for k, v in values.items()}
+        values = {k: torch.stack(v).mean().item() for k, v in values.items()}
         if dist.get_rank() == 0:
             if step_id > -1:
                 # Log to TensorBoard
@@ -692,7 +812,9 @@ class BaseTrainTester:
     def save_checkpoint(self, model, ema_model, optimizer,
                         step_id, new_loss, best_loss):
         """Save checkpoint if requested."""
-        model_state = model.state_dict()
+        
+        modeL_state = {k: v.cpu() for k,v in model.state_dict().items()}
+        # model_state = model.state_dict()
         ema_state = ema_model.state_dict() if self.args.use_ema else None
 
         # Best checkpoint

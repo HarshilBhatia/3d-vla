@@ -41,10 +41,10 @@ class PeractDataPreprocessor(DataPreprocessor):
         # Handle non-wrist cameras, which may require augmentations
         if augment:
             b, nc, _, h, w = rgbs.shape
-            # Augment in half precision
+            # Augment in half precision — fuse H2D + dtype cast into one copy_
             obs = torch.cat((
-                rgbs.cuda(non_blocking=True).half() / 255,
-                pcds.cuda(non_blocking=True).half()
+                rgbs.to(device='cuda', dtype=torch.float16, non_blocking=True) / 255,
+                pcds.to(device='cuda', dtype=torch.float16, non_blocking=True)
             ), 2)  # (B, ncam, 6, H, W)
             obs = obs.reshape(-1, 6, h, w)
             obs = self.aug(obs)
@@ -52,8 +52,8 @@ class PeractDataPreprocessor(DataPreprocessor):
             rgb_3d = obs[:, :3].reshape(b, nc, 3, h, w).float()
             pcd_3d = obs[:, 3:].reshape(b, nc, 3, h, w).float()
         else:
-            # Simply convert to full precision
-            rgb_3d = rgbs.cuda(non_blocking=True).float() / 255
-            pcd_3d = pcds.cuda(non_blocking=True).float()
+            # Simply convert to full precision — fuse H2D + dtype cast into one copy_
+            rgb_3d = rgbs.to(device='cuda', dtype=torch.float32, non_blocking=True) / 255
+            pcd_3d = pcds.to(device='cuda', dtype=torch.float32, non_blocking=True)
 
         return rgb_3d, pcd_3d
