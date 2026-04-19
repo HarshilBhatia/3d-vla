@@ -41,7 +41,7 @@ REPO_DIR="/ocean/projects/cis240058p/hbhatia1/3d-vla"
 CONTAINER="/ocean/projects/cis240058p/hbhatia1/containers/3dfa-sandbox.sif"
 SAVE_PATH="${REPO_DIR}/data/orbital_rollouts"
 CAMERAS_FILE="${REPO_DIR}/orbital_cameras_grouped.json"
-SCRIPT="${REPO_DIR}/scripts/rlbench/collect_orbital_rollouts.py"
+SCRIPT="${REPO_DIR}/scripts/orbital_cameras/collect.py"
 
 # ── (task, group) lookup table ────────────────────────────────────────────────
 # Flattened from task_group_mapping.json in insertion order.

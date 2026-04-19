@@ -19,7 +19,7 @@ REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 MAPPING="${REPO_ROOT}/instructions/task_group_mapping.json"
 CAMERAS_FILE="${REPO_ROOT}/instructions/orbital_cameras_grouped.json"
 SAVE_PATH="${REPO_ROOT}/data/orbital_rollouts"
-SCRIPT="${REPO_ROOT}/scripts/rlbench/collect_orbital_rollouts.py"
+SCRIPT="${REPO_ROOT}/scripts/orbital_cameras/collect.py"
 N_EPISODES="${N_EPISODES:-30}"
 
 mkdir -p "${SAVE_PATH}"
