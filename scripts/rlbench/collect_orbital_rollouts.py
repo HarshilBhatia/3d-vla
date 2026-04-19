@@ -12,13 +12,13 @@ Example (headless):
     xvfb-run -a python scripts/rlbench/collect_orbital_rollouts.py \\
         --task close_jar --group G1 --n-episodes 30 \\
         --save-path data/orbital_rollouts \\
-        --cameras-file orbital_cameras_grouped.json
+        --cameras-file instructions/orbital_cameras_grouped.json
 
     # Debug / video mode:
     xvfb-run -a python scripts/rlbench/collect_orbital_rollouts.py \\
         --task close_jar --group G1 --video-only \\
         --video-out debug_videos/close_jar_G1.mp4 \\
-        --cameras-file orbital_cameras_grouped.json
+        --cameras-file instructions/orbital_cameras_grouped.json
 """
 
 import argparse
@@ -192,7 +192,7 @@ def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
     try:
         import zarr
         from numcodecs import Blosc
-        from data_processing.rlbench_utils import keypoint_discovery
+        from data.processing.rlbench_utils import keypoint_discovery
     except ImportError as e:
         print("[WARN] Could not save debug zarr: {}".format(e))
         return
@@ -384,7 +384,7 @@ def parse_args():
     p.add_argument("--image-size",   type=int, default=256)
     p.add_argument("--fov-deg",      type=float, default=60.0,
                    help="FOV for orbital cameras (degrees)")
-    p.add_argument("--cameras-file", default="orbital_cameras_grouped.json",
+    p.add_argument("--cameras-file", default="instructions/orbital_cameras_grouped.json",
                    help="Path to orbital_cameras_grouped.json")
     p.add_argument("--video-only",   action="store_true",
                    help="Debug: collect 1 episode per group, save MP4 + zarr")
@@ -476,7 +476,7 @@ def main():
         sys.exit("[ERROR] RLBench import failed: {}\n"
                  "Set COPPELIASIM_ROOT etc. first.".format(e))
 
-    from data_generation.orbital_rlbench import OrbitalEnvironment
+    from data.generation.orbital_rlbench import OrbitalEnvironment
 
     obs_config  = make_obs_config(args.image_size)
     action_mode = MoveArmThenGripper(JointVelocity(), Discrete())

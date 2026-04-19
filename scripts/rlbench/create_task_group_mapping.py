@@ -53,7 +53,7 @@ def verify_mapping(mapping):
 def main():
     out_path = os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(__file__))),
-        "task_group_mapping.json",
+        "instructions", "task_group_mapping.json",
     )
 
     mapping = build_mapping(PERACT_TASKS)

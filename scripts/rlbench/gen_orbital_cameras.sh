@@ -10,7 +10,7 @@
 set -euo pipefail
 
 SCRIPT="scripts/rlbench/visualize_cameras_rerun.py"
-CAMERAS_FILE="orbital_cameras.json"
+CAMERAS_FILE="instructions/orbital_cameras.json"
 OUT_DIR="orbital_viz"
 IMAGE_SIZE=256
 

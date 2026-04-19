@@ -26,13 +26,13 @@ import torch
 import torch.nn.functional as F
 from tqdm import tqdm
 
-from data_generation.orbital.collection import (
+from data.generation.orbital.collection import (
     load_group_cameras,
     create_orbital_sensor,
     capture_orbital_extrinsics,
     make_obs_config,
 )
-from data_generation.orbital.scene import OrbitalEnvironment
+from data.generation.orbital.scene import OrbitalEnvironment
 from utils.data_preprocessors.rlbench import _load_miscalibration_noise
 from utils.depth2cloud.rlbench import RLBenchDepth2Cloud
 

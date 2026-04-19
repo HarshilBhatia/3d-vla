@@ -14,8 +14,8 @@ eval_data_dir=/grogu/user/harshilb/orbital_train.zarr
 val_instructions=instructions/peract/instructions.json
 
 dataset=OrbitalWrist
-cameras_file=orbital_cameras_grouped.json
-task_group_mapping_file=task_group_mapping.json
+cameras_file=instructions/orbital_cameras_grouped.json
+task_group_mapping_file=instructions/task_group_mapping.json
 fov_deg=60.0
 miscalibration_noise_level=null
 

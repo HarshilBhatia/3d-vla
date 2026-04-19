@@ -16,15 +16,15 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MAPPING="${REPO_ROOT}/task_group_mapping.json"
-CAMERAS_FILE="${REPO_ROOT}/orbital_cameras_grouped.json"
+MAPPING="${REPO_ROOT}/instructions/task_group_mapping.json"
+CAMERAS_FILE="${REPO_ROOT}/instructions/orbital_cameras_grouped.json"
 VIDEO_DIR="${REPO_ROOT}/debug_videos"
 SCRIPT="${REPO_ROOT}/scripts/rlbench/collect_orbital_rollouts.py"
 
 mkdir -p "${VIDEO_DIR}"
 
 if [ ! -f "${MAPPING}" ]; then
-    echo "[ERROR] task_group_mapping.json not found."
+    echo "[ERROR] instructions/task_group_mapping.json not found."
     echo "        Run: python scripts/rlbench/create_task_group_mapping.py"
     exit 1
 fi
