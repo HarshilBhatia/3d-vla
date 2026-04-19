@@ -1,42 +1,40 @@
 """
-Convert raw orbital rollout episodes → single train.zarr.
+Convert raw OOD rollout episodes → ood_test.zarr.
 
-Directory layout expected (from collect_orbital_rollouts.py):
-  {root}/{task}/{group}/episode_{N}/
-      orbital_left_rgb/   {0000..}.png
-      orbital_left_depth/ {0000..}.png   (RGB-encoded float, RLBench convention)
-      orbital_right_rgb/  {0000..}.png
-      orbital_right_depth/{0000..}.png
-      over_shoulder_left_rgb/   {0000..}.png
-      over_shoulder_left_depth/ {0000..}.png
-      over_shoulder_right_rgb/  {0000..}.png
-      over_shoulder_right_depth/{0000..}.png
+Directory layout expected (from collect_ood_rollouts.py):
+  {root}/{task}/OOD/episode_{N}/
+      ood_left_rgb/    {0000..}.png
+      ood_left_depth/  {0000..}.png   (RGB-encoded float, absolute metres)
+      ood_right_rgb/   {0000..}.png
+      ood_right_depth/ {0000..}.png   (RGB-encoded float, absolute metres)
+      wrist_rgb/       {0000..}.png
+      wrist_depth/     {0000..}.png   (RGB-encoded float, near/far from obs.misc)
       low_dim_obs.pkl
-      camera_group.txt
+      camera_group.txt               (contains "OOD")
+      ood_extrinsics.pkl             (E and K for both OOD cameras)
 
-Zarr schema (matches Peract2_zarr / peract2_to_zarr.py):
-  rgb              (N, NCAM=4, 3, H, W)   uint8
-  depth            (N, NCAM=4, H, W)      float16
-  extrinsics       (N, NCAM=4, 4, 4)      float16  cam-to-world
-  intrinsics       (N, NCAM=4, 3, 3)      float16
-  proprioception   (N, 3, NHAND=1, 8)     float32
-  action           (N, 1, NHAND=1, 8)     float32
-  proprioception_joints (N, 1, NHAND=1, 8) float32
-  action_joints    (N, 1, NHAND=1, 8)     float32
-  task_id          (N,)                   uint8
-  variation        (N,)                   uint8
-  camera_group     (N,)                   uint8   (1-6)
+Zarr schema (identical to orbital_to_zarr.py, NCAM=3):
+  rgb              (N, 3, 3, H, W)   uint8
+  depth            (N, 3, H, W)      float16
+  extrinsics       (N, 3, 4, 4)      float16  cam-to-world
+  intrinsics       (N, 3, 3, 3)      float16
+  proprioception   (N, 3, 1, 8)      float32
+  action           (N, 1, 1, 8)      float32
+  proprioception_joints (N, 1, 1, 8) float32
+  action_joints    (N, 1, 1, 8)      float32
+  task_id          (N,)              uint8
+  variation        (N,)              uint8
+  camera_group     (N,)              uint8   (0 for OOD)
 
-Camera order:  [orbital_left, orbital_right, wrist]
+Camera order: [ood_left, ood_right, wrist]
 """
 import argparse
-import json
 import os
 import pickle
 import sys
 from pathlib import Path
 
-# Stub unpickler to avoid RLBench/PyRep/CoppeliaSim import chain
+# Stub unpickler to avoid RLBench/PyRep import chain
 class Stub:
     def __init__(self, *args, **kwargs):
         pass
@@ -77,6 +75,7 @@ NCAM = 3
 NHAND = 1
 IM_SIZE = 256
 DEPTH_SCALE = 2 ** 24 - 1
+GROUP_ID_OOD = 0  # camera_group value for OOD episodes
 
 PERACT_TASKS = [
     "place_cups", "close_jar", "insert_onto_square_peg",
@@ -88,9 +87,10 @@ PERACT_TASKS = [
     "sweep_to_dustpan_of_size", "turn_tap",
 ]
 
+# Camera folders in the episode directory
 CAMERAS = [
-    "orbital_left",
-    "orbital_right",
+    "ood_left",
+    "ood_right",
     "wrist",
 ]
 
@@ -113,26 +113,22 @@ def load_rgb(ep_path, cam, frame_id):
 def load_depth_metres(ep_path, cam, frame_id, obs, cam_key):
     """
     Load depth image as float32 metres.
-
-    For over_shoulder cameras the PNG is RGB-encoded in the [0,1] range scaled by
-    (far-near); near/far are stored in the demo observation's misc dict.
-    For orbital cameras the PNG is RGB-encoded at DEPTH_SCALE (absolute metres).
+    OOD cameras use absolute metre scale (cam_key=None).
+    Wrist camera unpacks near/far from obs.misc (cam_key="wrist").
     """
     path = os.path.join(ep_path, "{}_depth".format(cam),
                         "{}.png".format(_num2id(frame_id)))
     d_raw = image_to_float_array(Image.open(path), DEPTH_SCALE)
     if cam_key is not None:
-        # over_shoulder cameras: value in [0,1], need to unpack near/far
         near = obs.misc.get("{}_camera_near".format(cam_key), 0.0)
         far  = obs.misc.get("{}_camera_far".format(cam_key), 4.0)
         return (near + d_raw * (far - near)).astype(np.float32)
     else:
-        # orbital cameras: value already in metres (absolute scale)
         return d_raw.astype(np.float32)
 
 
 def load_extrinsics_from_misc(obs, cam_key):
-    """4×4 cam-to-world from obs.misc (over_shoulder cameras)."""
+    """4×4 cam-to-world from obs.misc (wrist camera)."""
     key = "{}_camera_extrinsics".format(cam_key)
     E = obs.misc.get(key, None)
     if E is None:
@@ -141,7 +137,7 @@ def load_extrinsics_from_misc(obs, cam_key):
 
 
 def load_intrinsics_from_misc(obs, cam_key):
-    """3×3 intrinsic matrix from obs.misc (over_shoulder cameras)."""
+    """3×3 intrinsic matrix from obs.misc (wrist camera)."""
     key = "{}_camera_intrinsics".format(cam_key)
     K = obs.misc.get(key, None)
     if K is None:
@@ -149,12 +145,12 @@ def load_intrinsics_from_misc(obs, cam_key):
     return np.array(K, dtype=np.float32)
 
 
-def load_orbital_extrinsics(ep_path):
+def load_ood_extrinsics(ep_path):
     """
-    Load pre-saved orbital camera extrinsics from episode folder.
-    The collector saves these as a small pkl if present, otherwise returns eyes.
+    Load pre-saved OOD camera extrinsics from episode folder.
+    Same structure as orbital_extrinsics.pkl.
     """
-    path = os.path.join(ep_path, "orbital_extrinsics.pkl")
+    path = os.path.join(ep_path, "ood_extrinsics.pkl")
     if os.path.exists(path):
         with open(path, "rb") as f:
             data = pickle.load(f)
@@ -170,20 +166,24 @@ def load_orbital_extrinsics(ep_path):
     return eye4, eye4, eye3, eye3
 
 
-def get_group_id(ep_path, group_str):
-    """Return integer group id (1-6) from camera_group.txt or group string."""
+def get_group_id(ep_path):
+    """Return integer group id. "OOD" maps to 0."""
     txt = os.path.join(ep_path, "camera_group.txt")
     if os.path.exists(txt):
-        with open(txt) as f:
-            return int(f.read().strip()[1])  # "G3" → 3
-    return int(group_str[1])
+        val = open(txt).read().strip()
+        if val == "OOD":
+            return GROUP_ID_OOD
+        # Handle legacy G1-G6 format just in case
+        if val.startswith("G") and val[1:].isdigit():
+            return int(val[1:])
+    return GROUP_ID_OOD
 
 
 # ---------------------------------------------------------------------------
 # Episode → zarr rows
 # ---------------------------------------------------------------------------
 
-def process_episode(ep_path, task_id, group_str, zarr_file, im_size=IM_SIZE):
+def process_episode(ep_path, task_id, zarr_file, im_size=IM_SIZE):
     """
     Extract keyframes from one episode and append rows to zarr_file.
     Returns number of keyframes written.
@@ -202,10 +202,10 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=IM_SIZE):
         print("[WARN] Not enough keyframes in {}".format(ep_path))
         return 0
 
-    # Orbital extrinsics (fixed per episode)
-    E_ol, E_or, K_ol, K_or = load_orbital_extrinsics(ep_path)
+    # OOD extrinsics (fixed per episode)
+    E_ol, E_or, K_ol, K_or = load_ood_extrinsics(ep_path)
 
-    group_id = get_group_id(ep_path, group_str)
+    group_id = get_group_id(ep_path)
 
     n_written = 0
     for idx, k in enumerate(key_frames[:-1]):
@@ -215,27 +215,27 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=IM_SIZE):
         # ── RGB ───────────────────────────────────────────────────────────────
         rgb_list = []
         for cam in CAMERAS:
-            img = load_rgb(ep_path, cam, k)          # (H, W, 3) uint8
-            rgb_list.append(img.transpose(2, 0, 1))  # (3, H, W)
-        rgb = np.stack(rgb_list)[np.newaxis]          # (1, NCAM, 3, H, W)
+            img = load_rgb(ep_path, cam, k)
+            rgb_list.append(img.transpose(2, 0, 1))
+        rgb = np.stack(rgb_list)[np.newaxis]  # (1, NCAM, 3, H, W)
 
         # ── Depth ─────────────────────────────────────────────────────────────
+        # OOD cameras: absolute depth (cam_key=None)
+        # Wrist camera: near/far from obs.misc (cam_key="wrist")
         depth_list = []
         cam_keys = [None, None, "wrist"]
         for cam, cam_key in zip(CAMERAS, cam_keys):
             d = load_depth_metres(ep_path, cam, k, obs, cam_key)
             depth_list.append(d)
-        depth = np.stack(depth_list).astype(np.float16)[np.newaxis]  # (1, NCAM, H, W)
+        depth = np.stack(depth_list).astype(np.float16)[np.newaxis]
 
         # ── Extrinsics ────────────────────────────────────────────────────────
         E_wrist = load_extrinsics_from_misc(obs, "wrist")
-        extr  = np.stack([E_ol, E_or, E_wrist]).astype(np.float16)
-        extr  = extr[np.newaxis]  # (1, NCAM, 4, 4)
+        extr = np.stack([E_ol, E_or, E_wrist]).astype(np.float16)[np.newaxis]
 
         # ── Intrinsics ────────────────────────────────────────────────────────
         K_wrist = load_intrinsics_from_misc(obs, "wrist")
-        intr  = np.stack([K_ol, K_or, K_wrist]).astype(np.float16)
-        intr  = intr[np.newaxis]  # (1, NCAM, 3, 3)
+        intr = np.stack([K_ol, K_or, K_wrist]).astype(np.float16)[np.newaxis]
 
         # ── Proprioception (EEF pose) ─────────────────────────────────────────
         def _eef_state(o):
@@ -260,9 +260,9 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=IM_SIZE):
         # ── Scalars ───────────────────────────────────────────────────────────
         var_txt = os.path.join(ep_path, "variation.txt")
         variation_id = int(open(var_txt).read().strip()) if os.path.exists(var_txt) else 0
-        tid    = np.array([task_id],      dtype=np.uint8)
-        var    = np.array([variation_id], dtype=np.uint8)
-        grp    = np.array([group_id],     dtype=np.uint8)
+        tid  = np.array([task_id],      dtype=np.uint8)
+        var  = np.array([variation_id], dtype=np.uint8)
+        grp  = np.array([group_id],     dtype=np.uint8)
 
         # ── Append ────────────────────────────────────────────────────────────
         zarr_file["rgb"].append(rgb)
@@ -287,17 +287,15 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=IM_SIZE):
 
 def parse_args():
     p = argparse.ArgumentParser(
-        description="Convert orbital rollouts to train.zarr"
+        description="Convert OOD rollouts to ood_test.zarr"
     )
     p.add_argument("--root",       required=True,
-                   help="Root dir containing task/group/episode_* folders")
+                   help="Root dir containing task/OOD/episode_* folders")
     p.add_argument("--out",        required=True,
-                   help="Output zarr path (e.g. data/orbital_train.zarr)")
+                   help="Output zarr path (e.g. data/ood_test.zarr)")
     p.add_argument("--image-size", type=int, default=IM_SIZE)
     p.add_argument("--tasks",      default=None,
                    help="Comma-separated task list (default: all 18 PerAct)")
-    p.add_argument("--groups",     default=None,
-                   help="Comma-separated camera groups to include (e.g. G2,G3). Default: all groups present.")
     p.add_argument("--overwrite",  action="store_true",
                    help="Remove existing zarr and rebuild")
     return p.parse_args()
@@ -310,9 +308,6 @@ def main():
     if args.tasks:
         tasks = [t.strip() for t in args.tasks.split(",")]
     task2id = {t: i for i, t in enumerate(PERACT_TASKS)}
-    allowed_groups = None
-    if args.groups:
-        allowed_groups = set(g.strip() for g in args.groups.split(","))
 
     if os.path.exists(args.out):
         if args.overwrite:
@@ -320,8 +315,7 @@ def main():
             shutil.rmtree(args.out)
             print("[INFO] Removed existing zarr at {}".format(args.out))
         else:
-            print("[SKIP] {} already exists. Use --overwrite to rebuild.".format(
-                args.out))
+            print("[SKIP] {} already exists. Use --overwrite to rebuild.".format(args.out))
             return
 
     im = args.image_size
@@ -351,29 +345,22 @@ def main():
         total = 0
         for task in tasks:
             tid = task2id.get(task, 0)
-            task_root = os.path.join(args.root, task)
-            if not os.path.isdir(task_root):
-                print("[SKIP] No data for task {}".format(task))
+            # OOD episodes live under {root}/{task}/OOD/
+            ood_root = os.path.join(args.root, task, "OOD")
+            if not os.path.isdir(ood_root):
+                print("[SKIP] No OOD data for task {}".format(task))
                 continue
 
-            groups = sorted(os.listdir(task_root))
-            for group_str in groups:
-                if allowed_groups is not None and group_str not in allowed_groups:
-                    continue
-                group_root = os.path.join(task_root, group_str)
-                if not os.path.isdir(group_root):
-                    continue
-                episodes = sorted([
-                    d for d in os.listdir(group_root)
-                    if d.startswith("episode_") and
-                       os.path.isdir(os.path.join(group_root, d))
-                ])
-                print("[{}] {} — {} episodes".format(
-                    task, group_str, len(episodes)))
-                for ep in tqdm(episodes, desc="{}/{}".format(task, group_str)):
-                    ep_path = os.path.join(group_root, ep)
-                    n = process_episode(ep_path, tid, group_str, zf, im)
-                    total += n
+            episodes = sorted([
+                d for d in os.listdir(ood_root)
+                if d.startswith("episode_") and
+                   os.path.isdir(os.path.join(ood_root, d))
+            ])
+            print("[{}] OOD — {} episodes".format(task, len(episodes)))
+            for ep in tqdm(episodes, desc="{}/OOD".format(task)):
+                ep_path = os.path.join(ood_root, ep)
+                n = process_episode(ep_path, tid, zf, args.image_size)
+                total += n
 
         print("\n[DONE] Wrote {} keyframe rows to {}".format(total, args.out))
         for key in zf.keys():

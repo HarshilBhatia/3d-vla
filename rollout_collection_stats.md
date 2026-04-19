@@ -1,6 +1,35 @@
-# Orbital Rollout Collection Stats
+# Orbital Rollout Data Summary
 
-**Job:** `38621910` | **Date:** 2026-04-08  
+## What was collected
+
+18 RLBench tasks × 3 camera groups each × 30 episodes = **1,620 target episodes**  
+**1,467 collected** across `data/orbital_rollouts/{task}/{group}/episode_*/`
+
+Each episode contains:
+- `orbital_left_rgb/depth` + `orbital_right_rgb/depth` — two orbital cameras (256×256)
+- `wrist_rgb/depth` — wrist camera (256×256)
+- `low_dim_obs.pkl` — full demo (joint positions, gripper pose, etc.)
+- `orbital_extrinsics.pkl` — camera extrinsics/intrinsics
+- `camera_group.txt` — which group (G1–G6) this episode used
+
+Camera groups (G1–G6) defined in `orbital_cameras_grouped.json` — each group is a pair of (left, right) orbital camera poses. Each task is assigned 3 groups from the 6.
+
+## Mini test zarr
+
+`data/orbital_mini_test.zarr` — 2 tasks, overlapping cameras only (G2 ∩ G3):
+
+- `place_cups` G2+G3 + `close_jar` G2+G3 → **780 keyframe rows**
+- Schema: `rgb (N,3,3,256,256)`, `depth (N,3,256,256)`, `extrinsics (N,3,4,4)`, `intrinsics (N,3,3,3)`, `proprioception (N,3,1,8)`, `action (N,1,1,8)`, `task_id (N,)`, `camera_group (N,)`
+- Built with: `data_processing/orbital_to_zarr.py --tasks place_cups,close_jar --groups G2,G3`
+
+## Outstanding
+
+- `push_buttons` — 0 episodes, segfaults in CoppeliaSim during scene load. Fix attempted: restored original `push_buttons.ttm` from git (`63a4bb40`), test job `38646094` pending.
+- Several other groups short by 1–6 episodes (X11 crashes mid-collection).
+
+---
+
+## Job `38621910` | **Date:** 2026-04-08  
 **Tasks:** 44/54 succeeded | **Total episodes saved:** 1,467
 
 ---

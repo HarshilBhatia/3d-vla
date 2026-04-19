@@ -278,3 +278,23 @@ class Peract2SingleCamDataset(RLBenchDataset):
     camera_inds = (0,)  # use only front camera
     train_copies = 10
     camera_inds2d = None
+
+
+class OrbitalDataset(RLBenchDataset):
+    """
+    Dataset for OOD camera data collected with collect_ood_rollouts.py.
+
+    Camera slots in the zarr:
+      0 → ood_az30_el40   (orbital_left slot)
+      1 → ood_az330_el55  (orbital_right slot)
+      2 → wrist
+
+    The cameras tuple is used by utils_with_ood_rlbench.RLBenchEnv to know
+    how many camera slots exist; the OOD env overrides observation collection
+    and does not use these strings to call getattr(obs, ...).
+    """
+    tasks = PERACT_TASKS
+    cameras = ("orbital_left", "orbital_right", "wrist")
+    camera_inds = None
+    train_copies = 10
+    camera_inds2d = None

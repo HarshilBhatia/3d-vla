@@ -35,8 +35,8 @@ trap 'echo "[ERROR] line $LINENO: $BASH_COMMAND (exit $?)" >&2' ERR
 # ── Paths ─────────────────────────────────────────────────────────────────────
 REPO_DIR="/ocean/projects/cis240058p/hbhatia1/3d-vla"
 CONTAINER="/ocean/projects/cis240058p/hbhatia1/containers/3dfa-sandbox"
-DATA_ROOT="${REPO_DIR}/data/orbital_rollouts"
-OUTPUT_ZARR="${REPO_DIR}/data/orbital_train.zarr"
+DATA_ROOT="${REPO_DIR}/data/orbital_rollouts_v2"
+OUTPUT_ZARR="${REPO_DIR}/data/orbital_train_v2.zarr"
 
 echo "========================================"
 echo "  Zarr merge job ${SLURM_JOB_ID}"

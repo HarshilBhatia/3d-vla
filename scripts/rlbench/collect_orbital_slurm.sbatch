@@ -27,8 +27,8 @@
 #SBATCH --mem=10G
 #SBATCH --time=06:00:00
 #SBATCH --array=0-53
-#SBATCH --output=logs/collect_orbital_%A_%a.out
-#SBATCH --error=logs/collect_orbital_%A_%a.err
+#SBATCH --output=logs/collect_orbital_v2_%A_%a.out
+#SBATCH --error=logs/collect_orbital_v2_%A_%a.err
 
 set -euo pipefail
 trap 'echo "[ERROR] line $LINENO: $BASH_COMMAND (exit $?)" >&2' ERR
@@ -39,7 +39,7 @@ ulimit -c 0
 # ── Paths ─────────────────────────────────────────────────────────────────────
 REPO_DIR="/ocean/projects/cis240058p/hbhatia1/3d-vla"
 CONTAINER="/ocean/projects/cis240058p/hbhatia1/containers/3dfa-sandbox.sif"
-SAVE_PATH="${REPO_DIR}/data/orbital_rollouts"
+SAVE_PATH="${REPO_DIR}/data/orbital_rollouts_v2"
 CAMERAS_FILE="${REPO_DIR}/orbital_cameras_grouped.json"
 SCRIPT="${REPO_DIR}/scripts/rlbench/collect_orbital_rollouts.py"
 
@@ -120,7 +120,7 @@ xvfb-run -a \
         python3 "${SCRIPT}" \
             --task         "${TASK}" \
             --groups       "${GROUP}" \
-            --n-episodes   30 \
+            --n-episodes   40 \
             --save-path    "${SAVE_PATH}" \
             --cameras-file "${CAMERAS_FILE}" \
             --image-size   256 \

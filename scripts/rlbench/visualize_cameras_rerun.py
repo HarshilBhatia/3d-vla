@@ -162,6 +162,9 @@ def parse_args():
                    help="JSON file to load/save orbital cameras. "
                         "If it exists, cameras are loaded (no recompute); "
                         "otherwise they are computed and saved.")
+    p.add_argument("--ood-cameras-file", default=None, metavar="PATH",
+                   help="Optional JSON file with OOD cameras to visualise as a "
+                        "separate group (world/ood_cams/) in magenta.")
     return p.parse_args()
 
 
@@ -196,7 +199,13 @@ def main():
     else:
         action_mode    = MoveArmThenGripper(JointVelocity(), Discrete())
         robot_setup    = "panda"
+        # keys = display name, values = scene attribute name
         scene_cam_names = ["front", "over_shoulder_left", "over_shoulder_right"]
+        scene_cam_attrs = {
+            "front":             "_cam_front",
+            "over_shoulder_left":  "_cam_over_shoulder_left",
+            "over_shoulder_right": "_cam_over_shoulder_right",
+        }
 
     # ── ObservationConfig: enable RGB + depth + point_cloud for scene cams ───
     sz  = (args.image_size, args.image_size)
@@ -204,14 +213,11 @@ def main():
                        image_size=sz, render_mode=RenderMode.OPENGL3)
     off = CameraConfig(); off.set_all(False)
 
-    if args.bimanual:
-        all_known = ["front", "wrist_left", "wrist_right"]
-    else:
-        all_known = ["front", "over_shoulder_left", "over_shoulder_right", "wrist"]
-    cam_cfgs  = {n: (on if n in scene_cam_names else off) for n in all_known}
-
     obs_config = ObservationConfig(
-        camera_configs=cam_cfgs,
+        left_shoulder_camera=on if "over_shoulder_left" in scene_cam_names else off,
+        right_shoulder_camera=on if "over_shoulder_right" in scene_cam_names else off,
+        wrist_camera=on if "wrist" in scene_cam_names else off,
+        front_camera=on if "front" in scene_cam_names else off,
         joint_velocities=False, joint_positions=False, joint_forces=False,
         gripper_open=False, gripper_pose=False, task_low_dim_state=False,
     )
@@ -255,7 +261,7 @@ def main():
     scene_cam_data    = []   # (name, E, K, rgb_img) for Rerun logging
 
     for name in scene_cam_names:
-        sensor = scene.camera_sensors[name]
+        sensor = getattr(scene, scene_cam_attrs[name])
         sensor.set_explicit_handling(1)
         sensor.handle_explicitly()
 
@@ -307,6 +313,34 @@ def main():
         candidate_data.append({"name": cam["name"], "E": E, "K": K, "rgb": rgb})
         print("[INFO]  candidate cam '{}'".format(cam["name"]))
 
+    # ── OOD cameras (optional) ────────────────────────────────────────────────
+    ood_data = []
+    if args.ood_cameras_file and os.path.exists(args.ood_cameras_file):
+        ood_cams = load_cameras(args.ood_cameras_file)
+        for cam in ood_cams:
+            pos  = cam["pos"]
+            R    = cam["R"]
+            quat = R_to_pyrep_quat(R)
+            pose = pos.tolist() + quat.tolist()
+
+            sensor = VisionSensor.create(
+                resolution=[args.image_size, args.image_size],
+                explicit_handling=True,
+                view_angle=args.fov_deg,
+                near_clipping_plane=0.01,
+                far_clipping_plane=10.0,
+                render_mode=RenderMode.OPENGL3,
+            )
+            sensor.set_pose(pose)
+            sensor.handle_explicitly()
+
+            E   = sensor.get_matrix().astype(np.float64)
+            K   = sensor.get_intrinsic_matrix().astype(np.float64)
+            rgb = (sensor.capture_rgb() * 255).clip(0, 255).astype(np.uint8)
+
+            ood_data.append({"name": cam["name"], "E": E, "K": K, "rgb": rgb})
+            print("[INFO]  ood cam '{}'".format(cam["name"]))
+
     env.shutdown()
 
     # ── Log to Rerun ──────────────────────────────────────────────────────────
@@ -356,6 +390,28 @@ def main():
             colors=[[100, 200, 255]] * len(candidate_data),
         ),
     )
+
+    # OOD cameras (magenta)
+    for cam in ood_data:
+        R = cam["E"][:3, :3]
+        t = cam["E"][:3, 3]
+        path = "world/ood_cams/{}".format(cam["name"])
+        rr.log(path, rr.Transform3D(translation=t, mat3x3=R))
+        rr.log(path, rr.Pinhole(image_from_camera=cam["K"],
+                                width=args.image_size, height=args.image_size,
+                                image_plane_distance=0.25))
+        rr.log("{}/rgb".format(path), rr.Image(cam["rgb"]))
+
+    if ood_data:
+        rr.log(
+            "world/ood_cams/_labels",
+            rr.Points3D(
+                np.array([c["E"][:3, 3] for c in ood_data], dtype=np.float32),
+                labels=[c["name"] for c in ood_data],
+                radii=0.02,
+                colors=[[255, 50, 220]] * len(ood_data),
+            ),
+        )
 
     if not args.spawn:
         rr.save(args.out)

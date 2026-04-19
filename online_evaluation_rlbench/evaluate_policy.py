@@ -103,6 +103,8 @@ if __name__ == "__main__":
     # Bimanual vs single-arm utils
     if args.bimanual:
         from online_evaluation_rlbench.utils_with_bimanual_rlbench import RLBenchEnv, Actioner
+    elif "orbital" in args.dataset.lower() or "ood" in args.dataset.lower():
+        from online_evaluation_rlbench.utils_with_ood_rlbench import RLBenchEnv, Actioner
     elif "peract" in args.dataset.lower():
         from online_evaluation_rlbench.utils_with_rlbench import RLBenchEnv, Actioner
     else:

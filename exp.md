@@ -12,3 +12,8 @@ All should be saved in a zarr file (how RLbench already does this).
 ### DEBUG 
 Before generating large scale data, lets also generate video of the rollouts, for each task - per camera. So 3 videos per task, and total 18 * 3 = 54 videos.
 
+
+
+ rsync -avz --progress \                                                                                                                                                                                                   
+      /ocean/projects/cis240058p/hbhatia1/3d-vla/data/peract_raw_ood/ \                                                                                                                                                     
+      harshilb@grogu.ri.cmu.edu:/grogu/user/harshilb/peract_raw_ood/       

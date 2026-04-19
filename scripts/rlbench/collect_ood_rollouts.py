@@ -1,24 +1,26 @@
 """
-Collect RLBench PerAct rollouts using orbital camera groups.
+Collect RLBench PerAct rollouts using OOD cameras from ood_camera.json.
 
-Each episode records 4 cameras:
-  [orbital_left, orbital_right, over_shoulder_left, over_shoulder_right]
+The two OOD cameras replace the orbital left/right pair:
+  slot 0 → ood_az30_el40   (left)
+  slot 1 → ood_az330_el55  (right)
+  slot 2 → wrist            (unchanged)
 
-Normal mode  → saves raw episodes to --save-path/{task}/{group}/episode_{N}/
-Video mode   → saves a single episode as MP4 and a single-episode zarr
+Normal mode  → saves raw episodes to --save-path/{task}/OOD/episode_{N}/
+Video mode   → saves a single episode as MP4 + single-episode zarr
                for pipeline validation.
 
 Example (headless):
-    xvfb-run -a python scripts/rlbench/collect_orbital_rollouts.py \\
-        --task close_jar --group G1 --n-episodes 30 \\
-        --save-path data/orbital_rollouts \\
-        --cameras-file orbital_cameras_grouped.json
+    xvfb-run -a python scripts/rlbench/collect_ood_rollouts.py \\
+        --task close_jar --n-episodes 5 \\
+        --save-path data/ood_rollouts \\
+        --ood-file ood_camera.json
 
     # Debug / video mode:
-    xvfb-run -a python scripts/rlbench/collect_orbital_rollouts.py \\
-        --task close_jar --group G1 --video-only \\
-        --video-out debug_videos/close_jar_G1.mp4 \\
-        --cameras-file orbital_cameras_grouped.json
+    xvfb-run -a python scripts/rlbench/collect_ood_rollouts.py \\
+        --task close_jar --video-only \\
+        --video-dir debug_videos \\
+        --ood-file ood_camera.json
 """
 
 import argparse
@@ -35,10 +37,11 @@ from scipy.spatial.transform import Rotation as ScipyR
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
 
 DEPTH_SCALE = 2 ** 24 - 1
+GROUP_NAME = "OOD"
 
 
 # ---------------------------------------------------------------------------
-# Geometry helpers (mirrors visualize_cameras_rerun.py)
+# Geometry helpers
 # ---------------------------------------------------------------------------
 
 def R_to_pyrep_quat(R_mat):
@@ -46,19 +49,19 @@ def R_to_pyrep_quat(R_mat):
     return ScipyR.from_matrix(R_mat).as_quat()  # scipy returns xyzw
 
 
-def load_group_cameras(cameras_file, group):
-    """Return the left/right camera dicts for `group` (e.g. 'G1')."""
-    with open(cameras_file) as f:
-        groups = json.load(f)
-    for entry in groups:
-        if entry["group"] == group:
-            return (
-                {"pos": np.array(entry["left"]["pos"]),
-                 "R":   np.array(entry["left"]["R"])},
-                {"pos": np.array(entry["right"]["pos"]),
-                 "R":   np.array(entry["right"]["R"])},
-            )
-    raise ValueError("Group {} not found in {}".format(group, cameras_file))
+def load_ood_cameras(ood_file):
+    """
+    Return (left_cam, right_cam) dicts from ood_camera.json.
+    cams[0] = ood_az30_el40  → left slot
+    cams[1] = ood_az330_el55 → right slot
+    """
+    with open(ood_file) as f:
+        cams = json.load(f)
+    if len(cams) < 2:
+        raise ValueError("ood_camera.json must have at least 2 entries")
+    left  = {"name": cams[0]["name"], "pos": np.array(cams[0]["pos"]), "R": np.array(cams[0]["R"])}
+    right = {"name": cams[1]["name"], "pos": np.array(cams[1]["pos"]), "R": np.array(cams[1]["R"])}
+    return left, right
 
 
 # ---------------------------------------------------------------------------
@@ -80,36 +83,35 @@ def float_array_to_rgb_image(float_array, scale_factor):
     )
 
 
-def save_orbital_episode(demo, ep_path, group, orbital_extrinsics, variation=0):
+def save_ood_episode(demo, ep_path, orbital_extrinsics, variation=0):
     """
-    Save a single orbital demo to ep_path/:
-      orbital_left_rgb/      orbital_left_depth/
-      orbital_right_rgb/     orbital_right_depth/
-      over_shoulder_left_rgb/  over_shoulder_left_depth/
-      over_shoulder_right_rgb/ over_shoulder_right_depth/
+    Save a single OOD demo to ep_path/:
+      ood_left_rgb/      ood_left_depth/
+      ood_right_rgb/     ood_right_depth/
+      wrist_rgb/         wrist_depth/
       low_dim_obs.pkl
-      camera_group.txt
-      orbital_extrinsics.pkl   (E and K for both orbital cameras)
+      camera_group.txt   (writes "OOD")
+      variation.txt
+      ood_extrinsics.pkl (E and K for both OOD cameras)
     """
     os.makedirs(ep_path, exist_ok=True)
 
     cam_attrs = [
-        ("orbital_left_rgb",   "orbital_left_rgb",   "rgb"),
-        ("orbital_left_depth", "orbital_left_depth", "depth"),
-        ("orbital_right_rgb",  "orbital_right_rgb",  "rgb"),
-        ("orbital_right_depth","orbital_right_depth","depth"),
-        ("wrist_rgb",          "wrist_rgb",          "rgb"),
-        ("wrist_depth",        "wrist_depth",        "depth"),
+        ("orbital_left_rgb",    "ood_left_rgb",    "rgb"),
+        ("orbital_left_depth",  "ood_left_depth",  "depth"),
+        ("orbital_right_rgb",   "ood_right_rgb",   "rgb"),
+        ("orbital_right_depth", "ood_right_depth", "depth"),
+        ("wrist_rgb",           "wrist_rgb",        "rgb"),
+        ("wrist_depth",         "wrist_depth",      "depth"),
     ]
 
     for attr, folder_name, kind in cam_attrs:
         folder = os.path.join(ep_path, folder_name)
         os.makedirs(folder, exist_ok=True)
         for i, obs in enumerate(demo):
-            # Orbital data is a direct attribute; shoulder data is in perception_data
             data = getattr(obs, attr, None)
             if data is None:
-                data = obs.perception_data.get(attr)
+                data = obs.perception_data.get(attr) if hasattr(obs, "perception_data") else None
             if data is None:
                 continue
             fname = os.path.join(folder, "{}.png".format(_num2id(i)))
@@ -117,23 +119,22 @@ def save_orbital_episode(demo, ep_path, group, orbital_extrinsics, variation=0):
                 Image.fromarray(data).save(fname)
             else:
                 float_array_to_rgb_image(data, DEPTH_SCALE).save(fname)
-            # Clear to free memory (only for direct attrs; perception_data cleared separately)
             if hasattr(obs, attr):
                 setattr(obs, attr, None)
 
-    # Save group tag
+    # Group tag
     with open(os.path.join(ep_path, "camera_group.txt"), "w") as f:
-        f.write(group + "\n")
+        f.write(GROUP_NAME + "\n")
 
-    # Save variation number
+    # Variation
     with open(os.path.join(ep_path, "variation.txt"), "w") as f:
         f.write(str(variation) + "\n")
 
-    # Save orbital camera extrinsics / intrinsics (captured before sensor removal)
-    with open(os.path.join(ep_path, "orbital_extrinsics.pkl"), "wb") as f:
+    # OOD camera extrinsics / intrinsics
+    with open(os.path.join(ep_path, "ood_extrinsics.pkl"), "wb") as f:
         pickle.dump(orbital_extrinsics, f)
 
-    # Save low-dim pickle (no large arrays remain after above)
+    # Low-dim pickle
     with open(os.path.join(ep_path, "low_dim_obs.pkl"), "wb") as f:
         pickle.dump(demo, f)
 
@@ -142,29 +143,26 @@ def save_orbital_episode(demo, ep_path, group, orbital_extrinsics, variation=0):
 # Video / zarr helpers (used in --video-only mode)
 # ---------------------------------------------------------------------------
 
-def _get_rgb(obs, key, image_size):
-    """Get RGB from obs: orbital cameras are direct attrs; standard cams are in perception_data."""
+def _get_rgb(obs, key):
     img = getattr(obs, key, None)
-    if img is None:
+    if img is None and hasattr(obs, "perception_data"):
         img = obs.perception_data.get(key)
     if img is None:
-        raise ValueError('img is None')
+        raise ValueError("img is None for key {}".format(key))
     return img
 
 
-def _get_depth(obs, key, image_size):
-    """Get depth from obs: orbital cameras are direct attrs; standard cams are in perception_data."""
+def _get_depth(obs, key):
     d = getattr(obs, key, None)
-    if d is None:
+    if d is None and hasattr(obs, "perception_data"):
         d = obs.perception_data.get(key)
     if d is None:
-        raise ValueError('img is None')
-
+        raise ValueError("depth is None for key {}".format(key))
     return d
 
 
 def save_debug_video(demo, video_out, image_size):
-    """Render all frames as a side-by-side 4-camera MP4."""
+    """Render all frames as a side-by-side 3-camera MP4."""
     try:
         import imageio
     except ImportError:
@@ -174,11 +172,11 @@ def save_debug_video(demo, video_out, image_size):
     frames = []
     for obs in demo:
         panels = [
-            _get_rgb(obs, "orbital_left_rgb",  image_size),
-            _get_rgb(obs, "orbital_right_rgb",  image_size),
-            _get_rgb(obs, "wrist_rgb",          image_size),
+            _get_rgb(obs, "orbital_left_rgb"),
+            _get_rgb(obs, "orbital_right_rgb"),
+            _get_rgb(obs, "wrist_rgb"),
         ]
-        frames.append(np.concatenate(panels, axis=1))  # (H, 3*W, 3)
+        frames.append(np.concatenate(panels, axis=1))
 
     out_dir = os.path.dirname(os.path.abspath(video_out))
     if out_dir:
@@ -187,9 +185,9 @@ def save_debug_video(demo, video_out, image_size):
     print("[VIDEO] Saved {} frames to {}".format(len(frames), video_out))
 
 
-def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
+def save_debug_zarr(demo, zarr_path, orbital_extrinsics, image_size=256):
     """
-    Save a single-episode zarr using the same schema as orbital_to_zarr.py.
+    Save a single-episode zarr using the same schema as ood_to_zarr.py.
     Used to validate the zarr pipeline before large-scale collection.
     orbital_extrinsics must be captured while sensors are still alive.
     """
@@ -217,8 +215,6 @@ def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
     K_left  = orbital_extrinsics["left_intrinsics"]
     K_right = orbital_extrinsics["right_intrinsics"]
 
-    group_id = int(group[1])  # "G3" → 3
-
     with zarr.open_group(zarr_path, mode="w") as zf:
 
         def _create(name, shape, dtype):
@@ -244,29 +240,25 @@ def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
             obs      = demo[k]
             obs_next = demo[key_frames[idx + 1]]
 
-            # RGB — orbital attrs; wrist from perception_data
             rgb_list = [
-                _get_rgb(obs, "orbital_left_rgb",  image_size).transpose(2, 0, 1),
-                _get_rgb(obs, "orbital_right_rgb",  image_size).transpose(2, 0, 1),
-                _get_rgb(obs, "wrist_rgb",          image_size).transpose(2, 0, 1),
+                _get_rgb(obs, "orbital_left_rgb").transpose(2, 0, 1),
+                _get_rgb(obs, "orbital_right_rgb").transpose(2, 0, 1),
+                _get_rgb(obs, "wrist_rgb").transpose(2, 0, 1),
             ]
             rgb = np.stack(rgb_list)[np.newaxis]
 
-            # Depth
             depth_list = [
-                _get_depth(obs, "orbital_left_depth",  image_size),
-                _get_depth(obs, "orbital_right_depth",  image_size),
-                _get_depth(obs, "wrist_depth",          image_size),
+                _get_depth(obs, "orbital_left_depth"),
+                _get_depth(obs, "orbital_right_depth"),
+                _get_depth(obs, "wrist_depth"),
             ]
             depth = np.stack(depth_list).astype(np.float16)[np.newaxis]
 
-            # Extrinsics / intrinsics
             E_wrist = np.array(obs.misc.get("wrist_camera_extrinsics", np.eye(4)), dtype=np.float32)
             K_wrist = np.array(obs.misc.get("wrist_camera_intrinsics", np.eye(3)), dtype=np.float32)
             extr = np.stack([E_left, E_right, E_wrist]).astype(np.float16)[np.newaxis]
             intr = np.stack([K_left, K_right, K_wrist]).astype(np.float16)[np.newaxis]
 
-            # Proprioception
             def _eef(o):
                 return np.concatenate([o.gripper_pose, [o.gripper_open]]).astype(np.float32)
 
@@ -274,7 +266,6 @@ def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
             s1 = _eef(demo[key_frames[max(0, idx - 1)]])
             s2 = _eef(obs)
             prop = np.stack([s0, s1, s2]).reshape(3, NHAND, 8)[np.newaxis]
-
             action = _eef(obs_next).reshape(1, NHAND, 8)[np.newaxis]
 
             def _joints(o):
@@ -293,13 +284,13 @@ def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
             zf["action_joints"].append(act_j)
             zf["task_id"].append(np.array([0], dtype=np.uint8))
             zf["variation"].append(np.array([0], dtype=np.uint8))
-            zf["camera_group"].append(np.array([group_id], dtype=np.uint8))
+            zf["camera_group"].append(np.array([0], dtype=np.uint8))  # OOD → 0
 
     print("[ZARR] Saved debug zarr to {}".format(zarr_path))
 
 
 # ---------------------------------------------------------------------------
-# Sensor creation
+# Sensor creation (mirrors collect_orbital_rollouts.py)
 # ---------------------------------------------------------------------------
 
 def create_orbital_sensor(pos, R_mat, image_size, fov_deg):
@@ -340,7 +331,7 @@ def capture_orbital_extrinsics(left_sensor, right_sensor):
 # ---------------------------------------------------------------------------
 
 def make_obs_config(image_size):
-    """ObservationConfig enabling wrist camera + extrinsics/intrinsics."""
+    """ObservationConfig enabling wrist camera + gripper state."""
     from pyrep.const import RenderMode
     from rlbench.observation_config import ObservationConfig, CameraConfig
 
@@ -351,10 +342,6 @@ def make_obs_config(image_size):
         depth_in_meters=True,
     )
 
-    # Don't pass rgb=False/depth=False/point_cloud=False for unused cameras —
-    # _set_camera_properties() calls .remove() on them, permanently deleting them
-    # from the scene. OrbitalScene.__init__ then can't find them on the second
-    # Scene.__init__ call. Just leave unused cameras at their defaults.
     obs_config = ObservationConfig(
         wrist_camera=on,
         joint_velocities=True,
@@ -369,44 +356,13 @@ def make_obs_config(image_size):
 
 
 # ---------------------------------------------------------------------------
-# CLI
-# ---------------------------------------------------------------------------
-
-def parse_args():
-    p = argparse.ArgumentParser(
-        description="Collect RLBench orbital rollouts."
-    )
-    p.add_argument("--task",         required=True,
-                   help="RLBench task name (e.g. close_jar)")
-    p.add_argument("--groups",       nargs="+", required=True,
-                   help="One or more camera groups (e.g. G1 G2 G3). "
-                        "All groups are collected in a single CoppeliaSim session.")
-    p.add_argument("--n-episodes",   type=int, default=30,
-                   help="Number of episodes to collect per group (default: 30)")
-    p.add_argument("--save-path",    default="data/orbital_rollouts",
-                   help="Root directory for raw episode output")
-    p.add_argument("--image-size",   type=int, default=256)
-    p.add_argument("--fov-deg",      type=float, default=60.0,
-                   help="FOV for orbital cameras (degrees)")
-    p.add_argument("--cameras-file", default="orbital_cameras_grouped.json",
-                   help="Path to orbital_cameras_grouped.json")
-    p.add_argument("--video-only",   action="store_true",
-                   help="Debug: collect 1 episode per group, save MP4 + zarr")
-    p.add_argument("--video-dir",    default="debug_videos",
-                   help="Output directory for debug MP4s (used with --video-only)")
-    p.add_argument("--variation",    type=int, default=None,
-                   help="Fix a specific variation index. Default: sample randomly per episode.")
-    return p.parse_args()
-
-
-# ---------------------------------------------------------------------------
-# Main
+# Episode collection
 # ---------------------------------------------------------------------------
 
 def collect_one_episode(task_env, scene, cam_left, cam_right, image_size, fov_deg):
     """
-    Reset task, place orbital sensors, collect one demo, remove sensors.
-    Returns (demo, orbital_extrinsics, timing_dict) or (None, None, None) on failure.
+    Reset task, place OOD sensors, collect one demo, remove sensors.
+    Returns (demo, ood_extrinsics, timing_dict) or (None, None, None) on failure.
     """
     print("[STEP] Resetting task environment...")
     t0 = time.perf_counter()
@@ -414,12 +370,12 @@ def collect_one_episode(task_env, scene, cam_left, cam_right, image_size, fov_de
     t_reset = time.perf_counter() - t0
     print("[STEP] Task reset done ({:.2f}s)".format(t_reset))
 
-    print("[STEP] Spawning orbital sensors (image_size={}, fov={:.1f}deg)...".format(image_size, fov_deg))
+    print("[STEP] Spawning OOD sensors (image_size={}, fov={:.1f}deg)...".format(image_size, fov_deg))
     t1 = time.perf_counter()
     left_sensor  = create_orbital_sensor(cam_left["pos"],  cam_left["R"],  image_size, fov_deg)
     right_sensor = create_orbital_sensor(cam_right["pos"], cam_right["R"], image_size, fov_deg)
     scene.set_orbital_sensors(left_sensor, right_sensor)
-    orbital_extrinsics = capture_orbital_extrinsics(left_sensor, right_sensor)
+    ood_extrinsics = capture_orbital_extrinsics(left_sensor, right_sensor)
     t_sensors = time.perf_counter() - t1
     print("[STEP] Sensors ready ({:.2f}s)".format(t_sensors))
 
@@ -435,18 +391,8 @@ def collect_one_episode(task_env, scene, cam_left, cam_right, image_size, fov_de
             t_demos = time.perf_counter() - t2
             step_timers = scene.get_step_timers()
             n = step_timers["n_steps"]
-            t_traj = max(0.0, t_demos - step_timers["obs_wrist"]
-                                       - step_timers["obs_orbital"]
-                                       - step_timers["physics"])
             print("[STEP] Demo collected: {} steps in {:.2f}s ({:.2f}s/step)".format(
                 len(demo), t_demos, t_demos / max(len(demo), 1)))
-            print("[STEP]   per-step breakdown (avg over {} sim steps):".format(n))
-            print("[STEP]     traj={:.3f}s  physics={:.3f}s  obs_wrist={:.3f}s  obs_orbital={:.3f}s".format(
-                t_traj   / max(n, 1),
-                step_timers["physics"]     / max(n, 1),
-                step_timers["obs_wrist"]   / max(n, 1),
-                step_timers["obs_orbital"] / max(n, 1),
-            ))
             break
         except Exception as e:
             print("[WARN] Attempt {}/5 failed: {}".format(attempt + 1, e))
@@ -465,8 +411,40 @@ def collect_one_episode(task_env, scene, cam_left, cam_right, image_size, fov_de
 
     timing = dict(reset=t_reset, sensors=t_sensors, demos=t_demos, cleanup=t_cleanup,
                   **step_timers)
-    return demo, orbital_extrinsics, timing
+    return demo, ood_extrinsics, timing
 
+
+# ---------------------------------------------------------------------------
+# CLI
+# ---------------------------------------------------------------------------
+
+def parse_args():
+    p = argparse.ArgumentParser(
+        description="Collect RLBench OOD rollouts using cameras from ood_camera.json."
+    )
+    p.add_argument("--task",        required=True,
+                   help="RLBench task name (e.g. close_jar)")
+    p.add_argument("--n-episodes",  type=int, default=5,
+                   help="Number of episodes to collect (default: 5)")
+    p.add_argument("--save-path",   default="data/ood_rollouts",
+                   help="Root directory for raw episode output")
+    p.add_argument("--ood-file",    default="ood_camera.json",
+                   help="Path to ood_camera.json")
+    p.add_argument("--image-size",  type=int, default=256)
+    p.add_argument("--fov-deg",     type=float, default=60.0,
+                   help="FOV for OOD cameras (degrees)")
+    p.add_argument("--video-only",  action="store_true",
+                   help="Debug: collect 1 episode, save MP4 + zarr")
+    p.add_argument("--video-dir",   default="debug_videos",
+                   help="Output directory for debug MP4s (used with --video-only)")
+    p.add_argument("--variation",   type=int, default=None,
+                   help="Fix a specific variation index. Default: sample randomly.")
+    return p.parse_args()
+
+
+# ---------------------------------------------------------------------------
+# Main
+# ---------------------------------------------------------------------------
 
 def main():
     args = parse_args()
@@ -481,6 +459,11 @@ def main():
                  "Set COPPELIASIM_ROOT etc. first.".format(e))
 
     from data_generation.orbital_rlbench import OrbitalEnvironment
+
+    cam_left, cam_right = load_ood_cameras(args.ood_file)
+    print("[INFO] OOD cameras loaded:")
+    print("  left : {} @ {}".format(cam_left["name"],  cam_left["pos"]))
+    print("  right: {} @ {}".format(cam_right["name"], cam_right["pos"]))
 
     obs_config  = make_obs_config(args.image_size)
     action_mode = MoveArmThenGripper(JointVelocity(), Discrete())
@@ -497,99 +480,77 @@ def main():
     task_env   = env.get_task(task_class)
     scene      = env._scene  # OrbitalScene instance
 
-    print("[INFO] task={} groups={} mode={}".format(
-        args.task, args.groups, "video" if args.video_only else "collect"))
+    print("[INFO] task={} mode={}".format(
+        args.task, "video" if args.video_only else "collect"))
 
-    # ── Loop over groups (all within one CoppeliaSim session) ─────────────────
-    for group in args.groups:
-        cam_left, cam_right = load_group_cameras(args.cameras_file, group)
+    if args.video_only:
+        video_out = os.path.join(
+            args.video_dir, "{}_OOD.mp4".format(args.task))
+        zarr_path = video_out + ".zarr"
 
-        if args.video_only:
-            # One episode per group → MP4 + zarr
-            video_out = os.path.join(
-                args.video_dir, "{}_{}.mp4".format(args.task, group))
-            zarr_path = video_out + ".zarr"
-            if os.path.exists(zarr_path):
-                print("[SKIP] {}/{} already exists.".format(args.task, group))
-                continue
+        demo, ood_extrinsics, timing = collect_one_episode(
+            task_env, scene, cam_left, cam_right,
+            args.image_size, args.fov_deg,
+        )
+        if demo is not None:
+            print("[TIME] reset={:.2f}s sensors={:.2f}s demos={:.2f}s cleanup={:.2f}s steps={}".format(
+                timing["reset"], timing["sensors"], timing["demos"], timing["cleanup"], len(demo)))
+            save_debug_video(demo, video_out, args.image_size)
+            save_debug_zarr(demo, zarr_path,
+                            orbital_extrinsics=ood_extrinsics,
+                            image_size=args.image_size)
+            print("[DONE] video={} zarr={}".format(video_out, zarr_path))
+    else:
+        base_path = os.path.join(args.save_path, args.task, GROUP_NAME)
 
-            demo, orbital_extrinsics, timing = collect_one_episode(
+        # Resume from existing episodes
+        ep_start = 0
+        if os.path.exists(base_path):
+            existing = [
+                d for d in os.listdir(base_path)
+                if d.startswith("episode_") and
+                   os.path.isdir(os.path.join(base_path, d))
+            ]
+            ep_start = len(existing)
+            if ep_start >= args.n_episodes:
+                print("[SKIP] {}/{} already has {} episodes.".format(
+                    args.task, GROUP_NAME, ep_start))
+                env.shutdown()
+                return
+            if ep_start > 0:
+                print("[RESUME] {}/{} from episode {}.".format(
+                    args.task, GROUP_NAME, ep_start))
+
+        ep_times = []
+        for ep_idx in range(ep_start, args.n_episodes):
+            print("[INFO] {}/{} episode {}/{}".format(
+                args.task, GROUP_NAME, ep_idx + 1, args.n_episodes))
+            if args.variation is None:
+                variation = task_env.sample_variation()
+            else:
+                task_env.set_variation(args.variation)
+                variation = args.variation
+            print("[INFO] variation={}".format(variation))
+
+            demo, ood_extrinsics, timing = collect_one_episode(
                 task_env, scene, cam_left, cam_right,
                 args.image_size, args.fov_deg,
             )
             if demo is None:
                 continue
-            print("[TIME] reset={:.2f}s sensors={:.2f}s demos={:.2f}s cleanup={:.2f}s steps={}".format(
-                timing["reset"], timing["sensors"], timing["demos"], timing["cleanup"], len(demo)))
-            t_vid0 = time.perf_counter()
-            save_debug_video(demo, video_out, args.image_size)
-            t_video = time.perf_counter() - t_vid0
-            print("[TIME] video={:.2f}s ({} frames → {})".format(t_video, len(demo), video_out))
-            t_zarr0 = time.perf_counter()
-            save_debug_zarr(demo, zarr_path, group,
-                            orbital_extrinsics=orbital_extrinsics,
-                            image_size=args.image_size)
-            t_zarr = time.perf_counter() - t_zarr0
-            print("[TIME] zarr={:.2f}s → {}".format(t_zarr, zarr_path))
-            t_total = timing["reset"] + timing["sensors"] + timing["demos"] + timing["cleanup"] + t_video + t_zarr
-            print("[TIME] total={:.2f}s (collect={:.2f}s save={:.2f}s)".format(
-                t_total,
-                timing["reset"] + timing["sensors"] + timing["demos"] + timing["cleanup"],
-                t_video + t_zarr))
 
-        else:
-            # Normal collection: n_episodes per group
-            base_path = os.path.join(args.save_path, args.task, group)
-
-            # Resume: count already-saved episodes
-            ep_start = 0
-            if os.path.exists(base_path):
-                existing = [
-                    d for d in os.listdir(base_path)
-                    if d.startswith("episode_") and
-                       os.path.isdir(os.path.join(base_path, d))
-                ]
-                ep_start = len(existing)
-                if ep_start >= args.n_episodes:
-                    print("[SKIP] {}/{} already has {} episodes.".format(
-                        args.task, group, ep_start))
-                    continue
-                if ep_start > 0:
-                    print("[RESUME] {}/{} from episode {}.".format(
-                        args.task, group, ep_start))
-
-            ep_times = []
-            for ep_idx in range(ep_start, args.n_episodes):
-                print("[INFO] {}/{} episode {}/{}".format(
-                    args.task, group, ep_idx + 1, args.n_episodes))
-                # Sample or fix variation before reset
-                if args.variation is None:
-                    variation = task_env.sample_variation()
-                else:
-                    task_env.set_variation(args.variation)
-                    variation = args.variation
-                print("[INFO] variation={}".format(variation))
-                demo, orbital_extrinsics, timing = collect_one_episode(
-                    task_env, scene, cam_left, cam_right,
-                    args.image_size, args.fov_deg,
-                )
-                if demo is None:
-                    continue
-                t_collect = timing["reset"] + timing["sensors"] + timing["demos"] + timing["cleanup"]
-                print("[TIME]  reset={:.2f}s sensors={:.2f}s demos={:.2f}s cleanup={:.2f}s steps={}".format(
-                    timing["reset"], timing["sensors"], timing["demos"], timing["cleanup"], len(demo)))
-                ep_path = os.path.join(base_path, "episode_{}".format(ep_idx))
-                print("[STEP] Saving episode to {}...".format(ep_path))
-                t1 = time.perf_counter()
-                save_orbital_episode(demo, ep_path, group, orbital_extrinsics, variation=variation)
-                t_save = time.perf_counter() - t1
-                print("[TIME]  save={:.2f}s → {}".format(t_save, ep_path))
-                t_total = t_collect + t_save
-                ep_times.append(t_total)
-                avg = sum(ep_times) / len(ep_times)
-                remaining = (args.n_episodes - ep_idx - 1) * avg
-                print("[SAVED] {} | collect={:.1f}s save={:.1f}s total={:.1f}s avg={:.1f}s eta={:.1f}s".format(
-                    ep_path, t_collect, t_save, t_total, avg, remaining))
+            t_collect = timing["reset"] + timing["sensors"] + timing["demos"] + timing["cleanup"]
+            ep_path = os.path.join(base_path, "episode_{}".format(ep_idx))
+            print("[STEP] Saving episode to {}...".format(ep_path))
+            t1 = time.perf_counter()
+            save_ood_episode(demo, ep_path, ood_extrinsics, variation=variation)
+            t_save = time.perf_counter() - t1
+            t_total = t_collect + t_save
+            ep_times.append(t_total)
+            avg = sum(ep_times) / len(ep_times)
+            remaining = (args.n_episodes - ep_idx - 1) * avg
+            print("[SAVED] {} | collect={:.1f}s save={:.1f}s total={:.1f}s avg={:.1f}s eta={:.1f}s".format(
+                ep_path, t_collect, t_save, t_total, avg, remaining))
 
     env.shutdown()
     print("[DONE]")
