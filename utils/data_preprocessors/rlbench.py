@@ -1,9 +1,33 @@
+import json
 import math
+from pathlib import Path
+
 from kornia import augmentation as K
+import numpy as np
 import torch
 from torch.nn import functional as F
 
 from .base import DataPreprocessor
+
+
+def _load_task_extrinsics_offsets():
+    offsets_path = Path(__file__).resolve().parents[2] / "instructions/peract2/task_extrinsics_offsets.json"
+    if not offsets_path.exists():
+        return {}
+    with open(offsets_path) as f:
+        data = json.load(f)
+    return {
+        task: (np.array(v["R"], dtype=np.float64), np.array(v["t"], dtype=np.float64))
+        for task, v in data.items()
+    }
+
+
+def _apply_offset_to_extrinsics(ext, R, t, device, dtype):
+    """new_cam_to_world = offset @ ext, where offset is built from (R, t)."""
+    offset = torch.eye(4, device=device, dtype=dtype)
+    offset[:3, :3] = torch.tensor(R, device=device, dtype=dtype)
+    offset[:3, 3] = torch.tensor(t, device=device, dtype=dtype)
+    return offset @ ext
 
 
 class RLBenchDataPreprocessor(DataPreprocessor):

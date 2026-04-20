@@ -628,7 +628,6 @@ class TransformerHead(nn.Module):
         """
         h = self.camera_proj(cam_feat)
         if self.extrinsics_prediction_mode == 'delta_m':
-            print('dm', end = ' ')
             batch_size = cam_feat.shape[0]
             A_skew = self.camera_predictor(h).view(batch_size, 6, 6)
             A = A_skew - A_skew.transpose(-1, -2)
@@ -639,7 +638,6 @@ class TransformerHead(nn.Module):
             return None, delta_M
         elif self.extrinsics_prediction_mode == 'delta_m_full':
             batch_size = cam_feat.shape[0]
-            print('dmf', end = ' ')
 
             D = self._delta_m_full_dim
             A_skew = self.camera_predictor(h).view(batch_size, D, D)
