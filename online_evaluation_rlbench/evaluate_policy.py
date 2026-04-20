@@ -19,6 +19,8 @@ def load_models(args):
     print("Loading model from", args.checkpoint, flush=True)
 
     model_class = fetch_model_class(args.model_type)
+
+    print(args.num_history)
     model = model_class(
         backbone=args.backbone,
         finetune_backbone=args.finetune_backbone,
