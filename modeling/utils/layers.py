@@ -1,8 +1,6 @@
 from torch import nn
 
 from .multihead_custom_attention import MultiheadCustomAttention
-from .com_rope_attention import ComRoPELDAttention
-
 
 class AdaLN(nn.Module):
     """Adaptive LayerNorm - signal-modulated linear transformation."""
@@ -203,7 +201,7 @@ class AttentionModule(nn.Module):
                 seq1_pos=None, seq2_pos=None,
                 seq1_sem_pos=None, seq2_sem_pos=None,
                 ada_sgnl=None,
-                sa_pos_xyz=None):  # ignored, for API compat with ComRoPEAttentionModule
+                sa_pos_xyz=None):
         """
         Args:
             seq1: tensor (B, S1, C)
@@ -214,8 +212,6 @@ class AttentionModule(nn.Module):
             seq1_sem_pos: (B, S1, C), semantic embedding
             seq2_sem_pos: (B, S2, C), semantic embedding
             ada_sgnl: tensor (B, C)
-            sa_pos_xyz: ignored (for API compat with ComRoPEAttentionModule)
-
         Returns:
             tensor (B, S1, C)
         """
@@ -233,94 +229,3 @@ class AttentionModule(nn.Module):
             seq1 = self.ffw_layers[i](seq1, ada_sgnl)
             output.append(seq1)
         return output
-
-
-class ComRoPEAttentionLayer(DummyLayer):
-    """Single self-attention layer using learnable ComRoPE (positions set via sa_pos_xyz)."""
-
-    def __init__(self, d_model=256, dropout=0.1, n_heads=8, pre_norm=False,
-                 use_adaln=False, block_size=4, num_axes=3, init_std=0.02):
-        super().__init__(pre_norm=pre_norm)
-        self.adaln = AdaLN(d_model) if use_adaln else None
-        self.attention = ComRoPELDAttention(
-            embed_dim=d_model,
-            num_heads=n_heads,
-            block_size=block_size,
-            num_axes=num_axes,
-            init_std=init_std,
-            dropout=dropout,
-        )
-        self.dropout = nn.Dropout(dropout)
-        self.norm_q = nn.LayerNorm(d_model)
-
-    def forward(self, seq1, seq2,
-                seq2_key_padding_mask=None,
-                seq1_pos=None, seq2_pos=None,
-                seq1_sem_pos=None, seq2_sem_pos=None,
-                ada_sgnl=None, sa_pos_xyz=None):
-        """
-        Args:
-            seq1: (B, S1, C)
-            seq2: (B, S2, C), for self-attn should equal seq1
-            sa_pos_xyz: (B, S1, num_axes) raw positions for ComRoPE (e.g. xyz). Required for forward.
-        """
-        q1 = self._norm(seq1, self.norm_q, self.pre_norm)
-        k2 = v2 = self._norm(seq2, self.norm_q, self.pre_norm)
-        q1 = self.with_pos_embed(q1, seq1_sem_pos)
-        k2 = self.with_pos_embed(k2, seq2_sem_pos)
-        q1 = self._adaln(q1, self.adaln, ada_sgnl)
-        k2 = self._adaln(k2, self.adaln, ada_sgnl)
-        v2 = self._adaln(v2, self.adaln, ada_sgnl)
-
-        if sa_pos_xyz is not None:
-            self.attention.set_positions(sa_pos_xyz)
-        hidden = q1
-        out, _ = self.attention(hidden, output_attentions=False)
-        if sa_pos_xyz is not None:
-            self.attention.unset_positions()
-
-        seq1 = seq1 + self.dropout(out)
-        seq1 = self._norm(seq1, self.norm_q, not self.pre_norm)
-        return seq1
-
-
-class ComRoPEAttentionModule(nn.Module):
-    """Stack of ComRoPE self-attention + FFW layers (drop-in for self_attn with learnable RoPE)."""
-
-    def __init__(self, num_layers, d_model=256, dim_fw=None,
-                 dropout=0.1, n_heads=8, pre_norm=False,
-                 use_adaln=False, block_size=4, num_axes=3, init_std=0.02):
-        super().__init__()
-        self.num_layers = num_layers
-        dim_fw = 4 * d_model if dim_fw is None else dim_fw
-        self.attn_layers = nn.ModuleList()
-        self.ffw_layers = nn.ModuleList()
-        for _ in range(num_layers):
-            self.attn_layers.append(ComRoPEAttentionLayer(
-                d_model, dropout, n_heads, pre_norm,
-                use_adaln=use_adaln, block_size=block_size,
-                num_axes=num_axes, init_std=init_std,
-            ))
-            self.ffw_layers.append(FFWLayer(d_model, dim_fw, dropout, use_adaln, pre_norm=False))
-
-    def forward(self, seq1, seq2,
-                seq2_key_padding_mask=None,
-                seq1_pos=None, seq2_pos=None,
-                seq1_sem_pos=None, seq2_sem_pos=None,
-                ada_sgnl=None, sa_pos_xyz=None):
-        """
-        Args:
-            seq1, seq2: (B, S, C); for self-attn seq2=seq1.
-            sa_pos_xyz: (B, S, num_axes) raw positions for ComRoPE. Required when using this module.
-        """
-        for i in range(self.num_layers):
-            seq2 = seq1
-            seq1 = self.attn_layers[i](
-                seq1, seq2,
-                seq2_key_padding_mask,
-                seq1_pos, seq2_pos,
-                seq1_sem_pos, seq2_sem_pos,
-                ada_sgnl, sa_pos_xyz=sa_pos_xyz,
-            )
-            seq1 = self.ffw_layers[i](seq1, ada_sgnl)
-        return [seq1]

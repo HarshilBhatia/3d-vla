@@ -192,16 +192,6 @@ class BaseTrainTester:
         if hasattr(self.args, 'rope_type'):
             model_kwargs['rope_type'] = self.args.rope_type
 
-        # ComRoPE: learnable RoPE in self_attn (only used when traj_scene_rope=True)
-        if hasattr(self.args, 'use_com_rope'):
-            model_kwargs['use_com_rope'] = self.args.use_com_rope
-        if hasattr(self.args, 'com_rope_block_size'):
-            model_kwargs['com_rope_block_size'] = self.args.com_rope_block_size
-        if hasattr(self.args, 'com_rope_num_axes'):
-            model_kwargs['com_rope_num_axes'] = self.args.com_rope_num_axes
-        if hasattr(self.args, 'com_rope_init_std'):
-            model_kwargs['com_rope_init_std'] = self.args.com_rope_init_std
-
         if dist.get_rank() == 0:
             print(f'model_kwargs: {model_kwargs}')
 

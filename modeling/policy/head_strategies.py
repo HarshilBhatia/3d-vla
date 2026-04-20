@@ -50,22 +50,13 @@ def make_extrinsics_predictor(head, predict_extrinsics, extrinsics_prediction_mo
 
 # ---- Output head self-attn (single call site for com / standard / none) ----
 
-def run_output_attn(attn_module, features, rel_pos, time_embs, rope_mode, sa_pos_xyz=None):
+def run_output_attn(attn_module, features, rel_pos, time_embs, rope_mode):
     """
     Call position_self_attn or rotation_self_attn with the right args for rope_mode.
     Returns the last layer output (B, S, C).
-    rope_mode: "com" | "standard" | "none" (none = no RoPE in these output heads).
+    rope_mode: "standard" | "none"
     """
-    if rope_mode == "com":
-        out = attn_module(
-            seq1=features,
-            seq2=features,
-            seq1_pos=None,
-            seq2_pos=None,
-            ada_sgnl=time_embs,
-            sa_pos_xyz=sa_pos_xyz,
-        )[-1]
-    elif rope_mode == "standard":
+    if rope_mode == "standard":
         out = attn_module(
             seq1=features,
             seq2=features,
@@ -74,7 +65,6 @@ def run_output_attn(attn_module, features, rel_pos, time_embs, rope_mode, sa_pos
             ada_sgnl=time_embs,
         )[-1]
     else:
-        # rope_mode == "none": no RoPE in position/rotation self-attn
         out = attn_module(
             seq1=features,
             seq2=features,

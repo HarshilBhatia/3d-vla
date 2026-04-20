@@ -41,10 +41,6 @@ class DenoiseActor(BaseDenoiseActor):
                  extrinsics_prediction_mode='delta_m',
                  # RoPE type
                  rope_type='adam',
-                 use_com_rope=False,
-                 com_rope_block_size=4,
-                 com_rope_num_axes=3,
-                 com_rope_init_std=0.02,
                  dynamic_rope_from_camtoken=False):
         super().__init__(
             embedding_dim=embedding_dim,
@@ -97,10 +93,6 @@ class DenoiseActor(BaseDenoiseActor):
             predict_extrinsics=predict_extrinsics,
             extrinsics_prediction_mode=extrinsics_prediction_mode,
             rope_type=rope_type,
-            use_com_rope=use_com_rope,
-            com_rope_block_size=com_rope_block_size,
-            com_rope_num_axes=com_rope_num_axes,
-            com_rope_init_std=com_rope_init_std,
             dynamic_rope_from_camtoken=dynamic_rope_from_camtoken,
         )
         
@@ -222,10 +214,6 @@ class TransformerHead(BaseTransformerHead):
             predict_extrinsics=predict_extrinsics,
             learn_extrinsics=learn_extrinsics,
             extrinsics_prediction_mode=kwargs.get("extrinsics_prediction_mode", 'delta_m'),
-            use_com_rope=kwargs.get("use_com_rope", False),
-            com_rope_block_size=kwargs.get("com_rope_block_size", 4),
-            com_rope_num_axes=kwargs.get("com_rope_num_axes", 3),
-            com_rope_init_std=kwargs.get("com_rope_init_std", 0.02),
             dynamic_rope_from_camtoken=kwargs.get("dynamic_rope_from_camtoken", False),
         )
 

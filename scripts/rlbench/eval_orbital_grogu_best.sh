@@ -45,11 +45,6 @@ pc_rotate_by_front_camera=false
 
 traj_scene_rope=true
 rope_type=normal
-use_com_rope=false
-com_rope_block_size=0
-com_rope_num_axes=0
-com_rope_init_std=0.0
-
 sa_blocks_use_rope=false
 
 checkpoint=/home/harshilb/work/3d-vla/grogu_train_logs/best.pth
@@ -128,10 +123,6 @@ run_task() {
         pc_rotate_by_front_camera=$pc_rotate_by_front_camera \
         traj_scene_rope=$traj_scene_rope \
         rope_type=$rope_type \
-        use_com_rope=$use_com_rope \
-        com_rope_block_size=$com_rope_block_size \
-        com_rope_num_axes=$com_rope_num_axes \
-        com_rope_init_std=$com_rope_init_std \
         sa_blocks_use_rope=$sa_blocks_use_rope \
         checkpoint=$checkpoint \
         output_file=$output_file \

@@ -41,10 +41,6 @@ def load_models(args):
         extrinsics_prediction_mode=args.extrinsics_prediction_mode,
         dynamic_rope_from_camtoken=args.dynamic_rope_from_camtoken,
         rope_type=args.rope_type,
-        use_com_rope=args.use_com_rope,
-        com_rope_block_size=args.com_rope_block_size,
-        com_rope_num_axes=args.com_rope_num_axes,
-        com_rope_init_std=args.com_rope_init_std,
     )
 
     # Load model weights

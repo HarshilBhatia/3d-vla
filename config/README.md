@@ -5,8 +5,8 @@ All entry points (main.py, online_evaluation_rlbench/evaluate_policy.py, analyse
 **Config groups:**
 - **dataset** – dataset *type* (which class): `peract2` | `peract` | `peract2_singlecam` | `peract_twocam` → see `config/dataset/`.
 - **data** – which *tasks/split*: `single` | `two` | `full` → see `config/data/`. Paths are relative to project root. (Defaults use `@_global_` so these keys are merged at root.)
-- **rope_mode** – RoPE variant: `none` | `standard` | `com` → see `config/rope_mode/`. Sets `traj_scene_rope`, `sa_blocks_use_rope`, `use_com_rope`.
-- **experiment** – run-specific overrides: `default` | `comrope_2task` | `one_task` | `full` | `drope` → see `config/experiment/`.
+- **rope_mode** – RoPE variant: `none` | `standard` → see `config/rope_mode/`. Sets `traj_scene_rope`, `sa_blocks_use_rope`.
+- **experiment** – run-specific overrides: `default` | `one_task` | `full` | `drope` → see `config/experiment/`.
 
 - **run_mode:** Derived from `eval_only`: `eval_only=true` → `run_mode=eval_offline`; else `run_mode=train`.
 - **use_front_camera_frame:** Canonical name (not `front_camera_frame`).

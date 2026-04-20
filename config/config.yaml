@@ -142,7 +142,7 @@ task_group_mapping_file: null         # path to task_group_mapping.json (eval us
 camera_groups: null                   # override which groups to eval, e.g. "G1" or "G1,G2"; null = use all from mapping
 fov_deg: 60.0                         # FOV in degrees for orbital VisionSensors
 
-# RoPE: traj_scene_rope, sa_blocks_use_rope, use_com_rope come from config/rope_mode/<name>.yaml
+# RoPE: traj_scene_rope, sa_blocks_use_rope come from config/rope_mode/<name>.yaml
 
 
 
@@ -152,11 +152,6 @@ rope_schedule_start_k: null
 rope_schedule_end_k: null
 rope_schedule_steps: null
 
-
-use_com_rope: false
-com_rope_block_size: 3
-com_rope_num_axes: 3
-com_rope_init_std: 0.02
 
 
 # @_global_ merges group content into root (so train_data_dir, train_instructions, etc. are top-level)

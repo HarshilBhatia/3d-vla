@@ -4,7 +4,7 @@ from torch.nn import functional as F
 import einops
 
 from ..noise_scheduler import fetch_schedulers
-from ..utils.layers import AttentionModule, ComRoPEAttentionModule
+from ..utils.layers import AttentionModule
 from ..utils.position_encodings import SinusoidalPosEmb
 from .head_strategies import make_extrinsics_predictor, run_output_attn
 from ..utils.utils import (
@@ -390,7 +390,7 @@ class TransformerHead(nn.Module):
     """
     Action decoder head (trajectory + rotation + openness). RoPE usage:
 
-    - traj_scene_rope=True: shared self-attn uses RoPE (standard or ComRoPE); cross_attn and
+    - traj_scene_rope=True: shared self-attn uses standard RoPE; cross_attn and
       position/rotation output heads get RoPE positions.
     - traj_scene_rope=False: RoPE is disabled everywhere in this head:
       cross_attn (rotary_pe=False), traj_self_attn / scene_self_attn / traj_scene_attn
@@ -401,7 +401,7 @@ class TransformerHead(nn.Module):
     - Encoder (encoder3d): relative_pe_layer (RotaryPositionEncoding3D) + gripper_context_head(rotary_pe=True).
     - Decoder: get_positional_embeddings uses relative_pe_layer (3D); cross_attn/self_attn/position_self_attn/
       rotation_self_attn use those positions only when _rope_mode != "none". Actual rotation is in
-      multihead_custom_attention.py (embed_rotary) and com_rope_attention.py (ComRoPE).
+      multihead_custom_attention.py (embed_rotary).
     """
 
     def __init__(self,
@@ -416,10 +416,6 @@ class TransformerHead(nn.Module):
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m',  # 'rt' = R,T (6D) and log; 'delta_m' = 6x6 matrix
                  learn_extrinsics=False,
-                 use_com_rope=False,
-                 com_rope_block_size=4,
-                 com_rope_num_axes=3,
-                 com_rope_init_std=0.02,
                  dynamic_rope_from_camtoken=False):
         super().__init__()
 
@@ -432,10 +428,7 @@ class TransformerHead(nn.Module):
         self.sa_blocks_use_rope = sa_blocks_use_rope
         self.predict_extrinsics = predict_extrinsics
         self.dynamic_rope_from_camtoken = dynamic_rope_from_camtoken
-        # ComRoPE only when traj_scene_rope=True; else standard RoPE or none
-        self.use_com_rope = use_com_rope and traj_scene_rope
-        # Single branch key: none | standard | com (replaces repeated three-way conditionals)
-        self._rope_mode = "none" if not traj_scene_rope else ("com" if self.use_com_rope else "standard")
+        self._rope_mode = "none" if not traj_scene_rope else "standard"
 
         # When traj_scene_rope=False, RoPE is disabled in this TransformerHead in:
         #   - cross_attn (traj-to-scene), shared self-attn branch, position/rotation output heads.
@@ -491,23 +484,8 @@ class TransformerHead(nn.Module):
         # Shared attention layers
 
         if self.traj_scene_rope:
-            rope_type = "ComRoPE" if self.use_com_rope else "standard RoPE"
-            print(f'Using traj_scene_rope = True ({rope_type})')
-            if self.use_com_rope:
-                self.self_attn = ComRoPEAttentionModule(
-                    num_layers=num_shared_attn_layers,
-                    d_model=embedding_dim,
-                    dim_fw=embedding_dim,
-                    dropout=0.1,
-                    n_heads=num_attn_heads,
-                    pre_norm=False,
-                    use_adaln=True,
-                    block_size=com_rope_block_size,
-                    num_axes=com_rope_num_axes,
-                    init_std=com_rope_init_std,
-                )
-            else:
-                self.self_attn = AttentionModule(
+            print(f'Using traj_scene_rope = True (standard RoPE)')
+            self.self_attn = AttentionModule(
                     num_layers=num_shared_attn_layers,
                     d_model=embedding_dim,
                     dim_fw=embedding_dim,
@@ -558,21 +536,7 @@ class TransformerHead(nn.Module):
         # Specific (non-shared) Output layers:
         # 1. Rotation
         self.rotation_proj = nn.Linear(embedding_dim, embedding_dim)
-        if self.use_com_rope:
-            self.rotation_self_attn = ComRoPEAttentionModule(
-                num_layers=2,
-                d_model=embedding_dim,
-                dim_fw=embedding_dim,
-                dropout=0.1,
-                n_heads=num_attn_heads,
-                pre_norm=False,
-                use_adaln=True,
-                block_size=com_rope_block_size,
-                num_axes=com_rope_num_axes,
-                init_std=com_rope_init_std,
-            )
-        else:
-            self.rotation_self_attn = AttentionModule(
+        self.rotation_self_attn = AttentionModule(
                 num_layers=2,
                 d_model=embedding_dim,
                 dim_fw=embedding_dim,
@@ -591,21 +555,7 @@ class TransformerHead(nn.Module):
 
         # 2. Position
         self.position_proj = nn.Linear(embedding_dim, embedding_dim)
-        if self.use_com_rope:
-            self.position_self_attn = ComRoPEAttentionModule(
-                num_layers=2,
-                d_model=embedding_dim,
-                dim_fw=embedding_dim,
-                dropout=0.1,
-                n_heads=num_attn_heads,
-                pre_norm=False,
-                use_adaln=True,
-                block_size=com_rope_block_size,
-                num_axes=com_rope_num_axes,
-                init_std=com_rope_init_std,
-            )
-        else:
-            self.position_self_attn = AttentionModule(
+        self.position_self_attn = AttentionModule(
                 num_layers=2,
                 d_model=embedding_dim,
                 dim_fw=embedding_dim,
@@ -785,7 +735,7 @@ class TransformerHead(nn.Module):
         batch_size, device = trajectory.shape[0], trajectory.device
         cam_params_rt, delta_M, self._last_predicted_cam_params = self.extrinsics_predictor(batch_size, device)
 
-        if self._rope_mode != "none" and self.dynamic_rope_from_camtoken and self._rope_mode == "standard" and self.predict_extrinsics:
+        if self.dynamic_rope_from_camtoken and self._rope_mode == "standard" and self.predict_extrinsics:
             # Dynamic RoPE path: re-predict delta_M / (R,T) after every CA and SA block.
             # Originals are kept so RT transforms are always applied from a clean base.
             orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos
@@ -825,10 +775,9 @@ class TransformerHead(nn.Module):
                 features = self.self_attn.ffw_layers[i](features, time_embs)
                 current_cam_feat = features[:, -1, :]  # camera token is last in SA sequence
 
-            sa_pos_xyz = None
-            rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1], sa_pos_xyz=sa_pos_xyz)
-            position, position_features = self.predict_pos(features, rel_pos, time_embs, traj_feats.shape[1], sa_pos_xyz=sa_pos_xyz)
-        elif self._rope_mode != "none":
+            rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1])
+            position, position_features = self.predict_pos(features, rel_pos, time_embs, traj_feats.shape[1])
+        elif self._rope_mode == "standard":
             # Static RoPE path: compute positional embeddings once and use them everywhere
             rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos = self.get_positional_embeddings(
                 traj_xyz, traj_feats,
@@ -851,18 +800,15 @@ class TransformerHead(nn.Module):
                 traj_feats, fps_scene_feats,
                 rgb3d_feats, rgb2d_feats, instr_feats
             )
-            sa_pos = (rel_pos, rel_pos) if self._rope_mode == "standard" else (None, None)
-            sa_pos_xyz = self._build_sa_pos_xyz(features, traj_xyz, fps_scene_pos) if self._rope_mode == "com" else None
             features = self.self_attn(
                 seq1=features,
                 seq2=features,
-                seq1_pos=sa_pos[0],
-                seq2_pos=sa_pos[1],
+                seq1_pos=rel_pos,
+                seq2_pos=rel_pos,
                 ada_sgnl=time_embs,
-                sa_pos_xyz=sa_pos_xyz,
             )[-1]
-            rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1], sa_pos_xyz=sa_pos_xyz)
-            position, position_features = self.predict_pos(features, rel_pos, time_embs, traj_feats.shape[1], sa_pos_xyz=sa_pos_xyz)
+            rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1])
+            position, position_features = self.predict_pos(features, rel_pos, time_embs, traj_feats.shape[1])
         else:
             # No RoPE: skip get_positional_embeddings; no position args to attention
             traj_feats = self.cross_attn(
@@ -897,8 +843,8 @@ class TransformerHead(nn.Module):
                 seq2_pos=None,
                 ada_sgnl=time_embs,
             )[-1]
-            rotation = self.predict_rot(features, None, time_embs, traj_feats.shape[1], sa_pos_xyz=None)
-            position, position_features = self.predict_pos(features, None, time_embs, traj_feats.shape[1], sa_pos_xyz=None)
+            rotation = self.predict_rot(features, None, time_embs, traj_feats.shape[1])
+            position, position_features = self.predict_pos(features, None, time_embs, traj_feats.shape[1])
 
         # Openess head from position head
         openess = self.openess_predictor(position_features[:, :self.embedding_dim]) # don't use camera and register tokens here.
@@ -947,29 +893,20 @@ class TransformerHead(nn.Module):
         camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
         return torch.cat([traj_feats, fps_scene_feats, register_tokens, camera_token], 1)
 
-    def _build_sa_pos_xyz(self, features, traj_xyz, fps_scene_pos):
-        """Build (B, S, 3) positions for ComRoPE: traj + fps + zeros for register+camera tokens."""
-        B = features.shape[0]
-        return torch.cat([
-            traj_xyz,
-            fps_scene_pos,
-            torch.zeros(B, 5, 3, device=features.device, dtype=features.dtype),
-        ], dim=1)
-
-    def predict_pos(self, features, pos, time_embs, traj_len, sa_pos_xyz=None):
+    def predict_pos(self, features, pos, time_embs, traj_len):
         position_features = run_output_attn(
             self.position_self_attn, features, pos, time_embs,
-            self._rope_mode, sa_pos_xyz
+            self._rope_mode
         )
         position_features = position_features[:, :traj_len]
         position_features = self.position_proj(position_features)  # (B, N, C)
         position = self.position_predictor(position_features)
         return position, position_features
 
-    def predict_rot(self, features, pos, time_embs, traj_len, sa_pos_xyz=None):
+    def predict_rot(self, features, pos, time_embs, traj_len):
         rotation_features = run_output_attn(
             self.rotation_self_attn, features, pos, time_embs,
-            self._rope_mode, sa_pos_xyz
+            self._rope_mode
         )
         rotation_features = rotation_features[:, :traj_len]
         rotation_features = self.rotation_proj(rotation_features)  # (B, N, C)
