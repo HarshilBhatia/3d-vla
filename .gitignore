@@ -60,3 +60,4 @@ orbital_viz/*
 
 CoppeliaSim_Edu_V4_1_0_Ubuntu20_04/
 *.deb
+run_data/

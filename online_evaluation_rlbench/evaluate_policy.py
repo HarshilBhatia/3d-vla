@@ -117,6 +117,7 @@ if __name__ == "__main__":
                 task_group_mapping_file=str(args.task_group_mapping_file),
                 fov_deg=float(args.fov_deg),
                 miscalibration_noise_level=args.miscalibration_noise_level,
+                camera_groups=[g.strip() for g in args.camera_groups.split(",")] if args.camera_groups else None,
             )
         else:
             _env_extra = dict(

@@ -278,3 +278,12 @@ class Peract2SingleCamDataset(RLBenchDataset):
     camera_inds = (0,)  # use only front camera
     train_copies = 10
     camera_inds2d = None
+
+
+class OrbitalWristDataset(RLBenchDataset):
+    """RLBench dataset with orbital left/right + wrist cameras."""
+    tasks = PERACT2_TASKS
+    cameras = ("orbital_left", "orbital_right", "wrist")
+    camera_inds = None
+    train_copies = 10
+    camera_inds2d = None

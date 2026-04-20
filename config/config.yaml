@@ -139,6 +139,7 @@ miscal_max_translation_m: null
 # Orbital camera eval settings (used when dataset=OrbitalWrist)
 cameras_file: null                    # path to orbital_cameras_grouped.json
 task_group_mapping_file: null         # path to task_group_mapping.json (eval uses all trained groups)
+camera_groups: null                   # override which groups to eval, e.g. "G1" or "G1,G2"; null = use all from mapping
 fov_deg: 60.0                         # FOV in degrees for orbital VisionSensors
 
 # RoPE: traj_scene_rope, sa_blocks_use_rope, use_com_rope come from config/rope_mode/<name>.yaml

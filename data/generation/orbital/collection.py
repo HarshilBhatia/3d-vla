@@ -99,7 +99,7 @@ def make_obs_config(image_size):
     # Don't disable unused cameras — _set_camera_properties() calls .remove()
     # on any camera with all channels off, permanently deleting it from the scene.
     obs_config = ObservationConfig(
-        wrist_camera=on,
+        camera_configs={"wrist": on},
         joint_velocities=True,
         joint_positions=True,
         joint_forces=False,

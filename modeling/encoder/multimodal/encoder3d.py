@@ -121,20 +121,22 @@ class Encoder(BaseEncoder):
         instruction = self.text_encoder(text)
         instr_feats = self.instruction_encoder(instruction)
 
+
         # 3D camera features
         num_cameras = rgb3d.shape[1]
         # Pass each view independently through backbone
 
         rgb3d = einops.rearrange(rgb3d, "bt ncam c h w -> (bt ncam) c h w")
 
+
         rgb3d = self.normalize(rgb3d).contiguous()
         # rgb3d = self.normalize(rgb3d).to(memory_format=torch.channels_last)
         # print(rgb3d.shape, rgb3d.dtype)
-        with torch.cuda.amp.autocast():
-            rgb3d_feats = self.backbone(rgb3d)
-            # print(self.backbone.)
-            # Pass visual features through feature pyramid network
-            rgb3d_feats = self.feature_pyramid(rgb3d_feats)[self.output_level]
+        # with torch.cuda.amp.autocast():
+        rgb3d_feats = self.backbone(rgb3d)
+        # print(self.backbone.)
+        # Pass visual features through feature pyramid network
+        rgb3d_feats = self.feature_pyramid(rgb3d_feats)[self.output_level]
 
         feat_h, feat_w = rgb3d_feats.shape[-2:]
         # Merge different cameras
@@ -143,6 +145,7 @@ class Encoder(BaseEncoder):
             rgb3d_feats,
             "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
         )
+
         # Attention from vision to language
         rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1] # NOTE: Doesn't make sense to me.  why do this here ?
 

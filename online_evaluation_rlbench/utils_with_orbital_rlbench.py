@@ -33,7 +33,10 @@ from data.generation.orbital.collection import (
     make_obs_config,
 )
 from data.generation.orbital.scene import OrbitalEnvironment
-from utils.data_preprocessors.rlbench import _load_miscalibration_noise
+try:
+    from utils.data_preprocessors.rlbench import _load_miscalibration_noise
+except ImportError:
+    _load_miscalibration_noise = None
 from utils.depth2cloud.rlbench import RLBenchDepth2Cloud
 
 from rlbench.action_modes.action_mode import MoveArmThenGripper
@@ -120,14 +123,15 @@ class Actioner:
         Returns:
             (1, prediction_len, 8)
         """
+        dtype = next(self._policy.parameters()).dtype
         return self._policy(
             None,
             torch.full([1, prediction_len, 1], False).cuda(non_blocking=True),
-            rgbs,
+            rgbs.to(dtype),
             None,
-            pcds,
+            pcds.to(dtype),
             self._instr,
-            gripper[:, :, None, :7],
+            gripper[:, :, None, :7].to(dtype),
             run_inference=True,
         ).view(1, prediction_len, 8)
 
@@ -148,11 +152,13 @@ class RLBenchEnv:
         task_group_mapping_file=None,
         fov_deg=60.0,
         miscalibration_noise_level=None,
+        camera_groups=None,
     ):
         self.data_path = data_path
         self._task_str = task_str
         self.apply_cameras = apply_cameras
         self._fov_deg = fov_deg
+        self._camera_groups_override = camera_groups
 
         if cameras_file is None:
             raise ValueError("cameras_file must be provided for orbital eval")
@@ -166,6 +172,8 @@ class RLBenchEnv:
         self._miscal_cameras = None
         self._miscal_noise = None
         if miscalibration_noise_level is not None:
+            if _load_miscalibration_noise is None:
+                raise ImportError("_load_miscalibration_noise is not available; cannot use miscalibration_noise_level")
             self._miscal_cameras, self._miscal_noise = _load_miscalibration_noise(
                 miscalibration_noise_level
             )
@@ -211,7 +219,10 @@ class RLBenchEnv:
             raise ValueError(
                 f"Task '{task_str}' not found in {self._task_group_mapping_file}"
             )
-        return mapping[task_str]
+        groups = mapping[task_str]
+        if self._camera_groups_override is not None:
+            groups = [g for g in self._camera_groups_override if g in groups]
+        return groups
 
     # ------------------------------------------------------------------
     # Sensor lifecycle
@@ -352,17 +363,39 @@ class RLBenchEnv:
         prediction_len=1,
         num_history=1,
     ):
+        print(f"[orbital eval] launching env...", flush=True)
         self.env.launch()
+        print(f"[orbital eval] env launched", flush=True)
 
         groups = self._get_task_groups(task_str)
-        print(f"[orbital eval] task={task_str} groups={groups}")
+        print(f"[orbital eval] task={task_str} groups={groups}", flush=True)
 
         task_type = task_file_to_task_class(task_str)
         task = self.env.get_task(task_type)
-        task_variations = sorted([
-            int(n.split("/")[-1].replace("variation", ""))
-            for n in glob.glob(os.path.join(self.data_path, task_str, "variation*"))
-        ])
+
+        # Detect variation layout: variation*/ dirs vs all_variations/
+        variation_dirs = glob.glob(os.path.join(self.data_path, task_str, "variation*"))
+        if variation_dirs:
+            task_variations = sorted([
+                int(n.split("/")[-1].replace("variation", ""))
+                for n in variation_dirs
+            ])
+            demos_by_variation = None  # loaded lazily inside _evaluate_task_on_one_variation
+        else:
+            # all_variations layout: load all demos once and group by variation_number
+            all_demos = get_stored_demos(
+                amount=-1,
+                dataset_root=self.data_path,
+                variation_number=-1,
+                task_name=task_str,
+                random_selection=False,
+                from_episode_number=0,
+            )
+            from collections import defaultdict
+            demos_by_variation = defaultdict(list)
+            for d in all_demos:
+                demos_by_variation[d.variation_number].append(d)
+            task_variations = sorted(demos_by_variation.keys())
 
         # Accumulate across all (group, variation) pairs
         total_success = 0
@@ -370,12 +403,15 @@ class RLBenchEnv:
         per_group_rates = {}  # group -> {variation: rate}
 
         for group in groups:
-            print(f"[orbital eval] === Group {group} ===")
+            print(f"[orbital eval] === Group {group} ===", flush=True)
+            print(f"[orbital eval] spawning sensors for group {group}...", flush=True)
             self._spawn_sensors(group)
+            print(f"[orbital eval] sensors spawned", flush=True)
 
             group_rates = {}
             for variation in tqdm(task_variations, desc=f"{task_str}/{group}"):
                 task.set_variation(variation)
+                pre_loaded = demos_by_variation[variation] if demos_by_variation is not None else None
                 success_rate, valid, num_valid_demos = self._evaluate_task_on_one_variation(
                     task_str=task_str,
                     task=task,
@@ -385,6 +421,7 @@ class RLBenchEnv:
                     max_tries=max_tries,
                     prediction_len=prediction_len,
                     num_history=num_history,
+                    pre_loaded_demos=pre_loaded,
                 )
                 if valid:
                     group_rates[variation] = success_rate / num_valid_demos
@@ -411,10 +448,11 @@ class RLBenchEnv:
         max_tries=1,
         prediction_len=1,
         num_history=1,
+        pre_loaded_demos=None,
     ):
         success_rate = 0
         total_reward = 0
-        var_demos = get_stored_demos(
+        var_demos = pre_loaded_demos if pre_loaded_demos is not None else get_stored_demos(
             amount=-1,
             dataset_root=self.data_path,
             variation_number=variation,
@@ -423,17 +461,21 @@ class RLBenchEnv:
             from_episode_number=0,
         )
 
+        print(f"  [var {variation}] {len(var_demos)} demos", flush=True)
         for demo_id, demo in enumerate(var_demos):
 
+            print(f"  [var {variation}] demo {demo_id+1}/{len(var_demos)} — resetting...", flush=True)
             grippers = torch.Tensor([]).cuda(non_blocking=True)
             descriptions, obs = task.reset_to_demo(demo)
             actioner.load_episode(descriptions)
+            print(f"  [var {variation}] demo {demo_id+1} — running up to {max_steps} steps", flush=True)
 
             move = Mover(task, max_tries=max_tries)
             max_reward = 0.0
 
             for step_id in range(max_steps):
 
+                print(f"    step {step_id+1}/{max_steps} — getting obs...", flush=True)
                 rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
                 rgbs_input = rgb.cuda(non_blocking=True)
                 pcds_input = pcd.cuda(non_blocking=True)
@@ -446,12 +488,14 @@ class RLBenchEnv:
                     gripper_input, (0, 0, npad, 0), mode="replicate"
                 )
 
+                print(f"    step {step_id+1}/{max_steps} — predicting...", flush=True)
                 output = actioner.predict(
                     rgbs_input,
                     pcds_input,
                     gripper_input,
                     prediction_len=prediction_len,
                 )
+                print(f"    step {step_id+1}/{max_steps} — executing action...", flush=True)
 
                 try:
                     actions = output[-1].cpu().numpy()
@@ -461,6 +505,7 @@ class RLBenchEnv:
                         obs, reward, _ = move(action, collision_checking=False)
 
                     max_reward = max(max_reward, reward)
+                    print(f"    step {step_id+1}/{max_steps} — reward={reward:.2f}", flush=True)
 
                     if reward == 1:
                         success_rate += 1

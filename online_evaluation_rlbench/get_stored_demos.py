@@ -1,3 +1,4 @@
+import os
 import pickle
 from os import listdir
 from os.path import join, exists
@@ -57,8 +58,11 @@ def get_stored_demos(amount=1,
             obs = pickle.load(f)
 
         if variation_number == -1:
-            with open(join(example_path, VARIATION_NUMBER), 'rb') as f:
-                obs.variation_number = pickle.load(f)
+            vn_path = join(example_path, VARIATION_NUMBER)
+            if os.path.exists(vn_path):
+                with open(vn_path, 'rb') as f:
+                    obs.variation_number = pickle.load(f)
+            # else: variation_number already set as attribute on obs
         else:
             obs.variation_number = variation_number
 

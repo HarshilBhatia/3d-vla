@@ -818,9 +818,10 @@ class TransformerHead(nn.Module):
                 rel_traj_pos, rel_scene_pos, rel_pos, _ = self._recompute_rope(
                     current_cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
                     bases=precomputed_bases)
+                sa_pos = rel_pos if self.sa_blocks_use_rope else None
                 features = self.self_attn.attn_layers[i](
                     features, features,
-                    seq1_pos=rel_pos, seq2_pos=rel_pos, ada_sgnl=time_embs)
+                    seq1_pos=sa_pos, seq2_pos=sa_pos, ada_sgnl=time_embs)
                 features = self.self_attn.ffw_layers[i](features, time_embs)
                 current_cam_feat = features[:, -1, :]  # camera token is last in SA sequence
 

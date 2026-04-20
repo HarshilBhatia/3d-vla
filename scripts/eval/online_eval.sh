@@ -110,7 +110,7 @@ use_com_rope=false
 com_rope_block_size=0
 com_rope_num_axes=0
 com_rope_init_std=0.0
-sa_blocks_use_rope=false
+sa_blocks_use_rope=true
 
 headless=true
 collision_checking=false
@@ -138,7 +138,7 @@ for task in "${TASKS[@]}"; do
         task_group_mapping_file=$task_group_mapping_file \
         fov_deg=$fov_deg \
         miscalibration_noise_level=$miscalibration_noise_level \
-        image_size=$image_size \
+        "image_size='$image_size'" \
         max_steps=$max_steps \
         prediction_len=$prediction_len \
         num_history=$num_history \
