@@ -13,6 +13,23 @@
 
 
  xvfb-run -a bash scripts/eval/online_eval.sh \
-      --checkpoint /home/harshilb/work/3d-vla/grogu_train_logs/best.pth \
-      --tasks "meat_off_grill" \
-      --extra "data_dir=/home/harshilb/work/3d-vla/peract_G1_data camera_groups=G1"
+      --checkpoint best.pth \
+      --tasks "stack_blocks" \
+      --extra "data_dir=/ocean/projects/cis240058p/hbhatia1/3d-vla/data/peract_G1_data camera_groups=G1"
+
+
+
+# apptainer exec \
+#       --nv \
+#       --env "COPPELIASIM_ROOT=${COPPELIASIM_ROOT}" \
+#       --env "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${COPPELIASIM_ROOT}" \
+#       --env "QT_QPA_PLATFORM_PLUGIN_PATH=${COPPELIASIM_ROOT}" \
+#       --bind /ocean/projects/cis240058p/hbhatia1/3d-vla:/ocean/projects/cis240058p/hbhatia1/3d-vla \
+#       /ocean/projects/cis240058p/hbhatia1/containers/3dfa-sandbox.sif \
+#       bash
+
+
+#   xvfb-run -a bash scripts/eval/online_eval.sh \                                                                                                                                                                            
+#       --checkpoint /path/to/your/checkpoint.pth \
+#       --tasks "stack_blocks" \                                                                                                                                                                                              
+#       --extra "eval_data_dir=/ocean/projects/cis240058p/hbhatia1/3d-vla/data/peract_G1_data camera_groups=G1"
