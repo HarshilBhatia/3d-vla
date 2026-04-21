@@ -76,8 +76,8 @@ eval_data_dir=/grogu/user/harshilb/orbital_train.zarr   # data/orbital.yaml poin
 cameras_file=instructions/orbital_cameras_grouped.json
 task_group_mapping_file=instructions/task_group_mapping.json
 
-fps_subsampling_factor=4          # config default: 5
-num_vis_instr_attn_layers=2       # config default: 3
+# fps_subsampling_factor=4          # config default: 5
+# num_vis_instr_attn_layers=2       # config default: 3
 max_tries=1                       # config default: 10
 headless=true
 seed=0
@@ -98,12 +98,10 @@ for task in "${TASKS[@]}"; do
 
     python "${REPO_ROOT}/online_evaluation_rlbench/evaluate_policy.py" \
         data=orbital \
-        experiment=orb_deltaM_full \
+        experiment=default \
         eval_data_dir=$eval_data_dir \
         cameras_file=$cameras_file \
         task_group_mapping_file=$task_group_mapping_file \
-        fps_subsampling_factor=$fps_subsampling_factor \
-        num_vis_instr_attn_layers=$num_vis_instr_attn_layers \
         max_tries=$max_tries \
         headless=$headless \
         checkpoint=$CHECKPOINT \

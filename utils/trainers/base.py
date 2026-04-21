@@ -129,25 +129,23 @@ class BaseTrainTester:
             prefetch_factor=prefetch,
             persistent_workers=True,
         )
-        # No sampler for val! (only runs on rank 0, no need to divide by world_size)
-        if dist.get_rank() == 0:
-            g_val = torch.Generator()
-            g_val.manual_seed(0)
-            val_loader = DataLoader(
-                val_dataset,
-                batch_size=self.args.batch_size_val // self.args.chunk_size,
-                shuffle=False,
-                num_workers=self.args.num_workers,
-                collate_fn=base_collate_fn,
-                pin_memory=True,
-                sampler=None,
-                drop_last=False,
-                prefetch_factor=prefetch,
-                persistent_workers=True,
-                generator=g_val,
-            )
-        else:
-            val_loader = None
+        # Val loader on all ranks so every rank participates in eval (avoids NCCL timeout).
+        # Each rank independently iterates the full val set; only rank 0 logs metrics.
+        g_val = torch.Generator()
+        g_val.manual_seed(0)
+        val_loader = DataLoader(
+            val_dataset,
+            batch_size=self.args.batch_size_val // self.args.chunk_size,
+            shuffle=False,
+            num_workers=self.args.num_workers,
+            collate_fn=base_collate_fn,
+            pin_memory=True,
+            sampler=None,
+            drop_last=False,
+            prefetch_factor=prefetch,
+            persistent_workers=True,
+            generator=g_val,
+        )
         return train_loader, val_loader, train_sampler
 
     def get_model(self):
@@ -536,26 +534,28 @@ class BaseTrainTester:
                     "best_loss": best_loss
                 }, last_path)
 
-            if (step_id + 1) % self.args.val_freq == 0 and dist.get_rank() == 0:
-                print("Train evaluation.......")
+            if (step_id + 1) % self.args.val_freq == 0:
                 model.eval()
+                if dist.get_rank() == 0:
+                    print("Train evaluation.......")
                 self.evaluate_nsteps(
                     ema_model if self.args.use_ema else model,
                     train_loader, step_id,
                     val_iters=10,
                     split='train'
                 )
-                print("Test evaluation.......")
+                if dist.get_rank() == 0:
+                    print("Test evaluation.......")
                 new_loss = self.evaluate_nsteps(
                     ema_model if self.args.use_ema else model,
                     val_loader, step_id,
                     val_iters=1250
                 )
-                # save model
-                best_loss = self.save_checkpoint(
-                    model, ema_model, optimizer, step_id,
-                    new_loss, best_loss
-                )
+                if dist.get_rank() == 0:
+                    best_loss = self.save_checkpoint(
+                        model, ema_model, optimizer, step_id,
+                        new_loss, best_loss
+                    )
                 model.train()
             dist.barrier(device_ids=[torch.cuda.current_device()])
 
@@ -803,7 +803,7 @@ class BaseTrainTester:
                         step_id, new_loss, best_loss):
         """Save checkpoint if requested."""
         
-        modeL_state = {k: v.cpu() for k,v in model.state_dict().items()}
+        model_state = {k: v.cpu() for k,v in model.state_dict().items()}
         # model_state = model.state_dict()
         ema_state = ema_model.state_dict() if self.args.use_ema else None
 

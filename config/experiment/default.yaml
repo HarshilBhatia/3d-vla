@@ -2,8 +2,6 @@
 # Run: python main.py experiment=default
 
 predict_extrinsics: false
-use_front_camera_frame: false
 traj_scene_rope: true
-train_iters: 400000
 
 

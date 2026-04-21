@@ -61,7 +61,7 @@ lv2_batch_size: 1
 # === Model: policy type ===
 model_type: denoise3d
 # bimanual: true for Peract2 bimanual tasks (bimanual_lift_tray, etc.); false for single-arm
-bimanual: true
+bimanual: false
 keypose_only: true
 pre_tokenize: true
 custom_img_size: null

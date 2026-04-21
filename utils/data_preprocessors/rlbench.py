@@ -34,7 +34,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
 
     def __init__(self, keypose_only=False, num_history=1,
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
-                 rotate_pcd=False, rotate_angle_deg=0.0, rotate_axis='z'):
+                 rotate_pcd=False, rotate_angle_deg=0.0, rotate_axis='z',
+                 use_front_camera_frame=False, **kwargs):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,
@@ -89,7 +90,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         return pcd_rot.reshape(B, ncam, 3, H, W)
 
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
-                    augment=False):
+                    augment=False, **kwargs):
         """
         RGBs of shape (B, ncam, 3, h_i, w_i),
         depths of shape (B, ncam, h_i, w_i).

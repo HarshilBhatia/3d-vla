@@ -5,5 +5,3 @@ predict_extrinsics: true
 extrinsics_prediction_mode: delta_m_full
 dynamic_rope_from_camtoken: true
 traj_scene_rope: true
-train_iters: 400000
-

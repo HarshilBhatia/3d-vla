@@ -505,9 +505,14 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         # Optional: mix sin/cos with delta_M (from cam_token), before view/stack
         if delta_M is not None:
             feat = torch.stack([cosx, cosy, cosz, sinx, siny, sinz], dim=-1)  # [B, N, d//6, 6]
-            if delta_M.shape[-1] == 6:
-                feat = torch.einsum('bnci,bji->bncj', feat, delta_M)  # per-bin 6×6
-            else:  # full D×D path
+            if delta_M.ndim == 4 and delta_M.shape[-1] == 6:  # (B, N, 6, 6) — per-token 6×6
+                feat = torch.einsum('bnci,bnji->bncj', feat, delta_M)
+            elif delta_M.ndim == 3 and delta_M.shape[-1] == 6:  # (B, 6, 6) — broadcast 6×6
+                feat = torch.einsum('bnci,bji->bncj', feat, delta_M)
+            elif delta_M.ndim == 4:  # (B, N, D, D) — per-token D×D
+                bsz2, np2, nb, _ = feat.shape
+                feat = torch.einsum('bni,bnji->bnj', feat.reshape(bsz2, np2, -1), delta_M).reshape(bsz2, np2, nb, 6)
+            else:  # (B, D, D) — broadcast D×D
                 bsz2, np2, nb, _ = feat.shape
                 feat = torch.einsum('bni,bji->bnj', feat.reshape(bsz2, np2, -1), delta_M).reshape(bsz2, np2, nb, 6)
             cosx, cosy, cosz = feat[..., 0], feat[..., 1], feat[..., 2]
@@ -578,9 +583,14 @@ class RotaryPositionEncoding3D(RotaryPositionEncoding):
         bsize, npoint = base_feat.shape[:2]
 
         if delta_M is not None:
-            if delta_M.shape[-1] == 6:
-                feat = torch.einsum('bnci,bji->bncj', base_feat, delta_M)  # per-bin 6×6
-            else:  # full D×D path
+            if delta_M.ndim == 4 and delta_M.shape[-1] == 6:  # (B, N, 6, 6) — per-token 6×6
+                feat = torch.einsum('bnci,bnji->bncj', base_feat, delta_M)
+            elif delta_M.ndim == 3 and delta_M.shape[-1] == 6:  # (B, 6, 6) — broadcast 6×6
+                feat = torch.einsum('bnci,bji->bncj', base_feat, delta_M)
+            elif delta_M.ndim == 4:  # (B, N, D, D) — per-token D×D
+                bsz2, np2, nb, _ = base_feat.shape
+                feat = torch.einsum('bni,bnji->bnj', base_feat.reshape(bsz2, np2, -1), delta_M).reshape(bsz2, np2, nb, 6)
+            else:  # (B, D, D) — broadcast D×D
                 bsz2, np2, nb, _ = base_feat.shape
                 feat = torch.einsum('bni,bji->bnj', base_feat.reshape(bsz2, np2, -1), delta_M).reshape(bsz2, np2, nb, 6)
             cosx, cosy, cosz = feat[..., 0], feat[..., 1], feat[..., 2]

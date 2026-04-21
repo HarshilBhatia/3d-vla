@@ -101,7 +101,8 @@ class DenoiseActor(nn.Module):
             rgb2d_feats, rgb2d_pos,
             instr_feats, instr_pos,
             proprio_feats,
-            fps_scene_feats, fps_scene_pos
+            fps_scene_feats, fps_scene_pos,
+            fps_cam_ids
         ) = fixed_inputs
 
         # Get features from normalized (relative) trajectory
@@ -130,6 +131,7 @@ class DenoiseActor(nn.Module):
             proprio_feats=proprio_feats,
             fps_scene_feats=fps_scene_feats,
             fps_scene_pos=fps_scene_pos,
+            fps_cam_ids=fps_cam_ids,
             stopgrad_k=stopgrad_k
         )
 
@@ -621,15 +623,15 @@ class TransformerHead(nn.Module):
         Predict delta_M or (R,T) from an arbitrary camera feature tensor.
 
         Args:
-            cam_feat: (B, C) — current camera token representation
+            cam_feat: (B, C) or (B, ncam, C) — camera feature(s)
 
         Returns:
-            (cam_params_rt, delta_M): one is non-None depending on extrinsics_prediction_mode
+            (cam_params_rt, delta_M): one is non-None depending on extrinsics_prediction_mode.
+            Shape mirrors input: (B, 6, 6) or (B, ncam, 6, 6) for delta_m mode.
         """
         h = self.camera_proj(cam_feat)
         if self.extrinsics_prediction_mode == 'delta_m':
-            batch_size = cam_feat.shape[0]
-            A_skew = self.camera_predictor(h).view(batch_size, 6, 6)
+            A_skew = self.camera_predictor(h).reshape(*cam_feat.shape[:-1], 6, 6)
             A = A_skew - A_skew.transpose(-1, -2)
             max_norm = 3.0
             norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
@@ -637,10 +639,8 @@ class TransformerHead(nn.Module):
             delta_M = torch.linalg.matrix_exp(A)
             return None, delta_M
         elif self.extrinsics_prediction_mode == 'delta_m_full':
-            batch_size = cam_feat.shape[0]
-
             D = self._delta_m_full_dim
-            A_skew = self.camera_predictor(h).view(batch_size, D, D)
+            A_skew = self.camera_predictor(h).reshape(*cam_feat.shape[:-1], D, D)
             A = A_skew - A_skew.transpose(-1, -2)
             max_norm = 3.0
             norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
@@ -656,16 +656,23 @@ class TransformerHead(nn.Module):
         rt, _ = self._predict_from_cam_feat(cam_feat)
         return rt
 
-    def _predict_delta_M(self, batch_size, device):
+    def _predict_delta_M(self, batch_size, device, fps_scene_feats=None, fps_cam_ids=None):
         """
-        Predict A_skew from cam token; delta_M = exp(A_skew - A_skew.T) is orthogonal.
-        Used to mix sin/cos features in RoPE, independent of comRoPE.
+        Predict delta_M from per-image average tokens (one per camera).
 
-        Returns:
-            delta_M: (B, 6, 6) orthogonal
+        If fps_scene_feats/fps_cam_ids are provided, sources from per-image avg tokens
+        (fps_scene_feats[:, M:, :] where M = fps_cam_ids.shape[1]).
+        Returns delta_M: (B, ncam, 6, 6) — one orthogonal matrix per camera.
+
+        Falls back to (B, 6, 6) from the learnable camera_token if not provided.
         """
-        cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
-        _, delta_M = self._predict_from_cam_feat(cam_feat)
+        if fps_scene_feats is not None and fps_cam_ids is not None:
+            M = fps_cam_ids.shape[1]
+            per_img_feats = fps_scene_feats[:, M:, :]  # (B, ncam, C)
+            _, delta_M = self._predict_from_cam_feat(per_img_feats)  # (B, ncam, 6, 6)
+        else:
+            cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
+            _, delta_M = self._predict_from_cam_feat(cam_feat)  # (B, 6, 6)
         return delta_M
 
     def _recompute_rope(self, cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
@@ -681,7 +688,7 @@ class TransformerHead(nn.Module):
     def forward(self, traj_feats, trajectory, timesteps,
                 rgb3d_feats, rgb3d_pos, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats,
-                fps_scene_feats, fps_scene_pos, stopgrad_k=0):
+                fps_scene_feats, fps_scene_pos, fps_cam_ids=None, stopgrad_k=0):
         """
         Arguments:
             traj_feats: (B, trajectory_length, nhand, F)
@@ -731,7 +738,9 @@ class TransformerHead(nn.Module):
         )
 
         batch_size, device = trajectory.shape[0], trajectory.device
-        cam_params_rt, delta_M, self._last_predicted_cam_params = self.extrinsics_predictor(batch_size, device)
+        cam_params_rt, delta_M, self._last_predicted_cam_params = self.extrinsics_predictor(
+            batch_size, device, fps_scene_feats=fps_scene_feats, fps_cam_ids=fps_cam_ids
+        )
 
         if self.dynamic_rope_from_camtoken and self._rope_mode == "standard" and self.predict_extrinsics:
             # Dynamic RoPE path: re-predict delta_M / (R,T) after every CA and SA block.
@@ -739,17 +748,23 @@ class TransformerHead(nn.Module):
             orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos
             current_cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
 
+            # Per-image avg token features (evolve each SA layer); shape (B, ncam, C)
+            assert fps_cam_ids is not None, "dynamic_rope_from_camtoken requires fps_cam_ids"
+            M = fps_cam_ids.shape[1]
+            current_per_img_feats = fps_scene_feats[:, M:, :]
+
             # Pre-compute sin/cos bases once; reuse across all blocks (delta_M mode only)
             precomputed_bases = (
                 self._precompute_rope_bases(traj_xyz, rgb3d_pos, fps_scene_pos, stopgrad_k)
                 if self.extrinsics_prediction_mode == 'delta_m' else None
             )
 
-            # Cross-attention: per-layer RoPE recompute (cam_feat is static, no update here)
+            # Cross-attention: per-layer RoPE recompute (per-image feats are static pre-SA)
             for i in range(self.cross_attn.num_layers):
                 rel_traj_pos, rel_scene_pos, rel_pos, _ = self._recompute_rope(
                     current_cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
-                    bases=precomputed_bases)
+                    bases=precomputed_bases, fps_cam_ids=fps_cam_ids,
+                    per_img_feats=current_per_img_feats)
                 traj_feats = self.cross_attn.attn_layers[i](
                     traj_feats, rgb3d_feats,
                     seq1_pos=rel_traj_pos, seq2_pos=rel_scene_pos, ada_sgnl=time_embs)
@@ -760,18 +775,22 @@ class TransformerHead(nn.Module):
                 traj_feats, fps_scene_feats,
                 rgb3d_feats, rgb2d_feats, instr_feats
             )
+            traj_seq_len = traj_feats.shape[1]
 
-            # Self-attention: per-layer RoPE recompute + cam_feat update from last token
+            # Self-attention: per-layer RoPE recompute + update cam_feat and per-image feats
             for i in range(self.self_attn.num_layers):
                 rel_traj_pos, rel_scene_pos, rel_pos, _ = self._recompute_rope(
                     current_cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
-                    bases=precomputed_bases)
+                    bases=precomputed_bases, fps_cam_ids=fps_cam_ids,
+                    per_img_feats=current_per_img_feats)
                 sa_pos = rel_pos if self.sa_blocks_use_rope else None
                 features = self.self_attn.attn_layers[i](
                     features, features,
                     seq1_pos=sa_pos, seq2_pos=sa_pos, ada_sgnl=time_embs)
                 features = self.self_attn.ffw_layers[i](features, time_embs)
                 current_cam_feat = features[:, -1, :]  # camera token is last in SA sequence
+                ncam = fps_scene_feats.shape[1] - M
+                current_per_img_feats = features[:, traj_seq_len + M:traj_seq_len + M + ncam, :]
 
             rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1])
             position, position_features = self.predict_pos(features, rel_pos, time_embs, traj_feats.shape[1])
@@ -786,6 +805,7 @@ class TransformerHead(nn.Module):
                 stopgrad_k=stopgrad_k,
                 delta_M=delta_M,
                 cam_params_rt=cam_params_rt,
+                fps_cam_ids=fps_cam_ids,
             )
             traj_feats = self.cross_attn(
                 seq1=traj_feats,

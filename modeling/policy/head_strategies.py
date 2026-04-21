@@ -9,7 +9,7 @@ from torch import nn
 class ExtrinsicsPredictor(nn.Module):
     """Base: no extrinsics prediction."""
 
-    def forward(self, batch_size, device):
+    def forward(self, batch_size, device, fps_scene_feats=None, fps_cam_ids=None):
         return None, None, None
 
 
@@ -32,8 +32,8 @@ class DeltaMExtrinsicsPredictor(ExtrinsicsPredictor):
         super().__init__()
         object.__setattr__(self, "_head", head)  # do not register as submodule (would create cycle)
 
-    def forward(self, batch_size, device):
-        delta_M = self._head._predict_delta_M(batch_size, device)
+    def forward(self, batch_size, device, fps_scene_feats=None, fps_cam_ids=None):
+        delta_M = self._head._predict_delta_M(batch_size, device, fps_scene_feats, fps_cam_ids)
         return None, delta_M, delta_M.detach()
 
 

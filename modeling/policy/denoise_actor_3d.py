@@ -235,6 +235,7 @@ class TransformerHead(BaseTransformerHead):
         stopgrad_k=0,
         delta_M=None,
         cam_params_rt=None,
+        fps_cam_ids=None,
     ):
         # RT mode: transform positions by predicted R,t (camera -> world); no delta_M in RoPE.
         # delta_M mode: no position transform; delta_M mixes sin/cos in RoPE.
@@ -246,22 +247,36 @@ class TransformerHead(BaseTransformerHead):
             fps_scene_pos = _transform_pcd_with_extrinsics(fps_scene_pos, cam_params_rt)
             delta_M = None
 
+        # Expand per-camera delta_M (B, ncam, 6, 6) to per-token for rgb3d and fps sequences
+        delta_M_rgb3d = delta_M
+        delta_M_fps = delta_M
+        if delta_M is not None and delta_M.ndim == 4 and fps_cam_ids is not None:
+            B, ncam = delta_M.shape[:2]
+            Np = rgb3d_pos.shape[1]
+            P = Np // ncam  # tokens per camera in the dense sequence
+
+            # Dense rgb3d tokens: cam index = token_index // P
+            dense_cam_ids = torch.arange(ncam, device=delta_M.device).repeat_interleave(P)  # (Np,)
+            delta_M_rgb3d = delta_M[:, dense_cam_ids, :, :]  # (B, Np, 6, 6)
+
+            # FPS tokens: first M from fps_cam_ids, last ncam are per-image tokens (cam 0..ncam-1)
+            M = fps_cam_ids.shape[1]
+            delta_M_fps_sparse = delta_M[torch.arange(B, device=delta_M.device)[:, None], fps_cam_ids]  # (B, M, 6, 6) or (B, M, D, D)
+            delta_M_fps = torch.cat([delta_M_fps_sparse, delta_M], dim=1)  # (B, M+ncam, 6, 6) or (B, M+ncam, D, D)
+
         rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
-        # Apply the same RoPE settings (allow_grad / delta_M) to all scene tokens,
-        # including those used in cross-attention (rgb3d_pos) and the subsampled
-        # fps_scene_pos tokens.
         rel_scene_pos = self.relative_pe_layer(
             rgb3d_pos,
             allow_grad=allow_grad,
             stopgrad_k=stopgrad_k,
-            delta_M=delta_M,
+            delta_M=delta_M_rgb3d,
         )
 
         rel_fps_pos = self.relative_pe_layer(
             fps_scene_pos,
             allow_grad=allow_grad,
             stopgrad_k=stopgrad_k,
-            delta_M=delta_M,
+            delta_M=delta_M_fps,
         )
         
         # Add zero positional embeddings for register tokens (4) and camera token (1)
@@ -284,16 +299,18 @@ class TransformerHead(BaseTransformerHead):
         fps_base = self.relative_pe_layer._compute_sincos_base(fps_scene_pos, stopgrad_k)
         return traj_base, scene_base, fps_base
 
-    def _apply_delta_M_rope(self, traj_base, scene_base, fps_base, delta_M):
+    def _apply_delta_M_rope(self, traj_base, scene_base, fps_base, delta_M, delta_M_fps=None):
         """Apply delta_M to pre-computed sin/cos bases and return RoPE positions.
 
-        Traj uses no delta_M (same as the full recompute path). Scene and fps get delta_M.
+        Traj uses no delta_M. Scene gets delta_M_scene, fps gets delta_M_fps (defaults to delta_M).
 
         Returns (rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos).
         """
+        if delta_M_fps is None:
+            delta_M_fps = delta_M
         rel_traj_pos = self.relative_pe_layer._finalize_from_base(traj_base, delta_M=None)
         rel_scene_pos = self.relative_pe_layer._finalize_from_base(scene_base, delta_M=delta_M)
-        rel_fps_pos = self.relative_pe_layer._finalize_from_base(fps_base, delta_M=delta_M)
+        rel_fps_pos = self.relative_pe_layer._finalize_from_base(fps_base, delta_M=delta_M_fps)
 
         batch_size = traj_base.shape[0]
         zero_pos = torch.zeros(
@@ -304,27 +321,31 @@ class TransformerHead(BaseTransformerHead):
         return rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos
 
     def _recompute_rope(self, cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
-                        bases=None):
+                        bases=None, fps_cam_ids=None, per_img_feats=None):
         """
-        Predict delta_M or (R,T) from cam_feat and recompute 3D RoPE embeddings.
+        Predict delta_M or (R,T) and recompute 3D RoPE embeddings.
 
         Args:
-            cam_feat: (B, C) — current camera token representation (attended or static)
+            cam_feat: (B, C) — unused in delta_M mode; kept for RT mode
             traj_xyz: (B, T, 3)
-            orig_rgb3d_pos: (B, N, 3) — original (un-transformed) scene positions
-            orig_fps_scene_pos: (B, M, 3) — original fps scene positions
+            orig_rgb3d_pos: (B, N, 3)
+            orig_fps_scene_pos: (B, M+ncam, 3)
             stopgrad_k: int
-            bases: optional (traj_base, scene_base, fps_base) from _precompute_rope_bases;
-                   if provided in delta_M mode, skips redundant sin/cos recomputation.
+            bases: optional (traj_base, scene_base, fps_base) from _precompute_rope_bases
+            fps_cam_ids: (B, M) — required; camera index per fps token
+            per_img_feats: (B, ncam, C) — required; current per-image avg token features
 
         Returns:
             (rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos)
         """
         allow_grad = self.training and (self.learn_extrinsics or self.predict_extrinsics)
-        cam_params_rt, delta_M = self._predict_from_cam_feat(cam_feat)
+
+        assert fps_cam_ids is not None and per_img_feats is not None, \
+            "_recompute_rope requires fps_cam_ids and per_img_feats"
+
+        cam_params_rt, delta_M = self._predict_from_cam_feat(per_img_feats)  # (B, ncam, 6/D, 6/D)
 
         if cam_params_rt is not None:
-            # RT mode: always transform from original positions; no base cache applicable
             rgb3d_pos = _transform_pcd_with_extrinsics(orig_rgb3d_pos, cam_params_rt)
             fps_scene_pos = _transform_pcd_with_extrinsics(orig_fps_scene_pos, cam_params_rt)
             delta_M = None
@@ -332,17 +353,30 @@ class TransformerHead(BaseTransformerHead):
             rgb3d_pos = orig_rgb3d_pos
             fps_scene_pos = orig_fps_scene_pos
 
+        # Expand per-camera delta_M (B, ncam, ...) to per-token for rgb3d and fps
+        delta_M_rgb3d = delta_M
+        delta_M_fps = delta_M
+        if delta_M is not None and delta_M.ndim >= 4:
+            B, ncam = delta_M.shape[:2]
+            Np = orig_rgb3d_pos.shape[1]
+            P = Np // ncam
+            dense_cam_ids = torch.arange(ncam, device=delta_M.device).repeat_interleave(P)
+            delta_M_rgb3d = delta_M[:, dense_cam_ids, :, :]  # (B, Np, 6, 6) or (B, Np, D, D)
+            M = fps_cam_ids.shape[1]
+            delta_M_fps_sparse = delta_M[torch.arange(B, device=delta_M.device)[:, None], fps_cam_ids]
+            delta_M_fps = torch.cat([delta_M_fps_sparse, delta_M], dim=1)  # (B, M+ncam, ...)
+
         # delta_M mode with pre-computed bases: skip sin/cos recomputation
         if delta_M is not None and bases is not None:
             traj_base, scene_base, fps_base = bases
             rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos = self._apply_delta_M_rope(
-                traj_base, scene_base, fps_base, delta_M)
+                traj_base, scene_base, fps_base, delta_M_rgb3d, delta_M_fps)
         else:
             rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
             rel_scene_pos = self.relative_pe_layer(
-                rgb3d_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M)
+                rgb3d_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M_rgb3d)
             rel_fps_pos = self.relative_pe_layer(
-                fps_scene_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M)
+                fps_scene_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M_fps)
 
             batch_size = traj_xyz.shape[0]
             zero_pos = torch.zeros(
