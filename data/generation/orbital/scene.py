@@ -84,7 +84,7 @@ class OrbitalScene(CustomizedScene):
             obs.orbital_left_rgb = (
                 self._orbital_left.capture_rgb() * 255
             ).clip(0, 255).astype("uint8")
-            obs.orbital_left_depth = self._orbital_left.capture_depth(in_meters=True)
+            obs.orbital_left_depth = self._orbital_left.capture_depth(in_meters=False)
         else:
             obs.orbital_left_rgb   = None
             obs.orbital_left_depth = None
@@ -94,7 +94,7 @@ class OrbitalScene(CustomizedScene):
             obs.orbital_right_rgb = (
                 self._orbital_right.capture_rgb() * 255
             ).clip(0, 255).astype("uint8")
-            obs.orbital_right_depth = self._orbital_right.capture_depth(in_meters=True)
+            obs.orbital_right_depth = self._orbital_right.capture_depth(in_meters=False)
         else:
             obs.orbital_right_rgb   = None
             obs.orbital_right_depth = None

@@ -70,14 +70,19 @@ def create_orbital_sensor(pos, R_mat, image_size, fov_deg):
 
 def capture_orbital_extrinsics(left_sensor, right_sensor):
     """
-    Return a dict with 4×4 extrinsics and 3×3 intrinsics for both sensors.
-    Must be called while sensors are still alive.
+    Return a dict with 4×4 extrinsics, 3×3 intrinsics, and near/far clipping planes
+    for both sensors.  Must be called while sensors are still alive.
+    near/far are needed to convert [0,1] depth PNGs back to metres during loading.
     """
     return {
         "left_extrinsics":  left_sensor.get_matrix().astype(np.float32),
         "right_extrinsics": right_sensor.get_matrix().astype(np.float32),
         "left_intrinsics":  left_sensor.get_intrinsic_matrix().astype(np.float32),
         "right_intrinsics": right_sensor.get_intrinsic_matrix().astype(np.float32),
+        "left_near":  left_sensor.get_near_clipping_plane(),
+        "left_far":   left_sensor.get_far_clipping_plane(),
+        "right_near": right_sensor.get_near_clipping_plane(),
+        "right_far":  right_sensor.get_far_clipping_plane(),
     }
 
 
@@ -94,7 +99,7 @@ def make_obs_config(image_size):
     on = CameraConfig(
         rgb=True, depth=True, point_cloud=False, mask=False,
         image_size=sz, render_mode=RenderMode.OPENGL3,
-        depth_in_meters=True,
+        depth_in_meters=False,
     )
     # Don't disable unused cameras — _set_camera_properties() calls .remove()
     # on any camera with all channels off, permanently deleting it from the scene.
@@ -247,10 +252,14 @@ def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
         print("[WARN] Not enough keyframes; skipping debug zarr.")
         return
 
-    E_left  = orbital_extrinsics["left_extrinsics"]
-    E_right = orbital_extrinsics["right_extrinsics"]
-    K_left  = orbital_extrinsics["left_intrinsics"]
-    K_right = orbital_extrinsics["right_intrinsics"]
+    E_left   = orbital_extrinsics["left_extrinsics"]
+    E_right  = orbital_extrinsics["right_extrinsics"]
+    K_left   = orbital_extrinsics["left_intrinsics"]
+    K_right  = orbital_extrinsics["right_intrinsics"]
+    near_l   = orbital_extrinsics["left_near"]
+    far_l    = orbital_extrinsics["left_far"]
+    near_r   = orbital_extrinsics["right_near"]
+    far_r    = orbital_extrinsics["right_far"]
     group_id = int(group[1])  # "G3" → 3
 
     with zarr.open_group(zarr_path, mode="w") as zf:
@@ -284,10 +293,12 @@ def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
                 _get_rgb(obs, "wrist_rgb").transpose(2, 0, 1),
             ])[np.newaxis]
 
+            near_w = obs.misc.get("wrist_camera_near", 0.0)
+            far_w  = obs.misc.get("wrist_camera_far",  4.0)
             depth = np.stack([
-                _get_depth(obs, "orbital_left_depth"),
-                _get_depth(obs, "orbital_right_depth"),
-                _get_depth(obs, "wrist_depth"),
+                near_l + _get_depth(obs, "orbital_left_depth")  * (far_l - near_l),
+                near_r + _get_depth(obs, "orbital_right_depth") * (far_r - near_r),
+                near_w + _get_depth(obs, "wrist_depth")         * (far_w - near_w),
             ]).astype(np.float16)[np.newaxis]
 
             E_wrist = np.array(obs.misc.get("wrist_camera_extrinsics", np.eye(4)), dtype=np.float32)

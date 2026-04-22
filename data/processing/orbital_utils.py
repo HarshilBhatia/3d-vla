@@ -18,9 +18,8 @@ from data.processing.rlbench_utils import (
     keypoint_discovery,
 )
 
-CAMERAS  = ["orbital_left", "orbital_right", "wrist"]
-CAM_KEYS = [None,           None,            None]
-NHAND    = 1
+CAMERAS = ["orbital_left", "orbital_right", "wrist"]
+NHAND   = 1
 
 
 def load_rgb(ep_path, cam, frame_id):
@@ -29,19 +28,14 @@ def load_rgb(ep_path, cam, frame_id):
     return np.array(Image.open(path).convert("RGB"))
 
 
-def load_depth_metres(ep_path, cam, frame_id, obs, cam_key):
+def load_depth_metres(ep_path, cam, frame_id, near, far):
     """
-    Load depth as float32 metres.
-    Orbital cameras: PNG encodes absolute metres at DEPTH_SCALE.
-    Standard cameras (e.g. wrist): PNG encodes [0,1]; unpack with near/far from obs.misc.
+    Load depth PNG (encoded as [0,1] at DEPTH_SCALE) and convert to metres
+    using the supplied near/far clipping planes.
     """
     path = os.path.join(ep_path, "{}_depth".format(cam), "{}.png".format(num2id(frame_id)))
     d_raw = image_to_float_array(Image.open(path), DEPTH_SCALE)
-    if cam_key is not None:
-        near = obs.misc.get("{}_camera_near".format(cam_key), 0.0)
-        far  = obs.misc.get("{}_camera_far".format(cam_key),  4.0)
-        return (near + d_raw * (far - near)).astype(np.float32)
-    return d_raw.astype(np.float32)
+    return (near + d_raw * (far - near)).astype(np.float32)
 
 
 def load_extrinsics_from_misc(obs, cam_key):
@@ -59,7 +53,12 @@ def load_intrinsics_from_misc(obs, cam_key):
 
 
 def load_orbital_extrinsics(ep_path):
-    """Load pre-saved orbital camera extrinsics; falls back to identity matrices."""
+    """Load pre-saved orbital camera extrinsics and clipping planes.
+
+    Returns (E_left, E_right, K_left, K_right, near_l, far_l, near_r, far_r).
+    near/far are needed to convert [0,1] depth PNGs to metres.
+    Falls back to identity matrices and sensor defaults (near=0.01, far=10.0).
+    """
     path = os.path.join(ep_path, "orbital_extrinsics.pkl")
     if os.path.exists(path):
         with open(path, "rb") as f:
@@ -69,9 +68,13 @@ def load_orbital_extrinsics(ep_path):
             np.array(data["right_extrinsics"], dtype=np.float32),
             np.array(data["left_intrinsics"],  dtype=np.float32),
             np.array(data["right_intrinsics"], dtype=np.float32),
+            float(data.get("left_near",  0.01)),
+            float(data.get("left_far",  10.0)),
+            float(data.get("right_near", 0.01)),
+            float(data.get("right_far", 10.0)),
         )
     eye4, eye3 = np.eye(4, dtype=np.float32), np.eye(3, dtype=np.float32)
-    return eye4, eye4, eye3, eye3
+    return eye4, eye4, eye3, eye3, 0.01, 10.0, 0.01, 10.0
 
 
 def get_group_id(ep_path, group_str):
@@ -102,7 +105,7 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256):
         print("[WARN] Not enough keyframes in {}".format(ep_path))
         return 0
 
-    E_ol, E_or, K_ol, K_or = load_orbital_extrinsics(ep_path)
+    E_ol, E_or, K_ol, K_or, near_ol, far_ol, near_or, far_or = load_orbital_extrinsics(ep_path)
     group_id = get_group_id(ep_path, group_str)
 
     def _eef(o):
@@ -121,9 +124,12 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256):
             for cam in CAMERAS
         ])[np.newaxis]
 
+        near_wr = obs.misc.get("wrist_camera_near", 0.0)
+        far_wr  = obs.misc.get("wrist_camera_far",  4.0)
         depth = np.stack([
-            load_depth_metres(ep_path, cam, k, obs, cam_key)
-            for cam, cam_key in zip(CAMERAS, CAM_KEYS)
+            load_depth_metres(ep_path, "orbital_left",  k, near_ol, far_ol),
+            load_depth_metres(ep_path, "orbital_right", k, near_or, far_or),
+            load_depth_metres(ep_path, "wrist",         k, near_wr, far_wr),
         ]).astype(np.float16)[np.newaxis]
 
         E_wrist = load_extrinsics_from_misc(obs, "wrist")
