@@ -5,8 +5,8 @@ Each episode records 4 cameras:
   [orbital_left, orbital_right, over_shoulder_left, over_shoulder_right]
 
 Normal mode  → saves raw episodes to --save-path/{task}/{group}/episode_{N}/
-Video mode   → saves a single episode as MP4 and a single-episode zarr
-               for pipeline validation.
+               Variations cycle sequentially across episodes (like generate.py).
+Video mode   → saves a single episode as MP4 for pipeline validation.
 
 Example (headless):
     xvfb-run -a python scripts/orbital_cameras/collect.py \\
@@ -14,10 +14,10 @@ Example (headless):
         --save-path data/orbital_rollouts \\
         --cameras-file instructions/orbital_cameras_grouped.json
 
-    # Debug / video mode:
+    # With episode offset (e.g. second SLURM node):
     xvfb-run -a python scripts/orbital_cameras/collect.py \\
-        --task close_jar --groups G1 --video-only \\
-        --video-dir debug_videos \\
+        --task close_jar --groups G1 --n-episodes 30 --ep-start 30 \\
+        --save-path data/orbital_rollouts \\
         --cameras-file instructions/orbital_cameras_grouped.json
 """
 
@@ -33,7 +33,6 @@ from data.generation.orbital.collection import (
     load_group_cameras,
     make_obs_config,
     save_debug_video,
-    save_debug_zarr,
     save_orbital_episode,
 )
 
@@ -46,7 +45,10 @@ def parse_args():
                    help="One or more camera groups (e.g. G1 G2 G3). "
                         "All groups are collected in a single CoppeliaSim session.")
     p.add_argument("--n-episodes",   type=int, default=30,
-                   help="Number of episodes to collect per group (default: 30)")
+                   help="Number of episodes to collect (default: 30)")
+    p.add_argument("--ep-start",     type=int, default=0,
+                   help="Starting episode index, for parallel nodes writing to "
+                        "the same directory (default: 0)")
     p.add_argument("--save-path",    default="data/orbital_rollouts",
                    help="Root directory for raw episode output")
     p.add_argument("--image-size",   type=int, default=256)
@@ -55,11 +57,9 @@ def parse_args():
     p.add_argument("--cameras-file", default="instructions/orbital_cameras_grouped.json",
                    help="Path to orbital_cameras_grouped.json")
     p.add_argument("--video-only",   action="store_true",
-                   help="Debug: collect 1 episode per group, save MP4 + zarr")
+                   help="Debug: collect 1 episode, save MP4")
     p.add_argument("--video-dir",    default="debug_videos",
                    help="Output directory for debug MP4s (used with --video-only)")
-    p.add_argument("--variation",    type=int, default=0,
-                   help="Task variation index (default: 0)")
     return p.parse_args()
 
 
@@ -88,13 +88,14 @@ def main():
     )
     env.launch()
 
-    task_class = task_file_to_task_class(args.task)
-    task_env   = env.get_task(task_class)
-    task_env.set_variation(args.variation)
-    scene      = env._scene
+    task_class  = task_file_to_task_class(args.task)
+    task_env    = env.get_task(task_class)
+    n_variations = task_env.variation_count()
+    scene       = env._scene
 
-    print("[INFO] task={} groups={} mode={}".format(
-        args.task, args.groups, "video" if args.video_only else "collect"))
+    print("[INFO] task={} groups={} n_variations={} mode={}".format(
+        args.task, args.groups, n_variations,
+        "video" if args.video_only else "collect"))
 
     for group in args.groups:
         cam_left, cam_right = load_group_cameras(args.cameras_file, group)
@@ -102,11 +103,11 @@ def main():
         if args.video_only:
             video_out = os.path.join(
                 args.video_dir, "{}_{}.mp4".format(args.task, group))
-            zarr_path = video_out + ".zarr"
-            if os.path.exists(zarr_path):
-                print("[SKIP] {}/{} already exists.".format(args.task, group))
+            if os.path.exists(video_out):
+                print("[SKIP] {} already exists.".format(video_out))
                 continue
 
+            task_env.set_variation(0)
             demo, orbital_extrinsics, timing = collect_one_episode(
                 task_env, scene, cam_left, cam_right,
                 args.image_size, args.fov_deg,
@@ -114,46 +115,32 @@ def main():
             if demo is None:
                 continue
 
+            t_collect = timing["reset"] + timing["sensors"] + timing["demos"] + timing["cleanup"]
             print("[TIME] reset={:.2f}s sensors={:.2f}s demos={:.2f}s cleanup={:.2f}s steps={}".format(
                 timing["reset"], timing["sensors"], timing["demos"], timing["cleanup"], len(demo)))
 
             t0 = time.perf_counter()
             save_debug_video(demo, video_out, args.image_size)
-            t_video = time.perf_counter() - t0
-
-            t0 = time.perf_counter()
-            save_debug_zarr(demo, zarr_path, group,
-                            orbital_extrinsics=orbital_extrinsics,
-                            image_size=args.image_size)
-            t_zarr = time.perf_counter() - t0
-
-            t_collect = timing["reset"] + timing["sensors"] + timing["demos"] + timing["cleanup"]
-            print("[TIME] video={:.2f}s zarr={:.2f}s total={:.2f}s".format(
-                t_video, t_zarr, t_collect + t_video + t_zarr))
+            print("[TIME] video={:.2f}s total={:.2f}s".format(
+                time.perf_counter() - t0, t_collect + time.perf_counter() - t0))
 
         else:
             base_path = os.path.join(args.save_path, args.task, group)
 
-            ep_start = 0
-            if os.path.exists(base_path):
-                existing = [
-                    d for d in os.listdir(base_path)
-                    if d.startswith("episode_") and
-                       os.path.isdir(os.path.join(base_path, d))
-                ]
-                ep_start = len(existing)
-                if ep_start >= args.n_episodes:
-                    print("[SKIP] {}/{} already has {} episodes.".format(
-                        args.task, group, ep_start))
-                    continue
-                if ep_start > 0:
-                    print("[RESUME] {}/{} from episode {}.".format(
-                        args.task, group, ep_start))
-
+            ep_end = args.ep_start + args.n_episodes
             ep_times = []
-            for ep_idx in range(ep_start, args.n_episodes):
-                print("[INFO] {}/{} episode {}/{}".format(
-                    args.task, group, ep_idx + 1, args.n_episodes))
+            for ep_idx in range(args.ep_start, ep_end):
+                ep_path = os.path.join(base_path, "episode_{}".format(ep_idx))
+                if os.path.exists(ep_path):
+                    print("[SKIP] {} already exists.".format(ep_path))
+                    continue
+
+                # Cycle variations sequentially, same as generate.py.
+                variation = ep_idx % n_variations
+                task_env.set_variation(variation)
+
+                print("[INFO] {}/{} episode {} (variation {}/{})".format(
+                    args.task, group, ep_idx, variation, n_variations))
 
                 demo, orbital_extrinsics, timing = collect_one_episode(
                     task_env, scene, cam_left, cam_right,
@@ -166,16 +153,18 @@ def main():
                 print("[TIME] reset={:.2f}s sensors={:.2f}s demos={:.2f}s cleanup={:.2f}s steps={}".format(
                     timing["reset"], timing["sensors"], timing["demos"], timing["cleanup"], len(demo)))
 
-                ep_path = os.path.join(base_path, "episode_{}".format(ep_idx))
                 print("[STEP] Saving episode to {}...".format(ep_path))
                 t0 = time.perf_counter()
                 save_orbital_episode(demo, ep_path, group, orbital_extrinsics)
+                # Record which variation this episode used.
+                with open(os.path.join(ep_path, "variation.txt"), "w") as f:
+                    f.write("{}\n".format(variation))
                 t_save = time.perf_counter() - t0
 
                 t_total = t_collect + t_save
                 ep_times.append(t_total)
                 avg       = sum(ep_times) / len(ep_times)
-                remaining = (args.n_episodes - ep_idx - 1) * avg
+                remaining = (ep_end - ep_idx - 1) * avg
                 print("[SAVED] {} | collect={:.1f}s save={:.1f}s total={:.1f}s avg={:.1f}s eta={:.1f}s".format(
                     ep_path, t_collect, t_save, t_total, avg, remaining))
 

@@ -15,7 +15,7 @@ import numpy as np
 import zarr
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-from paths import ZARR_ROOT
+ZARR_ROOT = "Peract2_zarr"
 
 # PerAct (4 cams) vs PerAct2 (3 cams)
 PERACT_CAMERAS = ["left_shoulder", "right_shoulder", "wrist", "front"]

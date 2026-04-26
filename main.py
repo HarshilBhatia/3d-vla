@@ -6,6 +6,7 @@ from pathlib import Path
 import sys
 
 import torch
+from torch.distributed.elastic.multiprocessing.errors import record
 
 from datasets import fetch_dataset_class
 from modeling.policy import fetch_model_class
@@ -23,7 +24,8 @@ def redirect_non_main_output(log_dir: Path):
         sys.stderr = f
 
 
-if __name__ == '__main__':
+@record
+def main():
     os.environ["TOKENIZERS_PARALLELISM"] = "false"
     os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 
@@ -87,3 +89,7 @@ if __name__ == '__main__':
     if torch.distributed.is_initialized():
         torch.cuda.empty_cache()
         torch.distributed.destroy_process_group()
+
+
+if __name__ == '__main__':
+    main()

@@ -1,12 +1,8 @@
 import argparse
 import os
-import sys
 import subprocess
 
-# Add project root to sys.path to find 'paths' module
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
-
-from paths import RAW_ROOT
+RAW_ROOT = "peract2_raw"
 
 
 def parse_arguments():

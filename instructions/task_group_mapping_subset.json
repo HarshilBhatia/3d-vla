@@ -1,18 +1,22 @@
 {
-
   "insert_onto_square_peg": [
     "G1",
     "G2",
     "G3"
   ],
   "light_bulb_in": [
-    "G1",
     "G2",
-    "G3"
+    "G3",
+    "G4"
   ],
   "push_buttons": [
+    "G3",
+    "G4",
+    "G1"
+  ],
+  "open_drawer": [
+    "G4",
     "G1",
-    "G2",
-    "G3"
-  ]
+    "G2"
+  ],
 }

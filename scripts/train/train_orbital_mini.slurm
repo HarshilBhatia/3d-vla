@@ -24,8 +24,8 @@ ngpus=$(nvidia-smi -L | wc -l)
 data=orbital
 main_dir=Orbital
 experiment=default
-run_log_dir=orbital_mini
-train_iters=70000
+run_log_dir=open_drawer_test
+train_iters=160000
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
@@ -36,6 +36,6 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     exp_log_dir=$main_dir \
     run_log_dir=$run_log_dir \
     train_iters=$train_iters \
-    train_data_dir=/home/harshilb/data/orbital_mini.zarr \
-    eval_data_dir=/home/harshilb/data/orbital_mini.zarr \
+    train_data_dir=/grogu/user/harshilb/orbital_rollouts/4tasks.zarr \
+    eval_data_dir=/grogu/user/harshilb/orbital_rollouts/4tasks.zarr \
     checkpoint=$checkpoint

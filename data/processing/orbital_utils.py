@@ -12,9 +12,7 @@ from PIL import Image
 
 from data.processing.rlbench_utils import (
     CustomUnpickler,
-    DEPTH_SCALE,
     num2id,
-    image_to_float_array,
     keypoint_discovery,
 )
 
@@ -28,36 +26,26 @@ def load_rgb(ep_path, cam, frame_id):
     return np.array(Image.open(path).convert("RGB"))
 
 
-def load_depth_metres(ep_path, cam, frame_id, near, far):
-    """
-    Load depth PNG (encoded as [0,1] at DEPTH_SCALE) and convert to metres
-    using the supplied near/far clipping planes.
-    """
-    path = os.path.join(ep_path, "{}_depth".format(cam), "{}.png".format(num2id(frame_id)))
-    d_raw = image_to_float_array(Image.open(path), DEPTH_SCALE)
-    return (near + d_raw * (far - near)).astype(np.float32)
-
 
 def load_extrinsics_from_misc(obs, cam_key):
     """4×4 cam-to-world from obs.misc."""
     key = "{}_camera_extrinsics".format(cam_key)
-    E   = obs.misc.get(key, None)
-    return np.array(E, dtype=np.float32) if E is not None else np.eye(4, dtype=np.float32)
+    E   = obs.misc.get(key)
+    return np.array(E, dtype=np.float32)
 
 
 def load_intrinsics_from_misc(obs, cam_key):
     """3×3 intrinsic matrix from obs.misc."""
     key = "{}_camera_intrinsics".format(cam_key)
-    K   = obs.misc.get(key, None)
-    return np.array(K, dtype=np.float32) if K is not None else np.eye(3, dtype=np.float32)
+    K   = obs.misc.get(key)
+    return np.array(K, dtype=np.float32) 
 
 
 def load_orbital_extrinsics(ep_path):
-    """Load pre-saved orbital camera extrinsics and clipping planes.
+    """Load pre-saved orbital camera extrinsics/intrinsics.
 
-    Returns (E_left, E_right, K_left, K_right, near_l, far_l, near_r, far_r).
-    near/far are needed to convert [0,1] depth PNGs to metres.
-    Falls back to identity matrices and sensor defaults (near=0.01, far=10.0).
+    Returns (E_left, E_right, K_left, K_right).
+    Falls back to identity matrices if the pkl is missing.
     """
     path = os.path.join(ep_path, "orbital_extrinsics.pkl")
     if os.path.exists(path):
@@ -68,13 +56,30 @@ def load_orbital_extrinsics(ep_path):
             np.array(data["right_extrinsics"], dtype=np.float32),
             np.array(data["left_intrinsics"],  dtype=np.float32),
             np.array(data["right_intrinsics"], dtype=np.float32),
-            float(data.get("left_near",  0.01)),
-            float(data.get("left_far",  10.0)),
-            float(data.get("right_near", 0.01)),
-            float(data.get("right_far", 10.0)),
         )
     eye4, eye3 = np.eye(4, dtype=np.float32), np.eye(3, dtype=np.float32)
-    return eye4, eye4, eye3, eye3, 0.01, 10.0, 0.01, 10.0
+    return eye4, eye4, eye3, eye3
+
+
+def depth_to_pcd_numpy(depth, extrinsics, intrinsics):
+    """Unproject depth (H,W) float32 metres → world-space pcd (3,H,W) float32.
+
+    Matches RLBenchDepth2Cloud exactly: builds [u*d, v*d, d, 1] then applies
+    (K @ [R^T | -R^T@C])^{-1}.
+    """
+    H, W = depth.shape
+    u = np.tile(np.arange(W, dtype=np.float32), (H, 1))
+    v = np.tile(np.arange(H, dtype=np.float32), (W, 1)).T
+    uv1d = np.stack(
+        [u * depth, v * depth, depth, np.ones((H, W), dtype=np.float32)], axis=0
+    )  # (4, H, W)
+    R = extrinsics[:3, :3].astype(np.float32)
+    C = extrinsics[:3, 3:].astype(np.float32)
+    ext_inv      = np.concatenate([R.T, -R.T @ C], axis=1)        # (3, 4)
+    cam_proj     = intrinsics.astype(np.float32) @ ext_inv         # (3, 4)
+    cam_proj_4x4 = np.vstack([cam_proj, [[0, 0, 0, 1]]])           # (4, 4)
+    cam_proj_inv = np.linalg.inv(cam_proj_4x4)[:3]                 # (3, 4)
+    return (cam_proj_inv @ uv1d.reshape(4, -1)).reshape(3, H, W).astype(np.float32)
 
 
 def get_group_id(ep_path, group_str):
@@ -105,7 +110,7 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256):
         print("[WARN] Not enough keyframes in {}".format(ep_path))
         return 0
 
-    E_ol, E_or, K_ol, K_or, near_ol, far_ol, near_or, far_or = load_orbital_extrinsics(ep_path)
+    E_ol, E_or, K_ol, K_or = load_orbital_extrinsics(ep_path)
     group_id = get_group_id(ep_path, group_str)
 
     def _eef(o):
@@ -124,18 +129,24 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256):
             for cam in CAMERAS
         ])[np.newaxis]
 
-        near_wr = obs.misc.get("wrist_camera_near", 0.0)
-        far_wr  = obs.misc.get("wrist_camera_far",  4.0)
-        depth = np.stack([
-            load_depth_metres(ep_path, "orbital_left",  k, near_ol, far_ol),
-            load_depth_metres(ep_path, "orbital_right", k, near_or, far_or),
-            load_depth_metres(ep_path, "wrist",         k, near_wr, far_wr),
-        ]).astype(np.float16)[np.newaxis]
+        # All depths live in the pkl obs — no PNG roundtrip.
+        # Orbital: metres directly. Wrist: [0,1] normalized, convert with near/far from obs.misc.
+        near_wr = obs.misc.get("wrist_camera_near")
+        far_wr  = obs.misc.get("wrist_camera_far")
+        depth_l = obs.orbital_left_depth.astype(np.float32)
+        depth_r = obs.orbital_right_depth.astype(np.float32)
+        depth_w = (near_wr + obs.wrist_depth * (far_wr - near_wr)).astype(np.float32)
 
         E_wrist = load_extrinsics_from_misc(obs, "wrist")
         K_wrist = load_intrinsics_from_misc(obs, "wrist")
         extr = np.stack([E_ol, E_or, E_wrist]).astype(np.float16)[np.newaxis]
         intr = np.stack([K_ol, K_or, K_wrist]).astype(np.float16)[np.newaxis]
+
+        pcd = np.stack([
+            depth_to_pcd_numpy(depth_l, E_ol,    K_ol),
+            depth_to_pcd_numpy(depth_r, E_or,    K_or),
+            depth_to_pcd_numpy(depth_w, E_wrist, K_wrist),
+        ]).astype(np.float16)[np.newaxis]
 
         state    = _eef(obs)
         state_p  = _eef(demo[key_frames[max(0, idx - 1)]])
@@ -147,7 +158,7 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256):
         act_j  = _joints(obs_next).reshape(1, NHAND, 8)[np.newaxis]
 
         zarr_file["rgb"].append(rgb)
-        zarr_file["depth"].append(depth)
+        zarr_file["pcd"].append(pcd)
         zarr_file["extrinsics"].append(extr)
         zarr_file["intrinsics"].append(intr)
         zarr_file["proprioception"].append(prop)

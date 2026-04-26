@@ -1,0 +1,9 @@
+# Self-collected unimanual PerAct data (from collect_peract.sbatch + peract_collected_to_zarr.py).
+# Use: python main.py data=peract_collected
+train_data_dir: /grogu/user/harshilb/peract_mini.zarr/train.zarr
+eval_data_dir: /grogu/user/harshilb/peract_mini.zarr/train.zarr
+train_instructions: instructions/peract/instructions.json
+val_instructions: instructions/peract/instructions.json
+dataset: PeractCollected
+bimanual: false
+custom_img_size: 128

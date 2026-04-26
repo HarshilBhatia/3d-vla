@@ -99,7 +99,7 @@ for task in "${TASKS[@]}"; do
     python "${REPO_ROOT}/online_evaluation_rlbench/evaluate_policy.py" \
         data=orbital \
         experiment=default \
-        eval_data_dir=$eval_data_dir \
+        data_dir=$eval_data_dir \
         cameras_file=$cameras_file \
         task_group_mapping_file=$task_group_mapping_file \
         max_tries=$max_tries \
@@ -108,6 +108,7 @@ for task in "${TASKS[@]}"; do
         output_file=$output_file \
         task=$task \
         seed=$seed \
+        save_trajectory=true \
         $EXTRA_OVERRIDES \
     && echo "[DONE] $task in $((SECONDS - t0))s → $output_file" \
     || { echo "[FAIL] $task"; FAILED_TASKS+=("$task"); }

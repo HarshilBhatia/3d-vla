@@ -28,7 +28,7 @@ class CustomUnpickler(pickle.Unpickler):
         except (AttributeError, ModuleNotFoundError, ImportError):
             return Stub
 
-from paths import RAW_ROOT
+RAW_ROOT = "peract2_raw"
 
 TASK = "bimanual_lift_tray"
 ROOT = RAW_ROOT

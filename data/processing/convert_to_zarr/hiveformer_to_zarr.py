@@ -9,7 +9,8 @@ import numpy as np
 from PIL import Image
 from tqdm import tqdm
 
-from paths import RAW_ROOT, ZARR_ROOT
+RAW_ROOT = "peract2_raw"
+ZARR_ROOT = "Peract2_zarr"
 from data.processing.rlbench_utils import (
     keypoint_discovery,
     image_to_float_array,

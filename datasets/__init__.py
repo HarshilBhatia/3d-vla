@@ -3,6 +3,7 @@ from .rlbench import (
     Peract2SingleCamDataset,
     PeractDataset,
     PeractTwoCamDataset,
+    PeractCollectedDataset,
     HiveformerDataset,
     OrbitalWristDataset,
 )
@@ -15,6 +16,7 @@ def fetch_dataset_class(dataset_name):
         "Peract2_3dfront": Peract2SingleCamDataset,
         "Peract": PeractDataset,
         "PeractTwoCam": PeractTwoCamDataset,
+        "PeractCollected": PeractCollectedDataset,
         "HiveformerRLBench": HiveformerDataset,
         "OrbitalWrist": OrbitalWristDataset,
     }

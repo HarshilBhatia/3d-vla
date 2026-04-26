@@ -221,7 +221,13 @@ class RLBenchEnv:
             )
         groups = mapping[task_str]
         if self._camera_groups_override is not None:
-            groups = [g for g in self._camera_groups_override if g in groups]
+            groups = self._camera_groups_override
+            # groups = [g for g in self._camera_groups_overrideif g in groups]
+            # if not groups:
+            #     raise ValueError(
+            #         f"No camera groups left after applying override={self._camera_groups_override} "
+            #         f"for task='{task_str}'. Available groups from mapping: {mapping[task_str]}"
+            #     )
         return groups
 
     # ------------------------------------------------------------------
@@ -292,7 +298,11 @@ class RLBenchEnv:
         orbital_left_depth = torch.tensor(obs.orbital_left_depth, dtype=torch.float32)
         orbital_right_depth = torch.tensor(obs.orbital_right_depth, dtype=torch.float32)
         wrist_depth_raw = self._get_wrist_attr(obs, "wrist_depth")
-        wrist_depth = torch.tensor(wrist_depth_raw, dtype=torch.float32)
+        near_wr = obs.misc.get("wrist_camera_near", 0.1)
+        far_wr = obs.misc.get("wrist_camera_far", 4.0)
+        wrist_depth = torch.tensor(
+            near_wr + wrist_depth_raw * (far_wr - near_wr), dtype=torch.float32
+        )
 
         depth = torch.stack(
             [orbital_left_depth, orbital_right_depth, wrist_depth]
@@ -351,6 +361,34 @@ class RLBenchEnv:
         return val
 
     # ------------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # Orbital rollout loader
+    # ------------------------------------------------------------------
+
+    def _load_orbital_rollout_demos(self, task_str, group):
+        """Load demos from {data_path}/{task_str}/{group}/episode_*/low_dim_obs.pkl."""
+        import pickle
+        group_dir = os.path.join(self.data_path, task_str, group)
+        episode_dirs = sorted(
+            d for d in os.listdir(group_dir)
+            if d.startswith("episode_") and os.path.isdir(os.path.join(group_dir, d))
+        )
+        demos = []
+        for ep in episode_dirs:
+            pkl_path = os.path.join(group_dir, ep, "low_dim_obs.pkl")
+            if not os.path.exists(pkl_path):
+                continue
+            try:
+                with open(pkl_path, "rb") as f:
+                    demo = pickle.load(f)
+            except Exception as e:
+                print(f"[orbital eval] WARNING: skipping {pkl_path} (failed to load: {e})", flush=True)
+                continue
+            demo.variation_number = 0
+            demos.append(demo)
+        print(f"[orbital eval] loaded {len(demos)} demos from {group_dir}", flush=True)
+        return demos
+
     # Evaluation loop
     # ------------------------------------------------------------------
 
@@ -362,6 +400,8 @@ class RLBenchEnv:
         max_tries=1,
         prediction_len=1,
         num_history=1,
+        save_trajectory=False,
+        output_file=None,
     ):
         print(f"[orbital eval] launching env...", flush=True)
         self.env.launch()
@@ -373,29 +413,37 @@ class RLBenchEnv:
         task_type = task_file_to_task_class(task_str)
         task = self.env.get_task(task_type)
 
-        # Detect variation layout: variation*/ dirs vs all_variations/
-        variation_dirs = glob.glob(os.path.join(self.data_path, task_str, "variation*"))
-        if variation_dirs:
-            task_variations = sorted([
-                int(n.split("/")[-1].replace("variation", ""))
-                for n in variation_dirs
-            ])
-            demos_by_variation = None  # loaded lazily inside _evaluate_task_on_one_variation
-        else:
-            # all_variations layout: load all demos once and group by variation_number
-            all_demos = get_stored_demos(
-                amount=-1,
-                dataset_root=self.data_path,
-                variation_number=-1,
-                task_name=task_str,
-                random_selection=False,
-                from_episode_number=0,
-            )
-            from collections import defaultdict
-            demos_by_variation = defaultdict(list)
-            for d in all_demos:
-                demos_by_variation[d.variation_number].append(d)
-            task_variations = sorted(demos_by_variation.keys())
+        # Detect layout:
+        #   1. orbital rollout format: {data_path}/{task_str}/{group}/episode_*/
+        #   2. variation*/ dirs
+        #   3. all_variations/ (loaded lazily)
+        orbital_rollout_root = os.path.join(self.data_path, task_str)
+        use_orbital_rollout = os.path.isdir(
+            os.path.join(orbital_rollout_root, groups[0])
+        ) if groups else False
+
+        if not use_orbital_rollout:
+            variation_dirs = glob.glob(os.path.join(self.data_path, task_str, "variation*"))
+            if variation_dirs:
+                task_variations = sorted([
+                    int(n.split("/")[-1].replace("variation", ""))
+                    for n in variation_dirs
+                ])
+                demos_by_variation = None
+            else:
+                all_demos = get_stored_demos(
+                    amount=-1,
+                    dataset_root=self.data_path,
+                    variation_number=-1,
+                    task_name=task_str,
+                    random_selection=False,
+                    from_episode_number=0,
+                )
+                from collections import defaultdict
+                demos_by_variation = defaultdict(list)
+                for d in all_demos:
+                    demos_by_variation[d.variation_number].append(d)
+                task_variations = sorted(demos_by_variation.keys())
 
         # Accumulate across all (group, variation) pairs
         total_success = 0
@@ -407,6 +455,18 @@ class RLBenchEnv:
             print(f"[orbital eval] spawning sensors for group {group}...", flush=True)
             self._spawn_sensors(group)
             print(f"[orbital eval] sensors spawned", flush=True)
+
+            if use_orbital_rollout:
+                try:
+                    group_demos = self._load_orbital_rollout_demos(task_str, group)
+                except Exception as e:
+                    print(f"[orbital eval] WARNING: skipping group {group} for {task_str} (failed to load demos: {e})", flush=True)
+                    continue
+                if not group_demos:
+                    print(f"[orbital eval] WARNING: skipping group {group} for {task_str} (no valid demos loaded)", flush=True)
+                    continue
+                task_variations = [0]
+                demos_by_variation = {0: group_demos}
 
             group_rates = {}
             for variation in tqdm(task_variations, desc=f"{task_str}/{group}"):
@@ -422,6 +482,9 @@ class RLBenchEnv:
                     prediction_len=prediction_len,
                     num_history=num_history,
                     pre_loaded_demos=pre_loaded,
+                    save_trajectory=save_trajectory,
+                    output_file=output_file,
+                    group=group,
                 )
                 if valid:
                     group_rates[variation] = success_rate / num_valid_demos
@@ -449,6 +512,9 @@ class RLBenchEnv:
         prediction_len=1,
         num_history=1,
         pre_loaded_demos=None,
+        save_trajectory=False,
+        output_file=None,
+        group=None,
     ):
         success_rate = 0
         total_reward = 0
@@ -472,6 +538,7 @@ class RLBenchEnv:
 
             move = Mover(task, max_tries=max_tries)
             max_reward = 0.0
+            trajectory = []  # list of (step_id, action) rows
 
             for step_id in range(max_steps):
 
@@ -500,6 +567,11 @@ class RLBenchEnv:
                 try:
                     actions = output[-1].cpu().numpy()
                     actions[:, -1] = actions[:, -1].round()
+                    print(f"    predicted action: xyz={actions[0, :3]} quat={actions[0, 3:7].round(2)} gripper={actions[0, -1]:.2f}", flush=True)
+
+                    if save_trajectory:
+                        for sub_id, action in enumerate(actions):
+                            trajectory.append((step_id, sub_id, action.tolist()))
 
                     for action in actions:
                         obs, reward, _ = move(action, collision_checking=False)
@@ -516,6 +588,21 @@ class RLBenchEnv:
                     reward = 0
 
             total_reward += max_reward
+
+            if save_trajectory and output_file is not None:
+                traj_dir = os.path.join(os.path.dirname(output_file), "trajectories")
+                os.makedirs(traj_dir, exist_ok=True)
+                group_tag = group if group is not None else "default"
+                traj_path = os.path.join(
+                    traj_dir,
+                    f"{task_str}_{group_tag}_var{variation}_demo{demo_id}.txt",
+                )
+                with open(traj_path, "w") as f:
+                    f.write("step sub_step x y z qx qy qz qw gripper\n")
+                    for step_id, sub_id, action in trajectory:
+                        row = f"{step_id} {sub_id} " + " ".join(f"{v:.6f}" for v in action)
+                        f.write(row + "\n")
+                print(f"  [trajectory] saved to {traj_path}", flush=True)
 
             print(
                 task_str,

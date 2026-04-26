@@ -66,6 +66,6 @@ xvfb-run -a \
         --checkpoint "$CHECKPOINT" \
         --tasks "$TASK" \
         --output-dir "$OUTPUT_DIR" \
-        --extra "eval_data_dir=${DATA_DIR} camera_groups=G1"
+        --extra "data_dir=${DATA_DIR} camera_groups=G1"
 
 echo "Done at: $(date)"

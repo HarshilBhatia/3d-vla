@@ -32,7 +32,7 @@ import zarr
 from scipy.spatial.transform import Rotation as ScipyR
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-from paths import ZARR_ROOT
+ZARR_ROOT = "Peract2_zarr"
 
 # ── Constants ──────────────────────────────────────────────────────────────
 PERACT_CAMERAS  = ["left_shoulder", "right_shoulder", "wrist", "front"]

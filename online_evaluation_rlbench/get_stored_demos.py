@@ -1,13 +1,19 @@
 import os
 import pickle
+import sys
 from os import listdir
 from os.path import join, exists
 
 import numpy as np
 from natsort import natsorted
 
+_ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if os.path.join(_ROOT_DIR, 'RLBench') not in sys.path:
+    sys.path.append(os.path.join(_ROOT_DIR, 'RLBench'))
+
 from rlbench.backend.const import *
-from paths import RAW_ROOT
+
+RAW_ROOT = "peract2_raw"
 
 
 def get_stored_demos(amount=1,

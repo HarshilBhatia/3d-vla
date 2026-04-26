@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 from scipy.spatial.transform import Rotation as ScipyR
 
-from data.generation.orbital.constants import DEPTH_SCALE, NCAM, NHAND, num2id
+from data.generation.orbital.constants import NCAM, NHAND, num2id
 
 
 # ---------------------------------------------------------------------------
@@ -69,20 +69,13 @@ def create_orbital_sensor(pos, R_mat, image_size, fov_deg):
 
 
 def capture_orbital_extrinsics(left_sensor, right_sensor):
-    """
-    Return a dict with 4×4 extrinsics, 3×3 intrinsics, and near/far clipping planes
-    for both sensors.  Must be called while sensors are still alive.
-    near/far are needed to convert [0,1] depth PNGs back to metres during loading.
-    """
+    """Return 4×4 extrinsics and 3×3 intrinsics for both sensors.
+    Must be called while sensors are still alive."""
     return {
         "left_extrinsics":  left_sensor.get_matrix().astype(np.float32),
         "right_extrinsics": right_sensor.get_matrix().astype(np.float32),
         "left_intrinsics":  left_sensor.get_intrinsic_matrix().astype(np.float32),
         "right_intrinsics": right_sensor.get_intrinsic_matrix().astype(np.float32),
-        "left_near":  left_sensor.get_near_clipping_plane(),
-        "left_far":   left_sensor.get_far_clipping_plane(),
-        "right_near": right_sensor.get_near_clipping_plane(),
-        "right_far":  right_sensor.get_far_clipping_plane(),
     }
 
 
@@ -117,19 +110,6 @@ def make_obs_config(image_size):
 
 
 # ---------------------------------------------------------------------------
-# Depth encoding
-# ---------------------------------------------------------------------------
-
-def float_array_to_rgb_image(float_array, scale_factor):
-    """Encode a float depth map as a 3-channel RGB PNG (RLBench convention)."""
-    scaled = np.round(float_array * scale_factor).astype(np.uint32)
-    r = (scaled >> 16) & 0xFF
-    g = (scaled >> 8)  & 0xFF
-    b =  scaled        & 0xFF
-    return Image.fromarray(np.stack([r, g, b], axis=-1).astype(np.uint8))
-
-
-# ---------------------------------------------------------------------------
 # Observation accessors (obs attrs for orbital; perception_data for standard)
 # ---------------------------------------------------------------------------
 
@@ -155,6 +135,32 @@ def _get_depth(obs, key):
 # Raw episode saving
 # ---------------------------------------------------------------------------
 
+_UNUSED_OBS_ATTRS = [
+    "left_shoulder_rgb",   "left_shoulder_depth",   "left_shoulder_mask",   "left_shoulder_point_cloud",
+    "right_shoulder_rgb",  "right_shoulder_depth",  "right_shoulder_mask",  "right_shoulder_point_cloud",
+    "overhead_rgb",        "overhead_depth",         "overhead_mask",        "overhead_point_cloud",
+    "front_rgb",           "front_depth",            "front_mask",           "front_point_cloud",
+    "wrist_mask",          "wrist_point_cloud",
+    "joint_forces",        "gripper_matrix",         "gripper_joint_positions",
+    "gripper_touch_forces","task_low_dim_state",      "ignore_collisions",
+    "mesh_points",
+]
+
+_WRIST_MISC_KEYS = {
+    "wrist_camera_near", "wrist_camera_far",
+    "wrist_camera_extrinsics", "wrist_camera_intrinsics",
+}
+
+
+def _strip_obs(obs):
+    """Null out obs fields not needed by the zarr converter, in-place."""
+    for attr in _UNUSED_OBS_ATTRS:
+        if hasattr(obs, attr):
+            setattr(obs, attr, None)
+    if hasattr(obs, "misc") and isinstance(obs.misc, dict):
+        obs.misc = {k: v for k, v in obs.misc.items() if k in _WRIST_MISC_KEYS}
+
+
 def save_orbital_episode(demo, ep_path, group, orbital_extrinsics):
     """
     Save a single orbital demo to ep_path/:
@@ -168,15 +174,12 @@ def save_orbital_episode(demo, ep_path, group, orbital_extrinsics):
     os.makedirs(ep_path, exist_ok=True)
 
     cam_attrs = [
-        ("orbital_left_rgb",   "orbital_left_rgb",   "rgb"),
-        ("orbital_left_depth", "orbital_left_depth", "depth"),
-        ("orbital_right_rgb",  "orbital_right_rgb",  "rgb"),
-        ("orbital_right_depth","orbital_right_depth","depth"),
-        ("wrist_rgb",          "wrist_rgb",           "rgb"),
-        ("wrist_depth",        "wrist_depth",         "depth"),
+        ("orbital_left_rgb",  "orbital_left_rgb"),
+        ("orbital_right_rgb", "orbital_right_rgb"),
+        ("wrist_rgb",         "wrist_rgb"),
     ]
 
-    for attr, folder_name, kind in cam_attrs:
+    for attr, folder_name in cam_attrs:
         folder = os.path.join(ep_path, folder_name)
         os.makedirs(folder, exist_ok=True)
         for i, obs in enumerate(demo):
@@ -186,10 +189,7 @@ def save_orbital_episode(demo, ep_path, group, orbital_extrinsics):
             if data is None:
                 continue
             fname = os.path.join(folder, "{}.png".format(num2id(i)))
-            if kind == "rgb":
-                Image.fromarray(data).save(fname)
-            else:
-                float_array_to_rgb_image(data, DEPTH_SCALE).save(fname)
+            Image.fromarray(data).save(fname)
             if hasattr(obs, attr):
                 setattr(obs, attr, None)
 
@@ -199,6 +199,8 @@ def save_orbital_episode(demo, ep_path, group, orbital_extrinsics):
     with open(os.path.join(ep_path, "orbital_extrinsics.pkl"), "wb") as f:
         pickle.dump(orbital_extrinsics, f)
 
+    for obs in demo:
+        _strip_obs(obs)
     with open(os.path.join(ep_path, "low_dim_obs.pkl"), "wb") as f:
         pickle.dump(demo, f)
 
@@ -229,113 +231,6 @@ def save_debug_video(demo, video_out, image_size):
         os.makedirs(out_dir, exist_ok=True)
     imageio.mimwrite(video_out, frames, fps=10)
     print("[VIDEO] Saved {} frames to {}".format(len(frames), video_out))
-
-
-def save_debug_zarr(demo, zarr_path, group, orbital_extrinsics, image_size=256):
-    """
-    Save a single-episode zarr using the same schema as orbital/to_zarr.py.
-    orbital_extrinsics must be captured while sensors are still alive.
-    """
-    try:
-        import zarr
-        from numcodecs import Blosc
-        from data.processing.rlbench_utils import keypoint_discovery
-    except ImportError as e:
-        print("[WARN] Could not save debug zarr: {}".format(e))
-        return
-
-    compressor = Blosc(cname="lz4", clevel=1, shuffle=Blosc.SHUFFLE)
-
-    key_frames = keypoint_discovery(demo, bimanual=False)
-    key_frames.insert(0, 0)
-    if len(key_frames) < 2:
-        print("[WARN] Not enough keyframes; skipping debug zarr.")
-        return
-
-    E_left   = orbital_extrinsics["left_extrinsics"]
-    E_right  = orbital_extrinsics["right_extrinsics"]
-    K_left   = orbital_extrinsics["left_intrinsics"]
-    K_right  = orbital_extrinsics["right_intrinsics"]
-    near_l   = orbital_extrinsics["left_near"]
-    far_l    = orbital_extrinsics["left_far"]
-    near_r   = orbital_extrinsics["right_near"]
-    far_r    = orbital_extrinsics["right_far"]
-    group_id = int(group[1])  # "G3" → 3
-
-    with zarr.open_group(zarr_path, mode="w") as zf:
-
-        def _create(name, shape, dtype):
-            zf.create_dataset(
-                name, shape=(0,) + shape,
-                chunks=(1,) + shape,
-                compressor=compressor, dtype=dtype,
-            )
-
-        _create("rgb",                   (NCAM, 3, image_size, image_size), "uint8")
-        _create("depth",                 (NCAM, image_size, image_size),    "float16")
-        _create("extrinsics",            (NCAM, 4, 4),                      "float16")
-        _create("intrinsics",            (NCAM, 3, 3),                      "float16")
-        _create("proprioception",        (3, NHAND, 8),                     "float32")
-        _create("action",                (1, NHAND, 8),                     "float32")
-        _create("proprioception_joints", (1, NHAND, 8),                     "float32")
-        _create("action_joints",         (1, NHAND, 8),                     "float32")
-        _create("task_id",               (),                                 "uint8")
-        _create("variation",             (),                                 "uint8")
-        _create("camera_group",          (),                                 "uint8")
-
-        for idx, k in enumerate(key_frames[:-1]):
-            obs      = demo[k]
-            obs_next = demo[key_frames[idx + 1]]
-
-            rgb = np.stack([
-                _get_rgb(obs, "orbital_left_rgb").transpose(2, 0, 1),
-                _get_rgb(obs, "orbital_right_rgb").transpose(2, 0, 1),
-                _get_rgb(obs, "wrist_rgb").transpose(2, 0, 1),
-            ])[np.newaxis]
-
-            near_w = obs.misc.get("wrist_camera_near", 0.0)
-            far_w  = obs.misc.get("wrist_camera_far",  4.0)
-            depth = np.stack([
-                near_l + _get_depth(obs, "orbital_left_depth")  * (far_l - near_l),
-                near_r + _get_depth(obs, "orbital_right_depth") * (far_r - near_r),
-                near_w + _get_depth(obs, "wrist_depth")         * (far_w - near_w),
-            ]).astype(np.float16)[np.newaxis]
-
-            E_wrist = np.array(obs.misc.get("wrist_camera_extrinsics", np.eye(4)), dtype=np.float32)
-            K_wrist = np.array(obs.misc.get("wrist_camera_intrinsics", np.eye(3)), dtype=np.float32)
-            extr = np.stack([E_left, E_right, E_wrist]).astype(np.float16)[np.newaxis]
-            intr = np.stack([K_left, K_right, K_wrist]).astype(np.float16)[np.newaxis]
-
-            def _eef(o):
-                return np.concatenate([o.gripper_pose, [o.gripper_open]]).astype(np.float32)
-
-            s0   = _eef(demo[key_frames[max(0, idx - 2)]])
-            s1   = _eef(demo[key_frames[max(0, idx - 1)]])
-            s2   = _eef(obs)
-            prop = np.stack([s0, s1, s2]).reshape(3, NHAND, 8)[np.newaxis]
-
-            action = _eef(obs_next).reshape(1, NHAND, 8)[np.newaxis]
-
-            def _joints(o):
-                return np.concatenate([o.joint_positions, [o.gripper_open]]).astype(np.float32)
-
-            prop_j = _joints(obs).reshape(1, NHAND, 8)[np.newaxis]
-            act_j  = _joints(obs_next).reshape(1, NHAND, 8)[np.newaxis]
-
-            zf["rgb"].append(rgb)
-            zf["depth"].append(depth)
-            zf["extrinsics"].append(extr)
-            zf["intrinsics"].append(intr)
-            zf["proprioception"].append(prop)
-            zf["action"].append(action)
-            zf["proprioception_joints"].append(prop_j)
-            zf["action_joints"].append(act_j)
-            zf["task_id"].append(np.array([0], dtype=np.uint8))
-            zf["variation"].append(np.array([0], dtype=np.uint8))
-            zf["camera_group"].append(np.array([group_id], dtype=np.uint8))
-
-    print("[ZARR] Saved debug zarr to {}".format(zarr_path))
-
 
 # ---------------------------------------------------------------------------
 # Per-episode driver

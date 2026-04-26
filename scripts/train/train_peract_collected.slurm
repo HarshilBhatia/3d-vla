@@ -1,15 +1,14 @@
 #!/bin/bash
-#SBATCH --job-name=miscal_default
+#SBATCH --job-name=peract_collected
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=50
-#SBATCH --gres=gpu:8
-#SBATCH --mem=200G
+#SBATCH --gres=gpu:4
+#SBATCH --mem=96G
 #SBATCH --time=48:00:00
 #SBATCH --partition=shubhamlong
-
 
 echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
@@ -22,23 +21,17 @@ conda activate 3dfa
 MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=$(nvidia-smi -L | wc -l)
 
-data=orbital
-main_dir=Orbital
+data=peract_collected
 experiment=default
+run_log_dir=peract_collected
 
-run_log_dir=miscal_random_variation_default
-checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
+checkpoint=train_logs/Peract/${run_log_dir}/last.pth
 
-
-WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT --max-restarts 3 \
+TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
     data=$data \
     experiment=$experiment \
-    exp_log_dir=$main_dir \
+    exp_log_dir=Peract \
     run_log_dir=$run_log_dir \
-    checkpoint=$checkpoint \
-    backbone=siglip2 \
-    miscal_max_angle_deg=5.0 \
-    miscal_max_translation_m=0.05 \
-    train_iters=400000 \
-    num_workers=2
+    train_iters=45000 \
+    checkpoint=$checkpoint

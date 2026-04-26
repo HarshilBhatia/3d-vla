@@ -10,6 +10,48 @@ from torch.nn import functional as F
 from .base import DataPreprocessor
 
 
+def _load_miscalibration_noise(level):
+    """Load precomputed extrinsics noise from instructions/miscalibration_noise.json.
+
+    Returns:
+        cameras: list of camera name keys (ordered, matches cam_idx convention)
+        noise:   dict {cam_name: {"R_noise": FloatTensor(3,3), "t_noise": FloatTensor(3)}}
+    """
+    noise_path = Path(__file__).resolve().parents[2] / "instructions/miscalibration_noise.json"
+    with open(noise_path) as f:
+        data = json.load(f)
+
+    cameras = data["cameras"]
+    if level not in data["levels"]:
+        raise ValueError(f"Unknown miscalibration level '{level}'. Available: {list(data['levels'].keys())}")
+
+    level_data = data["levels"][level]
+    noise = {}
+    for cam_name in cameras:
+        if cam_name not in level_data:
+            continue
+        entry = level_data[cam_name]
+        aa = np.array(entry["axis_angle_rad"], dtype=np.float64)
+        angle = float(np.linalg.norm(aa))
+        if angle < 1e-12:
+            R = np.eye(3, dtype=np.float64)
+        else:
+            axis = aa / angle
+            K_skew = np.array([
+                [ 0,        -axis[2],  axis[1]],
+                [ axis[2],   0,       -axis[0]],
+                [-axis[1],   axis[0],  0      ],
+            ], dtype=np.float64)
+            R = np.eye(3) + np.sin(angle) * K_skew + (1 - np.cos(angle)) * (K_skew @ K_skew)
+        t = np.array(entry["translation_m"], dtype=np.float64)
+        noise[cam_name] = {
+            "R_noise": torch.tensor(R, dtype=torch.float32),
+            "t_noise": torch.tensor(t, dtype=torch.float32),
+        }
+
+    return cameras, noise
+
+
 def _load_task_extrinsics_offsets():
     offsets_path = Path(__file__).resolve().parents[2] / "instructions/peract2/task_extrinsics_offsets.json"
     if not offsets_path.exists():

@@ -14,11 +14,11 @@ Directory layout expected (from collect_orbital_rollouts.py):
       low_dim_obs.pkl
       camera_group.txt
 
-Zarr schema (matches Peract2_zarr / peract2_to_zarr.py):
-  rgb              (N, NCAM=4, 3, H, W)   uint8
-  depth            (N, NCAM=4, H, W)      float16
-  extrinsics       (N, NCAM=4, 4, 4)      float16  cam-to-world
-  intrinsics       (N, NCAM=4, 3, 3)      float16
+Zarr schema:
+  rgb              (N, NCAM=3, 3, H, W)   uint8
+  pcd              (N, NCAM=3, 3, H, W)   float16  world-space XYZ
+  extrinsics       (N, NCAM=3, 4, 4)      float16  cam-to-world
+  intrinsics       (N, NCAM=3, 3, 3)      float16
   proprioception   (N, 3, NHAND=1, 8)     float32
   action           (N, 1, NHAND=1, 8)     float32
   proprioception_joints (N, 1, NHAND=1, 8) float32
@@ -104,7 +104,7 @@ def main():
             )
 
         _create("rgb",                   (NCAM, 3, im, im), "uint8")
-        _create("depth",                 (NCAM, im, im),    "float16")
+        _create("pcd",                   (NCAM, 3, im, im), "float16")
         _create("extrinsics",            (NCAM, 4, 4),      "float16")
         _create("intrinsics",            (NCAM, 3, 3),      "float16")
         _create("proprioception",        (3, NHAND, 8),     "float32")
@@ -120,6 +120,7 @@ def main():
             tid = task2id.get(task, 0)
             task_root = os.path.join(args.root, task)
             if not os.path.isdir(task_root):
+                print(task_root)
                 print("[SKIP] No data for task {}".format(task))
                 continue
 
@@ -139,8 +140,11 @@ def main():
                     task, group_str, len(episodes)))
                 for ep in tqdm(episodes, desc="{}/{}".format(task, group_str)):
                     ep_path = os.path.join(group_root, ep)
-                    n = process_episode(ep_path, tid, group_str, zf, im)
-                    total += n
+                    try:
+                        n = process_episode(ep_path, tid, group_str, zf, im)
+                        total += n
+                    except Exception as e:
+                        print("[WARN] Skipping {}: {}".format(ep_path, e))
 
         print("\n[DONE] Wrote {} keyframe rows to {}".format(total, args.out))
         for key in zf.keys():

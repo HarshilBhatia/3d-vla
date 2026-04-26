@@ -5,12 +5,12 @@ from .rlbench import RLBenchTrainTester
 
 def fetch_train_tester(dataset_name):
     dataset_name = dataset_name.lower()
-    if 'peract2' in dataset_name:
+    if 'peract2' in dataset_name or 'peractcollected' in dataset_name:
         return RLBenchTrainTester
     if 'peract' in dataset_name:
         return PeractTrainTester
     if 'rlbench' in dataset_name:
         return RLBenchTrainTester
     if 'orbital' in dataset_name:
-        return RLBenchTrainTester
+        return PeractTrainTester
     return None

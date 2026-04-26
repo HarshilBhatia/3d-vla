@@ -69,6 +69,14 @@ if __name__ == "__main__":
     )
     # Resolve relative paths relative to this script's directory
     _script_dir = Path(__file__).resolve().parent
+    # Backward-compat: many wrappers still pass eval_data_dir for online eval.
+    # If data_dir is left at default while eval_data_dir is overridden, use eval_data_dir.
+    if (
+        hasattr(args, "eval_data_dir")
+        and args.eval_data_dir is not None
+        and str(args.data_dir) == "demos"
+    ):
+        args.data_dir = args.eval_data_dir
     if args.data_dir is not None and not args.data_dir.is_absolute():
         args.data_dir = _script_dir / args.data_dir
     if args.output_file is not None and not args.output_file.is_absolute():
@@ -97,7 +105,7 @@ if __name__ == "__main__":
 
     # Load models
     model = load_models(args)
-    # print(model.workspace_normalizer)
+    print("workspace_normalizer:", model.workspace_normalizer)
 
     # Evaluate - reload environment for each task (crashes otherwise)
     task_success_rates = {}
@@ -117,13 +125,17 @@ if __name__ == "__main__":
                 miscalibration_noise_level=args.miscalibration_noise_level,
                 camera_groups=[g.strip() for g in args.camera_groups.split(",")] if args.camera_groups else None,
             )
-        else:
+        elif "peract" in args.dataset.lower():
             _env_extra = dict(
-                use_front_camera_frame=args.use_front_camera_frame,
-                pc_rotate_by_front_camera=args.pc_rotate_by_front_camera,
+                use_depth2cloud=args.eval_use_depth2cloud,
+                miscalibration_noise_level=args.miscalibration_noise_level,
             )
+        else:
+            _env_extra = dict()
 
         # Load RLBench environment
+
+        print(args.data_dir)
         env = RLBenchEnv(
             data_path=args.data_dir,
             task_str=task_str,
@@ -146,7 +158,9 @@ if __name__ == "__main__":
             actioner=actioner,
             max_tries=args.max_tries,
             prediction_len=args.prediction_len,
-            num_history=args.num_history
+            num_history=args.num_history,
+            # save_trajectory=args.save_trajectory,
+            # output_file=args.output_file,
         )
         print()
         print(

@@ -262,6 +262,15 @@ class PeractTwoCamDataset(PeractDataset):
     camera_inds2d = None
 
 
+class PeractCollectedDataset(RLBenchDataset):
+    """Self-collected unimanual PerAct data (depth+extrinsics+intrinsics format)."""
+    tasks = PERACT_TASKS
+    cameras = ("left_shoulder", "right_shoulder", "wrist", "front")
+    camera_inds = None
+    train_copies = 1
+    camera_inds2d = None
+
+
 class Peract2Dataset(RLBenchDataset):
     """RLBench dataset under Peract2 setup."""
     tasks = PERACT2_TASKS
@@ -287,3 +296,17 @@ class OrbitalWristDataset(RLBenchDataset):
     camera_inds = None
     train_copies = 10
     camera_inds2d = None
+
+    def __getitem__(self, idx):
+        idx = idx % (len(self.annos['action']) // self.chunk_size)
+        idx = idx * self.chunk_size
+        if self._actions_only:
+            return {"action": self._get_action(idx)}
+        return {
+            "task": self._get_task(idx),
+            "instr": self._get_instr(idx),
+            "rgb": self._get_rgb(idx),
+            "pcd": self._get_attr_by_idx(idx, 'pcd', True),  # (chunk, ncam, 3, H, W)
+            "proprioception": self._get_proprioception(idx),
+            "action": self._get_action(idx),
+        }

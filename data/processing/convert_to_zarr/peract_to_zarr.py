@@ -22,7 +22,8 @@ from tqdm import tqdm
 from scipy.spatial.transform import Rotation as R
 from scipy.ndimage import rotate as ndimage_rotate
 
-from paths import RAW_ROOT, ZARR_ROOT
+RAW_ROOT = "peract2_raw"
+ZARR_ROOT = "Peract2_zarr"
 from data.processing.rlbench_utils import store_instructions, PERACT_TASKS
 
 

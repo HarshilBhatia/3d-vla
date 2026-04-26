@@ -8,7 +8,7 @@ class PeractDataPreprocessor(DataPreprocessor):
 
     def __init__(self, keypose_only=False, num_history=1,
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
-                 use_front_camera_frame=False, pc_rotate_by_front_camera=False):
+                 use_front_camera_frame=False, pc_rotate_by_front_camera=False, **kwargs):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,

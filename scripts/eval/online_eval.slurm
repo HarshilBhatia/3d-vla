@@ -123,7 +123,7 @@ seed=0
 
 xvfb-run -a python online_evaluation_rlbench/evaluate_policy.py \
     val_instructions=$val_instructions \
-    eval_data_dir=$eval_data_dir \
+    data_dir=$eval_data_dir \
     dataset=$dataset \
     cameras_file=$cameras_file \
     task_group_mapping_file=$task_group_mapping_file \

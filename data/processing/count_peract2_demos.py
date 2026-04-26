@@ -10,7 +10,8 @@ import os
 import sys
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../.."))
-from paths import RAW_ROOT, ZARR_ROOT
+RAW_ROOT = "peract2_raw"
+ZARR_ROOT = "Peract2_zarr"
 
 from data.processing.convert_to_zarr.peract2_to_zarr import DEFAULT_TASKS
 

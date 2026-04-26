@@ -5,7 +5,7 @@ import numpy as np
 import zarr
 from numcodecs import Blosc
 from tqdm import tqdm
-from paths import ZARR_ROOT
+ZARR_ROOT = "Peract2_zarr"
 from utils.common_utils import str2bool
 
 
