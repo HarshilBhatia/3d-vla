@@ -418,8 +418,8 @@ class RLBenchEnv:
         #   2. variation*/ dirs
         #   3. all_variations/ (loaded lazily)
         orbital_rollout_root = os.path.join(self.data_path, task_str)
-        use_orbital_rollout = os.path.isdir(
-            os.path.join(orbital_rollout_root, groups[0])
+        use_orbital_rollout = any(
+            os.path.isdir(os.path.join(orbital_rollout_root, g)) for g in groups
         ) if groups else False
 
         if not use_orbital_rollout:

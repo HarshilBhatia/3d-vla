@@ -63,7 +63,6 @@ echo
 data_dir=/grogu/user/harshilb/datasets/peract2_raw/peract2_test
 max_tries=1     # config default: 10
 headless=true
-seed=0
 
 # ── Per-task evaluation loop ──────────────────────────────────────────────────
 FAILED_TASKS=()
@@ -88,7 +87,6 @@ for task in "${TASKS[@]}"; do
         checkpoint=$CHECKPOINT \
         output_file=$output_file \
         task=$task \
-        seed=$seed \
         $EXTRA_OVERRIDES \
     && echo "[DONE] $task in $((SECONDS - t0))s → $output_file" \
     || { echo "[FAIL] $task"; FAILED_TASKS+=("$task"); }
