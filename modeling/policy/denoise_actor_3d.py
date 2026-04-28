@@ -7,6 +7,7 @@ from utils.pytorch3d_transforms import axis_angle_to_matrix
 
 from .base_denoise_actor import DenoiseActor as BaseDenoiseActor
 from .base_denoise_actor import TransformerHead as BaseTransformerHead
+from .recursive_set_encoder import RecursiveSetTransformerEncoder
 
 
 class DenoiseActor(BaseDenoiseActor):
@@ -41,7 +42,11 @@ class DenoiseActor(BaseDenoiseActor):
                  extrinsics_prediction_mode='delta_m',
                  # RoPE type
                  rope_type='adam',
-                 dynamic_rope_from_camtoken=False):
+                 dynamic_rope_from_camtoken=False,
+                 # Recursive Set Transformer Encoder
+                 use_recursive_set_encoder=False,
+                 recursive_set_encoder_num_layers=2,
+                 recursive_set_encoder_ncam=3):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -96,6 +101,16 @@ class DenoiseActor(BaseDenoiseActor):
             dynamic_rope_from_camtoken=dynamic_rope_from_camtoken,
         )
         
+        # Recursive Set Transformer Encoder (optional upstream feature refinement)
+        if use_recursive_set_encoder:
+            self.recursive_set_encoder = RecursiveSetTransformerEncoder(
+                embedding_dim=embedding_dim,
+                ncam=recursive_set_encoder_ncam,
+                num_layers=recursive_set_encoder_num_layers,
+                num_attn_heads=num_attn_heads,
+                rope_type=rope_type,
+            )
+
         # Learnable camera extrinsics: axis-angle (3) + translation (3) = 6 params
         self.learn_extrinsics = learn_extrinsics
         if learn_extrinsics:

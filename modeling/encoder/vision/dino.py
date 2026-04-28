@@ -35,6 +35,10 @@ class DiNOv2Features(nn.Module):
 
     def forward(self, x):
         # x: (B, 3, H, W)
+        if not torch.is_autocast_enabled():
+            model_dtype = next(self.model.parameters()).dtype
+            if x.dtype != model_dtype:
+                x = x.to(model_dtype)
         tokens = self.model(pixel_values=x).last_hidden_state  # (B, 1+h*w, C)
         tokens = tokens[:, 1:]                                   # strip CLS: (B, h*w, C)
         B, N, C = tokens.shape

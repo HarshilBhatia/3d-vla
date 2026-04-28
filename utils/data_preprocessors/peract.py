@@ -34,10 +34,15 @@ class PeractDataPreprocessor(DataPreprocessor):
 
     def process_obs(self, rgbs, pcds, augment=False):
         """
-        RGBs of shape (B, ncam, 3, h_i, w_i),
-        depths of shape (B, ncam, h_i, w_i).
-        Assume the 3d cameras go before 2d cameras.
+        RGBs of shape (B, ncam, 3, h_i, w_i) or (B, nhist, ncam, 3, h_i, w_i).
+        pcds of same spatial shape with 3 channels for xyz.
         """
+        has_hist = rgbs.ndim == 6
+        if has_hist:
+            B, nhist, ncam, C, H, W = rgbs.shape
+            rgbs = rgbs.view(B * nhist, ncam, C, H, W)
+            pcds = pcds.view(B * nhist, ncam, 3, H, W)
+
         # Handle non-wrist cameras, which may require augmentations
         if augment:
             b, nc, _, h, w = rgbs.shape
@@ -55,5 +60,9 @@ class PeractDataPreprocessor(DataPreprocessor):
             # Simply convert to full precision — fuse H2D + dtype cast into one copy_
             rgb_3d = rgbs.to(device='cuda', dtype=torch.float32, non_blocking=True) / 255
             pcd_3d = pcds.to(device='cuda', dtype=torch.float32, non_blocking=True)
+
+        if has_hist:
+            rgb_3d = rgb_3d.view(B, nhist, *rgb_3d.shape[1:])
+            pcd_3d = pcd_3d.view(B, nhist, *pcd_3d.shape[1:])
 
         return rgb_3d, pcd_3d

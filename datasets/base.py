@@ -1,5 +1,6 @@
 import json
 
+import torch
 from torch.utils.data import Dataset
 
 from .utils import to_tensor, read_zarr_with_cache, to_relative_action
@@ -16,13 +17,15 @@ class BaseDataset(Dataset):
         relative_action=False,  # whether to return relative actions
         mem_limit=8,  # cache limit per dataset class in GigaBytes
         actions_only=False,  # return actions without observations
-        chunk_size=4  # chunk size for zarr
+        chunk_size=4,  # chunk size for zarr
+        num_history=1,  # number of visual history frames (1 = current frame only)
     ):
         super().__init__()
         self.copies = self.train_copies if copies is None else copies
         self._relative_action = relative_action
         self._actions_only = actions_only
         self.chunk_size = chunk_size
+        self.num_history = num_history
 
         # Load instructions
         self._instructions = self._load_instructions(instructions)
@@ -59,6 +62,34 @@ class BaseDataset(Dataset):
 
     def _get_rgb(self, idx, key='rgb'):
         return self._get_attr_by_idx(idx, key, True)
+
+    def _get_single_frame_hist(self, zarr_idx, attr, filter_cam=False):
+        """Return (num_history, *shape) for one zarr index with demo_id boundary padding."""
+        demo_curr = int(self.annos['demo_id'][zarr_idx])
+        frames = []
+        first_valid = None
+        for k in range(self.num_history - 1, -1, -1):  # oldest → current
+            j = zarr_idx - k
+            if j >= 0 and int(self.annos['demo_id'][j]) == demo_curr:
+                t = to_tensor(self.annos[attr][j:j + 1])[0]
+                if filter_cam and self.camera_inds is not None:
+                    t = t[self.camera_inds]
+                if first_valid is None:
+                    first_valid = t
+                frames.append(t)
+            else:
+                frames.append(None)
+        fallback = first_valid if first_valid is not None else (
+            to_tensor(self.annos[attr][zarr_idx:zarr_idx + 1])[0]
+        )
+        return torch.stack([f if f is not None else fallback for f in frames])
+
+    def _get_attr_hist(self, idx, attr, filter_cam=False):
+        """Return (chunk_size, num_history, *shape) — each sample with nhist history frames."""
+        return torch.stack([
+            self._get_single_frame_hist(idx + i, attr, filter_cam)
+            for i in range(self.chunk_size)
+        ])
 
     def _get_depth(self, idx, key='depth'):
         return self._get_attr_by_idx(idx, key, True)

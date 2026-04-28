@@ -106,88 +106,82 @@ class Encoder(BaseEncoder):
         Compute visual features/pos embeddings.
 
         Args:
-            - rgb3d: (B, ncam3d, 3, H, W), rgb obs of 3D cameras
-            - rgb2d: (B, ncam2d, 3, H, W), rgb obs of 2D cameras
-            - pcd: (B, ncam3d, 3, H, W)
-            - text: [str] of len=B, text instruction
+            - rgb3d: (B, ncam3d, 3, H, W) or (B, nhist, ncam3d, 3, H, W)
+            - pcd: same spatial shape as rgb3d, xyz channels
 
         Returns:
-            - rgb3d_feats: (B, Np, F)
-            - rgb2d_feats: (B, ncam2d, F)
-            - pcd: (B, Np, 3)
+            - rgb3d_feats: (B, Np, F) or (B, nhist, Np, F)
+            - pcd: (B, Np, 3) or (B, nhist, Np, 3)
             - instr_feats: (B, L, F)
         """
         # Encode language
         instruction = self.text_encoder(text)
-        instr_feats = self.instruction_encoder(instruction)
+        instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
 
+        has_hist = rgb3d.ndim == 6
+        if has_hist:
+            B, nhist, ncam_rgb, C, H, W = rgb3d.shape
+            ncam_pcd = pcd.shape[2]
+            rgb3d = rgb3d.view(B * nhist, ncam_rgb, C, H, W)
+            pcd   = pcd.view(B * nhist, ncam_pcd, 3, *pcd.shape[-2:])
+            instr_exp = instr_feats.unsqueeze(1).expand(-1, nhist, -1, -1).reshape(
+                B * nhist, instr_feats.shape[1], instr_feats.shape[2]
+            )
+        else:
+            instr_exp = instr_feats
 
         # 3D camera features
         num_cameras = rgb3d.shape[1]
-        # Pass each view independently through backbone
-
         rgb3d = einops.rearrange(rgb3d, "bt ncam c h w -> (bt ncam) c h w")
-
-
         rgb3d = self.normalize(rgb3d).contiguous()
-        # rgb3d = self.normalize(rgb3d).to(memory_format=torch.channels_last)
-        # print(rgb3d.shape, rgb3d.dtype)
-        # with torch.cuda.amp.autocast():
         rgb3d_feats = self.backbone(rgb3d)
-        # print(self.backbone.)
-        # Pass visual features through feature pyramid network
+        # print(rgb3d.dtype, self.backbone.dtype)
         rgb3d_feats = self.feature_pyramid(rgb3d_feats)[self.output_level]
-
         feat_h, feat_w = rgb3d_feats.shape[-2:]
-        # Merge different cameras
-
         rgb3d_feats = einops.rearrange(
-            rgb3d_feats,
-            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
+            rgb3d_feats, "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
         )
-
         # Attention from vision to language
-        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1] # NOTE: Doesn't make sense to me.  why do this here ?
+        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_exp)[-1]
 
         # Point cloud
-        num_cameras = pcd.shape[1]
-        # Interpolate point cloud to get the corresponding locations
+        num_cameras_pcd = pcd.shape[1]
         pcd = F.interpolate(
             einops.rearrange(pcd, "bt ncam c h w -> (bt ncam) c h w"),
             (feat_h, feat_w),
             mode='bilinear'
         )
-        # Merge different cameras
         pcd = einops.rearrange(
-            pcd,
-            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
+            pcd, "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras_pcd
         )
 
+        if has_hist:
+            rgb3d_feats = rgb3d_feats.view(B, nhist, *rgb3d_feats.shape[1:])
+            pcd = pcd.view(B, nhist, *pcd.shape[1:])
 
-        # 2D camera features (don't support mixed cameras in this release)
         rgb2d_feats = None
-
         return rgb3d_feats, rgb2d_feats, pcd, instr_feats
 
     def encode_siglip2(self, rgb3d, rgb2d, pcd, text):
         """
         Compute visual features/pos embeddings using SigLIP2.
-
-        Args:
-            - rgb3d: (B, ncam3d, 3, H, W), rgb obs of 3D cameras
-            - rgb2d: (B, ncam2d, 3, H, W), rgb obs of 2D cameras (unused)
-            - pcd: (B, ncam3d, 3, H, W)
-            - text: pre-tokenized token IDs (B, L)
-
-        Returns:
-            - rgb3d_feats: (B, Np, F)
-            - rgb2d_feats: None
-            - pcd: (B, Np, 3)
-            - instr_feats: (B, L, F)
+        Supports rgb3d of shape (B, ncam3d, 3, H, W) or (B, nhist, ncam3d, 3, H, W).
         """
         # Encode language
         instruction = self.text_encoder(text)
-        instr_feats = self.instruction_encoder(instruction)
+        instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
+
+        has_hist = rgb3d.ndim == 6
+        if has_hist:
+            B, nhist, ncam_rgb, C, H, W = rgb3d.shape
+            ncam_pcd = pcd.shape[2]
+            rgb3d = rgb3d.view(B * nhist, ncam_rgb, C, H, W)
+            pcd   = pcd.view(B * nhist, ncam_pcd, 3, *pcd.shape[-2:])
+            instr_exp = instr_feats.unsqueeze(1).expand(-1, nhist, -1, -1).reshape(
+                B * nhist, instr_feats.shape[1], instr_feats.shape[2]
+            )
+        else:
+            instr_exp = instr_feats
 
         # 3D camera features
         num_cameras = rgb3d.shape[1]
@@ -197,11 +191,10 @@ class Encoder(BaseEncoder):
         rgb3d_feats = self.siglip2_proj(rgb3d_feats)  # (bt*ncam, F, h, w)
         feat_h, feat_w = rgb3d_feats.shape[-2:]
         rgb3d_feats = einops.rearrange(
-            rgb3d_feats,
-            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
+            rgb3d_feats, "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
         )
         # Attention from vision to language
-        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1]
+        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_exp)[-1]
 
         # Point cloud: interpolate to ViT spatial resolution
         num_cameras_pcd = pcd.shape[1]
@@ -211,33 +204,36 @@ class Encoder(BaseEncoder):
             mode='bilinear'
         )
         pcd = einops.rearrange(
-            pcd,
-            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras_pcd
+            pcd, "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras_pcd
         )
 
-        rgb2d_feats = None
+        if has_hist:
+            rgb3d_feats = rgb3d_feats.view(B, nhist, *rgb3d_feats.shape[1:])
+            pcd = pcd.view(B, nhist, *pcd.shape[1:])
 
+        rgb2d_feats = None
         return rgb3d_feats, rgb2d_feats, pcd, instr_feats
 
     def encode_dino(self, rgb3d, rgb2d, pcd, text):
         """
         Compute visual features/pos embeddings using DINOv2 + CLIP text.
-
-        Args:
-            - rgb3d: (B, ncam3d, 3, H, W), rgb obs of 3D cameras
-            - rgb2d: (B, ncam2d, 3, H, W), rgb obs of 2D cameras (unused)
-            - pcd: (B, ncam3d, 3, H, W)
-            - text: pre-tokenized token IDs (B, L) when text_backbone='clip'
-
-        Returns:
-            - rgb3d_feats: (B, Np, F)
-            - rgb2d_feats: None
-            - pcd: (B, Np, 3)
-            - instr_feats: (B, L, F)
+        Supports rgb3d of shape (B, ncam3d, 3, H, W) or (B, nhist, ncam3d, 3, H, W).
         """
         # Encode language
         instruction = self.text_encoder(text)
-        instr_feats = self.instruction_encoder(instruction)
+        instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
+
+        has_hist = rgb3d.ndim == 6
+        if has_hist:
+            B, nhist, ncam_rgb, C, H, W = rgb3d.shape
+            ncam_pcd = pcd.shape[2]
+            rgb3d = rgb3d.view(B * nhist, ncam_rgb, C, H, W)
+            pcd   = pcd.view(B * nhist, ncam_pcd, 3, *pcd.shape[-2:])
+            instr_exp = instr_feats.unsqueeze(1).expand(-1, nhist, -1, -1).reshape(
+                B * nhist, instr_feats.shape[1], instr_feats.shape[2]
+            )
+        else:
+            instr_exp = instr_feats
 
         # 3D camera features
         num_cameras = rgb3d.shape[1]
@@ -247,11 +243,10 @@ class Encoder(BaseEncoder):
         rgb3d_feats = self.dino_proj(rgb3d_feats)    # (bt*ncam, F, h, w)
         feat_h, feat_w = rgb3d_feats.shape[-2:]
         rgb3d_feats = einops.rearrange(
-            rgb3d_feats,
-            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
+            rgb3d_feats, "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras
         )
         # Attention from vision to language
-        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1]
+        rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_exp)[-1]
 
         # Point cloud: interpolate to DINOv2 spatial resolution
         num_cameras_pcd = pcd.shape[1]
@@ -261,8 +256,11 @@ class Encoder(BaseEncoder):
             mode='bilinear'
         )
         pcd = einops.rearrange(
-            pcd,
-            "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras_pcd
+            pcd, "(bt ncam) c h w -> bt (ncam h w) c", ncam=num_cameras_pcd
         )
+
+        if has_hist:
+            rgb3d_feats = rgb3d_feats.view(B, nhist, *rgb3d_feats.shape[1:])
+            pcd = pcd.view(B, nhist, *pcd.shape[1:])
 
         return rgb3d_feats, None, pcd, instr_feats

@@ -118,6 +118,19 @@ class DenoiseActor(nn.Module):
                 + torch.cumsum(traj_xyz, dim=1)
             )
 
+        # Optionally refine rgb3d features and pre-compute delta_M upstream
+        precomputed_delta_M = None
+        if hasattr(self, 'recursive_set_encoder'):
+            # RecursiveSetEncoder accepts (B, nhist, ncam*P, F) or (B, ncam*P, F)
+            # and collapses to (B, ncam*P, F); use current frame pcd for rgb3d_pos
+            pcd_curr = pcd[:, -1] if pcd.ndim == 4 else pcd
+            rgb3d_feats, precomputed_delta_M = self.recursive_set_encoder(rgb3d_feats, pcd)
+            pcd = pcd_curr
+        elif rgb3d_feats.ndim == 4:
+            # nhist > 1 without recursive encoder: use current (latest) frame
+            rgb3d_feats = rgb3d_feats[:, -1]
+            pcd = pcd[:, -1]
+
         return self.prediction_head(
             trajectory_feats,
             traj_xyz,
@@ -132,7 +145,8 @@ class DenoiseActor(nn.Module):
             fps_scene_feats=fps_scene_feats,
             fps_scene_pos=fps_scene_pos,
             fps_cam_ids=fps_cam_ids,
-            stopgrad_k=stopgrad_k
+            stopgrad_k=stopgrad_k,
+            precomputed_delta_M=precomputed_delta_M,
         )
 
     def conditional_sample(self, trajectory, device, fixed_inputs, stopgrad_k=0):
@@ -688,7 +702,8 @@ class TransformerHead(nn.Module):
     def forward(self, traj_feats, trajectory, timesteps,
                 rgb3d_feats, rgb3d_pos, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats,
-                fps_scene_feats, fps_scene_pos, fps_cam_ids=None, stopgrad_k=0):
+                fps_scene_feats, fps_scene_pos, fps_cam_ids=None, stopgrad_k=0,
+                precomputed_delta_M=None):
         """
         Arguments:
             traj_feats: (B, trajectory_length, nhand, F)
@@ -738,11 +753,17 @@ class TransformerHead(nn.Module):
         )
 
         batch_size, device = trajectory.shape[0], trajectory.device
-        cam_params_rt, delta_M, self._last_predicted_cam_params = self.extrinsics_predictor(
-            batch_size, device, fps_scene_feats=fps_scene_feats, fps_cam_ids=fps_cam_ids
-        )
+        if precomputed_delta_M is not None:
+            # Upstream RecursiveSetTransformerEncoder already produced delta_M; skip internal prediction
+            cam_params_rt, delta_M = None, precomputed_delta_M
+            self._last_predicted_cam_params = precomputed_delta_M.detach()
+        else:
+            cam_params_rt, delta_M, self._last_predicted_cam_params = self.extrinsics_predictor(
+                batch_size, device, fps_scene_feats=fps_scene_feats, fps_cam_ids=fps_cam_ids
+            )
 
-        if self.dynamic_rope_from_camtoken and self._rope_mode == "standard" and self.predict_extrinsics:
+        if self.dynamic_rope_from_camtoken and self._rope_mode == "standard" and self.predict_extrinsics \
+                and precomputed_delta_M is None:
             # Dynamic RoPE path: re-predict delta_M / (R,T) after every CA and SA block.
             # Originals are kept so RT transforms are always applied from a clean base.
             orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos

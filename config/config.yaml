@@ -17,8 +17,8 @@ dataset: Peract2_3dfront_3dwrist
 # DataLoader: num_workers >= (1+prefetch) per GPU; increase if GPU waits on data. memory_limit = zarr LRU cache (GB).
 num_workers: 4
 prefetch_factor: 4  # batches to prefetch per worker; try 8 if RAM allows
-batch_size: 64
-batch_size_val: 64
+batch_size: 32
+batch_size_val: 32
 chunk_size: 1
 memory_limit: 8.0
 
@@ -109,7 +109,7 @@ rope_analysis_save_name: rope3d_frequency_norms.pt
 
 # === Model: head ===
 embedding_dim: 120
-num_attn_heads: 8
+num_attn_heads: 6
 num_vis_instr_attn_layers: 3
 num_history: 3
 num_shared_attn_layers: 4
@@ -149,6 +149,13 @@ fov_deg: 60.0                         # FOV in degrees for orbital VisionSensors
 # RoPE: traj_scene_rope, sa_blocks_use_rope come from config/rope_mode/<name>.yaml
 
 
+
+# === Recursive Set Transformer Encoder ===
+# Upstream feature refinement via per-camera registers + time-pooling + delta_M prediction.
+# When enabled, rgb3d_feats are refined and delta_M is pre-computed before the TransformerHead.
+use_recursive_set_encoder: false
+recursive_set_encoder_num_layers: 2
+recursive_set_encoder_ncam: 3   # must match the number of cameras in the dataset
 
 rope_type: normal
 rope_schedule_type: null

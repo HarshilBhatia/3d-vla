@@ -74,12 +74,14 @@ class BaseTrainTester:
     def get_datasets(self):
         """Initialize datasets."""
         # Initialize datasets with arguments
+        num_history = getattr(self.args, 'num_history', 1)
         train_dataset = self.dataset_cls(
             root=self.args.train_data_dir,
             instructions=self.args.train_instructions,
             relative_action=self.args.relative_action,
             mem_limit=self.args.memory_limit,
-            chunk_size=self.args.chunk_size
+            chunk_size=self.args.chunk_size,
+            num_history=num_history,
         )
         val_dataset = self.dataset_cls(
             root=self.args.eval_data_dir,
@@ -87,7 +89,8 @@ class BaseTrainTester:
             copies=1,
             relative_action=self.args.relative_action,
             mem_limit=0.1,
-            chunk_size=self.args.chunk_size
+            chunk_size=self.args.chunk_size,
+            num_history=num_history,
         )
         return train_dataset, val_dataset
 
@@ -190,6 +193,14 @@ class BaseTrainTester:
         if hasattr(self.args, 'rope_type'):
             model_kwargs['rope_type'] = self.args.rope_type
 
+        # Recursive Set Transformer Encoder
+        if hasattr(self.args, 'use_recursive_set_encoder'):
+            model_kwargs['use_recursive_set_encoder'] = self.args.use_recursive_set_encoder
+        if hasattr(self.args, 'recursive_set_encoder_num_layers'):
+            model_kwargs['recursive_set_encoder_num_layers'] = self.args.recursive_set_encoder_num_layers
+        if hasattr(self.args, 'recursive_set_encoder_ncam'):
+            model_kwargs['recursive_set_encoder_ncam'] = self.args.recursive_set_encoder_ncam
+
         if dist.get_rank() == 0:
             print(f'model_kwargs: {model_kwargs}')
 
@@ -197,9 +208,22 @@ class BaseTrainTester:
         _model = self.model_cls(**model_kwargs)
         print(f"[Rank {dist.get_rank()}] Model instantiated.", flush=True)
 
+        # Frozen visual backbones can be stored in bf16 when AMP compute is bf16.
+        if not self.args.finetune_backbone and hasattr(_model, "encoder") and hasattr(_model.encoder, "backbone"):
+            _model.encoder.backbone.eval()
+            if self.amp_dtype == torch.bfloat16:
+                _model.encoder.backbone.to(dtype=torch.bfloat16)
+                if dist.get_rank() == 0:
+                    print("Frozen vision backbone cast to bfloat16 (AMP bf16 mode).")
+
         # Print basic modules' parameters
         if dist.get_rank() == 0:
             count_parameters(_model)
+            if hasattr(_model, 'recursive_set_encoder'):
+                rse = _model.recursive_set_encoder
+                n = sum(p.numel() for p in rse.parameters())
+                print(f"  RecursiveSetTransformerEncoder: {n/1e6:.2f}M params "
+                      f"({rse.num_layers} blocks, ncam={rse.ncam})")
             
             # Print RoPE stopgrad schedule if enabled
             if hasattr(self.args, 'rope_type') and self.args.rope_type == 'stopgrad':

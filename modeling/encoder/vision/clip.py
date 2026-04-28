@@ -39,7 +39,9 @@ class ModifiedResNetFeatures(ModifiedResNet):
         super().__init__(layers, output_dim, heads, input_resolution, width)
 
     def forward(self, x: torch.Tensor):
-        x = x.type(self.conv1.weight.dtype)
+        if not torch.is_autocast_enabled() and x.dtype != self.conv1.weight.dtype:
+            x = x.to(self.conv1.weight.dtype)
+
         x = self.relu1(self.bn1(self.conv1(x)))
         x = self.relu2(self.bn2(self.conv2(x)))
         x0 = self.relu3(self.bn3(self.conv3(x)))

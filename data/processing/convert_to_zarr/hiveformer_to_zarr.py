@@ -77,7 +77,9 @@ def all_tasks_main(task, store_trajectory, split):
         _create("intrinsics", (NCAM, 3, 3), "float16")
         _create("task_id", (), "uint8")
         _create("variation", (), "uint8")
+        _create("demo_id", (), "uint32")
 
+        n_rollouts = 0
         # Loop through episodes
         variations = os.listdir(f'{ROOT}/{task}/')
         for var_name in variations:
@@ -183,6 +185,8 @@ def all_tasks_main(task, store_trajectory, split):
                 zarr_file['intrinsics'].append(intrinsics)
                 zarr_file['task_id'].append(task_id)
                 zarr_file['variation'].append(var_)
+                zarr_file['demo_id'].append(np.full(len(key_frames[:-1]), n_rollouts, dtype=np.uint32))
+                n_rollouts += 1
 
 
 def _interpolate(traj, num_steps):

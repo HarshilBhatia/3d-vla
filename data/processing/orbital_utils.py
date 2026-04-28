@@ -91,7 +91,7 @@ def get_group_id(ep_path, group_str):
     return int(group_str[1])
 
 
-def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256):
+def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256, demo_id=0):
     """
     Extract keyframes from one orbital episode and append rows to zarr_file.
     Returns number of keyframes written.
@@ -168,6 +168,7 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256):
         zarr_file["task_id"].append(np.array([task_id],  dtype=np.uint8))
         zarr_file["variation"].append(np.array([0],       dtype=np.uint8))
         zarr_file["camera_group"].append(np.array([group_id], dtype=np.uint8))
+        zarr_file["demo_id"].append(np.array([demo_id],  dtype=np.uint32))
         n_written += 1
 
     return n_written

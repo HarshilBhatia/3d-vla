@@ -18,12 +18,12 @@ export XDG_RUNTIME_DIR=/run/user/27491
 #     --save-path data/orbital_rollouts_test \
 #     --cameras-file instructions/orbital_cameras_grouped.json
 
- xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" bash scripts/eval/eval_orbital.sh \
-      checkpoint=/root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_test/last.pth \
-      task="light_bulb_in" \
-      "data_dir=/grogu/user/harshilb/orbital_rollouts"\
-      "camera_groups=G1" \
-      "miscalibration_noise_level=medium"
+#  xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" bash scripts/eval/eval_orbital.sh \
+#       checkpoint=/root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_test/last.pth \
+#       task="light_bulb_in" \
+#       "data_dir=/grogu/user/harshilb/orbital_rollouts"\
+#       "camera_groups=G1" \
+#       "miscalibration_noise_level=medium"
     #   --extra "data_dir=/ocean/projects/cis240058p/hbhatia1/3d-vla/data/peract_G1_data camera_groups=G1"
 
 
@@ -40,10 +40,10 @@ export XDG_RUNTIME_DIR=/run/user/27491
 # print(dir(obs))                                                                                                                            
 # "
 
-# python data/processing/convert_to_zarr/orbital_to_zarr.py \
-#     --root /grogu/user/harshilb/orbital_rollouts_mini/ \
-#     --out /grogu/user/harshilb/orbital_rollouts_mini/1task.zarr \
-#     --tasks open_drawer --overwrite
+python data/processing/convert_to_zarr/orbital_to_zarr.py \
+    --root /grogu/user/harshilb/orbital_rollouts/ \
+    --out /grogu/user/harshilb/orbital_rollouts/4task_new.zarr \
+    --overwrite
 
 
 # python data/processing/convert_to_zarr/peract_to_zarr.py \

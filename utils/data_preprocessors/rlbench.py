@@ -77,7 +77,9 @@ class RLBenchDataPreprocessor(DataPreprocessor):
     def __init__(self, keypose_only=False, num_history=1,
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
                  rotate_pcd=False, rotate_angle_deg=0.0, rotate_axis='z',
-                 use_front_camera_frame=False, **kwargs):
+                 use_front_camera_frame=False,
+                 miscal_max_angle_deg=None, miscal_max_translation_m=None,
+                 **kwargs):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,
@@ -87,6 +89,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         self.rotate_pcd = rotate_pcd
         self.rotate_angle_deg = rotate_angle_deg
         self.rotate_axis = rotate_axis
+        self.miscal_max_angle_deg = miscal_max_angle_deg or 0.0
+        self.miscal_max_translation_m = miscal_max_translation_m or 0.0
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
                 degrees=0,
@@ -101,6 +105,40 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                 p=0.1
             )
         ).cuda()
+
+    def _sample_random_miscalibration(self, B, ncam, device, dtype):
+        """Sample one random noise extrinsics perturbation per (B, ncam).
+
+        Returns (B, ncam, 4, 4) transforms to left-multiply onto extrinsics.
+        Sampled once per batch item so all nhist snapshots get the same noise.
+        """
+        # Random rotation via axis-angle: axis uniform on S², angle uniform in [-max, +max]
+        axes = torch.randn(B, ncam, 3, device=device)
+        axes = axes / (axes.norm(dim=-1, keepdim=True) + 1e-8)
+        max_rad = self.miscal_max_angle_deg * math.pi / 180.0
+        angles = (torch.rand(B, ncam, device=device) * 2 - 1) * max_rad  # (B, ncam)
+
+        # Rodrigues: R = I + sin(θ)K + (1-cos(θ))K²
+        kx, ky, kz = axes[..., 0], axes[..., 1], axes[..., 2]
+        zeros = torch.zeros(B, ncam, device=device)
+        K_skew = torch.stack([
+            torch.stack([ zeros,   -kz,    ky], dim=-1),
+            torch.stack([    kz, zeros,   -kx], dim=-1),
+            torch.stack([   -ky,    kx, zeros], dim=-1),
+        ], dim=-2)  # (B, ncam, 3, 3)
+        I = torch.eye(3, device=device).expand(B, ncam, 3, 3)
+        sin_a = angles.sin()[..., None, None]
+        cos_a = angles.cos()[..., None, None]
+        R = I + sin_a * K_skew + (1 - cos_a) * (K_skew @ K_skew)  # (B, ncam, 3, 3)
+
+        # Random translation: uniform in [-max, +max] per axis
+        t = (torch.rand(B, ncam, 3, device=device) * 2 - 1) * self.miscal_max_translation_m
+
+        # Assemble 4×4
+        T = torch.eye(4, device=device, dtype=dtype).view(1, 1, 4, 4).expand(B, ncam, 4, 4).clone()
+        T[..., :3, :3] = R.to(dtype)
+        T[..., :3,  3] = t.to(dtype)
+        return T
 
     def _rotate_point_cloud(self, pcd):
         """
@@ -134,10 +172,23 @@ class RLBenchDataPreprocessor(DataPreprocessor):
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
                     augment=False, **kwargs):
         """
-        RGBs of shape (B, ncam, 3, h_i, w_i),
-        depths of shape (B, ncam, h_i, w_i).
-        Assume the 3d cameras go before 2d cameras.
+        RGBs of shape (B, ncam, 3, h_i, w_i) or (B, nhist, ncam, 3, h_i, w_i).
+        depths of shape (B, ncam, h_i, w_i) or (B, nhist, ncam, h_i, w_i).
+        extrinsics/intrinsics: (B, ncam, 4, 4)/(B, 3, 3) or (B, nhist, ncam, 4, 4)/(B, nhist, ncam, 3, 3).
         """
+        has_hist = rgbs.ndim == 6
+        if has_hist:
+            B, nhist, ncam, C, H, W = rgbs.shape
+            # Sample noise once per (B, ncam) and broadcast across nhist so all
+            # history snapshots get identical miscalibration (it's a camera property).
+            if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
+                noise_T = self._sample_random_miscalibration(B, ncam, extrinsics.device, extrinsics.dtype)
+                extrinsics = noise_T.unsqueeze(1) @ extrinsics  # (B, 1, ncam, 4, 4) @ (B, nhist, ncam, 4, 4)
+            rgbs = rgbs.view(B * nhist, ncam, C, H, W)
+            depth = depth.view(B * nhist, ncam, *depth.shape[-2:])
+            extrinsics = extrinsics.view(B * nhist, ncam, 4, 4)
+            intrinsics = intrinsics.view(B * nhist, ncam, 3, 3)
+
         # Get point cloud from depth
         pcds = self.depth2cloud(
             depth.cuda(non_blocking=True).to(torch.bfloat16),
@@ -189,8 +240,12 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             pcds = torch.cat((pcd_3d, pcds[:, :pcd_3d.size(1)].float()))
         else:
             pcds = pcd_3d
-        
+
         if self.rotate_pcd:
             pcds = self._rotate_point_cloud(pcds)
+
+        if has_hist:
+            rgbs = rgbs.view(B, nhist, *rgbs.shape[1:])
+            pcds = pcds.view(B, nhist, *pcds.shape[1:])
 
         return rgbs, pcds

@@ -106,7 +106,7 @@ class AttentionLayer(DummyLayer):
     """Attention layer, for self-/cross-attention."""
 
     def __init__(self, d_model=256, dropout=0.1, n_heads=8, pre_norm=False,
-                 rotary_pe=False, use_adaln=False, is_self=False):
+                 rotary_pe=False, use_adaln=False, is_self=False, force_math=False):
         """Initialize layers, d_model is the encoder dimension."""
         super().__init__(pre_norm=pre_norm)
         self.rotary_pe = rotary_pe
@@ -117,7 +117,7 @@ class AttentionLayer(DummyLayer):
         if use_adaln:
             self.adaln = AdaLN(d_model)
         self.attention = MultiheadCustomAttention(
-            d_model, n_heads, dropout=dropout
+            d_model, n_heads, dropout=dropout, force_math=force_math
         )
         self.dropout = nn.Dropout(dropout)
         self.norm_q = nn.LayerNorm(d_model)
@@ -181,7 +181,7 @@ class AttentionModule(nn.Module):
 
     def __init__(self, num_layers, d_model=256, dim_fw=None,
                  dropout=0.1, n_heads=8, pre_norm=False,
-                 rotary_pe=False, use_adaln=False, is_self=False):
+                 rotary_pe=False, use_adaln=False, is_self=False, force_math=False):
         super().__init__()
         self.num_layers = num_layers
         self.is_self = is_self
@@ -190,7 +190,7 @@ class AttentionModule(nn.Module):
         for _ in range(num_layers):
             self.attn_layers.append(AttentionLayer(
                 d_model, dropout, n_heads, pre_norm,
-                rotary_pe, use_adaln, is_self
+                rotary_pe, use_adaln, is_self, force_math=force_math
             ))
             self.ffw_layers.append(FFWLayer(
                 d_model, dim_fw, dropout, use_adaln, pre_norm=False

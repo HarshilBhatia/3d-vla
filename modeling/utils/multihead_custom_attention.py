@@ -1,6 +1,8 @@
 
+import torch
 from torch import nn
 from torch.nn import functional as F
+from torch.nn.attention import SDPBackend, sdpa_kernel
 import einops
 
 from .position_encodings import RotaryPositionEncoding
@@ -11,13 +13,14 @@ class MultiheadCustomAttention(nn.MultiheadAttention):
     def __init__(self, embed_dim, num_heads, dropout=0.,
                  bias=True, add_bias_kv=False, add_zero_attn=False,
                  kdim=None, vdim=None, batch_first=False,
-                 device=None, dtype=None):
+                 device=None, dtype=None, force_math=False):
         super().__init__(
             embed_dim, num_heads, dropout=dropout,
             bias=bias, add_bias_kv=add_bias_kv, add_zero_attn=add_zero_attn,
             kdim=kdim, vdim=vdim, batch_first=batch_first,
             device=device, dtype=dtype
         )
+        self.force_math = force_math
 
     def forward(
             self,
@@ -82,6 +85,7 @@ class MultiheadCustomAttention(nn.MultiheadAttention):
             self.dropout, self.out_proj.weight, self.out_proj.bias,
             training=self.training,
             attn_mask=attn_mask,
+            force_math=self.force_math,
             rotary_pe=rotary_pe,
             rotary_pe_module=rotary_pe_module,
             rope_lambda_reg=rope_lambda_reg,
@@ -104,6 +108,7 @@ def multi_head_attention_forward(query,
                                  out_proj_bias,
                                  training=True,
                                  attn_mask=None,
+                                 force_math=False,
                                  rotary_pe=None,
                                  rotary_pe_module=None,
                                  rope_lambda_reg=0.0,
@@ -146,11 +151,15 @@ def multi_head_attention_forward(query,
     k = einops.rearrange(k, "S B (H D) -> B H S D", H=num_heads, D=head_dim)
     v = einops.rearrange(v, "S B (H D) -> B H S D", H=num_heads, D=head_dim)
 
-    # Compute attention output
-    attn_output = F.scaled_dot_product_attention(
-        q, k, v,
-        attn_mask, dropout_p if training else 0.0, is_causal=False
-    )  # B H S D
+    if force_math:
+        with sdpa_kernel(SDPBackend.MATH):
+            attn_output = F.scaled_dot_product_attention(
+                q, k, v, attn_mask, dropout_p if training else 0.0, is_causal=False
+            )
+    else:
+        attn_output = F.scaled_dot_product_attention(
+            q, k, v, attn_mask, dropout_p if training else 0.0, is_causal=False
+        )
     attn_output = einops.rearrange(attn_output, "B H S D -> S B (H D)")
     attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
     attn_output = F.dropout(attn_output, p=dropout_p, training=training)

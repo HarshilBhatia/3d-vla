@@ -114,8 +114,10 @@ def main():
         _create("task_id",               (),                "uint8")
         _create("variation",             (),                "uint8")
         _create("camera_group",          (),                "uint8")
+        _create("demo_id",               (),                "uint32")
 
         total = 0
+        n_episodes = 0
         for task in tasks:
             tid = task2id.get(task, 0)
             task_root = os.path.join(args.root, task)
@@ -141,8 +143,9 @@ def main():
                 for ep in tqdm(episodes, desc="{}/{}".format(task, group_str)):
                     ep_path = os.path.join(group_root, ep)
                     try:
-                        n = process_episode(ep_path, tid, group_str, zf, im)
+                        n = process_episode(ep_path, tid, group_str, zf, im, demo_id=n_episodes)
                         total += n
+                        n_episodes += 1
                     except Exception as e:
                         print("[WARN] Skipping {}: {}".format(ep_path, e))
 

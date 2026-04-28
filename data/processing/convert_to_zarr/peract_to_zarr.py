@@ -130,7 +130,9 @@ def all_tasks_main(split, tasks, rotate_x_deg=0.0, rotate_y_deg=0.0, rotate_z_de
         _create("action", (1, NHAND, 8), "float32")
         _create("task_id", (), "uint8")
         _create("variation", (), "uint8")
+        _create("demo_id", (), "uint32")
 
+        n_rollouts = 0
         # Loop through episodes
         for task in tasks:
             print(task)
@@ -179,6 +181,8 @@ def all_tasks_main(split, tasks, rotate_x_deg=0.0, rotate_y_deg=0.0, rotate_z_de
                 zarr_file['action'].append(actions)
                 zarr_file['task_id'].append(tids)
                 zarr_file['variation'].append(_vars)
+                zarr_file['demo_id'].append(np.full(len(content[0]), n_rollouts, dtype=np.uint32))
+                n_rollouts += 1
                 assert all(
                     len(zarr_file['action']) == len(zarr_file[key])
                     for key in zarr_file.keys()

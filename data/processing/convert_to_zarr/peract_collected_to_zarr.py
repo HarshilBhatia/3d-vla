@@ -111,7 +111,9 @@ def convert(root, store_path, tasks, im_size, overwrite):
         _create("intrinsics",            (NCAM, 3, 3),                "float16")
         _create("task_id",               (),                          "uint8")
         _create("variation",             (),                          "uint8")
+        _create("demo_id",               (),                          "uint32")
 
+        n_rollouts = 0
         for task in tasks:
             task_base = os.path.join(root, task)
             if not os.path.isdir(task_base):
@@ -219,6 +221,8 @@ def convert(root, store_path, tasks, im_size, overwrite):
                 zf['intrinsics'].append(intrinsics)
                 zf['task_id'].append(task_id)
                 zf['variation'].append(variation)
+                zf['demo_id'].append(np.full(T, n_rollouts, dtype=np.uint32))
+                n_rollouts += 1
 
         print(f"\n[DONE] {len(zf['action'])} total keypose steps → {filename}")
 

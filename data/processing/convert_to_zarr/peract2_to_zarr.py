@@ -174,6 +174,7 @@ def all_tasks_main(split, tasks, rotate_extrinsics_deg: float = 0.0, translate_e
         _create("intrinsics", (NCAM, 3, 3), "float16")
         _create("task_id", (), "uint8")
         _create("variation", (), "uint8")
+        _create("demo_id", (), "uint32")
 
         for task in tasks:
             print(f"[{split}] Processing task: {task}")
@@ -328,6 +329,7 @@ def all_tasks_main(split, tasks, rotate_extrinsics_deg: float = 0.0, translate_e
                 zarr_file['intrinsics'].append(intrinsics)
                 zarr_file['task_id'].append(task_id)
                 zarr_file['variation'].append(variation)
+                zarr_file['demo_id'].append(np.full(len(key_frames[:-1]), n_rollouts, dtype=np.uint32))
                 n_rollouts += 1
         return n_rollouts
 

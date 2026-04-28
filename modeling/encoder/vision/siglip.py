@@ -39,6 +39,10 @@ class SigLIP2ViTFeatures(nn.Module):
 
     def forward(self, x):
         # x: (B, 3, H, W) where H == W == model image_size
+        if not torch.is_autocast_enabled():
+            model_dtype = next(self.model.parameters()).dtype
+            if x.dtype != model_dtype:
+                x = x.to(model_dtype)
         feats = self.model(pixel_values=x).last_hidden_state  # (B, h*w, hidden_size)
         B = feats.shape[0]
         feats = feats.reshape(B, self.h, self.w, self.hidden_size)
