@@ -18,7 +18,11 @@ cd /home/harshilb/3d_flowmatch_actor
 source ~/miniconda3/etc/profile.d/conda.sh
 conda activate 3dfa
 
-CHECKPOINT_PATH='/home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_test/interm160000.pth'
+# CHECKPOINT_PATH='/home/harshilb/3d_flowmatch_actor/train_logs/Orbital/recursive_hist3_new/interm160000.pth'
+CHECKPOINT_PATH='/home/harshilb/3d_flowmatch_actor/train_logs/Orbital/mis_final/interm160000.pth'
+# /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/recursive_hist3_new/interm160000.pth'
+
+# '/home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_test/interm160000.pth'
 
 CHECKPOINT=${CHECKPOINT:-$CHECKPOINT_PATH}
 # Derive output dir from checkpoint path: train_logs/Orbital/my_run/best.pth -> results/miscal_sweep/my_run/
@@ -33,11 +37,15 @@ data=orbital
 
 
 python scripts/eval/sweep_miscal_loss.py \
-    eval_data_dir=/grogu/user/harshilb/orbital_rollouts/4task_new.zarr \
+    eval_data_dir=/grogu/user/harshilb/1task_new.zarr \
     val_instructions=instructions/peract/instructions.json \
     dataset=OrbitalWrist \
     bimanual=false \
     checkpoint=$CHECKPOINT \
     output_csv=$OUTPUT_CSV \
-    num_samples=1000 \
+    num_samples=1024 \
+    batch_size_val=64 \
     "$@"
+
+
+    # use_recursive_set_encoder=true \

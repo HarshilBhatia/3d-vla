@@ -142,11 +142,10 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256, demo_id
         extr = np.stack([E_ol, E_or, E_wrist]).astype(np.float16)[np.newaxis]
         intr = np.stack([K_ol, K_or, K_wrist]).astype(np.float16)[np.newaxis]
 
-        pcd = np.stack([
-            depth_to_pcd_numpy(depth_l, E_ol,    K_ol),
-            depth_to_pcd_numpy(depth_r, E_or,    K_or),
-            depth_to_pcd_numpy(depth_w, E_wrist, K_wrist),
-        ]).astype(np.float16)[np.newaxis]
+        # breakpoint()
+
+        depth = np.stack([depth_l, depth_r, depth_w]).astype(np.float16)[np.newaxis]
+        # shape: (1, NCAM, H, W) — all three already in metres
 
         state    = _eef(obs)
         state_p  = _eef(demo[key_frames[max(0, idx - 1)]])
@@ -158,7 +157,7 @@ def process_episode(ep_path, task_id, group_str, zarr_file, im_size=256, demo_id
         act_j  = _joints(obs_next).reshape(1, NHAND, 8)[np.newaxis]
 
         zarr_file["rgb"].append(rgb)
-        zarr_file["pcd"].append(pcd)
+        zarr_file["depth"].append(depth)
         zarr_file["extrinsics"].append(extr)
         zarr_file["intrinsics"].append(intr)
         zarr_file["proprioception"].append(prop)

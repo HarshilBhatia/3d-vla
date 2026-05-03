@@ -19,7 +19,7 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate 3dfa
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
-ngpus=$(nvidia-smi -L | wc -l)
+ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
 data=orbital
 main_dir=Orbital

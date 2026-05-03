@@ -19,13 +19,15 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate 3dfa
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
-ngpus=$(nvidia-smi -L | wc -l)
+ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
 data=peract_collected
 experiment=default
 run_log_dir=peract_collected
+# Resume only from this exact run directory when explicitly requested.
+# By default, start from scratch to avoid accidental cross-run resumes.
+checkpoint="${CHECKPOINT:-}"
 
-checkpoint=train_logs/Peract/${run_log_dir}/last.pth
 
 TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
@@ -33,5 +35,5 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     experiment=$experiment \
     exp_log_dir=Peract \
     run_log_dir=$run_log_dir \
-    train_iters=45000 \
-    checkpoint=$checkpoint
+    train_iters=70000 \
+    ${checkpoint:+checkpoint=$checkpoint}

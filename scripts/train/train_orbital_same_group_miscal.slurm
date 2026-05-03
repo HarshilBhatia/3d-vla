@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --job-name=same_g
+#SBATCH --job-name=same_g_mis
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=50
-#SBATCH --gres=gpu:4
+#SBATCH --gres=gpu:8
 #SBATCH --mem=96G
 #SBATCH --time=24:00:00
 #SBATCH --partition=shubhamlong
@@ -26,10 +26,10 @@ ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 data=orbital
 main_dir=Orbital
 experiment=default
-run_log_dir=open_drawer_default_G1
+run_log_dir=open_drawer_default_G1_miscal
 train_iters=70000
 
-checkpoint=train_logs/${main_dir}/${run_log_dir}/step_47000.pth
+checkpoint=train_logs/${main_dir}/${run_log_dir}/step_46100.pth
 
 TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
@@ -41,4 +41,7 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     train_data_dir=/grogu/user/harshilb/1task_new.zarr \
     eval_data_dir=/grogu/user/harshilb/1task_new.zarr \
     checkpoint=$checkpoint \
-    batch_size=128
+    miscal_max_angle_deg=10.0 \
+    miscal_max_translation_m=0.05 \
+    batch_size=256
+

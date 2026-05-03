@@ -37,7 +37,6 @@ class DenoiseActor(BaseDenoiseActor):
                  # Learnable extrinsics (camera -> world)
                  learn_extrinsics=False,
                  traj_scene_rope=True,
-                 sa_blocks_use_rope=True,
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m',
                  # RoPE type
@@ -59,7 +58,6 @@ class DenoiseActor(BaseDenoiseActor):
             denoise_model=denoise_model,
             lv2_batch_size=lv2_batch_size,
             traj_scene_rope=traj_scene_rope,
-            sa_blocks_use_rope=sa_blocks_use_rope,
             learn_extrinsics=learn_extrinsics,
             predict_extrinsics=predict_extrinsics,
             extrinsics_prediction_mode=extrinsics_prediction_mode,
@@ -94,7 +92,6 @@ class DenoiseActor(BaseDenoiseActor):
             num_shared_attn_layers=num_shared_attn_layers,
             learn_extrinsics=learn_extrinsics,
             traj_scene_rope=traj_scene_rope,
-            sa_blocks_use_rope=sa_blocks_use_rope,
             predict_extrinsics=predict_extrinsics,
             extrinsics_prediction_mode=extrinsics_prediction_mode,
             rope_type=rope_type,
@@ -111,77 +108,7 @@ class DenoiseActor(BaseDenoiseActor):
                 rope_type=rope_type,
             )
 
-        # Learnable camera extrinsics: axis-angle (3) + translation (3) = 6 params
         self.learn_extrinsics = learn_extrinsics
-        if learn_extrinsics:
-
-            raise NotImplementedError("Should NOT be USED HERE")
-            # Initialize to identity transform
-
-            # randn if not rotated in data processing 
-            # self.cam_axis_angle = nn.Parameter(torch.randn(3))  # rotation
-            # self.cam_translation = nn.Parameter(torch.randn(3))  # translation
-
-            # identity (better)
-            self.cam_axis_angle = nn.Parameter(torch.zeros(3))  # rotation
-            self.cam_translation = nn.Parameter(torch.zeros(3))  # translation
-    
-    
-    def get_learned_extrinsics(self):
-        """Convert 6D params to 4x4 extrinsics matrix."""
-        if not self.learn_extrinsics:
-            return None
-        
-        # Convert axis-angle to rotation matrix
-        R = axis_angle_to_matrix(self.cam_axis_angle.unsqueeze(0))[0]  # (3, 3)
-        t = self.cam_translation.unsqueeze(1)  # (3, 1)
-        
-        # Build 4x4 extrinsics matrix
-        extrinsics = torch.eye(4, device=R.device, dtype=R.dtype)
-        extrinsics[:3, :3] = R
-        extrinsics[:3, 3] = t.squeeze()
-        
-        return extrinsics  # (4, 4)
-    
-    def transform_pcd_to_world(self, pcd_cam):
-        """
-        Transform point cloud from camera frame to world frame.
-        
-        Args:
-            pcd_cam: (B, ncam, 3, H, W) - points in camera coordinates
-            
-        Returns:
-            pcd_world: (B, ncam, 3, H, W) - points in world coordinates
-        """
-        if not self.learn_extrinsics:
-            return pcd_cam
-        
-        extrinsics = self.get_learned_extrinsics()  # (4, 4)
-        
-        B, ncam, _, H, W = pcd_cam.shape
-        
-        # Reshape for transformation
-        pcd_flat = pcd_cam.reshape(B * ncam, 3, H * W)  # (B*ncam, 3, HW)
-        
-        # Extract R and t
-        R = extrinsics[:3, :3]  # (3, 3)
-        t = extrinsics[:3, 3:4]  # (3, 1)
-        
-        # Transform: P_world = R @ P_cam + t
-        pcd_world_flat = R @ pcd_flat + t  # (B*ncam, 3, HW)
-        
-        # Reshape back
-        pcd_world = pcd_world_flat.reshape(B, ncam, 3, H, W)
-        
-        return pcd_world
-    
-    def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=0):
-        """Override to apply learned transformation to point cloud."""
-        # Apply learned camera-to-world transformation if enabled
-        pcd = self.transform_pcd_to_world(pcd)
-        
-        # Call parent's encode_inputs with transformed point cloud
-        return super().encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=stopgrad_k)
 
 
 
@@ -214,7 +141,6 @@ class TransformerHead(BaseTransformerHead):
                  rotary_pe=True,
                  learn_extrinsics=False,
                  traj_scene_rope=True,
-                 sa_blocks_use_rope=True,
                  predict_extrinsics=True,
                  rope_type='normal',
                  **kwargs):
@@ -225,7 +151,6 @@ class TransformerHead(BaseTransformerHead):
             num_shared_attn_layers=num_shared_attn_layers,
             rotary_pe=rotary_pe,
             traj_scene_rope=traj_scene_rope,
-            sa_blocks_use_rope=sa_blocks_use_rope,
             predict_extrinsics=predict_extrinsics,
             learn_extrinsics=learn_extrinsics,
             extrinsics_prediction_mode=kwargs.get("extrinsics_prediction_mode", 'delta_m'),

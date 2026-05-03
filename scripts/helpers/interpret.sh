@@ -61,7 +61,6 @@ denoise_model=rectified_flow
 # Model arguments for learning extrinsics and predicting extrinsics
 learn_extrinsics=False
 predict_extrinsics=True
-use_front_camera_frame=false
 traj_scene_rope=true
 rope_type=stopgrad
 rope_schedule_type=linear
@@ -139,7 +138,6 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM\
     --wandb_project 3d_flowmatch_actor \
     --wandb_run_name $run_log_dir \
     --learn_extrinsics $learn_extrinsics \
-    --use_front_camera_frame $use_front_camera_frame \
     --traj_scene_rope $traj_scene_rope \
     --predict_extrinsics $predict_extrinsics \
     --rope_type $rope_type \

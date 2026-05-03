@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+# REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 
+REPO_ROOT='/root/3d_flowmatch_actor'
 TASK="open_drawer"
 CHECKPOINT="${REPO_ROOT}/train_logs/Peract/peract_collected/last.pth"
-OUTPUT_FILE="${REPO_ROOT}/eval_logs/Peract/peract_collected/results_${TASK}.json"
+OUTPUT_FILE="${REPO_ROOT}/eval_logs/Peract/peract_collected/new/results_${TASK}.json"
 
 mkdir -p "$(dirname "$OUTPUT_FILE")" logs
 
@@ -19,4 +20,7 @@ xvfb-run -a python "${REPO_ROOT}/online_evaluation_rlbench/evaluate_policy.py" \
     headless=true \
     checkpoint=$CHECKPOINT \
     output_file=$OUTPUT_FILE \
-    task=$TASK
+    task=$TASK \
+    eval_use_depth2cloud=true \
+    save_video=true                                                                                                                                             
+

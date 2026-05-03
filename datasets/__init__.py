@@ -1,8 +1,6 @@
 from .rlbench import (
     Peract2Dataset,
-    Peract2SingleCamDataset,
     PeractDataset,
-    PeractTwoCamDataset,
     PeractCollectedDataset,
     HiveformerDataset,
     OrbitalWristDataset,
@@ -13,9 +11,9 @@ def fetch_dataset_class(dataset_name):
     """Fetch the dataset class based on the dataset name."""
     dataset_classes = {
         "Peract2_3dfront_3dwrist": Peract2Dataset,
-        "Peract2_3dfront": Peract2SingleCamDataset,
+
         "Peract": PeractDataset,
-        "PeractTwoCam": PeractTwoCamDataset,
+        
         "PeractCollected": PeractCollectedDataset,
         "HiveformerRLBench": HiveformerDataset,
         "OrbitalWrist": OrbitalWristDataset,

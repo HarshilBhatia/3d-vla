@@ -47,6 +47,7 @@ checkpoint: null
 val_freq: 4000
 last_ckpt_freq: 100
 interm_ckpt_freq: 10000
+keep_last_k: 3
 # eval_only: true = run validation only (no training); trainer uses run_mode=eval_offline
 eval_only: false
 lr: 0.0001
@@ -99,19 +100,14 @@ output_file: eval.json
 fp16: false
 prediction_len: 1
 save_trajectory: false
-
-# === RoPE analysis (analyse_qk.py) ===
-rope_analysis_max_batches: 50
-rope_analysis_save_name: rope3d_frequency_norms.pt
-
-
+save_video: false
 
 
 # === Model: head ===
 embedding_dim: 120
 num_attn_heads: 6
 num_vis_instr_attn_layers: 3
-num_history: 3
+num_history: 1
 num_shared_attn_layers: 4
 relative_action: false
 rotation_format: quat_xyzw
@@ -119,7 +115,6 @@ denoise_timesteps: 5
 denoise_model: rectified_flow
 
 
-sa_blocks_use_rope: true
 traj_scene_rope: true
 
 
@@ -127,9 +122,6 @@ learn_extrinsics: false
 predict_extrinsics: false
 extrinsics_prediction_mode: delta_m  # 'rt' = R,T (6D); 'delta_m' = 6x6 matrix
 dynamic_rope_from_camtoken: true  # re-predict delta_M/(R,T) from cam-token after each SA/CA block
-# use_front_camera_frame: canonical name; use for front-camera frame transform in data/eval
-use_front_camera_frame: false
-pc_rotate_by_front_camera: false
 # miscalibration_noise_level: null = no noise; "small" / "medium" / "large" = constant per-camera extrinsics noise
 miscalibration_noise_level: null
 # random miscalibration: sample fresh noise per batch. set both to enable (overridden by miscalibration_noise_level).
@@ -146,7 +138,7 @@ task_group_mapping_file: null         # path to task_group_mapping.json (eval us
 camera_groups: null                   # override which groups to eval, e.g. "G1" or "G1,G2"; null = use all from mapping
 fov_deg: 60.0                         # FOV in degrees for orbital VisionSensors
 
-# RoPE: traj_scene_rope, sa_blocks_use_rope come from config/rope_mode/<name>.yaml
+# RoPE: traj_scene_rope comes from config/rope_mode/<name>.yaml
 
 
 

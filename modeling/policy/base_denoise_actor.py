@@ -34,7 +34,6 @@ class DenoiseActor(nn.Module):
                  # Training arguments
                  lv2_batch_size=1,
                  traj_scene_rope=True,
-                 sa_blocks_use_rope=True,
                  learn_extrinsics=False,
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m'):
@@ -61,7 +60,6 @@ class DenoiseActor(nn.Module):
             num_shared_attn_layers=num_shared_attn_layers,
             rot_dim=3 if rotation_format == 'euler' else 6,
             traj_scene_rope=traj_scene_rope,
-            sa_blocks_use_rope=sa_blocks_use_rope
         )
 
         # Noise/denoise schedulers and hyperparameters
@@ -428,7 +426,6 @@ class TransformerHead(nn.Module):
                  rotary_pe=True,
                  rot_dim=6,
                  traj_scene_rope=True,
-                 sa_blocks_use_rope=True,
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m',  # 'rt' = R,T (6D) and log; 'delta_m' = 6x6 matrix
                  learn_extrinsics=False,
@@ -441,7 +438,6 @@ class TransformerHead(nn.Module):
         print(f" ************** Predicting Extrinsics: {predict_extrinsics} (mode={self.extrinsics_prediction_mode}) **************")
 
         self.traj_scene_rope = traj_scene_rope
-        self.sa_blocks_use_rope = sa_blocks_use_rope
         self.predict_extrinsics = predict_extrinsics
         self.dynamic_rope_from_camtoken = dynamic_rope_from_camtoken
         self._rope_mode = "none" if not traj_scene_rope else "standard"
@@ -508,7 +504,7 @@ class TransformerHead(nn.Module):
                     dropout=0.1,
                     n_heads=num_attn_heads,
                     pre_norm=False,
-                    rotary_pe=rotary_pe and self.sa_blocks_use_rope,
+                    rotary_pe=rotary_pe,
                     use_adaln=True,
                     is_self=True
                 )
@@ -559,7 +555,7 @@ class TransformerHead(nn.Module):
                 dropout=0.1,
                 n_heads=num_attn_heads,
                 pre_norm=False,
-                rotary_pe=rotary_pe and self.traj_scene_rope and self.sa_blocks_use_rope,
+                rotary_pe=rotary_pe and self.traj_scene_rope,
                 use_adaln=True,
                 is_self=True
             )
@@ -578,7 +574,7 @@ class TransformerHead(nn.Module):
                 dropout=0.1,
                 n_heads=num_attn_heads,
                 pre_norm=False,
-                rotary_pe=rotary_pe and self.traj_scene_rope and self.sa_blocks_use_rope,
+                rotary_pe=rotary_pe and self.traj_scene_rope,
                 use_adaln=True,
                 is_self=True
             )
@@ -666,7 +662,7 @@ class TransformerHead(nn.Module):
 
     def _predict_rt(self, batch_size, device):
         """Predict axis-angle (3) + translation (3) from cam token. Returns (B, 6)."""
-        cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
+        cam_feat = self._expand_camera_token(batch_size)
         rt, _ = self._predict_from_cam_feat(cam_feat)
         return rt
 
@@ -685,9 +681,13 @@ class TransformerHead(nn.Module):
             per_img_feats = fps_scene_feats[:, M:, :]  # (B, ncam, C)
             _, delta_M = self._predict_from_cam_feat(per_img_feats)  # (B, ncam, 6, 6)
         else:
-            cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
+            cam_feat = self._expand_camera_token(batch_size)
             _, delta_M = self._predict_from_cam_feat(cam_feat)  # (B, 6, 6)
         return delta_M
+
+    def _expand_camera_token(self, batch_size):
+        """Expand (1, C) camera_token to (B, C)."""
+        return self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
 
     def _recompute_rope(self, cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
                         bases=None):
@@ -695,7 +695,7 @@ class TransformerHead(nn.Module):
         return None, None, None, None
 
     def transform_pcd_with_extrinsics(self, pcd, cam_params):
-        
+
         return pcd  # Base class does nothing
 
 
@@ -767,7 +767,7 @@ class TransformerHead(nn.Module):
             # Dynamic RoPE path: re-predict delta_M / (R,T) after every CA and SA block.
             # Originals are kept so RT transforms are always applied from a clean base.
             orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos
-            current_cam_feat = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
+            current_cam_feat = self._expand_camera_token(batch_size)
 
             # Per-image avg token features (evolve each SA layer); shape (B, ncam, C)
             assert fps_cam_ids is not None, "dynamic_rope_from_camtoken requires fps_cam_ids"
@@ -804,7 +804,7 @@ class TransformerHead(nn.Module):
                     current_cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
                     bases=precomputed_bases, fps_cam_ids=fps_cam_ids,
                     per_img_feats=current_per_img_feats)
-                sa_pos = rel_pos if self.sa_blocks_use_rope else None
+                sa_pos = rel_pos
                 features = self.self_attn.attn_layers[i](
                     features, features,
                     seq1_pos=sa_pos, seq2_pos=sa_pos, ada_sgnl=time_embs)

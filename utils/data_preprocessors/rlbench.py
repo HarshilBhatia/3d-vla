@@ -52,32 +52,12 @@ def _load_miscalibration_noise(level):
     return cameras, noise
 
 
-def _load_task_extrinsics_offsets():
-    offsets_path = Path(__file__).resolve().parents[2] / "instructions/peract2/task_extrinsics_offsets.json"
-    if not offsets_path.exists():
-        return {}
-    with open(offsets_path) as f:
-        data = json.load(f)
-    return {
-        task: (np.array(v["R"], dtype=np.float64), np.array(v["t"], dtype=np.float64))
-        for task, v in data.items()
-    }
-
-
-def _apply_offset_to_extrinsics(ext, R, t, device, dtype):
-    """new_cam_to_world = offset @ ext, where offset is built from (R, t)."""
-    offset = torch.eye(4, device=device, dtype=dtype)
-    offset[:3, :3] = torch.tensor(R, device=device, dtype=dtype)
-    offset[:3, 3] = torch.tensor(t, device=device, dtype=dtype)
-    return offset @ ext
-
 
 class RLBenchDataPreprocessor(DataPreprocessor):
 
     def __init__(self, keypose_only=False, num_history=1,
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
                  rotate_pcd=False, rotate_angle_deg=0.0, rotate_axis='z',
-                 use_front_camera_frame=False,
                  miscal_max_angle_deg=None, miscal_max_translation_m=None,
                  **kwargs):
         super().__init__(
@@ -91,6 +71,11 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         self.rotate_axis = rotate_axis
         self.miscal_max_angle_deg = miscal_max_angle_deg or 0.0
         self.miscal_max_translation_m = miscal_max_translation_m or 0.0
+        self._miscal_logged = False
+        if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
+            print(f"[miscal] ENABLED: max_angle={self.miscal_max_angle_deg}deg, max_translation={self.miscal_max_translation_m}m", flush=True)
+        else:
+            print("[miscal] disabled (max_angle=0, max_translation=0)", flush=True)
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
                 degrees=0,
@@ -183,6 +168,10 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             # history snapshots get identical miscalibration (it's a camera property).
             if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
                 noise_T = self._sample_random_miscalibration(B, ncam, extrinsics.device, extrinsics.dtype)
+                if not self._miscal_logged:
+                    print(f"[miscal] first batch applied: B={B}, ncam={ncam}, noise_T.shape={noise_T.shape}, "
+                          f"sample_t_norm={noise_T[0, :, :3, 3].norm(dim=-1).tolist()}", flush=True)
+                    self._miscal_logged = True
                 extrinsics = noise_T.unsqueeze(1) @ extrinsics  # (B, 1, ncam, 4, 4) @ (B, nhist, ncam, 4, 4)
             rgbs = rgbs.view(B * nhist, ncam, C, H, W)
             depth = depth.view(B * nhist, ncam, *depth.shape[-2:])
@@ -191,9 +180,9 @@ class RLBenchDataPreprocessor(DataPreprocessor):
 
         # Get point cloud from depth
         pcds = self.depth2cloud(
-            depth.cuda(non_blocking=True).to(torch.bfloat16),
-            extrinsics.cuda(non_blocking=True).to(torch.bfloat16),
-            intrinsics.cuda(non_blocking=True).to(torch.bfloat16)
+            depth.to(device='cuda', dtype=torch.bfloat16, non_blocking=True),
+            extrinsics.to(device='cuda', dtype=torch.bfloat16, non_blocking=True),
+            intrinsics.to(device='cuda', dtype=torch.bfloat16, non_blocking=True),
         )
 
         # Handle non-wrist cameras, which may require augmentations
@@ -241,8 +230,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         else:
             pcds = pcd_3d
 
-        if self.rotate_pcd:
-            pcds = self._rotate_point_cloud(pcds)
+        # if self.rotate_pcd:
+        #     pcds = self._rotate_point_cloud(pcds)
 
         if has_hist:
             rgbs = rgbs.view(B, nhist, *rgbs.shape[1:])

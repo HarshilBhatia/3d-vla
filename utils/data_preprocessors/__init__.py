@@ -15,5 +15,5 @@ def fetch_data_preprocessor(dataset_name):
     if 'rlbench' in dataset_name:
         return partial(RLBenchDataPreprocessor, orig_imsize=256)
     if 'orbital' in dataset_name:
-        return partial(PeractDataPreprocessor, orig_imsize=256)
+        return partial(RLBenchDataPreprocessor, orig_imsize=256)
     return None

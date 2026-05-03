@@ -21,8 +21,7 @@ conda activate 3dfa
 
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
-ngpus=$(nvidia-smi -L | wc -l)
-okay 
+ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
 data=full
 main_dir=exp

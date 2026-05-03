@@ -2,15 +2,12 @@ import os
 import glob
 import random
 
+from PIL import Image
 from tqdm import tqdm
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-from utils.data_preprocessors.rlbench import (
-    _load_task_extrinsics_offsets,
-    _apply_offset_to_extrinsics,
-)
 
 from rlbench.observation_config import ObservationConfig, CameraConfig
 from rlbench.environment import Environment
@@ -145,17 +142,12 @@ class RLBenchEnv:
         headless=False,
         apply_cameras=("over_shoulder_left", "over_shoulder_right", "wrist_left", "wrist_right", "front"),
         collision_checking=False,
-        use_front_camera_frame=False,
-        pc_rotate_by_front_camera=False,
     ):
 
         # setup required inputs
         self.data_path = data_path
         self.apply_cameras = apply_cameras
         self._task_str = task_str
-        self._use_front_camera_frame = use_front_camera_frame
-        self._pc_rotate_by_front_camera = pc_rotate_by_front_camera
-        self.task_offsets = _load_task_extrinsics_offsets()
 
         # setup RLBench environments
         self.obs_config = self.create_obs_config(
@@ -170,54 +162,6 @@ class RLBenchEnv:
             self.action_mode, str(data_path), self.obs_config,
             headless=headless, robot_setup="dual_panda"
         )
-
-    def _apply_front_camera_frame_transform(self, pcd, extrinsics, front_index, task_str):
-        """
-        Same logic as utils.data_preprocessors.rlbench.RLBenchDataPreprocessor when
-        use_front_camera_frame=True: task-based extrinsics offset then transform
-        pcd to front camera frame.
-        extrinsics: (1, ncam, 4, 4), pcd: (1, ncam, 3, H, W).
-        """
-        ext = extrinsics.clone()
-        offsets = self.task_offsets
-        if task_str and task_str in offsets:
-            R, t = offsets[task_str]
-            ext[0, front_index] = _apply_offset_to_extrinsics(
-                ext[0, front_index], R, t, ext.device, ext.dtype
-            )
-        return self._transform_pcd_to_front_frame(pcd, ext, front_index)
-
-    def _transform_pcd_to_front_frame(self, pcds, extrinsics, front_index):
-        """
-        Transform point clouds from world frame to front camera frame.
-        extrinsics: (1, ncam, 4, 4) camera-to-world; front_index: which camera is front.
-        """
-        B, ncam, _, H, W = pcds.shape
-        front_cam_to_world = extrinsics[:, front_index : front_index + 1].float()
-        world_to_front = torch.linalg.inv(front_cam_to_world)
-        pcds_flat = pcds.float().reshape(B, ncam, 3, H * W)
-        ones = torch.ones(B, ncam, 1, H * W, device=pcds.device, dtype=torch.float32)
-        pcds_homo = torch.cat([pcds_flat, ones], dim=2)
-        world_to_front = world_to_front.expand(B, ncam, 4, 4)
-        pcds_front_homo = torch.matmul(
-            world_to_front.reshape(B * ncam, 4, 4),
-            pcds_homo.reshape(B * ncam, 4, H * W),
-        )
-        pcds_front = pcds_front_homo[:, :3].reshape(B, ncam, 3, H, W)
-        # print('transforming pcd to front frame')
-        return pcds_front.to(pcds.dtype)
-
-    def _rotate_pcd_by_front_camera(self, pcds, extrinsics, front_index):
-        """Rotate point clouds by front camera R^T only (no translation)."""
-        B, ncam, _, H, W = pcds.shape
-        R_c2w = extrinsics[:, front_index : front_index + 1, :3, :3].float()
-        R_w2c = R_c2w.transpose(-1, -2).expand(B, ncam, 3, 3)
-        pcds_flat = pcds.float().reshape(B, ncam, 3, H * W)
-        rotated = torch.matmul(
-            R_w2c.reshape(B * ncam, 3, 3),
-            pcds_flat.reshape(B * ncam, 3, H * W),
-        )
-        return rotated.reshape(B, ncam, 3, H, W).to(pcds.dtype)
 
     def get_rgb_pcd_gripper_from_obs(self, obs):
         """
@@ -234,30 +178,6 @@ class RLBenchEnv:
             for cam in self.apply_cameras
         ]).unsqueeze(0)  # 1, N, C, H, W
 
-        # Apply same front-camera frame logic as in training (data_preprocessors/rlbench.py)
-        if self._use_front_camera_frame and getattr(obs, "misc", None) is not None:
-            try:
-                ext_list = [obs.misc.get("{}_camera_extrinsics".format(cam)) for cam in self.apply_cameras]
-                if all(e is not None for e in ext_list):
-                    extrinsics = torch.tensor(
-                        np.stack(ext_list), dtype=torch.float32, device=pcd.device
-                    ).unsqueeze(0)  # 1, ncam, 4, 4
-                    front_index = list(self.apply_cameras).index("front") if "front" in self.apply_cameras else 0
-                    pcd = self._apply_front_camera_frame_transform(pcd, extrinsics, front_index, self._task_str)
-            except (KeyError, ValueError):
-                pass
-        if self._pc_rotate_by_front_camera and getattr(obs, "misc", None) is not None:
-            try:
-                ext_list = [obs.misc.get("{}_camera_extrinsics".format(cam)) for cam in self.apply_cameras]
-                if all(e is not None for e in ext_list):
-                    extrinsics = torch.tensor(
-                        np.stack(ext_list), dtype=torch.float32, device=pcd.device
-                    ).unsqueeze(0)
-                    front_index = list(self.apply_cameras).index("front") if "front" in self.apply_cameras else 0
-                    pcd = self._rotate_pcd_by_front_camera(pcd, extrinsics, front_index)
-            except (KeyError, ValueError):
-                pass
-
         # action is an array of length 16 = (7+1)*2
         gripper = torch.from_numpy(np.concatenate([
             obs.left.gripper_pose, [obs.left.gripper_open],
@@ -266,6 +186,10 @@ class RLBenchEnv:
 
         return rgb, pcd, gripper
 
+    def _extract_video_frame(self, obs):
+        frames = [obs.perception_data[f"{cam}_rgb"] for cam in self.apply_cameras]
+        return np.concatenate(frames, axis=1)
+
     def evaluate_task_on_multiple_variations(
         self,
         task_str,
@@ -273,7 +197,10 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=1,
-        num_history=1
+        num_history=1,
+        save_trajectory=False,
+        save_video=False,
+        output_file=None,
     ):
         self.env.launch()
         task_type = task_file_to_task_class(task_str)
@@ -300,7 +227,9 @@ class RLBenchEnv:
                     actioner=actioner,
                     max_tries=max_tries,
                     prediction_len=prediction_len,
-                    num_history=num_history
+                    num_history=num_history,
+                    save_video=save_video,
+                    output_file=output_file,
                 )
             )
             if valid:
@@ -326,7 +255,9 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=50,
-        num_history=1
+        num_history=1,
+        save_video=False,
+        output_file=None,
     ):
         success_rate = 0
         total_reward = 0
@@ -347,8 +278,12 @@ class RLBenchEnv:
 
             move = Mover(task, max_tries=max_tries)
             max_reward = 0.0
+            video_frames = [] if save_video else None
 
             for step_id in range(max_steps):
+
+                if save_video:
+                    video_frames.append(self._extract_video_frame(obs))
 
                 # Fetch the current observation and predict one action
                 rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
@@ -392,6 +327,18 @@ class RLBenchEnv:
                     reward = 0
 
             total_reward += max_reward
+
+            if save_video and video_frames and output_file is not None:
+                video_dir = os.path.join(os.path.dirname(output_file), "videos", "success" if max_reward == 1 else "fail")
+                os.makedirs(video_dir, exist_ok=True)
+                video_path = os.path.join(
+                    video_dir, f"{task_str}_var{variation}_demo{demo_id}.gif"
+                )
+                imgs = [Image.fromarray(f) for f in video_frames]
+                imgs[0].save(
+                    video_path, save_all=True, append_images=imgs[1:], duration=150, loop=0
+                )
+                print(f"  [video] saved to {video_path}", flush=True)
 
             print(
                 task_str,

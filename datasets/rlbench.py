@@ -65,6 +65,18 @@ class RLBenchDataset(BaseDataset):
         if filter_tasks is not None:
             self._filter_by_tasks(filter_tasks)
 
+    @staticmethod
+    def _zarr_to_numpy(annos, indices=None):
+        """Load zarr group keys into numpy arrays, optionally filtering by indices."""
+        result = {}
+        for key in annos:
+            if hasattr(annos[key], '__getitem__'):
+                arr = np.array(annos[key][:])
+                result[key] = arr[indices] if indices is not None else arr
+            else:
+                result[key] = annos[key]
+        return result
+
     def _filter_by_tasks(self, filter_tasks):
         """Filter dataset to only include samples from specified tasks."""
         if not isinstance(filter_tasks, list):
@@ -87,33 +99,18 @@ class RLBenchDataset(BaseDataset):
             requested_task = filter_tasks[0]
             if requested_task in self.tasks:
                 correct_task_id = self.tasks.index(requested_task)
-                # Convert all zarr arrays to numpy arrays (since zarr group is read-only)
-                # and remap task_id to the correct global index
+                # Convert zarr to numpy (read-only zarr groups can't be remapped in-place)
                 num_samples = len(task_ids)
-                converted_annos = {}
-                for key in self.annos:
-                    if hasattr(self.annos[key], '__getitem__'):
-                        # Load zarr array into numpy
-                        converted_annos[key] = np.array(self.annos[key][:])
-                    else:
-                        converted_annos[key] = self.annos[key]
-                
-                # Remap task_id to the correct global index
+                converted_annos = self._zarr_to_numpy(self.annos)
                 converted_annos['task_id'] = np.full(num_samples, correct_task_id, dtype=np.uint8)
                 
                 # Replace the zarr group with numpy arrays
                 self.annos = converted_annos
                 
-                print(f"Single-task zarr detected (all samples have task_id={unique_task_ids[0]}). "
-                      f"Remapped to task_id={correct_task_id} for task: {requested_task}. "
-                      f"Keeping all {num_samples} samples.")
                 return
         
         # Multi-task zarr: use task IDs from the global task list
         unique_task_names = [self.tasks[int(tid)] for tid in unique_task_ids if int(tid) < len(self.tasks)]
-        print(f"Debug: Found task IDs {unique_task_ids.tolist()} in dataset")
-        print(f"Debug: Corresponding task names: {unique_task_names}")
-        print(f"Debug: Looking for task IDs: {task_ids_to_keep} (tasks: {filter_tasks})")
         
         mask = np.isin(task_ids, task_ids_to_keep)
         
@@ -129,24 +126,13 @@ class RLBenchDataset(BaseDataset):
             )
         
         # Filter all annotation arrays - convert zarr arrays to numpy arrays first
-        filtered_annos = {}
-        for key in self.annos:
-            if hasattr(self.annos[key], '__getitem__'):
-                # Load zarr array into numpy and filter
-                arr = np.array(self.annos[key][:])
-                filtered_annos[key] = arr[indices]
-            else:
-                filtered_annos[key] = self.annos[key]
-        
-        # Replace annotations with filtered versions
-        self.annos = filtered_annos
+        self.annos = self._zarr_to_numpy(self.annos, indices=indices)
         
         # Verify lengths match
         len_ = len(self.annos['action'])
         for key in self.annos:
             assert len(self.annos[key]) == len_, f'length mismatch in {key} after filtering'
         
-        print(f"Filtered to {len(self.annos['action'])} samples from tasks: {filter_tasks}")
     
     def _get_task(self, idx):
         return [
@@ -191,6 +177,8 @@ class RLBenchDataset(BaseDataset):
         idx = idx % (len(self.annos['action']) // self.chunk_size)
         # and then which chunk
         idx = idx * self.chunk_size
+
+
         if self._actions_only:
             return {"action": self._get_action(idx)}
         use_hist = self.num_history > 1 and 'demo_id' in self.annos
@@ -214,7 +202,8 @@ class HiveformerDataset(RLBenchDataset):
     camera_inds2d = None
 
     def _load_instructions(self, instruction_file):
-        instr = json.load(open(instruction_file))
+        with open(instruction_file) as f:
+            instr = json.load(f)
         self.tasks = list(instr.keys())
         return instr
 
@@ -257,15 +246,6 @@ class PeractDataset(RLBenchDataset):
         }
 
 
-class PeractTwoCamDataset(PeractDataset):
-    """RLBench dataset under Peract setup."""
-    tasks = PERACT_TASKS
-    cameras = ("wrist", "front")
-    camera_inds = [2, 3]
-    train_copies = 10
-    camera_inds2d = None
-
-
 class PeractCollectedDataset(RLBenchDataset):
     """Self-collected unimanual PerAct data (depth+extrinsics+intrinsics format)."""
     tasks = PERACT_TASKS
@@ -284,34 +264,43 @@ class Peract2Dataset(RLBenchDataset):
     camera_inds2d = None
 
 
-class Peract2SingleCamDataset(RLBenchDataset):
-    """RLBench dataset under Peract2 setup."""
-    tasks = PERACT2_TASKS
-    cameras = ("front",)
-    camera_inds = (0,)  # use only front camera
-    train_copies = 10
-    camera_inds2d = None
 
 
 class OrbitalWristDataset(RLBenchDataset):
     """RLBench dataset with orbital left/right + wrist cameras."""
-    tasks = PERACT2_TASKS
+    tasks = PERACT_TASKS
     cameras = ("orbital_left", "orbital_right", "wrist")
     camera_inds = None
     train_copies = 10
     camera_inds2d = None
 
-    def __getitem__(self, idx):
-        idx = idx % (len(self.annos['action']) // self.chunk_size)
-        idx = idx * self.chunk_size
-        if self._actions_only:
-            return {"action": self._get_action(idx)}
-        use_hist = self.num_history > 1 and 'demo_id' in self.annos
-        return {
-            "task": self._get_task(idx),
-            "instr": self._get_instr(idx),
-            "rgb": self._get_attr_hist(idx, 'rgb', True) if use_hist else self._get_rgb(idx),
-            "pcd": self._get_attr_hist(idx, 'pcd', True) if use_hist else self._get_attr_by_idx(idx, 'pcd', True),
-            "proprioception": self._get_proprioception(idx),
-            "action": self._get_action(idx),
-        }
+    # def __getitem__(self, idx):
+    #     """
+    #     self.annos: {
+    #         action: (N, T, 8) float
+    #         depth: (N, n_cam, H, W) float16
+    #         proprioception: (N, nhist, 8) float
+    #         rgb: (N, n_cam, 3, H, W) uint8
+    #         task_id: (N,) uint8
+    #         variation: (N,) uint8
+    #         extrinsics: (N, n_cam, 4, 4) float
+    #         intrinsics: (N, n_cam, 3, 3) float
+    #     }
+    #     """
+    #     # First detect which copy we fall into
+    #     idx = idx % (len(self.annos['action']) // self.chunk_size)
+    #     # and then which chunk
+    #     idx = idx * self.chunk_size
+    #     if self._actions_only:
+    #         return {"action": self._get_action(idx)}
+    #     use_hist = self.num_history > 1 and 'demo_id' in self.annos
+    #     return {
+    #         "task": self._get_task(idx),  # [str]
+    #         "instr": self._get_instr(idx),  # [str]
+    #         "rgb": self._get_attr_hist(idx, 'rgb', True) if use_hist else self._get_rgb(idx),
+    #         "pcd": self._get_attr_hist(idx, 'pcd', True) if use_hist else self._get_attr_by_idx(idx, 'pcd', True),
+    #         "proprioception": self._get_proprioception(idx),  # tensor(1, 8)
+    #         "action": self._get_action(idx),  # tensor(T, 8)
+    #     }
+
+

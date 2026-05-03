@@ -35,15 +35,12 @@ class BaseDataset(Dataset):
 
 
         # Load all annotations lazily
-        print(f"  Opening zarr: {root}", flush=True)
         self.annos = read_zarr_with_cache(root, mem_gb=mem_limit)
-        print(f"  Zarr opened, running sanity check...", flush=True)
 
         # Sanity check
         len_ = len(self.annos['action'])
         for key in self.annos:
             assert len(self.annos[key]) == len_, f'length mismatch in {key}'
-        print(f"Found {len(self.annos['action'])} samples")
 
     def _load_instructions(self, instruction_file):
         return json.load(open(instruction_file))
@@ -123,6 +120,8 @@ class BaseDataset(Dataset):
         idx = idx % (len(self.annos['action']) // self.chunk_size)
         # and then which chunk
         idx = idx * self.chunk_size
+        # if 'demo_id' in self.annos:
+        
         if self._actions_only:
             return {"action": self._get_action(idx)}
         return {

@@ -1,7 +1,6 @@
 # Experiment: delta_m_full — full D×D RoPE mixing matrix (more expressive than 6×6 delta_m).
 # Run: python main.py experiment=camtoken_deltaM_full
 
-use_front_camera_frame: true
 predict_extrinsics: true
 extrinsics_prediction_mode: delta_m_full
 dynamic_rope_from_camtoken: true

@@ -8,7 +8,8 @@ averages success rates across (group × variation) weighted by demo count.
 
 Orbital cameras are dynamically-spawned PyRep VisionSensors — not native
 RLBench cameras — so we compute point clouds from depth ourselves using
-RLBenchDepth2Cloud, exactly as in training (RLBenchDataPreprocessor).
+RLBenchDepth2Cloud. Training also converts depth→PCD at runtime via
+RLBenchDataPreprocessor.depth2cloud — same module, fully consistent.
 
 Miscalibration is applied by camera index, matching the training convention:
   cam_idx 0 (orbital_left)  ← "front"      noise from miscalibration_noise.json
@@ -21,6 +22,7 @@ import os
 import glob
 import random
 
+from PIL import Image
 import numpy as np
 import torch
 import torch.nn.functional as F
@@ -110,8 +112,8 @@ class Actioner:
         self.tokenizer = fetch_tokenizers(backbone)
 
     def load_episode(self, descriptions):
-        instr = [random.choice(descriptions)]
-        self._instr = self.tokenizer(instr).cuda(non_blocking=True)
+        self._instr_str = random.choice(descriptions)
+        self._instr = self.tokenizer([self._instr_str]).cuda(non_blocking=True)
 
     def predict(self, rgbs, pcds, gripper, prediction_len=1):
         """
@@ -124,6 +126,7 @@ class Actioner:
             (1, prediction_len, 8)
         """
         dtype = next(self._policy.parameters()).dtype
+
         return self._policy(
             None,
             torch.full([1, prediction_len, 1], False).cuda(non_blocking=True),
@@ -272,6 +275,11 @@ class RLBenchEnv:
             ext[:, cam_idx, :3, 3] += t_noise
         return ext.to(extrinsics.dtype)
 
+    def _extract_video_frame(self, obs):
+        wrist = self._get_wrist_attr(obs, "wrist_rgb")
+        frames = [obs.orbital_left_rgb, obs.orbital_right_rgb, wrist]
+        return np.concatenate(frames, axis=1)
+
     def get_rgb_pcd_gripper_from_obs(self, obs):
         """
         Build (rgb, pcd, gripper) from an OrbitalScene observation.
@@ -303,7 +311,6 @@ class RLBenchEnv:
         wrist_depth = torch.tensor(
             near_wr + wrist_depth_raw * (far_wr - near_wr), dtype=torch.float32
         )
-
         depth = torch.stack(
             [orbital_left_depth, orbital_right_depth, wrist_depth]
         ).unsqueeze(0)  # (1, 3, H, W)
@@ -384,7 +391,12 @@ class RLBenchEnv:
             except Exception as e:
                 print(f"[orbital eval] WARNING: skipping {pkl_path} (failed to load: {e})", flush=True)
                 continue
-            demo.variation_number = 0
+            var_path = os.path.join(group_dir, ep, "variation.txt")
+            if os.path.exists(var_path):
+                with open(var_path) as vf:
+                    demo.variation_number = int(vf.read().strip())
+            else:
+                demo.variation_number = 0
             demos.append(demo)
         print(f"[orbital eval] loaded {len(demos)} demos from {group_dir}", flush=True)
         return demos
@@ -401,11 +413,10 @@ class RLBenchEnv:
         prediction_len=1,
         num_history=1,
         save_trajectory=False,
+        save_video=False,
         output_file=None,
     ):
-        print(f"[orbital eval] launching env...", flush=True)
         self.env.launch()
-        print(f"[orbital eval] env launched", flush=True)
 
         groups = self._get_task_groups(task_str)
         print(f"[orbital eval] task={task_str} groups={groups}", flush=True)
@@ -452,9 +463,7 @@ class RLBenchEnv:
 
         for group in groups:
             print(f"[orbital eval] === Group {group} ===", flush=True)
-            print(f"[orbital eval] spawning sensors for group {group}...", flush=True)
             self._spawn_sensors(group)
-            print(f"[orbital eval] sensors spawned", flush=True)
 
             if use_orbital_rollout:
                 try:
@@ -465,8 +474,13 @@ class RLBenchEnv:
                 if not group_demos:
                     print(f"[orbital eval] WARNING: skipping group {group} for {task_str} (no valid demos loaded)", flush=True)
                     continue
-                task_variations = [0]
-                demos_by_variation = {0: group_demos}
+                from collections import defaultdict
+                _by_var = defaultdict(list)
+                for d in group_demos:
+                    _by_var[d.variation_number].append(d)
+                task_variations = sorted(_by_var.keys())
+                demos_by_variation = dict(_by_var)
+                print(f"[orbital eval] variations found: { {v: len(ds) for v, ds in demos_by_variation.items()} }", flush=True)
 
             group_rates = {}
             for variation in tqdm(task_variations, desc=f"{task_str}/{group}"):
@@ -483,6 +497,7 @@ class RLBenchEnv:
                     num_history=num_history,
                     pre_loaded_demos=pre_loaded,
                     save_trajectory=save_trajectory,
+                    save_video=save_video,
                     output_file=output_file,
                     group=group,
                 )
@@ -513,6 +528,7 @@ class RLBenchEnv:
         num_history=1,
         pre_loaded_demos=None,
         save_trajectory=False,
+        save_video=False,
         output_file=None,
         group=None,
     ):
@@ -530,19 +546,26 @@ class RLBenchEnv:
         print(f"  [var {variation}] {len(var_demos)} demos", flush=True)
         for demo_id, demo in enumerate(var_demos):
 
-            print(f"  [var {variation}] demo {demo_id+1}/{len(var_demos)} — resetting...", flush=True)
             grippers = torch.Tensor([]).cuda(non_blocking=True)
             descriptions, obs = task.reset_to_demo(demo)
             actioner.load_episode(descriptions)
-            print(f"  [var {variation}] demo {demo_id+1} — running up to {max_steps} steps", flush=True)
+            instr = actioner._instr_str if hasattr(actioner, '_instr_str') else descriptions[0]
 
             move = Mover(task, max_tries=max_tries)
             max_reward = 0.0
             trajectory = []  # list of (step_id, action) rows
+            video_frames = [] if save_video else None
 
-            for step_id in range(max_steps):
+            pbar = tqdm(
+                range(max_steps),
+                desc=f"var{variation} demo{demo_id+1}/{len(var_demos)} | {instr!r}",
+                leave=False,
+            )
+            for step_id in pbar:
 
-                print(f"    step {step_id+1}/{max_steps} — getting obs...", flush=True)
+                if save_video:
+                    video_frames.append(self._extract_video_frame(obs))
+
                 rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
                 rgbs_input = rgb.cuda(non_blocking=True)
                 pcds_input = pcd.cuda(non_blocking=True)
@@ -555,19 +578,16 @@ class RLBenchEnv:
                     gripper_input, (0, 0, npad, 0), mode="replicate"
                 )
 
-                print(f"    step {step_id+1}/{max_steps} — predicting...", flush=True)
                 output = actioner.predict(
                     rgbs_input,
                     pcds_input,
                     gripper_input,
                     prediction_len=prediction_len,
                 )
-                print(f"    step {step_id+1}/{max_steps} — executing action...", flush=True)
 
                 try:
                     actions = output[-1].cpu().numpy()
                     actions[:, -1] = actions[:, -1].round()
-                    print(f"    predicted action: xyz={actions[0, :3]} quat={actions[0, 3:7].round(2)} gripper={actions[0, -1]:.2f}", flush=True)
 
                     if save_trajectory:
                         for sub_id, action in enumerate(actions):
@@ -577,16 +597,17 @@ class RLBenchEnv:
                         obs, reward, _ = move(action, collision_checking=False)
 
                     max_reward = max(max_reward, reward)
-                    print(f"    step {step_id+1}/{max_steps} — reward={reward:.2f}", flush=True)
+                    pbar.set_postfix(reward=f"{max_reward:.2f}")
 
                     if reward == 1:
                         success_rate += 1
                         break
 
                 except (IKError, ConfigurationPathError, InvalidActionError) as e:
-                    print(task_str, demo, step_id, success_rate, e)
+                    pbar.write(f"    step {step_id} error: {e}")
                     reward = 0
 
+            pbar.close()
             total_reward += max_reward
 
             if save_trajectory and output_file is not None:
@@ -604,15 +625,23 @@ class RLBenchEnv:
                         f.write(row + "\n")
                 print(f"  [trajectory] saved to {traj_path}", flush=True)
 
+            if save_video and video_frames and output_file is not None:
+                video_dir = os.path.join(os.path.dirname(output_file), "videos", "success" if max_reward == 1 else "fail")
+                os.makedirs(video_dir, exist_ok=True)
+                group_tag = group if group is not None else "default"
+                video_path = os.path.join(
+                    video_dir, f"{task_str}_{group_tag}_var{variation}_demo{demo_id}.gif"
+                )
+                imgs = [Image.fromarray(f) for f in video_frames]
+                imgs[0].save(
+                    video_path, save_all=True, append_images=imgs[1:], duration=150, loop=0
+                )
+                print(f"  [video] saved to {video_path}", flush=True)
+
             print(
-                task_str,
-                "Variation", variation,
-                "Demo", demo_id,
-                "Reward", f"{reward:.2f}",
-                "max_reward", f"{max_reward:.2f}",
-                f"SR: {success_rate}/{demo_id + 1}",
-                f"SR: {total_reward:.2f}/{demo_id + 1}",
-                "# valid demos", demo_id + 1,
+                f"  [var {variation}] demo {demo_id+1}/{len(var_demos)}"
+                f"  instr={instr!r}  reward={max_reward:.2f}  SR={success_rate}/{demo_id+1}",
+                flush=True,
             )
 
         valid = len(var_demos) > 0

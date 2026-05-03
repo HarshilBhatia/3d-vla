@@ -6,6 +6,8 @@ import random
 import sys
 from pathlib import Path
 
+import inspect
+
 import numpy as np
 import torch
 
@@ -15,45 +17,60 @@ from utils.common_utils import round_floats
 from utils.hydra_utils import get_config, get_config_path
 
 
+# These keys belong to the eval invocation, not the model — never overridden from checkpoint.
+_EVAL_RUNTIME_KEYS = frozenset({
+    "checkpoint", "data_dir", "eval_data_dir", "output_file",
+    "task", "headless", "max_tries", "seed",
+    "cameras_file", "task_group_mapping_file", "camera_groups",
+    "miscalibration_noise_level", "fov_deg",
+    "val_instructions", "log_dir", "base_log_dir",
+    "save_video", "save_trajectory",
+    # PerAct online-eval runtime controls
+    "eval_use_depth2cloud", "image_size", "collision_checking",
+})
+
+
 def load_models(args):
     print("Loading model from", args.checkpoint, flush=True)
 
+    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+
+    # Overlay saved training config onto args for all non-eval keys so the
+    # caller doesn't need to pass model arch flags on the CLI.
+    ckpt_cfg = ckpt.get("config", {})
+    if ckpt_cfg:
+        # Emit a compact provenance summary to catch train/eval mixups early.
+        _keys = ("dataset", "train_data_dir", "eval_data_dir", "train_instructions",
+                 "val_instructions", "num_history", "custom_img_size", "bimanual")
+        print("Checkpoint provenance:")
+        for _k in _keys:
+            if _k in ckpt_cfg:
+                print(f"  ckpt.{_k}: {ckpt_cfg.get(_k)}")
+        for k, v in ckpt_cfg.items():
+            if k not in _EVAL_RUNTIME_KEYS:
+                setattr(args, k, v)
+        # Runtime-vs-checkpoint consistency warnings (non-fatal).
+        if str(getattr(args, "dataset", "")) != str(ckpt_cfg.get("dataset", "")):
+            print(
+                f"[warn] runtime dataset={args.dataset} differs from ckpt dataset={ckpt_cfg.get('dataset')}"
+            )
+    else:
+        print("Warning: checkpoint has no saved config — model arch args must be supplied via CLI")
+
     model_class = fetch_model_class(args.model_type)
-
-    print(args.num_history)
-    model = model_class(
-        backbone=args.backbone,
-        finetune_backbone=args.finetune_backbone,
-        finetune_text_encoder=args.finetune_text_encoder,
-        num_vis_instr_attn_layers=args.num_vis_instr_attn_layers,
-        fps_subsampling_factor=args.fps_subsampling_factor,
-        embedding_dim=args.embedding_dim,
-        num_attn_heads=args.num_attn_heads,
-        nhist=args.num_history,
-        nhand=2 if args.bimanual else 1,
-        num_shared_attn_layers=args.num_shared_attn_layers,
-        relative=args.relative_action,
-        rotation_format=args.rotation_format,
-        denoise_timesteps=args.denoise_timesteps,
-        denoise_model=args.denoise_model,
-        learn_extrinsics=args.learn_extrinsics,
-        traj_scene_rope=args.traj_scene_rope,
-        sa_blocks_use_rope=args.sa_blocks_use_rope,
-        predict_extrinsics=args.predict_extrinsics,
-        extrinsics_prediction_mode=args.extrinsics_prediction_mode,
-        dynamic_rope_from_camtoken=args.dynamic_rope_from_camtoken,
-        rope_type=args.rope_type,
-    )
-
-    # Load model weights
-    model_dict = torch.load(
-        args.checkpoint, map_location="cpu", weights_only=True
-    )
+    # Config uses different names for a few constructor params.
+    _cfg = vars(args) | {
+        "nhist": args.num_history,
+        "nhand": 2 if args.bimanual else 1,
+        "relative": args.relative_action,
+    }
+    _sig = inspect.signature(model_class.__init__).parameters
+    model = model_class(**{k: v for k, v in _cfg.items() if k in _sig})
 
     model_dict_weight = {}
-    for key in model_dict["weight"]:
+    for key in ckpt["weight"]:
         _key = key[7:]
-        model_dict_weight[_key] = model_dict["weight"][key]
+        model_dict_weight[_key] = ckpt["weight"][key]
     model.load_state_dict(model_dict_weight, strict=False)
     model.eval()
 
@@ -71,11 +88,7 @@ if __name__ == "__main__":
     _script_dir = Path(__file__).resolve().parent
     # Backward-compat: many wrappers still pass eval_data_dir for online eval.
     # If data_dir is left at default while eval_data_dir is overridden, use eval_data_dir.
-    if (
-        hasattr(args, "eval_data_dir")
-        and args.eval_data_dir is not None
-        and str(args.data_dir) == "demos"
-    ):
+    if args.eval_data_dir is not None and str(args.data_dir) == "demos":
         args.data_dir = args.eval_data_dir
     if args.data_dir is not None and not args.data_dir.is_absolute():
         args.data_dir = _script_dir / args.data_dir
@@ -159,8 +172,9 @@ if __name__ == "__main__":
             max_tries=args.max_tries,
             prediction_len=args.prediction_len,
             num_history=args.num_history,
-            # save_trajectory=args.save_trajectory,
-            # output_file=args.output_file,
+            save_trajectory=args.save_trajectory,
+            save_video=args.save_video,
+            output_file=args.output_file,
         )
         print()
         print(

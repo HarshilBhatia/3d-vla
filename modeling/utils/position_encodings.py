@@ -56,60 +56,6 @@ class RotaryPositionEncoding(nn.Module):
         return position_code
 
 
-# class RotaryPositionEncoding3D(RotaryPositionEncoding):
-
-#     def __init__(self, feature_dim, pe_type='Rotary3D'):
-#         super().__init__(feature_dim, pe_type)
-
-#     def forward(self, XYZ, allow_grad=False):
-#         '''
-#         @param XYZ: [B,N,3]
-#         @return:
-#         '''
-#         bsize, npoint, _ = XYZ.shape
-#         x_position, y_position, z_position = XYZ[..., 0:1], XYZ[..., 1:2], XYZ[..., 2:3]
-#         dx = dy = self.feature_dim // 3
-#         if dx % 2 == 1:
-#             dx -= 1
-#             dy -= 1
-#         dz = self.feature_dim - dx - dy
-#         div_term_x = torch.exp(
-#             torch.arange(0, dx, 2, dtype=torch.float, device=XYZ.device)
-#             * (-math.log(10000.0) / dx)
-#         ).view(1, 1, -1)  # [1, 1, d//6]
-#         div_term_y = torch.exp(
-#             torch.arange(0, dy, 2, dtype=torch.float, device=XYZ.device)
-#             * (-math.log(10000.0) / dy)
-#         ).view(1, 1, -1)  # [1, 1, d//6]
-#         div_term_z = torch.exp(
-#             torch.arange(0, dz, 2, dtype=torch.float, device=XYZ.device)
-#             * (-math.log(10000.0) / dz)
-#         ).view(1, 1, -1)  # [1, 1, d//6]
-
-#         sinx = torch.sin(x_position * div_term_x)  # [B, N, d//6]
-#         cosx = torch.cos(x_position * div_term_x)
-#         siny = torch.sin(y_position * div_term_y)
-#         cosy = torch.cos(y_position * div_term_y)
-#         sinz = torch.sin(z_position * div_term_z)
-#         cosz = torch.cos(z_position * div_term_z)
-
-#         sinx, cosx, siny, cosy, sinz, cosz = map(
-#             lambda feat: torch.stack([feat, feat], -1).view(bsize, npoint, -1),
-#             [sinx, cosx, siny, cosy, sinz, cosz]
-#         )
-
-#         position_code = torch.stack([
-#             torch.cat([cosx, cosy, cosz], dim=-1),  # cos_pos
-#             torch.cat([sinx, siny, sinz], dim=-1)  # sin_pos
-#         ], dim=-1)
-
-#         # Only allow gradients if explicitly requested (for learnable extrinsics)
-#         if not allow_grad:
-#             position_code = position_code.detach()
-        
-#         return position_code
-
-
 class PositionEmbeddingLearnedMLP(nn.Module):
     """Absolute pos embedding, learned."""
 

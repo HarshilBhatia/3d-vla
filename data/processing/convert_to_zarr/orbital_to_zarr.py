@@ -16,7 +16,7 @@ Directory layout expected (from collect_orbital_rollouts.py):
 
 Zarr schema:
   rgb              (N, NCAM=3, 3, H, W)   uint8
-  pcd              (N, NCAM=3, 3, H, W)   float16  world-space XYZ
+  depth            (N, NCAM=3, H, W)      float16  metric depth in metres
   extrinsics       (N, NCAM=3, 4, 4)      float16  cam-to-world
   intrinsics       (N, NCAM=3, 3, 3)      float16
   proprioception   (N, 3, NHAND=1, 8)     float32
@@ -104,7 +104,7 @@ def main():
             )
 
         _create("rgb",                   (NCAM, 3, im, im), "uint8")
-        _create("pcd",                   (NCAM, 3, im, im), "float16")
+        _create("depth",                 (NCAM, im, im),    "float16")
         _create("extrinsics",            (NCAM, 4, 4),      "float16")
         _create("intrinsics",            (NCAM, 3, 3),      "float16")
         _create("proprioception",        (3, NHAND, 8),     "float32")

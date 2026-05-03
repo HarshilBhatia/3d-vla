@@ -15,6 +15,13 @@ from torch.utils.tensorboard import SummaryWriter
 from torch.profiler import profile, ProfilerActivity
 from tqdm import trange, tqdm
 import wandb
+from omegaconf import OmegaConf, DictConfig
+
+
+def _args_to_dict(args):
+    if isinstance(args, DictConfig):
+        return OmegaConf.to_container(args, resolve=True)
+    return vars(args)
 
 from modeling.encoder.text import fetch_tokenizers
 from ..common_utils import count_parameters
@@ -43,8 +50,6 @@ class BaseTrainTester:
             self.args.num_history,
             custom_imsize=self.args.custom_img_size,
             depth2cloud=fetch_depth2cloud(self.args.dataset),
-            use_front_camera_frame=getattr(self.args, 'use_front_camera_frame', False),
-            pc_rotate_by_front_camera=getattr(self.args, 'pc_rotate_by_front_camera', False),
             miscalibration_noise_level=getattr(self.args, 'miscalibration_noise_level', None),
             miscal_max_angle_deg=getattr(self.args, 'miscal_max_angle_deg', None),
             miscal_max_translation_m=getattr(self.args, 'miscal_max_translation_m', None)
@@ -106,7 +111,7 @@ class BaseTrainTester:
         # Samplers and loaders
         g = torch.Generator()
         g.manual_seed(0)
-        train_sampler = DistributedSampler(train_dataset, drop_last=True)
+        train_sampler = DistributedSampler(train_dataset, drop_last=True, shuffle=False)
         
         # Divide batch size by world size to keep effective batch size constant
         world_size = dist.get_world_size()
@@ -173,33 +178,16 @@ class BaseTrainTester:
             denoise_model=self.args.denoise_model,
             lv2_batch_size=self.args.lv2_batch_size,
             traj_scene_rope=self.args.traj_scene_rope,
-            sa_blocks_use_rope=self.args.sa_blocks_use_rope
         )
         
-        # Add learn_extrinsics if available in args (for 3D models)
-        # The model __init__ will simply ignore it if it doesn't accept this parameter
-        if hasattr(self.args, 'learn_extrinsics'):
-            model_kwargs['learn_extrinsics'] = self.args.learn_extrinsics
-        
-        # Add predict_extrinsics if available in args
-        if hasattr(self.args, 'predict_extrinsics'):
-            model_kwargs['predict_extrinsics'] = self.args.predict_extrinsics
-        if hasattr(self.args, 'extrinsics_prediction_mode'):
-            model_kwargs['extrinsics_prediction_mode'] = self.args.extrinsics_prediction_mode
-        if hasattr(self.args, 'dynamic_rope_from_camtoken'):
-            model_kwargs['dynamic_rope_from_camtoken'] = self.args.dynamic_rope_from_camtoken
-        
-        # Add rope_type if available in args
-        if hasattr(self.args, 'rope_type'):
-            model_kwargs['rope_type'] = self.args.rope_type
-
-        # Recursive Set Transformer Encoder
-        if hasattr(self.args, 'use_recursive_set_encoder'):
-            model_kwargs['use_recursive_set_encoder'] = self.args.use_recursive_set_encoder
-        if hasattr(self.args, 'recursive_set_encoder_num_layers'):
-            model_kwargs['recursive_set_encoder_num_layers'] = self.args.recursive_set_encoder_num_layers
-        if hasattr(self.args, 'recursive_set_encoder_ncam'):
-            model_kwargs['recursive_set_encoder_ncam'] = self.args.recursive_set_encoder_ncam
+        for _key in (
+            'learn_extrinsics', 'predict_extrinsics', 'extrinsics_prediction_mode',
+            'dynamic_rope_from_camtoken', 'rope_type',
+            'use_recursive_set_encoder', 'recursive_set_encoder_num_layers',
+            'recursive_set_encoder_ncam',
+        ):
+            if hasattr(self.args, _key):
+                model_kwargs[_key] = getattr(self.args, _key)
 
         if dist.get_rank() == 0:
             print(f'model_kwargs: {model_kwargs}')
@@ -351,7 +339,7 @@ class BaseTrainTester:
         print(f"[Rank {rank}] Model + tokenizer ready.", flush=True)
 
         dummy = getattr(self.args, 'benchmark_dummy_data', False)
-        if not dummy and not os.path.exists(self.args.checkpoint):
+        if not dummy and not (self.args.checkpoint and os.path.exists(self.args.checkpoint)):
             normalizer = self.get_workspace_normalizer()
             model.workspace_normalizer.copy_(normalizer)
             dist.barrier(device_ids=[torch.cuda.current_device()])
@@ -404,7 +392,7 @@ class BaseTrainTester:
         start_iter, best_loss = 0, None
         if not dummy and self.args.checkpoint:
             if os.path.exists(self.args.checkpoint):
-                start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer)
+                start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer, scaler)
                 print(f"[Rank {dist.get_rank()}] Loaded checkpoint: {self.args.checkpoint} (resuming from step {start_iter})")
             else:
                 print(f"[Rank {dist.get_rank()}] Checkpoint not found: {self.args.checkpoint} — starting from scratch")
@@ -493,8 +481,10 @@ class BaseTrainTester:
                         "weight": model.state_dict(),
                         "ema_weight": ema_model.state_dict() if self.args.use_ema else None,
                         "optimizer": optimizer.state_dict(),
+                        "scaler": scaler.state_dict(),
                         "iter": step_id,
                         "best_loss": best_loss,
+                        "config": _args_to_dict(self.args),
                     }, emergency_path)
                     print(f"Emergency checkpoint saved to {emergency_path}", flush=True)
                 raise  # re-raise so the process exits and torchrun can restart
@@ -549,14 +539,7 @@ class BaseTrainTester:
                     self._profiler = None  # don't profile again
 
             if (step_id + 1) % self.args.last_ckpt_freq == 0 and dist.get_rank() == 0:
-                last_path = self.args.log_dir / "last.pth"
-                torch.save({
-                    "weight": model.state_dict(),
-                    "ema_weight": ema_model.state_dict() if self.args.use_ema else None,
-                    "optimizer": optimizer.state_dict(),
-                    "iter": step_id + 1,
-                    "best_loss": best_loss
-                }, last_path)
+                self._save_rolling_checkpoint(model, ema_model, optimizer, scaler, step_id, best_loss)
 
             if (step_id + 1) % self.args.val_freq == 0:
                 model.eval()
@@ -577,7 +560,7 @@ class BaseTrainTester:
                 )
                 if dist.get_rank() == 0:
                     best_loss = self.save_checkpoint(
-                        model, ema_model, optimizer, step_id,
+                        model, ema_model, optimizer, scaler, step_id,
                         new_loss, best_loss
                     )
                 model.train()
@@ -685,23 +668,11 @@ class BaseTrainTester:
             # NOTE: BATCH STATISTIC FOR SINGLE SCENE -- doesn't work for multi-scene.
 
             if hasattr(base_model, 'learn_extrinsics') and base_model.learn_extrinsics:
-                # Log axis-angle rotation (3 params)
-                metrics['extrinsics/cam_axis_angle_x'] = base_model.cam_axis_angle[0].item()
-                metrics['extrinsics/cam_axis_angle_y'] = base_model.cam_axis_angle[1].item()
-                metrics['extrinsics/cam_axis_angle_z'] = base_model.cam_axis_angle[2].item()
-                
-                # Log translation (3 params)
-                metrics['extrinsics/cam_translation_x'] = base_model.cam_translation[0].item()
-                metrics['extrinsics/cam_translation_y'] = base_model.cam_translation[1].item()
-                metrics['extrinsics/cam_translation_z'] = base_model.cam_translation[2].item()
-                
-                # Log magnitude of rotation (angle in radians)
-                angle_magnitude = torch.norm(base_model.cam_axis_angle).item()
-                metrics['extrinsics/rotation_angle_rad'] = angle_magnitude
-                
-                # Log magnitude of translation
-                translation_magnitude = torch.norm(base_model.cam_translation).item()
-                metrics['extrinsics/translation_magnitude'] = translation_magnitude
+                for i, axis in enumerate(('x', 'y', 'z')):
+                    metrics[f'extrinsics/cam_axis_angle_{axis}'] = base_model.cam_axis_angle[i].item()
+                    metrics[f'extrinsics/cam_translation_{axis}'] = base_model.cam_translation[i].item()
+                metrics['extrinsics/rotation_angle_rad'] = torch.norm(base_model.cam_axis_angle).item()
+                metrics['extrinsics/translation_magnitude'] = torch.norm(base_model.cam_translation).item()
             # Log predicted extrinsics only when mode is 'rt' (stored (B, 6)); when 'delta_m' stored shape is (B, 6, 6)
             elif hasattr(prediction_head, 'predict_extrinsics') and prediction_head.predict_extrinsics:
                 if hasattr(prediction_head, '_last_predicted_cam_params') and \
@@ -709,12 +680,9 @@ class BaseTrainTester:
                     cam_params = prediction_head._last_predicted_cam_params
                     if cam_params.dim() == 2 and cam_params.shape[-1] == 6:
                         cam_params_mean = cam_params.mean(dim=0)
-                        metrics['extrinsics/cam_axis_angle_x'] = cam_params_mean[0].item()
-                        metrics['extrinsics/cam_axis_angle_y'] = cam_params_mean[1].item()
-                        metrics['extrinsics/cam_axis_angle_z'] = cam_params_mean[2].item()
-                        metrics['extrinsics/cam_translation_x'] = cam_params_mean[3].item()
-                        metrics['extrinsics/cam_translation_y'] = cam_params_mean[4].item()
-                        metrics['extrinsics/cam_translation_z'] = cam_params_mean[5].item()
+                        for i, axis in enumerate(('x', 'y', 'z')):
+                            metrics[f'extrinsics/cam_axis_angle_{axis}'] = cam_params_mean[i].item()
+                            metrics[f'extrinsics/cam_translation_{axis}'] = cam_params_mean[3 + i].item()
                         metrics['extrinsics/rotation_angle_rad'] = torch.norm(cam_params_mean[:3]).item()
                         metrics['extrinsics/translation_magnitude'] = torch.norm(cam_params_mean[3:6]).item()
                         cam_params_std = cam_params.std(dim=0)
@@ -784,7 +752,7 @@ class BaseTrainTester:
 
         return -values[f'{split}-losses/mean/traj_pos_acc_001']
 
-    def load_checkpoint(self, model, ema_model, optimizer):
+    def load_checkpoint(self, model, ema_model, optimizer, scaler):
         """Load from checkpoint."""
         print("=> trying checkpoint '{}'".format(self.args.checkpoint))
         if not os.path.exists(self.args.checkpoint):
@@ -795,8 +763,10 @@ class BaseTrainTester:
         model_dict = torch.load(
             self.args.checkpoint,
             map_location="cpu",
-            weights_only=True
+            weights_only=False
         )
+        if "config" in model_dict:
+            print(f"Checkpoint config: {model_dict['config']}")
         # Load weights flexibly
         msn, unxpct = model.load_state_dict(model_dict["weight"], strict=False)
         if msn:
@@ -810,9 +780,11 @@ class BaseTrainTester:
         # EMA weights
         if model_dict.get("ema_weight") is not None:
             ema_model.load_state_dict(model_dict["ema_weight"], strict=True)
-        # Useful for resuming training
-        if 'optimizer' in model_dict and self.run_mode == "train":
-            optimizer.load_state_dict(model_dict["optimizer"])
+        if self.run_mode == "train":
+            if 'optimizer' in model_dict:
+                optimizer.load_state_dict(model_dict["optimizer"])
+            if 'scaler' in model_dict and model_dict["scaler"]:
+                scaler.load_state_dict(model_dict["scaler"])
         start_iter = model_dict.get("iter", 0)
         best_loss = model_dict.get("best_loss", None)
 
@@ -823,52 +795,54 @@ class BaseTrainTester:
         torch.cuda.empty_cache()
         return start_iter, best_loss
 
-    def save_checkpoint(self, model, ema_model, optimizer,
+    def _save_rolling_checkpoint(self, model, ema_model, optimizer, scaler, step_id, best_loss):
+        """Save a rolling step checkpoint and prune old ones beyond keep_last_k."""
+        ckpt_path = self.args.log_dir / f"step_{step_id + 1}.pth"
+        state = {
+            "weight": {k: v.cpu() for k, v in model.state_dict().items()},
+            "ema_weight": ema_model.state_dict() if ema_model is not None else None,
+            "optimizer": optimizer.state_dict(),
+            "scaler": scaler.state_dict(),
+            "iter": step_id + 1,
+            "best_loss": best_loss,
+            "config": _args_to_dict(self.args),
+        }
+        torch.save(state, ckpt_path)
+        torch.save(state, self.args.log_dir / "last.pth")
+
+        k = getattr(self.args, "keep_last_k", None)
+        if k is not None:
+            step_ckpts = sorted(
+                self.args.log_dir.glob("step_*.pth"),
+                key=lambda p: int(p.stem.split("_")[1]),
+            )
+            for old in step_ckpts[:-k]:
+                old.unlink()
+
+    def save_checkpoint(self, model, ema_model, optimizer, scaler,
                         step_id, new_loss, best_loss):
-        """Save checkpoint if requested."""
-        
-        model_state = {k: v.cpu() for k,v in model.state_dict().items()}
-        # model_state = model.state_dict()
+        """Save best and intermediate checkpoints; rolling last-K is handled separately."""
+        model_state = {k: v.cpu() for k, v in model.state_dict().items()}
         ema_state = ema_model.state_dict() if self.args.use_ema else None
+        config_container = _args_to_dict(self.args)
+
+        def _save(path):
+            torch.save({
+                "weight": model_state,
+                "ema_weight": ema_state,
+                "optimizer": optimizer.state_dict(),
+                "scaler": scaler.state_dict(),
+                "iter": step_id + 1,
+                "best_loss": best_loss,
+                "config": config_container,
+            }, path)
+            if getattr(self.args, 'wandb_save_checkpoints', True):
+                wandb.save(str(path), base_path=str(self.args.log_dir))
 
         # Best checkpoint
         if best_loss is None or new_loss <= best_loss:
             best_loss = new_loss
-            best_path = self.args.log_dir / "best.pth"
-            torch.save({
-                "weight": model_state,
-                "ema_weight": ema_state,
-                "iter": step_id + 1,
-                "best_loss": best_loss
-            }, best_path)
-            
-            # Log best checkpoint to wandb
-            if getattr(self.args, 'wandb_save_checkpoints', True):
-                wandb.save(str(best_path), base_path=str(self.args.log_dir))
-
-        # Last checkpoint (always saved)
-        last_path = self.args.log_dir / "last.pth"
-        torch.save({
-            "weight": model_state,
-            "ema_weight": ema_state,
-            "optimizer": optimizer.state_dict(),
-            "iter": step_id + 1,
-            "best_loss": best_loss
-        }, last_path)
-
-        # Save intermediate checkpoints
-        if (step_id + 1) % self.args.interm_ckpt_freq == 0:
-            interm_path = self.args.log_dir / f"interm{step_id + 1}.pth"
-            torch.save({
-                "weight": model_state,
-                "ema_weight": ema_state,
-                "iter": step_id + 1,
-                "best_loss": best_loss
-            }, interm_path)
-            
-            # Log intermediate checkpoint to wandb
-            if getattr(self.args, 'wandb_save_checkpoints', True):
-                wandb.save(str(interm_path), base_path=str(self.args.log_dir))
+            _save(self.args.log_dir / "best.pth")
 
         return best_loss
 

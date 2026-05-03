@@ -5,6 +5,7 @@ import random
 import warnings
 
 import open3d  # DON'T DELETE THIS!
+from PIL import Image
 from tqdm import tqdm
 import numpy as np
 import torch
@@ -258,6 +259,10 @@ class RLBenchEnv:
 
         return rgb, pcd, gripper
 
+    def _extract_video_frame(self, obs):
+        frames = [getattr(obs, f"{cam}_rgb") for cam in self.apply_cameras]
+        return np.concatenate(frames, axis=1)
+
     def evaluate_task_on_multiple_variations(
         self,
         task_str,
@@ -265,7 +270,10 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=1,
-        num_history=1
+        num_history=1,
+        save_trajectory=False,
+        save_video=False,
+        output_file=None,
     ):
         self.env.launch()
         task_type = task_file_to_task_class(task_str)
@@ -293,7 +301,9 @@ class RLBenchEnv:
                     actioner=actioner,
                     max_tries=max_tries,
                     prediction_len=prediction_len,
-                    num_history=num_history
+                    num_history=num_history,
+                    save_video=save_video,
+                    output_file=output_file,
                 )
             )
             if valid:
@@ -320,7 +330,9 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=50,
-        num_history=1
+        num_history=1,
+        save_video=False,
+        output_file=None,
     ):
         success_rate = 0
         total_reward = 0
@@ -335,8 +347,12 @@ class RLBenchEnv:
 
             move = Mover(task, max_tries=max_tries)
             max_reward = 0.0
+            video_frames = [] if save_video else None
 
             for _ in range(max_steps):
+
+                if save_video:
+                    video_frames.append(self._extract_video_frame(obs))
 
                 # Fetch the current observation, and predict one action
                 rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
@@ -378,6 +394,18 @@ class RLBenchEnv:
                     break
 
             total_reward += max_reward
+
+            if save_video and video_frames and output_file is not None:
+                video_dir = os.path.join(os.path.dirname(output_file), "videos", "success" if max_reward == 1 else "fail")
+                os.makedirs(video_dir, exist_ok=True)
+                video_path = os.path.join(
+                    video_dir, f"{task_str}_var{variation}_demo{demo_id}.gif"
+                )
+                imgs = [Image.fromarray(f) for f in video_frames]
+                imgs[0].save(
+                    video_path, save_all=True, append_images=imgs[1:], duration=150, loop=0
+                )
+                print(f"  [video] saved to {video_path}", flush=True)
 
             print(
                 task_str,

@@ -70,6 +70,12 @@ METRIC_KEYS = [
 ]
 
 
+_SWEEP_RUNTIME_KEYS = frozenset({
+    "checkpoint", "eval_data_dir", "data_dir", "output_file",
+    "val_instructions", "dataset", "log_dir", "base_log_dir",
+})
+
+
 def _extract_script_args(argv):
     """Split script-specific key=value args from Hydra overrides."""
     custom_keys = {"num_samples", "output_csv"}
@@ -84,6 +90,19 @@ def _extract_script_args(argv):
 
 
 def load_model(args):
+    print(f"Loading checkpoint: {args.checkpoint}", flush=True)
+    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=False)
+
+    # Overlay saved training config onto args for all non-eval keys so the
+    # caller doesn't need to pass model arch flags on the CLI.
+    ckpt_cfg = ckpt.get("config", {})
+    if ckpt_cfg:
+        for k, v in ckpt_cfg.items():
+            if k not in _SWEEP_RUNTIME_KEYS:
+                setattr(args, k, v)
+    else:
+        print("Warning: checkpoint has no saved config — model arch args must be supplied via CLI")
+
     model_class = fetch_model_class(args.model_type)
     model = model_class(
         backbone=args.backbone,
@@ -104,15 +123,14 @@ def load_model(args):
         lv2_batch_size=args.lv2_batch_size,
         learn_extrinsics=getattr(args, "learn_extrinsics", False),
         traj_scene_rope=args.traj_scene_rope,
-        sa_blocks_use_rope=args.sa_blocks_use_rope,
         predict_extrinsics=getattr(args, "predict_extrinsics", False),
         extrinsics_prediction_mode=getattr(args, "extrinsics_prediction_mode", "delta_m"),
         dynamic_rope_from_camtoken=getattr(args, "dynamic_rope_from_camtoken", False),
         rope_type=getattr(args, "rope_type", "normal"),
+        use_recursive_set_encoder=getattr(args, "use_recursive_set_encoder", False),
+        recursive_set_encoder_num_layers=getattr(args, "recursive_set_encoder_num_layers", 2),
+        recursive_set_encoder_ncam=getattr(args, "recursive_set_encoder_ncam", 3),
     )
-
-    print(f"Loading checkpoint: {args.checkpoint}", flush=True)
-    ckpt = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
 
     # Prefer EMA weights when use_ema=True and ema_weight is present
     use_ema = getattr(args, "use_ema", False)
@@ -135,8 +153,6 @@ def make_preprocessor(args, angle_deg, trans_m):
         num_history=args.num_history,
         custom_imsize=getattr(args, "custom_img_size", None),
         depth2cloud=fetch_depth2cloud(args.dataset),
-        use_front_camera_frame=getattr(args, "use_front_camera_frame", False),
-        pc_rotate_by_front_camera=getattr(args, "pc_rotate_by_front_camera", False),
         miscal_max_angle_deg=float(angle_deg),
         miscal_max_translation_m=float(trans_m),
     )
