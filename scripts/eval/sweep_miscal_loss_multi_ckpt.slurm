@@ -27,9 +27,8 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate 3dfa
 
 CHECKPOINTS=(
-    /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1/best.pth
-    /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1_miscal/best.pth
-    /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/3dfa_run/best.pth
+    
+    
 )
 
 CHECKPOINT="${CHECKPOINTS[$SLURM_ARRAY_TASK_ID]}"

@@ -80,6 +80,7 @@ class BaseTrainTester:
         """Initialize datasets."""
         # Initialize datasets with arguments
         num_history = getattr(self.args, 'num_history', 1)
+        print(self.args.train_data_dir)
         train_dataset = self.dataset_cls(
             root=self.args.train_data_dir,
             instructions=self.args.train_instructions,
@@ -399,6 +400,10 @@ class BaseTrainTester:
         else:
             print(f"[Rank {dist.get_rank()}] No checkpoint specified — starting from scratch")
         print(model.module.workspace_normalizer)
+
+        if getattr(self.args, 'debug_pcd_dir', None) and rank == 0:
+            model.module.encoder.debug_dir = str(self.args.debug_pcd_dir)
+            print(f"[debug] saving PCDs to {model.module.encoder.debug_dir}")
 
         # Eval only (offline validation, no training)
         if self.run_mode == "eval_offline":

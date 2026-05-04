@@ -26,11 +26,11 @@ CHECKPOINT='/root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1_m
 # CHECKPOINT='/root/3d_flowmatch_actor/train_logs/Peract/peract_collected/interm40000.pth'
 # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1/interm40000.pth'
 
-xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" bash scripts/eval/eval_orbital.sh \
-    checkpoint=$CHECKPOINT\
-    task="open_drawer" \
-    "data_dir=/grogu/user/harshilb/orbital_rollouts_mini/"\
-    "camera_groups=G1" 
+# xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" bash scripts/eval/eval_orbital.sh \
+#     checkpoint=$CHECKPOINT\
+#     task="open_drawer" \
+#     "data_dir=/grogu/user/harshilb/orbital_rollouts_mini/"\
+#     "camera_groups=G1" 
     
     # num_history=3 \
     # use_recursive_set_encoder=true \
@@ -55,9 +55,9 @@ xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" bash s
 # print(dir(obs))                                                                                                                            
 # "
 
-# python data/processing/convert_to_zarr/orbital_to_zarr.py \
-#     --root /grogu/user/harshilb/orbital_rollouts_mini/ \
-#     --out /grogu/user/harshilb/1task_new --overwrite 
+python data/processing/convert_to_zarr/orbital_to_zarr.py \
+    --root /grogu/user/harshilb/open_drawer_multi_cam/ \
+    --out /grogu/user/harshilb/open_drawer_multi_cam/train --overwrite 
 
 
 # python data/processing/convert_to_zarr/peract_to_zarr.py \

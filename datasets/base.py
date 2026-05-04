@@ -8,6 +8,8 @@ from .utils import to_tensor, read_zarr_with_cache, to_relative_action
 
 class BaseDataset(Dataset):
     """Base dataset."""
+    camera_inds = None
+    quat_format = 'xyzw'
 
     def __init__(
         self,
@@ -44,6 +46,10 @@ class BaseDataset(Dataset):
 
     def _load_instructions(self, instruction_file):
         return json.load(open(instruction_file))
+
+    def _normalize_idx(self, idx):
+        idx = idx % (len(self.annos['action']) // self.chunk_size)
+        return idx * self.chunk_size
 
     def _get_attr_by_idx(self, idx, attr, filter_cam=False):
         t = to_tensor(self.annos[attr][idx:idx + self.chunk_size])
@@ -116,11 +122,7 @@ class BaseDataset(Dataset):
         }
         In addition self.annos may contain fields for task/instruction ids
         """
-        # First detect which copy we fall into
-        idx = idx % (len(self.annos['action']) // self.chunk_size)
-        # and then which chunk
-        idx = idx * self.chunk_size
-        # if 'demo_id' in self.annos:
+        idx = self._normalize_idx(idx)
         
         if self._actions_only:
             return {"action": self._get_action(idx)}

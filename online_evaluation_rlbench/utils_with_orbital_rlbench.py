@@ -156,12 +156,14 @@ class RLBenchEnv:
         fov_deg=60.0,
         miscalibration_noise_level=None,
         camera_groups=None,
+        spawn_camera_group=None,
     ):
         self.data_path = data_path
         self._task_str = task_str
         self.apply_cameras = apply_cameras
         self._fov_deg = fov_deg
         self._camera_groups_override = camera_groups
+        self._spawn_camera_group = spawn_camera_group
 
         if cameras_file is None:
             raise ValueError("cameras_file must be provided for orbital eval")
@@ -463,7 +465,10 @@ class RLBenchEnv:
 
         for group in groups:
             print(f"[orbital eval] === Group {group} ===", flush=True)
-            self._spawn_sensors(group)
+            cam_group = self._spawn_camera_group or group
+            if cam_group != group:
+                print(f"[orbital eval] using camera geometry from {cam_group} (spawn_camera_group override)", flush=True)
+            self._spawn_sensors(cam_group)
 
             if use_orbital_rollout:
                 try:

@@ -1,43 +1,43 @@
 #!/bin/bash
 # ─────────────────────────────────────────────────────────────────────────────
+# collect_open_drawer_3cam.sbatch
+#
+# Array job: 3 elements — one per camera group (G1, G2, G4).
+# Collects 40 episodes of open_drawer per group, cycling through all
+# task variations sequentially (variation = ep_idx % n_variations).
+#
+# Layout (index → group):
+#   0  open_drawer / G1
+#   1  open_drawer / G2
+#   2  open_drawer / G4
+#
 # Usage:
-#   sbatch scripts/orbital_cameras/collect_orbital_slurm.sbatch
+#   sbatch scripts/orbital_cameras/collect_open_drawer_3cam.sbatch
 #
-# Smoke-test a single index:
-#   sbatch --array=0 scripts/orbital_cameras/collect_orbital_slurm.sbatch
+# Smoke-test a single index (e.g. G1):
+#   sbatch --array=0 scripts/orbital_cameras/collect_open_drawer_3cam.sbatch
 #
-# Resubmit failed indices (e.g. 3, 5):
-#   sbatch --array=3,5 scripts/orbital_cameras/collect_orbital_slurm.sbatch
+# Resubmit a failed index (e.g. G4):
+#   sbatch --array=2 scripts/orbital_cameras/collect_open_drawer_3cam.sbatch
 # ─────────────────────────────────────────────────────────────────────────────
-#SBATCH --job-name=orbital_collect_subset
+#SBATCH --job-name=collect_open_drawer_3cam
 #SBATCH --partition=all
+#SBATCH --exclude=grogu-0-29,grogu-3-5
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=16G
 #SBATCH --time=06:00:00
-#SBATCH --array=6-8
-#SBATCH --output=logs/collect_orbital_%A_%a.out
-#SBATCH --error=logs/collect_orbital_%A_%a.err
-#SBATCH --exclude=grogu-0-29,grogu-3-5,grogu-0-14
+#SBATCH --array=0-2
+#SBATCH --output=logs/collect_open_drawer_3cam_%A_%a.out
+#SBATCH --error=logs/collect_open_drawer_3cam_%A_%a.err
 
 set -euo pipefail
 ulimit -c 0
 
-# ── (task, group) lookup table ────────────────────────────────────────────────
-# Flattened from task_group_mapping_subset.json in insertion order.
-# 3 tasks × 3 groups = 9 entries (indices 0–8). open_drawer omitted.
-TASKS=(
-    insert_onto_square_peg  insert_onto_square_peg  insert_onto_square_peg
-    light_bulb_in           light_bulb_in           light_bulb_in
-    push_buttons            push_buttons            push_buttons
-)
-
-MY_GROUPS=(
-    G1 G2 G3
-    G2 G3 G4
-    G3 G4 G1
-)
+# ── (task, group) lookup ──────────────────────────────────────────────────────
+TASKS=(   open_drawer  open_drawer  open_drawer )
+MY_GROUPS=( G1           G2           G4 )
 
 IDX="${SLURM_ARRAY_TASK_ID}"
 TASK="${TASKS[$IDX]}"
@@ -47,7 +47,7 @@ N_EPISODES=40
 REPO_DIR="/home/harshilb/3d_flowmatch_actor"
 CONTAINER="/home/harshilb/my_eval_env"
 CAMERAS_FILE="${REPO_DIR}/instructions/orbital_cameras_grouped.json"
-SAVE_PATH="/grogu/user/harshilb/multi_cam_dataset/"
+SAVE_PATH="/grogu/user/harshilb/    "
 
 echo "========================================"
 echo "  Array job ${SLURM_ARRAY_JOB_ID}[${IDX}]"

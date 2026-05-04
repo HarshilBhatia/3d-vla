@@ -51,13 +51,9 @@ FOV_DEG="${FOV_DEG:-60.0}"
 
 # ── Task × Group lookup ───────────────────────────────────────────────────────
 TASKS=(
-    insert_onto_square_peg insert_onto_square_peg insert_onto_square_peg
-    light_bulb_in          light_bulb_in          light_bulb_in
-    push_buttons           push_buttons           push_buttons
+    open_drawer open_drawer open_drawer
 )
 GROUPS=(
-    G1 G2 G3
-    G1 G2 G3
     G1 G2 G3
 )
 

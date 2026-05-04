@@ -1,6 +1,6 @@
 # Orbital single-arm dataset (3 cameras, peract tasks).
 # Use: python main.py data=orbital
-train_data_dir: /grogu/user/harshilb/orbital_train_v2.zarr
+train_data_dir: /grogu/user/harshilb/orbital_train.zarr
 eval_data_dir: /grogu/user/harshilb/orbital_train_v2.zarr
 train_instructions: instructions/peract/instructions.json
 val_instructions: instructions/peract/instructions.json

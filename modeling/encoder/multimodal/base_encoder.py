@@ -18,9 +18,12 @@ class Encoder(nn.Module):
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
                  finetune_backbone=False,
-                 finetune_text_encoder=False):
+                 finetune_text_encoder=False,
+                 debug_dir=None):
         super().__init__()
         self.subsampling_factor = fps_subsampling_factor
+        self.debug_dir = debug_dir
+        self._debug_step = 0
         self._backbone_name = backbone
         self._finetune_backbone = finetune_backbone
         # text_backbone defaults to backbone for backward compatibility
@@ -109,6 +112,12 @@ class Encoder(nn.Module):
         fps_scene_feats, fps_scene_pos, fps_cam_ids = self.run_dps(
             rgb3d_feats_curr, pcd_curr, cam_ids_full
         )
+
+        if self.debug_dir is not None:
+            from utils.pcd_io import save_encoder_debug_pcd
+            save_encoder_debug_pcd(self.debug_dir, self._debug_step,
+                                   pcd_curr, fps_scene_pos, rgb3d)
+            self._debug_step += 1
 
         # Per-image average tokens from current frame
         per_img_feats = einops.rearrange(

@@ -136,6 +136,7 @@ eval_use_depth2cloud: false
 cameras_file: null                    # path to orbital_cameras_grouped.json
 task_group_mapping_file: null         # path to task_group_mapping.json (eval uses all trained groups)
 camera_groups: null                   # override which groups to eval, e.g. "G1" or "G1,G2"; null = use all from mapping
+spawn_camera_group: null              # if set, always spawn this group's cameras regardless of demo group, e.g. "G3"
 fov_deg: 60.0                         # FOV in degrees for orbital VisionSensors
 
 # RoPE: traj_scene_rope comes from config/rope_mode/<name>.yaml

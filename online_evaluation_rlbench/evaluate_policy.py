@@ -23,8 +23,9 @@ _EVAL_RUNTIME_KEYS = frozenset({
     "task", "headless", "max_tries", "seed",
     "cameras_file", "task_group_mapping_file", "camera_groups",
     "miscalibration_noise_level", "fov_deg",
+    "spawn_camera_group",
     "val_instructions", "log_dir", "base_log_dir",
-    "save_video", "save_trajectory",
+    "save_video", "save_trajectory", "debug_pcd_dir",
     # PerAct online-eval runtime controls
     "eval_use_depth2cloud", "image_size", "collision_checking",
 })
@@ -40,12 +41,6 @@ def load_models(args):
     ckpt_cfg = ckpt.get("config", {})
     if ckpt_cfg:
         # Emit a compact provenance summary to catch train/eval mixups early.
-        _keys = ("dataset", "train_data_dir", "eval_data_dir", "train_instructions",
-                 "val_instructions", "num_history", "custom_img_size", "bimanual")
-        print("Checkpoint provenance:")
-        for _k in _keys:
-            if _k in ckpt_cfg:
-                print(f"  ckpt.{_k}: {ckpt_cfg.get(_k)}")
         for k, v in ckpt_cfg.items():
             if k not in _EVAL_RUNTIME_KEYS:
                 setattr(args, k, v)
@@ -55,7 +50,7 @@ def load_models(args):
                 f"[warn] runtime dataset={args.dataset} differs from ckpt dataset={ckpt_cfg.get('dataset')}"
             )
     else:
-        print("Warning: checkpoint has no saved config — model arch args must be supplied via CLI")
+        raise ValueError("model missing config")
 
     model_class = fetch_model_class(args.model_type)
     # Config uses different names for a few constructor params.
@@ -119,6 +114,9 @@ if __name__ == "__main__":
     # Load models
     model = load_models(args)
     print("workspace_normalizer:", model.workspace_normalizer)
+    if getattr(args, 'debug_pcd_dir', None):
+        model.encoder.debug_dir = str(args.debug_pcd_dir)
+        print(f"[debug] saving PCDs to {model.encoder.debug_dir}")
 
     # Evaluate - reload environment for each task (crashes otherwise)
     task_success_rates = {}
@@ -137,6 +135,7 @@ if __name__ == "__main__":
                 fov_deg=float(args.fov_deg),
                 miscalibration_noise_level=args.miscalibration_noise_level,
                 camera_groups=[g.strip() for g in args.camera_groups.split(",")] if args.camera_groups else None,
+                spawn_camera_group=args.spawn_camera_group if args.spawn_camera_group else None,
             )
         elif "peract" in args.dataset.lower():
             _env_extra = dict(
