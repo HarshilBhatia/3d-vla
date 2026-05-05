@@ -105,7 +105,7 @@ class FFWLayer(DummyLayer):
 class AttentionLayer(DummyLayer):
     """Attention layer, for self-/cross-attention."""
 
-    def __init__(self, d_model=256, dropout=0.1, n_heads=8, pre_norm=False,
+    def __init__(self, d_model=256, dropout=0.1, n_heads=6, pre_norm=False,
                  rotary_pe=False, use_adaln=False, is_self=False, force_math=False):
         """Initialize layers, d_model is the encoder dimension."""
         super().__init__(pre_norm=pre_norm)
@@ -116,6 +116,8 @@ class AttentionLayer(DummyLayer):
         self.adaln = None
         if use_adaln:
             self.adaln = AdaLN(d_model)
+        n_heads =6
+        print(d_model, n_heads)
         self.attention = MultiheadCustomAttention(
             d_model, n_heads, dropout=dropout, force_math=force_math
         )

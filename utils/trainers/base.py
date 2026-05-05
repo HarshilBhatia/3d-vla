@@ -1,6 +1,7 @@
 from copy import deepcopy
 import os
 import random
+import tempfile
 import time
 
 import numpy as np
@@ -16,6 +17,22 @@ from torch.profiler import profile, ProfilerActivity
 from tqdm import trange, tqdm
 import wandb
 from omegaconf import OmegaConf, DictConfig
+
+
+def _atomic_save(obj, path):
+    """Write to a temp file then rename so a killed job never leaves a partial checkpoint."""
+    path = str(path)
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(path), suffix=".tmp")
+    try:
+        os.close(tmp_fd)
+        torch.save(obj, tmp_path)
+        os.replace(tmp_path, path)
+    except:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
 
 
 def _args_to_dict(args):
@@ -168,6 +185,8 @@ class BaseTrainTester:
             finetune_text_encoder=self.args.finetune_text_encoder,
             num_vis_instr_attn_layers=self.args.num_vis_instr_attn_layers,
             fps_subsampling_factor=self.args.fps_subsampling_factor,
+            position_based_sampling=self.args.position_based_sampling,
+            use_proprio_rope=self.args.use_proprio_rope,
             embedding_dim=self.args.embedding_dim,
             num_attn_heads=self.args.num_attn_heads,
             nhist=self.args.num_history,
@@ -186,6 +205,7 @@ class BaseTrainTester:
             'dynamic_rope_from_camtoken', 'rope_type',
             'use_recursive_set_encoder', 'recursive_set_encoder_num_layers',
             'recursive_set_encoder_ncam',
+            'lang_dropout_prob',
         ):
             if hasattr(self.args, _key):
                 model_kwargs[_key] = getattr(self.args, _key)
@@ -482,7 +502,7 @@ class BaseTrainTester:
                 print(f"[Rank {dist.get_rank()}] Step {step_id} failed: {e}", flush=True)
                 if dist.get_rank() == 0:
                     emergency_path = self.args.log_dir / "last.pth"
-                    torch.save({
+                    _atomic_save({
                         "weight": model.state_dict(),
                         "ema_weight": ema_model.state_dict() if self.args.use_ema else None,
                         "optimizer": optimizer.state_dict(),
@@ -812,8 +832,8 @@ class BaseTrainTester:
             "best_loss": best_loss,
             "config": _args_to_dict(self.args),
         }
-        torch.save(state, ckpt_path)
-        torch.save(state, self.args.log_dir / "last.pth")
+        _atomic_save(state, ckpt_path)
+        _atomic_save(state, self.args.log_dir / "last.pth")
 
         k = getattr(self.args, "keep_last_k", None)
         if k is not None:
@@ -832,7 +852,7 @@ class BaseTrainTester:
         config_container = _args_to_dict(self.args)
 
         def _save(path):
-            torch.save({
+            _atomic_save({
                 "weight": model_state,
                 "ema_weight": ema_state,
                 "optimizer": optimizer.state_dict(),

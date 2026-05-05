@@ -52,4 +52,4 @@ Peract2_zarr/*
 logs/ 
 wandb/
 
-no
+*.rrd

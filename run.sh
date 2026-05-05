@@ -19,7 +19,7 @@ export XDG_RUNTIME_DIR=/run/user/27491
 #     --cameras-file instructions/orbital_cameras_grouped.json
 
 # CHECKPOINT='/root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1/step_45000.pth'
-CHECKPOINT='/root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1_miscal/step_45000.pth'
+# CHECKPOINT='/root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1_miscal/step_45000.pth'
 # CHECKPOINT='/root/3d_flowmatch_actor/train_logs/Orbital/3dfa_run/step_160000.pth'
 
 # CHECKPOINT='/root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1/interm40000.pth'
@@ -55,9 +55,11 @@ CHECKPOINT='/root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1_m
 # print(dir(obs))                                                                                                                            
 # "
 
-python data/processing/convert_to_zarr/orbital_to_zarr.py \
-    --root /grogu/user/harshilb/open_drawer_multi_cam/ \
-    --out /grogu/user/harshilb/open_drawer_multi_cam/train --overwrite 
+python scripts/helpers/vis_low_dim_obs.py /grogu/user/harshilb/orbital_rollouts_mini/open_drawer/G1/episode_0/
+
+# python data/processing/convert_to_zarr/orbital_to_zarr.py \
+#     --root /grogu/user/harshilb/open_drawer_multi_cam/ \
+#     --out /grogu/user/harshilb/open_drawer_multi_cam/train --overwrite 
 
 
 # python data/processing/convert_to_zarr/peract_to_zarr.py \

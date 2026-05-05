@@ -20,10 +20,13 @@ class Encoder(BaseEncoder):
                  num_attn_heads=9,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
+                 skip_fps=False,
+                 position_based_sampling=False,
                  finetune_backbone=False,
                  finetune_text_encoder=False,
                  learn_extrinsics=False,
-                 rope_type='normal'):
+                 rope_type='normal',
+                 lang_dropout_prob=0.0):
         super().__init__(
             backbone=backbone,
             text_backbone=text_backbone,
@@ -32,8 +35,11 @@ class Encoder(BaseEncoder):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
+            skip_fps=skip_fps,
+            position_based_sampling=position_based_sampling,
             finetune_backbone=finetune_backbone,
-            finetune_text_encoder=finetune_text_encoder
+            finetune_text_encoder=finetune_text_encoder,
+            lang_dropout_prob=lang_dropout_prob,
         )
         
         # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
@@ -117,6 +123,7 @@ class Encoder(BaseEncoder):
         # Encode language
         instruction = self.text_encoder(text)
         instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
+        instr_feats = self.maybe_drop_lang(instr_feats)
 
         has_hist = rgb3d.ndim == 6
         if has_hist:
@@ -170,6 +177,7 @@ class Encoder(BaseEncoder):
         # Encode language
         instruction = self.text_encoder(text)
         instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
+        instr_feats = self.maybe_drop_lang(instr_feats)
 
         has_hist = rgb3d.ndim == 6
         if has_hist:
@@ -222,6 +230,7 @@ class Encoder(BaseEncoder):
         # Encode language
         instruction = self.text_encoder(text)
         instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
+        instr_feats = self.maybe_drop_lang(instr_feats)
 
         has_hist = rgb3d.ndim == 6
         if has_hist:

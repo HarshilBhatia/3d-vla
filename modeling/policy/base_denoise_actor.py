@@ -429,9 +429,11 @@ class TransformerHead(nn.Module):
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m',  # 'rt' = R,T (6D) and log; 'delta_m' = 6x6 matrix
                  learn_extrinsics=False,
-                 dynamic_rope_from_camtoken=False):
+                 dynamic_rope_from_camtoken=False,
+                 use_proprio_rope=False):
         super().__init__()
 
+        self.use_proprio_rope = use_proprio_rope
         self.extrinsics_prediction_mode = extrinsics_prediction_mode.lower()
         assert self.extrinsics_prediction_mode in ('rt', 'delta_m', 'delta_m_full'), \
             "extrinsics_prediction_mode must be 'rt', 'delta_m', or 'delta_m_full'"
@@ -745,6 +747,9 @@ class TransformerHead(nn.Module):
         )[-1]
         traj_feats = traj_feats + traj_time_pos
         traj_xyz = trajectory[..., :3]
+        if self.use_proprio_rope:
+            # Use current gripper position (same as instr_pos anchor) for all traj token RoPE
+            traj_xyz = instr_pos[:, :1, :].expand(-1, traj_xyz.shape[1], -1)
 
 
         # Denoising timesteps' embeddings

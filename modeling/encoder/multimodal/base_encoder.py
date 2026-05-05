@@ -17,15 +17,21 @@ class Encoder(nn.Module):
                  num_attn_heads=9,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
+                 skip_fps=False,
+                 position_based_sampling=False,
                  finetune_backbone=False,
                  finetune_text_encoder=False,
+                 lang_dropout_prob=0.0,
                  debug_dir=None):
         super().__init__()
         self.subsampling_factor = fps_subsampling_factor
+        self.skip_fps = skip_fps
+        self.position_based_sampling = position_based_sampling
         self.debug_dir = debug_dir
         self._debug_step = 0
         self._backbone_name = backbone
         self._finetune_backbone = finetune_backbone
+        self.lang_dropout_prob = lang_dropout_prob
         # text_backbone defaults to backbone for backward compatibility
         self._text_backbone_name = text_backbone if text_backbone is not None else backbone
 
@@ -35,6 +41,9 @@ class Encoder(nn.Module):
             for p in self.text_encoder.parameters():
                 p.requires_grad = finetune_text_encoder
             self.instruction_encoder = nn.Linear(_dim, embedding_dim)
+
+        # Learnable null language token for classifier-free guidance dropout
+        self.lang_mask_token = nn.Parameter(torch.zeros(1, 1, embedding_dim))
 
         # Scene encoder
         self.backbone, self.normalize = fetch_visual_encoders(backbone)
@@ -50,6 +59,15 @@ class Encoder(nn.Module):
                 num_layers=num_vis_instr_attn_layers, d_model=embedding_dim,
                 dim_fw=4 * embedding_dim, n_heads=num_attn_heads, pre_norm=False
             )
+
+    def maybe_drop_lang(self, instr_feats):
+        """During training, replace language tokens with learned null token at rate lang_dropout_prob."""
+        if not self.training or self.lang_dropout_prob == 0.0:
+            return instr_feats
+        B, L, F = instr_feats.shape
+        drop_mask = torch.rand(B, device=instr_feats.device) < self.lang_dropout_prob
+        null_feats = self.lang_mask_token.expand(B, L, F)
+        return torch.where(drop_mask[:, None, None], null_feats, instr_feats)
 
     def train(self, mode=True):
         super().train(mode)
@@ -109,9 +127,12 @@ class Encoder(nn.Module):
         )
 
         # Point subsampling from current frame
-        fps_scene_feats, fps_scene_pos, fps_cam_ids = self.run_dps(
-            rgb3d_feats_curr, pcd_curr, cam_ids_full
-        )
+        if self.skip_fps:
+            fps_scene_feats, fps_scene_pos, fps_cam_ids = rgb3d_feats_curr, pcd_curr, cam_ids_full
+        else:
+            fps_scene_feats, fps_scene_pos, fps_cam_ids = self.run_dps(
+                rgb3d_feats_curr, pcd_curr, cam_ids_full
+            )
 
         if self.debug_dir is not None:
             from utils.pcd_io import save_encoder_debug_pcd
@@ -182,7 +203,8 @@ class Encoder(nn.Module):
             return features, pos, cam_ids
 
         bs, npts, ch = features.shape
-        sampled_inds = density_based_sampler(features, self.subsampling_factor)
+        sample_input = pos if self.position_based_sampling else features
+        sampled_inds = density_based_sampler(sample_input, self.subsampling_factor)
 
         # Sample features
         expanded_inds = sampled_inds.unsqueeze(-1).expand(-1, -1, ch)  # B M F

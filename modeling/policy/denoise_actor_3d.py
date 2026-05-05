@@ -20,6 +20,10 @@ class DenoiseActor(BaseDenoiseActor):
                  finetune_text_encoder=False,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
+                 skip_fps=False,
+                 position_based_sampling=False,
+                 use_proprio_rope=False,
+                 lang_dropout_prob=0.0,
                  # Encoder and decoder arguments
                  embedding_dim=60,
                  num_attn_heads=9,
@@ -78,10 +82,13 @@ class DenoiseActor(BaseDenoiseActor):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
+            skip_fps=skip_fps,
+            position_based_sampling=position_based_sampling,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder,
             learn_extrinsics=learn_extrinsics,
-            rope_type=rope_type
+            rope_type=rope_type,
+            lang_dropout_prob=lang_dropout_prob,
         )
 
         # Action decoder, runs at every denoising timestep
@@ -96,6 +103,7 @@ class DenoiseActor(BaseDenoiseActor):
             extrinsics_prediction_mode=extrinsics_prediction_mode,
             rope_type=rope_type,
             dynamic_rope_from_camtoken=dynamic_rope_from_camtoken,
+            use_proprio_rope=use_proprio_rope,
         )
         
         # Recursive Set Transformer Encoder (optional upstream feature refinement)

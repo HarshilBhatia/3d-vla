@@ -1,12 +1,9 @@
 #!/bin/bash
-# Array job: 3 checkpoints × 2 runs = indices 0-5
-#   ckpt_idx = ARRAY_ID // 2  (0,1,2)
-#   run_idx  = ARRAY_ID %  2  (0,1)
-#
+
 # Usage:
 #   sbatch scripts/eval/eval_orbital_open_drawer_G1.slurm
 #   sbatch --array=0-1 ...   # just first checkpoint
-#SBATCH --job-name=eval_orb_G1
+#SBATCH --job-name=eval_orb_siglip
 #SBATCH --partition=all
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -17,7 +14,6 @@
 #SBATCH --array=0-2
 #SBATCH --output=logs/eval_orb_G1_%A_%a.out
 #SBATCH --error=logs/eval_orb_G1_%A_%a.err
-#SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-[6,14],grogu-3-5
 
 set -euo pipefail
 ulimit -c 0
@@ -33,25 +29,32 @@ COPPELIASIM_ROOT=/root/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
 CHECKPOINTS=(
     /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1/best.pth
     /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups/best.pth
-    /root/3d_flowmatch_actor/train_logs/Orbital/3dfa_run/step_360000.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/3dfa_run/step_360000.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups_siglip/last.pth
 )
 
 RUN_NAMES=(
-    new_test
+    G1_overfit
     multi_groups
-    3dfa_run_overfit
+    # 3dfa_run_overfit
+    # siglip
 )
 
 CKPT_IDX=$(( SLURM_ARRAY_TASK_ID ))
+# CKPT_IDX=0
+# $(( SLURM_ARRAY_TASK_ID ))
 RUN_IDX=0
 
+# GROUP_NAMES=(G1 G2 G3)
+# GROUP_NAME="${GROUP_NAMES[$SLURM_ARRAY_TASK_ID]}"
+GROUP_NAME=G1
 # $(( SLURM_ARRAY_TASK_ID % 2 ))
 
 CHECKPOINT="${CHECKPOINTS[$CKPT_IDX]}"
 RUN_NAME="${RUN_NAMES[$CKPT_IDX]}"
 
-OUTPUT_DIR="${HOST_REPO}/eval_logs/Orbital/${RUN_NAME}/multi_cam_dataset_G3/"
-OUTPUT_FILE="${OUTPUT_DIR}/new_results_open_drawer_G1_run${RUN_IDX}.json"
+OUTPUT_DIR="${HOST_REPO}/eval_logs/Orbital/${RUN_NAME}/multi_cam_dataset_${GROUP_NAME}/"
+OUTPUT_FILE="${OUTPUT_DIR}/new_results_${RUN_IDX}.json"
 
 mkdir -p "$OUTPUT_DIR" logs
 
@@ -78,7 +81,7 @@ apptainer exec \
         output_file="$OUTPUT_FILE" \
         task="open_drawer" \
         data_dir="/grogu/user/harshilb/open_drawer_multi_cam/" \
-        spawn_camera_group=G3 \
+        spawn_camera_group="$GROUP_NAME" \
         save_video=true
         
 
