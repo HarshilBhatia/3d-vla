@@ -25,7 +25,7 @@ ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 data=orbital
 main_dir=Orbital
 experiment=default
-run_log_dir=3dfa_run
+run_log_dir=3dfa_runasdfasd
 train_iters=360000
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
@@ -40,4 +40,4 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     train_data_dir=/grogu/user/harshilb/orbital_rollouts/4task_final.zarr \
     eval_data_dir=/grogu/user/harshilb/orbital_rollouts/4task_final.zarr \
     checkpoint=$checkpoint \
-    batch_size=128
+    batch_size=1

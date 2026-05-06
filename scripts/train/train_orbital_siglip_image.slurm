@@ -25,7 +25,7 @@ ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 data=orbital
 main_dir=Orbital
 experiment=default
-run_log_dir=open_drawer_G1_siglip_3dspace
+run_log_dir=open_drawer_G1_siglip_imagespace
 train_iters=70000
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/best.pth
@@ -42,5 +42,5 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     checkpoint=$checkpoint \
     backbone=siglip2 \
     batch_size=128 \
-    position_based_sampling=true \
+    image_space_sampling=true \
     "$@"

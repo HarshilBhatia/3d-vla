@@ -22,6 +22,7 @@ class DenoiseActor(BaseDenoiseActor):
                  fps_subsampling_factor=5,
                  skip_fps=False,
                  position_based_sampling=False,
+                 image_space_sampling=False,
                  use_proprio_rope=False,
                  lang_dropout_prob=0.0,
                  # Encoder and decoder arguments
@@ -84,6 +85,7 @@ class DenoiseActor(BaseDenoiseActor):
             fps_subsampling_factor=fps_subsampling_factor,
             skip_fps=skip_fps,
             position_based_sampling=position_based_sampling,
+            image_space_sampling=image_space_sampling,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder,
             learn_extrinsics=learn_extrinsics,

@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:2
 #SBATCH --mem=96G
 #SBATCH --time=24:00:00
-#SBATCH --partition=all
+#SBATCH --partition=shubhamlong
 #SBATCH --exclude=grogu-0-[14,19,29],grogu-1-[6,9,14],grogu-3-25
 
 echo "Job started at: $(date)"

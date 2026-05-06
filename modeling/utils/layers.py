@@ -116,8 +116,7 @@ class AttentionLayer(DummyLayer):
         self.adaln = None
         if use_adaln:
             self.adaln = AdaLN(d_model)
-        n_heads =6
-        print(d_model, n_heads)
+
         self.attention = MultiheadCustomAttention(
             d_model, n_heads, dropout=dropout, force_math=force_math
         )

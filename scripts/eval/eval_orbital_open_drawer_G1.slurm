@@ -11,7 +11,7 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=64G
 #SBATCH --time=4:00:00
-#SBATCH --array=0-2
+#SBATCH --array=0-1
 #SBATCH --output=logs/eval_orb_G1_%A_%a.out
 #SBATCH --error=logs/eval_orb_G1_%A_%a.err
 
@@ -27,27 +27,31 @@ CONTAINER=/home/harshilb/my_eval_env
 COPPELIASIM_ROOT=/root/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
 
 CHECKPOINTS=(
-    /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1/best.pth
-    /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups/best.pth
+    /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_3dspace/step_70000.pth
+    # /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups_clip_langdrop20/step_70000.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip/step_70000.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1/best.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups/best.pth
     # /root/3d_flowmatch_actor/train_logs/Orbital/3dfa_run/step_360000.pth
     # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups_siglip/last.pth
 )
 
 RUN_NAMES=(
-    G1_overfit
-    multi_groups
+    siglip_3dspace
+    # multi_groups
     # 3dfa_run_overfit
     # siglip
 )
 
-CKPT_IDX=$(( SLURM_ARRAY_TASK_ID ))
-# CKPT_IDX=0
-# $(( SLURM_ARRAY_TASK_ID ))
+# CKPT_IDX=$(SLURM_ARRAY_TASK_ID )
+CKPT_IDX=0
+# 
 RUN_IDX=0
 
-# GROUP_NAMES=(G1 G2 G3)
-# GROUP_NAME="${GROUP_NAMES[$SLURM_ARRAY_TASK_ID]}"
-GROUP_NAME=G1
+
+GROUP_NAMES=(G1 G3)
+GROUP_NAME="${GROUP_NAMES[$SLURM_ARRAY_TASK_ID]}"
+# GROUP_NAME=G1
 # $(( SLURM_ARRAY_TASK_ID % 2 ))
 
 CHECKPOINT="${CHECKPOINTS[$CKPT_IDX]}"

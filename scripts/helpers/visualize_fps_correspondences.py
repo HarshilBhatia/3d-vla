@@ -5,13 +5,13 @@ to compute subsampled tokens, then matches them across viewpoints by cosine
 similarity and shows the result in Rerun.
 
 Sampling modes:
-  density       — density-based sampling in feature space (original behaviour)
-  fps3d         — farthest-point sampling in 3D position space (XYZ)
+  density       — density-based sampling in feature space
+  density3d     — density-based sampling in 3D position space (XYZ)
   uniform_image — uniform stride-based grid sampling in 2D image/patch space
 
 Usage:
     python scripts/helpers/visualize_fps_correspondences.py \\
-        --idx1 0 --idx2 120 --top_k 30 --backbone clip --sampler fps3d
+        --idx1 0 --idx2 120 --top_k 30 --backbone clip --sampler density3d
 """
 
 import argparse
@@ -58,34 +58,6 @@ def uniform_image_sampler(ncam, fh, fw, fps_factor):
     return all_inds
 
 
-@torch.no_grad()
-def farthest_point_sampler_3d(pos, n_samples):
-    """Farthest-point sampling on 3D XYZ positions.
-
-    Args:
-        pos: (B, N, 3) world-frame positions
-        n_samples: number of points to select
-
-    Returns:
-        inds: (B, n_samples) long tensor of selected indices
-    """
-    B, N, _ = pos.shape
-    device = pos.device
-    inds = torch.zeros(B, n_samples, dtype=torch.long, device=device)
-    # Start from a random point per batch element
-    inds[:, 0] = torch.randint(0, N, (B,), device=device)
-    # dist to nearest already-selected point — initialise as infinity
-    min_dists = torch.full((B, N), float('inf'), device=device)
-
-    for i in range(1, n_samples):
-        prev = pos[torch.arange(B, device=device), inds[:, i - 1]]  # (B, 3)
-        d = ((pos - prev.unsqueeze(1)) ** 2).sum(-1)                # (B, N)
-        min_dists = torch.minimum(min_dists, d)
-        inds[:, i] = min_dists.argmax(dim=1)
-
-    return inds
-
-
 # ---------------------------------------------------------------------------
 # Data helpers
 # ---------------------------------------------------------------------------
@@ -116,7 +88,7 @@ def extract_fps_tokens(encoder, rgb, pcd, fps_factor, backbone_name, sampler='fp
     pretrained backbone, so no checkpoint is required.
 
     Args:
-        sampler: 'density' (feature-space density), 'fps3d' (3D position FPS),
+        sampler: 'density' (feature-space density), 'density3d' (3D position density),
                  or 'uniform_image' (regular stride grid in 2D patch space)
 
     Returns:
@@ -163,10 +135,10 @@ def extract_fps_tokens(encoder, rgb, pcd, fps_factor, backbone_name, sampler='fp
         fps_pos = pos[0, grid_inds].cpu()
         return fps_feats, fps_pos
 
-    if sampler == 'fps3d':
-        inds = farthest_point_sampler_3d(pos_valid, M)         # (B, M)
-    else:  # density in 3D position space
-        inds = density_based_sampler(pos_valid, fps_factor)    # (B, M)
+    if sampler == 'density3d':
+        inds = density_based_sampler(pos_valid, fps_factor)    # (B, M) — density in 3D XYZ
+    else:  # density in feature space
+        inds = density_based_sampler(feats_valid, fps_factor)  # (B, M)
 
     fps_feats = feats_valid.gather(1, inds.unsqueeze(-1).expand(-1, -1, feat_dim))
     fps_pos = pos_valid.gather(1, inds.unsqueeze(-1).expand(-1, -1, 3))
@@ -252,9 +224,9 @@ def main():
     parser.add_argument("--idx2", type=int, default=10)
     parser.add_argument("--backbone", type=str, default="clip",
                         choices=["clip", "siglip2", "dino"])
-    parser.add_argument("--sampler", type=str, default="fps3d",
-                        choices=["density", "fps3d", "uniform_image"],
-                        help="density=feature-space density sampling, fps3d=3D position FPS, "
+    parser.add_argument("--sampler", type=str, default="uniform_image",
+                        choices=["density", "density3d", "uniform_image"],
+                        help="density=feature-space density, density3d=3D position density, "
                              "uniform_image=uniform stride grid in 2D patch space")
     parser.add_argument("--fps_factor", type=int, default=5)
     parser.add_argument("--top_k", type=int, default=30)

@@ -19,6 +19,7 @@ class Encoder(nn.Module):
                  fps_subsampling_factor=5,
                  skip_fps=False,
                  position_based_sampling=False,
+                 image_space_sampling=False,
                  finetune_backbone=False,
                  finetune_text_encoder=False,
                  lang_dropout_prob=0.0,
@@ -27,6 +28,7 @@ class Encoder(nn.Module):
         self.subsampling_factor = fps_subsampling_factor
         self.skip_fps = skip_fps
         self.position_based_sampling = position_based_sampling
+        self.image_space_sampling = image_space_sampling
         self.debug_dir = debug_dir
         self._debug_step = 0
         self._backbone_name = backbone
@@ -129,6 +131,10 @@ class Encoder(nn.Module):
         # Point subsampling from current frame
         if self.skip_fps:
             fps_scene_feats, fps_scene_pos, fps_cam_ids = rgb3d_feats_curr, pcd_curr, cam_ids_full
+        elif self.image_space_sampling:
+            fps_scene_feats, fps_scene_pos, fps_cam_ids = self.run_image_space_sampling(
+                rgb3d_feats_curr, pcd_curr, cam_ids_full, ncam
+            )
         else:
             fps_scene_feats, fps_scene_pos, fps_cam_ids = self.run_dps(
                 rgb3d_feats_curr, pcd_curr, cam_ids_full
@@ -220,6 +226,30 @@ class Encoder(nn.Module):
         # Else sample positions
         expanded_inds = sampled_inds.unsqueeze(-1).expand(-1, -1, 3)  # B M 3
         sampled_pos = torch.gather(pos, 1, expanded_inds)
+        return sampled_features, sampled_pos, sampled_cam_ids
+
+    def run_image_space_sampling(self, features, pos, cam_ids, ncam):
+        """Uniformly sample tokens per camera in image space.
+
+        Each camera contributes an equal share of M_per_cam = (N//factor)//ncam tokens,
+        sampled independently per batch element from that camera's spatial grid.
+        """
+        B, N, F = features.shape
+        pts_per_cam = N // ncam
+        M_per_cam = pts_per_cam // self.subsampling_factor
+
+        # Vectorized per-(batch, cam) random permutation via argsort of uniform noise
+        scores = torch.rand(B, ncam, pts_per_cam, device=features.device)
+        local_inds = scores.argsort(dim=-1)[..., :M_per_cam]  # (B, ncam, M_per_cam)
+
+        # Convert local per-cam indices to absolute positions in the flattened sequence
+        cam_offsets = torch.arange(ncam, device=features.device) * pts_per_cam
+        abs_inds = (local_inds + cam_offsets[None, :, None]).reshape(B, ncam * M_per_cam)  # (B, M)
+
+        sampled_features = torch.gather(features, 1, abs_inds.unsqueeze(-1).expand(-1, -1, F))
+        sampled_pos = torch.gather(pos, 1, abs_inds.unsqueeze(-1).expand(-1, -1, 3)) if pos is not None else None
+        sampled_cam_ids = torch.gather(cam_ids, 1, abs_inds) if cam_ids is not None else None
+
         return sampled_features, sampled_pos, sampled_cam_ids
 
 
