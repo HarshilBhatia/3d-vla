@@ -27,17 +27,20 @@ CONTAINER=/home/harshilb/my_eval_env
 COPPELIASIM_ROOT=/root/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
 
 CHECKPOINTS=(
-    /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_3dspace/step_70000.pth
+    /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_propriorope/best.pth
+    # /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_imagespace/last.pth
     # /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups_clip_langdrop20/step_70000.pth
     # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip/step_70000.pth
     # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1/best.pth
-    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups/best.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_propriorope/best.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_skipfps/best.pth
     # /root/3d_flowmatch_actor/train_logs/Orbital/3dfa_run/step_360000.pth
-    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups_siglip/last.pth
 )
 
 RUN_NAMES=(
-    siglip_3dspace
+    proprio
+    # siglip_multicam_step_ablation
+    # siglip_imagespace
     # multi_groups
     # 3dfa_run_overfit
     # siglip
@@ -49,13 +52,17 @@ CKPT_IDX=0
 RUN_IDX=0
 
 
+
 GROUP_NAMES=(G1 G3)
 GROUP_NAME="${GROUP_NAMES[$SLURM_ARRAY_TASK_ID]}"
-# GROUP_NAME=G1
+# GROUP_NAME=
 # $(( SLURM_ARRAY_TASK_ID % 2 ))
+
+# STEP_ARR=(1 2 3 4 5 10)
 
 CHECKPOINT="${CHECKPOINTS[$CKPT_IDX]}"
 RUN_NAME="${RUN_NAMES[$CKPT_IDX]}"
+# STEPS="${STEP_ARR[$SLURM_ARRAY_TASK_ID]}"
 
 OUTPUT_DIR="${HOST_REPO}/eval_logs/Orbital/${RUN_NAME}/multi_cam_dataset_${GROUP_NAME}/"
 OUTPUT_FILE="${OUTPUT_DIR}/new_results_${RUN_IDX}.json"

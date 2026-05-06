@@ -13,7 +13,8 @@ class RLBenchTrainTester(BaseTrainTester):
         rgbs, pcds = self.preprocessor.process_obs(
             sample["rgb"], sample["rgb2d"],
             sample["depth"], sample["extrinsics"], sample["intrinsics"],
-            augment=augment, task = sample["task"]
+            augment=augment, task=sample["task"],
+            camera_group=sample.get("camera_group"),
         )
         return (
             sample["action"],

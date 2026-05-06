@@ -192,6 +192,7 @@ class RLBenchDataset(BaseDataset):
             "action": self._get_action(idx),  # tensor(T, 8)
             "extrinsics": self._get_attr_hist(idx, 'extrinsics', True) if use_hist else self._get_extrinsics(idx),
             "intrinsics": self._get_attr_hist(idx, 'intrinsics', True) if use_hist else self._get_intrinsics(idx),
+            "camera_group": self._get_attr_by_idx(idx, 'camera_group', False) if 'camera_group' in self.annos else None,
         }
 
 

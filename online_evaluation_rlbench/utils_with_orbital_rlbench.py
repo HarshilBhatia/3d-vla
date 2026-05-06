@@ -105,11 +105,12 @@ class Mover:
 
 class Actioner:
 
-    def __init__(self, policy=None, backbone="clip"):
+    def __init__(self, policy=None, backbone="clip", cfg_scale=None):
         self._policy = policy.cuda()
         self._policy.eval()
         self._instr = None
         self.tokenizer = fetch_tokenizers(backbone)
+        self._cfg_scale = float(cfg_scale) if cfg_scale is not None else None
 
     def load_episode(self, descriptions):
         self._instr_str = random.choice(descriptions)
@@ -136,6 +137,7 @@ class Actioner:
             self._instr,
             gripper[:, :, None, :7].to(dtype),
             run_inference=True,
+            cfg_scale=self._cfg_scale,
         ).view(1, prediction_len, 8)
 
 

@@ -69,7 +69,8 @@ class BaseTrainTester:
             depth2cloud=fetch_depth2cloud(self.args.dataset),
             miscalibration_noise_level=getattr(self.args, 'miscalibration_noise_level', None),
             miscal_max_angle_deg=getattr(self.args, 'miscal_max_angle_deg', None),
-            miscal_max_translation_m=getattr(self.args, 'miscal_max_translation_m', None)
+            miscal_max_translation_m=getattr(self.args, 'miscal_max_translation_m', None),
+            orbital_miscal_noise_level=getattr(self.args, 'orbital_miscal_noise_level', None),
         )
 
         gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else ""

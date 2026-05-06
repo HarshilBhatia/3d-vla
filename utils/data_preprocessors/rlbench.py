@@ -10,6 +10,55 @@ from torch.nn import functional as F
 from .base import DataPreprocessor
 
 
+def _load_orbital_group_noise(level):
+    """Load per-group orbital miscal noise from instructions/orbital_miscalibration_noise.json.
+
+    Returns:
+        cameras: list of camera name strings, in the order stored in the file
+        groups:  list of group name strings (e.g. ["G1", ..., "G6"])
+        noise:   dict {group_str: {cam_name: {"R_noise": FloatTensor(3,3), "t_noise": FloatTensor(3)}}}
+    """
+    noise_path = Path(__file__).resolve().parents[2] / "instructions/orbital_miscalibration_noise.json"
+    with open(noise_path) as f:
+        data = json.load(f)
+
+    cameras = data["cameras"]
+    groups  = data["groups"]
+    if level not in data["levels"]:
+        raise ValueError(f"Unknown orbital miscal level '{level}'. Available: {list(data['levels'].keys())}")
+
+    level_data = data["levels"][level]
+    noise = {}
+    for group in groups:
+        if group not in level_data:
+            raise ValueError(f"Group '{group}' missing from level '{level}' in {noise_path}")
+        group_data = {}
+        for cam_name in cameras:
+            entry = level_data[group].get(cam_name)
+            if entry is None:
+                continue
+            aa = np.array(entry["axis_angle_rad"], dtype=np.float64)
+            angle = float(np.linalg.norm(aa))
+            if angle < 1e-12:
+                R = np.eye(3, dtype=np.float64)
+            else:
+                axis = aa / angle
+                K_skew = np.array([
+                    [ 0,        -axis[2],  axis[1]],
+                    [ axis[2],   0,       -axis[0]],
+                    [-axis[1],   axis[0],  0      ],
+                ], dtype=np.float64)
+                R = np.eye(3) + np.sin(angle) * K_skew + (1 - np.cos(angle)) * (K_skew @ K_skew)
+            t = np.array(entry["translation_m"], dtype=np.float64)
+            group_data[cam_name] = {
+                "R_noise": torch.tensor(R, dtype=torch.float32),
+                "t_noise": torch.tensor(t, dtype=torch.float32),
+            }
+        noise[group] = group_data
+
+    return cameras, groups, noise
+
+
 def _load_miscalibration_noise(level):
     """Load precomputed extrinsics noise from instructions/miscalibration_noise.json.
 
@@ -59,6 +108,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
                  rotate_pcd=False, rotate_angle_deg=0.0, rotate_axis='z',
                  miscal_max_angle_deg=None, miscal_max_translation_m=None,
+                 orbital_miscal_noise_level=None,
                  **kwargs):
         super().__init__(
             keypose_only=keypose_only,
@@ -71,11 +121,15 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         self.rotate_axis = rotate_axis
         self.miscal_max_angle_deg = miscal_max_angle_deg or 0.0
         self.miscal_max_translation_m = miscal_max_translation_m or 0.0
+        self._orbital_miscal_noise_level = orbital_miscal_noise_level
+        self._group_noise_table = None  # (K, ncam, 4, 4) CPU float32, lazy-init
         self._miscal_logged = False
-        if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
-            print(f"[miscal] ENABLED: max_angle={self.miscal_max_angle_deg}deg, max_translation={self.miscal_max_translation_m}m", flush=True)
+        if orbital_miscal_noise_level is not None:
+            print(f"[miscal] per-group FILE: level='{orbital_miscal_noise_level}'", flush=True)
+        elif self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
+            print(f"[miscal] random ENABLED: max_angle={self.miscal_max_angle_deg}deg, max_translation={self.miscal_max_translation_m}m", flush=True)
         else:
-            print("[miscal] disabled (max_angle=0, max_translation=0)", flush=True)
+            print("[miscal] disabled", flush=True)
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
                 degrees=0,
@@ -90,6 +144,43 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                 p=0.1
             )
         ).cuda()
+
+    def _ensure_group_noise_table(self, ncam):
+        """Lazily load the (K, ncam, 4, 4) noise table from instructions/orbital_miscalibration_noise.json.
+
+        Table is indexed by (camera_group - 1), so row k corresponds to group G(k+1).
+        """
+        if self._group_noise_table is not None and self._group_noise_table.shape[1] == ncam:
+            return
+        file_cameras, groups, noise = _load_orbital_group_noise(self._orbital_miscal_noise_level)
+        K = len(groups)
+        table = torch.eye(4).view(1, 1, 4, 4).expand(K, ncam, 4, 4).clone()
+        for k, group in enumerate(groups):
+            for c, cam_name in enumerate(file_cameras[:ncam]):
+                if cam_name not in noise[group]:
+                    continue
+                table[k, c, :3, :3] = noise[group][cam_name]["R_noise"]
+                table[k, c, :3,  3] = noise[group][cam_name]["t_noise"]
+        self._group_noise_table = table
+        print(f"[miscal] loaded from file: level='{self._orbital_miscal_noise_level}', K={K}, ncam={ncam}", flush=True)
+        for k in range(K):
+            t_norms = table[k, :, :3, 3].norm(dim=-1).tolist()
+            angles = []
+            for c in range(ncam):
+                R = table[k, c, :3, :3].numpy()
+                cos_a = float(np.clip((np.trace(R) - 1) / 2, -1, 1))
+                angles.append(float(np.degrees(np.arccos(cos_a))))
+            print(f"  G{k+1}: angle_deg={[f'{a:.2f}' for a in angles]}, t_norm={[f'{v:.4f}' for v in t_norms]}", flush=True)
+
+    def _get_miscal_noise(self, B, ncam, device, dtype, camera_group=None):
+        """Return (B, ncam, 4, 4) noise transform, or None if miscal is disabled."""
+        if self._orbital_miscal_noise_level is not None and camera_group is not None:
+            self._ensure_group_noise_table(ncam)
+            idx = camera_group.long() - 1  # (B,) 0-based
+            return self._group_noise_table[idx].to(device=device, dtype=dtype)  # (B, ncam, 4, 4)
+        if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
+            return self._sample_random_miscalibration(B, ncam, device, dtype)
+        return None
 
     def _sample_random_miscalibration(self, B, ncam, device, dtype):
         """Sample one random noise extrinsics perturbation per (B, ncam).
@@ -155,24 +246,32 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         return pcd_rot.reshape(B, ncam, 3, H, W)
 
     def process_obs(self, rgbs, rgb2d, depth, extrinsics, intrinsics,
-                    augment=False, **kwargs):
+                    augment=False, camera_group=None, **kwargs):
         """
         RGBs of shape (B, ncam, 3, h_i, w_i) or (B, nhist, ncam, 3, h_i, w_i).
         depths of shape (B, ncam, h_i, w_i) or (B, nhist, ncam, h_i, w_i).
         extrinsics/intrinsics: (B, ncam, 4, 4)/(B, 3, 3) or (B, nhist, ncam, 4, 4)/(B, nhist, ncam, 3, 3).
+        camera_group: (B,) uint8 tensor with group ids (1-based), or None.
         """
         has_hist = rgbs.ndim == 6
         if has_hist:
             B, nhist, ncam, C, H, W = rgbs.shape
-            # Sample noise once per (B, ncam) and broadcast across nhist so all
-            # history snapshots get identical miscalibration (it's a camera property).
-            if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
-                noise_T = self._sample_random_miscalibration(B, ncam, extrinsics.device, extrinsics.dtype)
-                if not self._miscal_logged:
-                    print(f"[miscal] first batch applied: B={B}, ncam={ncam}, noise_T.shape={noise_T.shape}, "
-                          f"sample_t_norm={noise_T[0, :, :3, 3].norm(dim=-1).tolist()}", flush=True)
-                    self._miscal_logged = True
+        else:
+            B, ncam, C, H, W = rgbs.shape
+
+        # Apply miscalibration noise once per (B, ncam); broadcast across nhist when present.
+        noise_T = self._get_miscal_noise(B, ncam, extrinsics.device, extrinsics.dtype, camera_group)
+        if noise_T is not None:
+            if not self._miscal_logged:
+                print(f"[miscal] first batch applied: B={B}, ncam={ncam}, "
+                      f"sample_t_norm={noise_T[0, :, :3, 3].norm(dim=-1).tolist()}", flush=True)
+                self._miscal_logged = True
+            if has_hist:
                 extrinsics = noise_T.unsqueeze(1) @ extrinsics  # (B, 1, ncam, 4, 4) @ (B, nhist, ncam, 4, 4)
+            else:
+                extrinsics = noise_T @ extrinsics  # (B, ncam, 4, 4) @ (B, ncam, 4, 4)
+
+        if has_hist:
             rgbs = rgbs.view(B * nhist, ncam, C, H, W)
             depth = depth.view(B * nhist, ncam, *depth.shape[-2:])
             extrinsics = extrinsics.view(B * nhist, ncam, 4, 4)

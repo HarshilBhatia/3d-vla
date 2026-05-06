@@ -161,6 +161,49 @@ def _strip_obs(obs):
         obs.misc = {k: v for k, v in obs.misc.items() if k in _WRIST_MISC_KEYS}
 
 
+def make_obs_config_low_dim():
+    """Minimal ObservationConfig with no cameras — joint/gripper state only."""
+    from rlbench.observation_config import ObservationConfig
+    return ObservationConfig(
+        joint_velocities=True,
+        joint_positions=True,
+        joint_forces=False,
+        gripper_open=True,
+        gripper_pose=True,
+        gripper_joint_positions=False,
+        task_low_dim_state=False,
+    )
+
+
+def collect_one_episode_low_dim(task_env):
+    """Capture random seed + reset — no demo rollout needed.
+
+    reset_to_demo(demo) only calls np.random.set_state(demo.random_seed)
+    then reset(), so observations are unnecessary.
+    Returns (demo, timing) or (None, None).
+    """
+    from rlbench.demo import Demo
+    t0 = time.perf_counter()
+    try:
+        random_seed = np.random.get_state()
+        task_env.reset()
+    except Exception as e:
+        print("[ERROR] Reset failed: {}".format(e))
+        return None, None
+    t_reset = time.perf_counter() - t0
+    print("[STEP] Initial state captured in {:.2f}s".format(t_reset))
+    return Demo([], random_seed=random_seed), dict(reset=t_reset)
+
+
+def save_low_dim_episode(demo, ep_path, variation):
+    """Save only low_dim_obs.pkl + variation.txt to ep_path."""
+    os.makedirs(ep_path, exist_ok=True)
+    with open(os.path.join(ep_path, "low_dim_obs.pkl"), "wb") as f:
+        pickle.dump(demo, f)
+    with open(os.path.join(ep_path, "variation.txt"), "w") as f:
+        f.write("{}\n".format(variation))
+
+
 def save_orbital_episode(demo, ep_path, group, orbital_extrinsics):
     """
     Save a single orbital demo to ep_path/:

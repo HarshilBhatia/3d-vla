@@ -28,6 +28,7 @@ _EVAL_RUNTIME_KEYS = frozenset({
     "save_video", "save_trajectory", "debug_pcd_dir",
     # PerAct online-eval runtime controls
     "eval_use_depth2cloud", "image_size", "collision_checking",
+    "cfg_scale",
 })
 
 
@@ -161,7 +162,7 @@ if __name__ == "__main__":
         )
 
         # Actioner (runs the policy online)
-        actioner = Actioner(model, backbone=args.backbone)
+        actioner = Actioner(model, backbone=args.backbone, cfg_scale=getattr(args, "cfg_scale", None))
 
         # Evaluate
         var_success_rates = env.evaluate_task_on_multiple_variations(

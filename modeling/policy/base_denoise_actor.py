@@ -174,6 +174,62 @@ class DenoiseActor(nn.Module):
 
         return torch.cat((trajectory, out[..., -1:]), -1)
 
+    def conditional_sample_cfg(self, trajectory, device, fixed_inputs, cfg_scale, stopgrad_k=0):
+        # Build unconditional fixed_inputs by replacing instr_feats with null token
+        instr_feats = fixed_inputs[5]
+        B, L, F = instr_feats.shape
+        null_instr = self.encoder.lang_mask_token.expand(B, L, F)
+        uncond_fixed_inputs = (
+            fixed_inputs[0], fixed_inputs[1], fixed_inputs[2],
+            fixed_inputs[3], fixed_inputs[4],
+            null_instr, fixed_inputs[6],
+            fixed_inputs[7], fixed_inputs[8], fixed_inputs[9], fixed_inputs[10]
+        )
+
+        self.position_scheduler.set_timesteps(self.n_steps, device=device)
+        self.rotation_scheduler.set_timesteps(self.n_steps, device=device)
+
+        timesteps = self.position_scheduler.timesteps
+        for t_ind, t in enumerate(timesteps):
+            t_batch = t * torch.ones(len(trajectory), device=device, dtype=torch.long)
+
+            out_cond = self.policy_forward_pass(trajectory, t_batch, fixed_inputs, stopgrad_k=stopgrad_k)[-1]
+            out_uncond = self.policy_forward_pass(trajectory, t_batch, uncond_fixed_inputs, stopgrad_k=stopgrad_k)[-1]
+
+            # CFG combination: v_cfg = v_uncond + scale * (v_cond - v_uncond)
+            out = out_uncond + cfg_scale * (out_cond - out_uncond)
+
+            pos = self.position_scheduler.step(out[..., :3], t_ind, trajectory[..., :3]).prev_sample
+            rot = self.rotation_scheduler.step(out[..., 3:-1], t_ind, trajectory[..., 3:]).prev_sample
+            trajectory = torch.cat((pos, rot), -1)
+
+        return torch.cat((trajectory, out[..., -1:]), -1)
+
+    def compute_trajectory_cfg(self, trajectory_mask,
+                               rgb3d, rgb2d, pcd, instruction, proprio,
+                               cfg_scale=2.0, stopgrad_k=0):
+        fixed_inputs = self.encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=stopgrad_k)
+
+        out_dim = 6 if self._rotation_format == 'euler' else 9
+        trajectory = torch.randn(
+            size=tuple(trajectory_mask.shape) + (out_dim,),
+            device=trajectory_mask.device
+        )
+        trajectory = self.conditional_sample_cfg(
+            trajectory,
+            device=trajectory_mask.device,
+            fixed_inputs=fixed_inputs,
+            cfg_scale=cfg_scale,
+            stopgrad_k=stopgrad_k
+        )
+
+        _, traj_len, nhand, _ = trajectory.shape
+        trajectory = self.unconvert_rot(trajectory.flatten(1, 2)).unflatten(1, (traj_len, nhand))
+        trajectory = self.unnormalize_pos(trajectory)
+        trajectory[..., -1] = trajectory[..., -1].sigmoid()
+
+        return trajectory
+
     def compute_trajectory(self, trajectory_mask,
                            rgb3d, rgb2d, pcd, instruction, proprio,
                            stopgrad_k=0):
@@ -362,7 +418,8 @@ class DenoiseActor(nn.Module):
         instruction,
         proprio,
         run_inference=False,
-        stopgrad_k=0
+        stopgrad_k=0,
+        cfg_scale=None,
     ):
         """
         Arguments:
@@ -374,6 +431,7 @@ class DenoiseActor(nn.Module):
             instruction: tokenized text instruction
             proprio: (B, nhist, nhand, 3+4+X)
             stopgrad_k: number of bins to zero out in backward (for RoPE stopgrad)
+            cfg_scale: if set, use classifier-free guidance with this scale (inference only)
 
         Note:
             The input rotation is expressed either as:
@@ -386,6 +444,13 @@ class DenoiseActor(nn.Module):
         """
         # Inference, don't use gt_trajectory
         if run_inference:
+            if cfg_scale is not None:
+                return self.compute_trajectory_cfg(
+                    trajectory_mask,
+                    rgb3d, rgb2d, pcd, instruction, proprio,
+                    cfg_scale=cfg_scale,
+                    stopgrad_k=stopgrad_k
+                )
             return self.compute_trajectory(
                 trajectory_mask,
                 rgb3d, rgb2d, pcd, instruction, proprio,
