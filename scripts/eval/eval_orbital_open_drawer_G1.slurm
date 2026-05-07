@@ -14,6 +14,8 @@
 #SBATCH --array=0-1
 #SBATCH --output=logs/eval_orb_G1_%A_%a.out
 #SBATCH --error=logs/eval_orb_G1_%A_%a.err
+#SBATCH --exclude=grogu-1-14,grogu-3-5
+
 
 set -euo pipefail
 ulimit -c 0
@@ -27,9 +29,14 @@ CONTAINER=/home/harshilb/my_eval_env
 COPPELIASIM_ROOT=/root/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
 
 CHECKPOINTS=(
-    /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_propriorope/best.pth
-    # /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_imagespace/last.pth
-    # /home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups_clip_langdrop20/step_70000.pth
+    /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups_dino_clip/last.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multigroup_miscal_small/last.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_imagespace/best.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_skipfps/last.pth
+
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_propriorope/best.pth
+    # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_imagespace/last.pth
+    # /root /3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups_clip_langdrop20/step_70000.pth
     # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip/step_70000.pth
     # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_default_G1/best.pth
     # /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip_propriorope/best.pth
@@ -38,7 +45,8 @@ CHECKPOINTS=(
 )
 
 RUN_NAMES=(
-    proprio
+    dino
+    # proprio
     # siglip_multicam_step_ablation
     # siglip_imagespace
     # multi_groups
@@ -46,8 +54,8 @@ RUN_NAMES=(
     # siglip
 )
 
-# CKPT_IDX=$(SLURM_ARRAY_TASK_ID )
 CKPT_IDX=0
+# CKPT_IDX=$(( SLURM_ARRAY_TASK_ID % 2 ))
 # 
 RUN_IDX=0
 

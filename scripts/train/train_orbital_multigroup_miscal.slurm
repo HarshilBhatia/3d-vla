@@ -24,8 +24,8 @@ ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
 data=orbital
 main_dir=Orbital
-experiment=default
-run_log_dir=open_drawer_multigroup_miscal_small
+experiment=orb_deltaM_full
+run_log_dir=open_drawer_multigroup_miscal_medium
 train_iters=70000
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth

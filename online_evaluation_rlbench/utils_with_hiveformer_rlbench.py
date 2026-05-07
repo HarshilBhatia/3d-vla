@@ -1,3 +1,4 @@
+import json
 import os
 import glob
 from pathlib import Path
@@ -274,7 +275,14 @@ class RLBenchEnv:
         save_trajectory=False,
         save_video=False,
         output_file=None,
+        progress_file=None,
     ):
+        progress = {}
+        if progress_file is not None and os.path.exists(progress_file):
+            with open(progress_file) as f:
+                progress = json.load(f)
+            print(f"[resume] loaded {len(progress)} completed demos from {progress_file}", flush=True)
+
         self.env.launch()
         task_type = task_file_to_task_class(task_str)
         task = self.env.get_task(task_type)
@@ -304,6 +312,8 @@ class RLBenchEnv:
                     num_history=num_history,
                     save_video=save_video,
                     output_file=output_file,
+                    progress=progress,
+                    progress_file=progress_file,
                 )
             )
             if valid:
@@ -333,11 +343,21 @@ class RLBenchEnv:
         num_history=1,
         save_video=False,
         output_file=None,
+        progress=None,
+        progress_file=None,
     ):
         success_rate = 0
         total_reward = 0
 
         for demo_id in range(num_demos):
+
+            key = f"var{variation}_demo{demo_id}"
+            if progress is not None and key in progress:
+                result = progress[key]
+                success_rate += result
+                total_reward += result
+                print(f"  [resume] {key}: {'success' if result else 'fail'}", flush=True)
+                continue
 
             grippers = torch.Tensor([]).cuda(non_blocking=True)
             # no need to generate demos here, just get random states
@@ -394,6 +414,11 @@ class RLBenchEnv:
                     break
 
             total_reward += max_reward
+
+            if progress is not None and progress_file is not None:
+                progress[key] = 1 if max_reward == 1 else 0
+                with open(progress_file, 'w') as pf:
+                    json.dump(progress, pf, indent=2)
 
             if save_video and video_frames and output_file is not None:
                 video_dir = os.path.join(os.path.dirname(output_file), "videos", "success" if max_reward == 1 else "fail")

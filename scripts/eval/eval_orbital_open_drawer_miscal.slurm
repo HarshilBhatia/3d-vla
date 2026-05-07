@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # Usage:
-#   sbatch scripts/eval/eval_orbital_open_drawer_G1_cfg.slurm
-#   Array index 0→cfg_scale=2, 1→cfg_scale=4, 2→cfg_scale=6
-#SBATCH --job-name=eval_orb_cfg
+#   sbatch scripts/eval/eval_orbital_open_drawer_miscal.slurm
+#   Array index 0→G1, 1→G3
+#SBATCH --job-name=eval_orb_miscal
 #SBATCH --partition=all
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -11,10 +11,11 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=64G
 #SBATCH --time=4:00:00
-#SBATCH --array=0-0
-#SBATCH --output=logs/eval_orb_G1_cfg_%A_%a.out
-#SBATCH --error=logs/eval_orb_G1_cfg_%A_%a.err
+#SBATCH --array=0-1
+#SBATCH --output=logs/eval_orb_miscal_%A_%a.out
+#SBATCH --error=logs/eval_orb_miscal_%A_%a.err
 #SBATCH --exclude=grogu-1-14,grogu-3-5
+
 
 set -euo pipefail
 ulimit -c 0
@@ -27,19 +28,30 @@ CONTAINER_REPO=/root/3d_flowmatch_actor
 CONTAINER=/home/harshilb/my_eval_env
 COPPELIASIM_ROOT=/root/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
 
-CHECKPOINT=/home/harshilb/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multi_groups_clip_langdrop20/step_70000.pth
-RUN_NAME=cfg_sweep
+CHECKPOINTS=(
+    /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multigroup_miscal_small/last.pth
+)
 
-CFG_SCALES=(100)
-CFG_SCALE="${CFG_SCALES[$SLURM_ARRAY_TASK_ID]}"
+RUN_NAMES=(
+    miscal_medium
+)
 
-OUTPUT_DIR="${HOST_REPO}/eval_logs/Orbital/${RUN_NAME}/multi_cam_dataset_G1_cfg${CFG_SCALE}/"
-OUTPUT_FILE="${OUTPUT_DIR}/results.json"
+CKPT_IDX=0
+RUN_IDX=0
+
+GROUP_NAMES=(G1 G3)
+GROUP_NAME="${GROUP_NAMES[$SLURM_ARRAY_TASK_ID]}"
+
+CHECKPOINT="${CHECKPOINTS[$CKPT_IDX]}"
+RUN_NAME="${RUN_NAMES[$CKPT_IDX]}"
+
+OUTPUT_DIR="${HOST_REPO}/eval_logs/Orbital/${RUN_NAME}/multi_cam_dataset_${GROUP_NAME}/"
+OUTPUT_FILE="${OUTPUT_DIR}/new_results_${RUN_IDX}.json"
 
 mkdir -p "$OUTPUT_DIR" logs
 
 echo "Checkpoint: $CHECKPOINT"
-echo "CFG scale:  $CFG_SCALE"
+echo "Run:        $RUN_IDX"
 echo "Output:     $OUTPUT_FILE"
 
 apptainer exec \
@@ -61,9 +73,9 @@ apptainer exec \
         output_file="$OUTPUT_FILE" \
         task="open_drawer" \
         data_dir="/grogu/user/harshilb/open_drawer_multi_cam/" \
-        spawn_camera_group="G1" \
-        save_video=true \
-        cfg_scale="$CFG_SCALE" \
-        "$@"
+        spawn_camera_group="$GROUP_NAME" \
+        miscalibration_noise_level=medium \
+        save_video=true
+
 
 echo "Done at: $(date)"

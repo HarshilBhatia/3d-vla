@@ -1,3 +1,4 @@
+import json
 import os
 import glob
 import random
@@ -315,7 +316,14 @@ class RLBenchEnv:
         save_trajectory=False,
         save_video=False,
         output_file=None,
+        progress_file=None,
     ):
+        progress = {}
+        if progress_file is not None and os.path.exists(progress_file):
+            with open(progress_file) as f:
+                progress = json.load(f)
+            print(f"[resume] loaded {len(progress)} completed demos from {progress_file}", flush=True)
+
         print(f"[eval] launching env...", flush=True)
         self.env.launch()
         print(f"[eval] env launched", flush=True)
@@ -349,6 +357,8 @@ class RLBenchEnv:
                     save_trajectory=save_trajectory,
                     save_video=save_video,
                     output_file=output_file,
+                    progress=progress,
+                    progress_file=progress_file,
                 )
             )
             if valid:
@@ -378,6 +388,8 @@ class RLBenchEnv:
         save_trajectory=False,
         save_video=False,
         output_file=None,
+        progress=None,
+        progress_file=None,
     ):
         success_rate = 0
         total_reward = 0
@@ -392,6 +404,14 @@ class RLBenchEnv:
 
         print(f"  [var {variation}] {len(var_demos)} demos", flush=True)
         for demo_id, demo in enumerate(var_demos):
+
+            key = f"var{variation}_demo{demo_id}"
+            if progress is not None and key in progress:
+                result = progress[key]
+                success_rate += result
+                total_reward += result
+                print(f"  [resume] {key}: {'success' if result else 'fail'}", flush=True)
+                continue
 
             print(f"  [var {variation}] demo {demo_id+1}/{len(var_demos)} — resetting...", flush=True)
             grippers = torch.Tensor([]).cuda(non_blocking=True)
@@ -455,6 +475,11 @@ class RLBenchEnv:
                     reward = 0
 
             total_reward += max_reward
+
+            if progress is not None and progress_file is not None:
+                progress[key] = 1 if max_reward == 1 else 0
+                with open(progress_file, 'w') as pf:
+                    json.dump(progress, pf, indent=2)
 
             if save_trajectory and output_file is not None:
                 traj_dir = os.path.join(os.path.dirname(output_file), "trajectories")

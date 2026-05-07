@@ -1,3 +1,4 @@
+import json
 import os
 import glob
 import random
@@ -20,6 +21,15 @@ from pyrep.const import RenderMode
 
 from modeling.encoder.text import fetch_tokenizers
 from online_evaluation_rlbench.get_stored_demos import get_stored_demos
+
+try:
+    from utils.data_preprocessors.rlbench import _load_miscalibration_noise
+except ImportError:
+    _load_miscalibration_noise = None
+try:
+    from utils.depth2cloud.rlbench import RLBenchDepth2Cloud
+except ImportError:
+    RLBenchDepth2Cloud = None
 
 
 def task_file_to_task_class(task_file):
@@ -142,7 +152,13 @@ class RLBenchEnv:
         headless=False,
         apply_cameras=("over_shoulder_left", "over_shoulder_right", "wrist_left", "wrist_right", "front"),
         collision_checking=False,
+        use_depth2cloud=False,
+        miscalibration_noise_level=None,
     ):
+        # depth2cloud path is required for miscalibration
+        self._use_depth2cloud = use_depth2cloud or (miscalibration_noise_level is not None)
+        if self._use_depth2cloud:
+            apply_depth = True
 
         # setup required inputs
         self.data_path = data_path
@@ -163,6 +179,73 @@ class RLBenchEnv:
             headless=headless, robot_setup="dual_panda"
         )
 
+        # Miscalibration noise (optional)
+        self._miscal_cameras = None
+        self._miscal_noise = None
+        if miscalibration_noise_level is not None:
+            if _load_miscalibration_noise is None:
+                raise ImportError("_load_miscalibration_noise unavailable; cannot use miscalibration_noise_level")
+            self._miscal_cameras, self._miscal_noise = _load_miscalibration_noise(miscalibration_noise_level)
+            print(
+                f"[bimanual eval] Miscalibration: level='{miscalibration_noise_level}', "
+                f"cameras={self._miscal_cameras}"
+            )
+
+        # Depth2cloud module (needed for miscal or explicit use_depth2cloud)
+        if self._use_depth2cloud:
+            if RLBenchDepth2Cloud is None:
+                raise ImportError("RLBenchDepth2Cloud unavailable; cannot use use_depth2cloud")
+            h, w = image_size if isinstance(image_size, (tuple, list)) else (image_size, image_size)
+            self._depth2cloud = RLBenchDepth2Cloud((h, w))
+            print(f"[bimanual eval] Using depth2cloud path (miscal={miscalibration_noise_level})")
+
+    def _apply_miscalibration(self, extrinsics):
+        """Perturb extrinsics by camera index — same convention as orbital/peract eval.
+
+        extrinsics: (1, ncam, 4, 4) float tensor
+        """
+        ext = extrinsics.clone().float()
+        for cam_idx, cam_name in enumerate(self._miscal_cameras):
+            if cam_idx >= ext.shape[1]:
+                break
+            if cam_name not in self._miscal_noise:
+                continue
+            R_noise = self._miscal_noise[cam_name]["R_noise"].to(ext.device)
+            t_noise = self._miscal_noise[cam_name]["t_noise"].to(ext.device)
+            ext[:, cam_idx, :3, :3] = R_noise @ ext[:, cam_idx, :3, :3]
+            ext[:, cam_idx, :3, 3] += t_noise
+        return ext.to(extrinsics.dtype)
+
+    def _get_pcd_from_depth(self, obs):
+        """Compute point clouds from depth + extrinsics, applying miscalibration if configured.
+
+        Returns:
+            pcd: (1, ncam, 3, H, W) float32 CPU tensor
+        """
+        depths, exts, ints = [], [], []
+        for cam in self.apply_cameras:
+            depth_raw = obs.perception_data[f"{cam}_depth"]
+            near = obs.misc.get(f"{cam}_camera_near", 0.1)
+            far = obs.misc.get(f"{cam}_camera_far", 4.0)
+            depths.append(torch.tensor(near + depth_raw * (far - near), dtype=torch.float32))
+            exts.append(torch.tensor(obs.misc.get(f"{cam}_camera_extrinsics", np.eye(4)), dtype=torch.float32))
+            ints.append(torch.tensor(obs.misc.get(f"{cam}_camera_intrinsics", np.eye(3)), dtype=torch.float32))
+
+        depth = torch.stack(depths).unsqueeze(0)       # (1, ncam, H, W)
+        extrinsics = torch.stack(exts).unsqueeze(0)    # (1, ncam, 4, 4)
+        intrinsics = torch.stack(ints).unsqueeze(0)    # (1, ncam, 3, 3)
+
+        if self._miscal_noise is not None:
+            extrinsics = self._apply_miscalibration(extrinsics)
+
+        pcd = self._depth2cloud(
+            depth.cuda(non_blocking=True).to(torch.bfloat16),
+            extrinsics.cuda(non_blocking=True).to(torch.bfloat16),
+            intrinsics.cuda(non_blocking=True).to(torch.bfloat16),
+        ).float().cpu()  # (1, ncam, 3, H, W)
+
+        return pcd
+
     def get_rgb_pcd_gripper_from_obs(self, obs):
         """
         Return rgb, pcd, and gripper from a given observation
@@ -173,10 +256,14 @@ class RLBenchEnv:
             torch.tensor(obs.perception_data["{}_rgb".format(cam)]).float().permute(2, 0, 1) / 255.0
             for cam in self.apply_cameras
         ]).unsqueeze(0)  # 1, N, C, H, W
-        pcd = torch.stack([
-            torch.tensor(obs.perception_data["{}_point_cloud".format(cam)]).float().permute(2, 0, 1)
-            for cam in self.apply_cameras
-        ]).unsqueeze(0)  # 1, N, C, H, W
+
+        if self._use_depth2cloud:
+            pcd = self._get_pcd_from_depth(obs)
+        else:
+            pcd = torch.stack([
+                torch.tensor(obs.perception_data["{}_point_cloud".format(cam)]).float().permute(2, 0, 1)
+                for cam in self.apply_cameras
+            ]).unsqueeze(0)  # 1, N, C, H, W
 
         # action is an array of length 16 = (7+1)*2
         gripper = torch.from_numpy(np.concatenate([
@@ -201,7 +288,14 @@ class RLBenchEnv:
         save_trajectory=False,
         save_video=False,
         output_file=None,
+        progress_file=None,
     ):
+        progress = {}
+        if progress_file is not None and os.path.exists(progress_file):
+            with open(progress_file) as f:
+                progress = json.load(f)
+            print(f"[resume] loaded {len(progress)} completed demos from {progress_file}", flush=True)
+
         self.env.launch()
         task_type = task_file_to_task_class(task_str)
         task = self.env.get_task(task_type)
@@ -230,6 +324,8 @@ class RLBenchEnv:
                     num_history=num_history,
                     save_video=save_video,
                     output_file=output_file,
+                    progress=progress,
+                    progress_file=progress_file,
                 )
             )
             if valid:
@@ -258,6 +354,8 @@ class RLBenchEnv:
         num_history=1,
         save_video=False,
         output_file=None,
+        progress=None,
+        progress_file=None,
     ):
         success_rate = 0
         total_reward = 0
@@ -271,6 +369,14 @@ class RLBenchEnv:
         )
 
         for demo_id, demo in enumerate(var_demos):
+
+            key = f"var{variation}_demo{demo_id}"
+            if progress is not None and key in progress:
+                result = progress[key]
+                success_rate += result
+                total_reward += result
+                print(f"  [resume] {key}: {'success' if result else 'fail'}", flush=True)
+                continue
 
             grippers = torch.Tensor([]).cuda(non_blocking=True)
             descriptions, obs = task.reset_to_demo(demo)
@@ -327,6 +433,11 @@ class RLBenchEnv:
                     reward = 0
 
             total_reward += max_reward
+
+            if progress is not None and progress_file is not None:
+                progress[key] = 1 if max_reward == 1 else 0
+                with open(progress_file, 'w') as pf:
+                    json.dump(progress, pf, indent=2)
 
             if save_video and video_frames and output_file is not None:
                 video_dir = os.path.join(os.path.dirname(output_file), "videos", "success" if max_reward == 1 else "fail")

@@ -805,7 +805,15 @@ class BaseTrainTester:
             print("All keys matched successfully!")
         # EMA weights
         if model_dict.get("ema_weight") is not None:
-            ema_model.load_state_dict(model_dict["ema_weight"], strict=True)
+            msn_ema, unxpct_ema = ema_model.load_state_dict(model_dict["ema_weight"], strict=False)
+            if msn_ema:
+                print(f"EMA missing keys (not found in checkpoint): {len(msn_ema)}")
+                print(msn_ema)
+            if unxpct_ema:
+                print(f"EMA unexpected keys (ignored): {len(unxpct_ema)}")
+                print(unxpct_ema)
+            if not msn_ema and not unxpct_ema:
+                print("EMA: all keys matched successfully!")
         if self.run_mode == "train":
             if 'optimizer' in model_dict:
                 optimizer.load_state_dict(model_dict["optimizer"])

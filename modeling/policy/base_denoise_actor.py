@@ -185,6 +185,8 @@ class DenoiseActor(nn.Module):
             null_instr, fixed_inputs[6],
             fixed_inputs[7], fixed_inputs[8], fixed_inputs[9], fixed_inputs[10]
         )
+        
+        print("using:",cfg_scale)
 
         self.position_scheduler.set_timesteps(self.n_steps, device=device)
         self.rotation_scheduler.set_timesteps(self.n_steps, device=device)

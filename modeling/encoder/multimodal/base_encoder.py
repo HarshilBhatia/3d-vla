@@ -45,7 +45,8 @@ class Encoder(nn.Module):
             self.instruction_encoder = nn.Linear(_dim, embedding_dim)
 
         # Learnable null language token for classifier-free guidance dropout
-        self.lang_mask_token = nn.Parameter(torch.zeros(1, 1, embedding_dim))
+        if lang_dropout_prob > 0.0:
+            self.lang_mask_token = nn.Parameter(torch.zeros(1, 1, embedding_dim))
 
         # Scene encoder
         self.backbone, self.normalize = fetch_visual_encoders(backbone)
@@ -130,6 +131,7 @@ class Encoder(nn.Module):
 
         # Point subsampling from current frame
         if self.skip_fps:
+            # print('image space working...? Lol')
             fps_scene_feats, fps_scene_pos, fps_cam_ids = rgb3d_feats_curr, pcd_curr, cam_ids_full
         elif self.image_space_sampling:
             fps_scene_feats, fps_scene_pos, fps_cam_ids = self.run_image_space_sampling(

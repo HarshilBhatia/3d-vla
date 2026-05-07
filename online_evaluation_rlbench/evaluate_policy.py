@@ -42,9 +42,15 @@ def load_models(args):
     ckpt_cfg = ckpt.get("config", {})
     if ckpt_cfg:
         # Emit a compact provenance summary to catch train/eval mixups early.
+        loaded_from_ckpt = {}
         for k, v in ckpt_cfg.items():
             if k not in _EVAL_RUNTIME_KEYS:
                 setattr(args, k, v)
+                loaded_from_ckpt[k] = v
+        print("Arguments loaded from checkpoint:")
+        for k, v in sorted(loaded_from_ckpt.items()):
+            print(f"  {k}: {v}")
+        print("-" * 100, flush=True)
         # Runtime-vs-checkpoint consistency warnings (non-fatal).
         if str(getattr(args, "dataset", "")) != str(ckpt_cfg.get("dataset", "")):
             print(
@@ -98,6 +104,11 @@ if __name__ == "__main__":
 
     # Save results here
     os.makedirs(os.path.dirname(args.output_file), exist_ok=True)
+    progress_file = str(args.output_file).replace('.json', '.progress.json')
+
+    if os.path.exists(args.output_file):
+        print(f"[skip] output file already exists: {args.output_file}", flush=True)
+        sys.exit(0)
 
     # Bimanual vs single-arm utils
     if args.bimanual:
@@ -143,6 +154,10 @@ if __name__ == "__main__":
                 use_depth2cloud=args.eval_use_depth2cloud,
                 miscalibration_noise_level=args.miscalibration_noise_level,
             )
+        elif args.bimanual:
+            _env_extra = dict(
+                miscalibration_noise_level=args.miscalibration_noise_level,
+            )
         else:
             _env_extra = dict()
 
@@ -162,7 +177,9 @@ if __name__ == "__main__":
         )
 
         # Actioner (runs the policy online)
-        actioner = Actioner(model, backbone=args.backbone, cfg_scale=getattr(args, "cfg_scale", None))
+        # When backbone=dino, text_backbone=clip selects the text tokenizer; fall back to backbone.
+        _text_backbone = getattr(args, "text_backbone", None) or args.backbone
+        actioner = Actioner(model, backbone=_text_backbone, cfg_scale=getattr(args, "cfg_scale", None))
 
         # Evaluate
         var_success_rates = env.evaluate_task_on_multiple_variations(
@@ -175,6 +192,7 @@ if __name__ == "__main__":
             save_trajectory=args.save_trajectory,
             save_video=args.save_video,
             output_file=args.output_file,
+            progress_file=progress_file,
         )
         print()
         print(
@@ -189,3 +207,5 @@ if __name__ == "__main__":
         task_success_rates[task_str] = var_success_rates
         with open(args.output_file, "w") as f:
             json.dump(round_floats(task_success_rates), f, indent=4)
+        if os.path.exists(progress_file):
+            os.remove(progress_file)
