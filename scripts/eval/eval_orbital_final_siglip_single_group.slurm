@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=eval_orb_mg_dense
+#SBATCH --job-name=eval_orb_final_sg
 #SBATCH --partition=shubhamlong
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
@@ -25,8 +25,8 @@ COPPELIASIM_ROOT=/root/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
 GROUP_NAMES=(G1 G3)
 GROUP_NAME="${GROUP_NAMES[$SLURM_ARRAY_TASK_ID]}"
 
-RUN_LOG_DIR=siglip_multi_group_dense
-CHECKPOINT="/root/3d_flowmatch_actor/train_logs/Orbital/siglip_multi_group_dense/best.pth"
+RUN_LOG_DIR=final/siglip_single_group
+CHECKPOINT="${CONTAINER_REPO}/train_logs/final/siglip_single_group/best.pth"
 
 OUTPUT_DIR="${HOST_REPO}/eval_logs/Orbital/${RUN_LOG_DIR}/${GROUP_NAME}"
 OUTPUT_FILE="${CONTAINER_REPO}/eval_logs/Orbital/${RUN_LOG_DIR}/${GROUP_NAME}/results_open_drawer.json"
@@ -55,7 +55,7 @@ apptainer exec \
         checkpoint="$CHECKPOINT" \
         output_file="$OUTPUT_FILE" \
         task="open_drawer" \
-        data_dir="/grogu/user/harshilb/open_drawer_multi_cam/" \
+        data_dir="/grogu/user/harshilb/multi_cam_rollouts/" \
         spawn_camera_group="$GROUP_NAME" \
         save_video=true
 

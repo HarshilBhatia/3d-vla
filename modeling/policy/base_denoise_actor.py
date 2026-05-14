@@ -174,20 +174,8 @@ class DenoiseActor(nn.Module):
 
         return torch.cat((trajectory, out[..., -1:]), -1)
 
-    def conditional_sample_cfg(self, trajectory, device, fixed_inputs, cfg_scale, stopgrad_k=0):
-        # Build unconditional fixed_inputs by replacing instr_feats with null token
-        instr_feats = fixed_inputs[5]
-        B, L, F = instr_feats.shape
-        null_instr = self.encoder.lang_mask_token.expand(B, L, F)
-        uncond_fixed_inputs = (
-            fixed_inputs[0], fixed_inputs[1], fixed_inputs[2],
-            fixed_inputs[3], fixed_inputs[4],
-            null_instr, fixed_inputs[6],
-            fixed_inputs[7], fixed_inputs[8], fixed_inputs[9], fixed_inputs[10]
-        )
-        
-        print("using:",cfg_scale)
-
+    def conditional_sample_cfg(self, trajectory, device, cond_fixed_inputs, uncond_fixed_inputs,
+                               cfg_scale, stopgrad_k=0):
         self.position_scheduler.set_timesteps(self.n_steps, device=device)
         self.rotation_scheduler.set_timesteps(self.n_steps, device=device)
 
@@ -195,11 +183,18 @@ class DenoiseActor(nn.Module):
         for t_ind, t in enumerate(timesteps):
             t_batch = t * torch.ones(len(trajectory), device=device, dtype=torch.long)
 
-            out_cond = self.policy_forward_pass(trajectory, t_batch, fixed_inputs, stopgrad_k=stopgrad_k)[-1]
             out_uncond = self.policy_forward_pass(trajectory, t_batch, uncond_fixed_inputs, stopgrad_k=stopgrad_k)[-1]
 
-            # CFG combination: v_cfg = v_uncond + scale * (v_cond - v_uncond)
-            out = out_uncond + cfg_scale * (out_cond - out_uncond)
+            if cfg_scale == 0:
+                out = out_uncond
+            else:
+                out_cond = self.policy_forward_pass(trajectory, t_batch, cond_fixed_inputs, stopgrad_k=stopgrad_k)[-1]
+
+                diff = (out_cond - out_uncond).norm(dim=-1).mean().item()
+                print(f"[CFG t={t_ind}] cfg_scale={cfg_scale}  |out_cond - out_uncond|={diff:.4f}", flush=True)
+
+                # CFG combination: v_cfg = v_uncond + scale * (v_cond - v_uncond)
+                out = out_uncond + cfg_scale * (out_cond - out_uncond)
 
             pos = self.position_scheduler.step(out[..., :3], t_ind, trajectory[..., :3]).prev_sample
             rot = self.rotation_scheduler.step(out[..., 3:-1], t_ind, trajectory[..., 3:]).prev_sample
@@ -210,7 +205,20 @@ class DenoiseActor(nn.Module):
     def compute_trajectory_cfg(self, trajectory_mask,
                                rgb3d, rgb2d, pcd, instruction, proprio,
                                cfg_scale=2.0, stopgrad_k=0):
-        fixed_inputs = self.encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=stopgrad_k)
+                               
+        uncond_fixed_inputs = self.encode_inputs(rgb3d, rgb2d, pcd, None, proprio, stopgrad_k=stopgrad_k)
+
+        if cfg_scale == 0:
+            cond_fixed_inputs = uncond_fixed_inputs  # cond pass is skipped in the loop
+        else:
+            cond_fixed_inputs = self.encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=stopgrad_k)
+
+            # Verify cond and uncond scene features actually differ (catches any lang leak)
+            fps_diff   = (cond_fixed_inputs[8] - uncond_fixed_inputs[8]).norm(dim=-1).mean().item()
+            instr_diff = (cond_fixed_inputs[5] - uncond_fixed_inputs[5]).norm(dim=-1).mean().item()
+            print(f"[CFG encode] cfg_scale={cfg_scale}  "
+                  f"|cond_fps - uncond_fps|={fps_diff:.4f}  "
+                  f"|cond_instr - uncond_instr|={instr_diff:.4f}", flush=True)
 
         out_dim = 6 if self._rotation_format == 'euler' else 9
         trajectory = torch.randn(
@@ -220,7 +228,8 @@ class DenoiseActor(nn.Module):
         trajectory = self.conditional_sample_cfg(
             trajectory,
             device=trajectory_mask.device,
-            fixed_inputs=fixed_inputs,
+            cond_fixed_inputs=cond_fixed_inputs,
+            uncond_fixed_inputs=uncond_fixed_inputs,
             cfg_scale=cfg_scale,
             stopgrad_k=stopgrad_k
         )

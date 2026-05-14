@@ -155,6 +155,27 @@ def _load_orbital_task_group_noise(level):
     return cameras, task_group_keys, noise
 
 
+def _load_orbital_group_level_noise():
+    """Load per-(group, level) flat noise from the per_group_levels section.
+
+    Returns (cameras, group_level_keys, noise) where group_level_keys are strings
+    like "G1_small" and noise[key] is {cam_name: {R_noise, t_noise}}.
+    """
+    noise_path = Path(__file__).resolve().parents[2] / "instructions/orbital_miscalibration_noise.json"
+    with open(noise_path) as f:
+        data = json.load(f)
+
+    if "per_group_levels" not in data:
+        raise ValueError(
+            f"No 'per_group_levels' section found in {noise_path}. "
+            "Re-run scripts/generate_orbital_miscal_noise.py --overwrite to add it."
+        )
+    cameras          = data["cameras"]
+    group_level_keys = data["group_level_keys"]
+    noise = _parse_noise_entries(cameras, group_level_keys, data["per_group_levels"], noise_path, "per_group_levels")
+    return cameras, group_level_keys, noise
+
+
 def _load_miscalibration_noise(level):
     """Load precomputed extrinsics noise from instructions/miscalibration_noise.json.
 

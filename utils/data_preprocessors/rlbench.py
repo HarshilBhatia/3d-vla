@@ -8,6 +8,7 @@ from torch.nn import functional as F
 from .base import DataPreprocessor
 from .miscalibration import (
     _load_orbital_group_noise,
+    _load_orbital_group_level_noise,
     _load_orbital_task_group_noise,
     noise_RT_from_dict,
     apply_miscalibration,
@@ -22,6 +23,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                  miscal_max_angle_deg=None, miscal_max_translation_m=None,
                  orbital_miscal_noise_level=None,
                  orbital_miscal_noise_level_per_task_group=None,
+                 orbital_miscal_noise_levels=None,
                  **kwargs):
         super().__init__(
             keypose_only=keypose_only,
@@ -29,9 +31,15 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             custom_imsize=custom_imsize,
             depth2cloud=depth2cloud
         )
-        if orbital_miscal_noise_level is not None and orbital_miscal_noise_level_per_task_group is not None:
+        active = sum([
+            orbital_miscal_noise_level is not None,
+            orbital_miscal_noise_level_per_task_group is not None,
+            bool(orbital_miscal_noise_levels),
+        ])
+        if active > 1:
             raise ValueError(
-                "orbital_miscal_noise_level and orbital_miscal_noise_level_per_task_group are mutually exclusive; set only one."
+                "orbital_miscal_noise_level, orbital_miscal_noise_level_per_task_group, and "
+                "orbital_miscal_noise_levels are mutually exclusive; set only one."
             )
         self.rotate_pcd = rotate_pcd
         self.rotate_angle_deg = rotate_angle_deg
@@ -40,14 +48,19 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         self.miscal_max_translation_m = miscal_max_translation_m or 0.0
         self._orbital_miscal_noise_level = orbital_miscal_noise_level
         self._orbital_miscal_noise_level_per_task_group = orbital_miscal_noise_level_per_task_group
-        self._group_noise_table      = None  # (K_groups,           ncam, 4, 4) CPU float32, lazy-init
-        self._task_group_noise_table = None  # (K_tasks * K_groups, ncam, 4, 4) CPU float32, lazy-init
-        self._task_group_key_to_row  = None  # {"task_G1": int}
+        self._orbital_miscal_noise_levels = list(orbital_miscal_noise_levels) if orbital_miscal_noise_levels else None
+        self._group_noise_table        = None  # (K_groups,            ncam, 4, 4) CPU float32, lazy-init
+        self._group_level_noise_table  = None  # (K_group_levels,      ncam, 4, 4) CPU float32, lazy-init
+        self._group_level_key_to_row   = None  # {"G1_small": int, ...}
+        self._task_group_noise_table   = None  # (K_tasks * K_groups,  ncam, 4, 4) CPU float32, lazy-init
+        self._task_group_key_to_row    = None  # {"task_G1": int}
         self._miscal_logged = False
         if orbital_miscal_noise_level is not None:
             print(f"[miscal] per-group FILE: level='{orbital_miscal_noise_level}'", flush=True)
         elif orbital_miscal_noise_level_per_task_group is not None:
             print(f"[miscal] per-task-group FILE: level='{orbital_miscal_noise_level_per_task_group}'", flush=True)
+        elif self._orbital_miscal_noise_levels:
+            print(f"[miscal] per-group MULTI-LEVEL (random): levels={self._orbital_miscal_noise_levels}", flush=True)
         elif self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
             print(f"[miscal] random ENABLED: max_angle={self.miscal_max_angle_deg}deg, max_translation={self.miscal_max_translation_m}m", flush=True)
         else:
@@ -84,6 +97,26 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         self._group_noise_table = table
         print(f"[miscal] loaded from file: level='{self._orbital_miscal_noise_level}', K={K}, ncam={ncam}", flush=True)
 
+    def _ensure_group_level_noise_table(self, ncam):
+        """Lazily load (K_group_levels, ncam, 4, 4) noise table from per_group_levels JSON section.
+
+        Keys are like 'G1_small', 'G1_medium', 'G1_large', 'G2_small', ...
+        During forward, one level per batch sample is drawn uniformly at random from
+        _orbital_miscal_noise_levels and the key G{group}_{level} is used for lookup.
+        """
+        if self._group_level_noise_table is not None and self._group_level_noise_table.shape[1] == ncam:
+            return
+        file_cameras, group_level_keys, noise = _load_orbital_group_level_noise()
+        K = len(group_level_keys)
+        table = torch.eye(4).view(1, 1, 4, 4).expand(K, ncam, 4, 4).clone()
+        for k, key in enumerate(group_level_keys):
+            R, t = noise_RT_from_dict(noise[key], file_cameras[:ncam])
+            table[k, :, :3, :3] = R
+            table[k, :, :3,  3] = t
+        self._group_level_noise_table = table
+        self._group_level_key_to_row  = {k: i for i, k in enumerate(group_level_keys)}
+        print(f"[miscal] per-group-level loaded: K={K}, ncam={ncam}", flush=True)
+
     def _ensure_task_group_noise_table(self, ncam):
         """Lazily load the (K_task_groups, ncam, 4, 4) noise table for per-(task, group) miscal."""
         if self._task_group_noise_table is not None and self._task_group_noise_table.shape[1] == ncam:
@@ -105,6 +138,13 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             self._ensure_group_noise_table(ncam)
             idx = camera_group.long() - 1  # (B,) 0-based
             return self._group_noise_table[idx].to(device=device, dtype=dtype)  # (B, ncam, 4, 4)
+        if self._orbital_miscal_noise_levels is not None and camera_group is not None:
+            self._ensure_group_level_noise_table(ncam)
+            levels = self._orbital_miscal_noise_levels
+            rand_levels = [levels[i] for i in torch.randint(0, len(levels), (B,)).tolist()]
+            keys = [f"G{int(g)}_{l}" for g, l in zip(camera_group.tolist(), rand_levels)]
+            idx = torch.tensor([self._group_level_key_to_row[k] for k in keys], dtype=torch.long)
+            return self._group_level_noise_table[idx].to(device=device, dtype=dtype)
         if self._orbital_miscal_noise_level_per_task_group is not None:
             if task is None or camera_group is None:
                 return None

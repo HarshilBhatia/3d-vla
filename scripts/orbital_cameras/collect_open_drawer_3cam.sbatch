@@ -28,7 +28,7 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=16G
 #SBATCH --time=06:00:00
-#SBATCH --array=0-2
+#SBATCH --array=0-3
 #SBATCH --output=logs/collect_open_drawer_3cam_%A_%a.out
 #SBATCH --error=logs/collect_open_drawer_3cam_%A_%a.err
 
@@ -39,8 +39,8 @@ ulimit -c 0
 # TASKS=(   turn_tap  turn_tap  turn_tap turn_tap)
 # MY_GROUPS=( G1           G2           G3  G4)
 
-TASKS=(stack_cups stack_cups stack_cups)
-MY_GROUPS=( G1 G2 G4)
+TASKS=(stack_cups stack_cups stack_cups stack_cups)
+MY_GROUPS=( G1 G2 G3 G4)
 
 IDX="${SLURM_ARRAY_TASK_ID}"
 TASK="${TASKS[$IDX]}"

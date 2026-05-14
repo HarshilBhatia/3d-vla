@@ -58,8 +58,8 @@ export XDG_RUNTIME_DIR=/run/user/27491
 # python scripts/helpers/vis_low_dim_obs.py /grogu/user/harshilb/orbital_rollouts_mini/open_drawer/G1/episode_0/
 
 python data/processing/convert_to_zarr/orbital_to_zarr.py \
-    --root /grogu/user/harshilb/orbital_rollouts_mini --groups G1 \
-    --out /grogu/user/harshilb/open_drawer/single/train.zarr --overwrite
+    --root /grogu/user/harshilb/multi_cam_val \
+    --out /grogu/user/harshilb/multi_cam/val.zarr --overwrite
 
 
 

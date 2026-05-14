@@ -93,16 +93,21 @@ def _sample_entries(rng, keys, cameras, cfg):
 
 
 def generate(seed, cameras, groups, tasks, levels):
-    rng_group      = np.random.default_rng(seed)
-    rng_task_group = np.random.default_rng(seed + 2000)
+    rng_group       = np.random.default_rng(seed)
+    rng_task_group  = np.random.default_rng(seed + 2000)
+    rng_group_level = np.random.default_rng(seed + 1000)
     task_group_keys = [f"{task}_{group}" for task in tasks for group in groups]
+    # Keys like G1_small, G2_small, ..., G6_small, G1_medium, ..., G6_large
+    group_level_keys = [f"{group}_{level_name}" for level_name in levels for group in groups]
     out = {
         "cameras": cameras,
         "groups": groups,
         "tasks": tasks,
         "task_group_keys": task_group_keys,
+        "group_level_keys": group_level_keys,
         "levels": {},
         "per_task_group_levels": {},
+        "per_group_levels": {},
     }
 
     for level_name, cfg in levels.items():
@@ -114,16 +119,21 @@ def generate(seed, cameras, groups, tasks, levels):
             "_comment": cfg["_comment"] + " (per-task-group variant: one noise per (task, group) pair)",
             **_sample_entries(rng_task_group, task_group_keys, cameras, cfg),
         }
+        level_keys_for_this_level = [f"{group}_{level_name}" for group in groups]
+        out["per_group_levels"].update(
+            _sample_entries(rng_group_level, level_keys_for_this_level, cameras, cfg)
+        )
 
     return out
 
 
 def _print_summary(data):
-    sections = [
+    # Nested sections: {level: {key: {cam: ...}}}
+    nested_sections = [
         ("levels", data["groups"]),
-        ("per_task_group_levels", data["task_group_keys"][:6]),  # first 6 to keep output short
+        ("per_task_group_levels", data["task_group_keys"][:6]),
     ]
-    for section, key_list in sections:
+    for section, key_list in nested_sections:
         print(f"\n  [{section}] (showing first {len(key_list)} keys)")
         for level, ldata in data[section].items():
             print(f"  {level}:")
@@ -136,6 +146,18 @@ def _print_summary(data):
                     angle_deg = np.degrees(np.linalg.norm(aa))
                     t_norm = np.linalg.norm(cdata["translation_m"]) * 100  # cm
                     print(f"    {key}/{cam}: angle={angle_deg:.2f} deg, |t|={t_norm:.1f} cm")
+
+    # Flat section: {group_level_key: {cam: ...}}
+    print(f"\n  [per_group_levels] ({len(data['group_level_keys'])} keys)")
+    flat = data["per_group_levels"]
+    for key in data["group_level_keys"]:
+        if key not in flat:
+            continue
+        for cam, cdata in flat[key].items():
+            aa = cdata["axis_angle_rad"]
+            angle_deg = np.degrees(np.linalg.norm(aa))
+            t_norm = np.linalg.norm(cdata["translation_m"]) * 100
+            print(f"    {key}/{cam}: angle={angle_deg:.2f} deg, |t|={t_norm:.1f} cm")
 
 
 def parse_args():

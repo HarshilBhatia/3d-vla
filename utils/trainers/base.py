@@ -72,6 +72,7 @@ class BaseTrainTester:
             miscal_max_translation_m=getattr(self.args, 'miscal_max_translation_m', None),
             orbital_miscal_noise_level=getattr(self.args, 'orbital_miscal_noise_level', None),
             orbital_miscal_noise_level_per_task_group=getattr(self.args, 'orbital_miscal_noise_level_per_task_group', None),
+            orbital_miscal_noise_levels=getattr(self.args, 'orbital_miscal_noise_levels', None),
         )
 
         gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else ""

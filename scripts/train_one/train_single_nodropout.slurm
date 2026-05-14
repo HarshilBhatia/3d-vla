@@ -5,10 +5,10 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=50
-#SBATCH --gres=gpu:2
+#SBATCH --gres=gpu:4
 #SBATCH --mem=96G
-#SBATCH --time=24:00:00
-#SBATCH --partition=all
+#SBATCH --time=12:00:00
+#SBATCH --partition=shubhamlong
 #SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-[6,9,14],grogu-3-25,grogu-2-22
 
 

@@ -6,4 +6,3 @@
 predict_extrinsics: false
 
 traj_scene_rope: false
-train_iters: 350000

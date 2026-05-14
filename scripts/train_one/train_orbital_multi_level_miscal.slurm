@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=orbital_mini_miscal
+#SBATCH --job-name=orb_ml_miscal
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
@@ -8,7 +8,7 @@
 #SBATCH --gres=gpu:4
 #SBATCH --mem=96G
 #SBATCH --time=24:00:00
-#SBATCH --partition=all
+#SBATCH --partition=shubhamlong
 #SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-14,grogu-3-25
 
 echo "Job started at: $(date)"
@@ -25,11 +25,11 @@ ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 data=orbital
 main_dir=Orbital
 experiment=default
-run_log_dir=mis_final
-data_dir='/grogu/user/harshilb/orbital_rollouts/4task_final.zarr'
-
-
+run_log_dir=multi_level_miscal
 train_iters=160000
+
+train_data_dir=TODO
+eval_data_dir=TODO
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
@@ -40,6 +40,7 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     exp_log_dir=$main_dir \
     run_log_dir=$run_log_dir \
     train_iters=$train_iters \
-    train_data_dir=$data_dir \
-    eval_data_dir=$data_dir \
-    checkpoint=$checkpoint 
+    train_data_dir=$train_data_dir \
+    eval_data_dir=$eval_data_dir \
+    checkpoint=$checkpoint \
+    "orbital_miscal_noise_levels=[medium]"

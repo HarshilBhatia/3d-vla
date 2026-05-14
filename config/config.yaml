@@ -151,6 +151,9 @@ orbital_miscal_noise_level: null
 # per-(task, group) constant miscalibration: one fixed noise per (task, camera_group) pair.
 # Mutually exclusive with the other orbital_miscal_noise_level options. null | "small" | "medium" | "large"
 orbital_miscal_noise_level_per_task_group: null
+# per-group multi-level miscalibration: randomly draw one level per batch sample from the list.
+# Mutually exclusive with the other orbital_miscal options. null | [small, medium, large]
+orbital_miscal_noise_levels: null
 # eval_use_depth2cloud: route peract online eval through depth+extrinsics→PCD (consistent with training).
 # Required for miscalibration eval; also set true for clean train/eval alignment.
 eval_use_depth2cloud: false

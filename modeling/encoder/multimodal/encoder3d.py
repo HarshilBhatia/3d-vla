@@ -122,10 +122,14 @@ class Encoder(BaseEncoder):
             - pcd: (B, Np, 3) or (B, nhist, Np, 3)
             - instr_feats: (B, L, F)
         """
-        # Encode language
-        instruction = self.text_encoder(text)
-        instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
-        instr_feats = self.maybe_drop_lang(instr_feats)
+        # Encode language (text=None uses learned null token for unconditional CFG pass)
+        if text is None:
+            B = rgb3d.shape[0]
+            instr_feats = self.lang_mask_token.expand(B, 1, -1)
+        else:
+            instruction = self.text_encoder(text)
+            instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
+            instr_feats = self.maybe_drop_lang(instr_feats)
 
         has_hist = rgb3d.ndim == 6
         if has_hist:
@@ -176,10 +180,14 @@ class Encoder(BaseEncoder):
         Compute visual features/pos embeddings using SigLIP2.
         Supports rgb3d of shape (B, ncam3d, 3, H, W) or (B, nhist, ncam3d, 3, H, W).
         """
-        # Encode language
-        instruction = self.text_encoder(text)
-        instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
-        instr_feats = self.maybe_drop_lang(instr_feats)
+        # Encode language (text=None uses learned null token for unconditional CFG pass)
+        if text is None:
+            B = rgb3d.shape[0]
+            instr_feats = self.lang_mask_token.expand(B, 1, -1)
+        else:
+            instruction = self.text_encoder(text)
+            instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
+            instr_feats = self.maybe_drop_lang(instr_feats)
 
         has_hist = rgb3d.ndim == 6
         if has_hist:
@@ -229,10 +237,14 @@ class Encoder(BaseEncoder):
         Compute visual features/pos embeddings using DINOv2 + CLIP text.
         Supports rgb3d of shape (B, ncam3d, 3, H, W) or (B, nhist, ncam3d, 3, H, W).
         """
-        # Encode language
-        instruction = self.text_encoder(text)
-        instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
-        instr_feats = self.maybe_drop_lang(instr_feats)
+        # Encode language (text=None uses learned null token for unconditional CFG pass)
+        if text is None:
+            B = rgb3d.shape[0]
+            instr_feats = self.lang_mask_token.expand(B, 1, -1)
+        else:
+            instruction = self.text_encoder(text)
+            instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
+            instr_feats = self.maybe_drop_lang(instr_feats)
 
         has_hist = rgb3d.ndim == 6
         if has_hist:

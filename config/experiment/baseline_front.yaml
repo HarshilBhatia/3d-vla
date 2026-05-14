@@ -1,8 +1,0 @@
-# Default experiment: no overrides. Use as base; override run_log_dir etc. from CLI or script.
-# Run: python main.py experiment=default
-
-
-predict_extrinsics: false
-
-traj_scene_rope: false
-train_iters: 60000
