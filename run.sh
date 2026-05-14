@@ -55,13 +55,19 @@ export XDG_RUNTIME_DIR=/run/user/27491
 # print(dir(obs))                                                                                                                            
 # "
 
-python scripts/helpers/vis_low_dim_obs.py /grogu/user/harshilb/orbital_rollouts_mini/open_drawer/G1/episode_0/
+# python scripts/helpers/vis_low_dim_obs.py /grogu/user/harshilb/orbital_rollouts_mini/open_drawer/G1/episode_0/
 
-# python data/processing/convert_to_zarr/orbital_to_zarr.py \
-#     --root /grogu/user/harshilb/open_drawer_multi_cam/ \
-#     --out /grogu/user/harshilb/open_drawer_multi_cam/train --overwrite 
+python data/processing/convert_to_zarr/orbital_to_zarr.py \
+    --root /grogu/user/harshilb/orbital_rollouts_mini --groups G1 \
+    --out /grogu/user/harshilb/open_drawer/single/train.zarr --overwrite
 
 
+
+# xvfb-run -a python scripts/orbital_cameras/collect_low_dim_only.py \
+#     --tasks inset_onto_squ \
+#     --n-episodes 30 \
+#     --save-path data/orbital_low_dim
+    
 # python data/processing/convert_to_zarr/peract_to_zarr.py \
     # --root /grogu/user/harshilb/peract_rollouts_mini/ \
     # --tgt /grogu/user/harshilb/peract_mini.zarr --overwrite

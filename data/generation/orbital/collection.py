@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 from scipy.spatial.transform import Rotation as ScipyR
 
-from data.generation.orbital.constants import NCAM, NHAND, num2id
+from data.generation.orbital.constants import NCAM, NHAND, num2id, PERACT_PROFILE
 
 
 # ---------------------------------------------------------------------------
@@ -83,8 +83,8 @@ def capture_orbital_extrinsics(left_sensor, right_sensor):
 # ObservationConfig factory
 # ---------------------------------------------------------------------------
 
-def make_obs_config(image_size):
-    """ObservationConfig enabling wrist camera + extrinsics/intrinsics."""
+def make_obs_config(image_size, profile=PERACT_PROFILE):
+    """ObservationConfig enabling wrist camera(s) + extrinsics/intrinsics."""
     from pyrep.const import RenderMode
     from rlbench.observation_config import ObservationConfig, CameraConfig
 
@@ -94,18 +94,32 @@ def make_obs_config(image_size):
         image_size=sz, render_mode=RenderMode.OPENGL3,
         depth_in_meters=False,
     )
-    # Don't disable unused cameras — _set_camera_properties() calls .remove()
-    # on any camera with all channels off, permanently deleting it from the scene.
-    obs_config = ObservationConfig(
-        wrist_camera=on,
-        joint_velocities=True,
-        joint_positions=True,
-        joint_forces=False,
-        gripper_open=True,
-        gripper_pose=True,
-        gripper_joint_positions=False,
-        task_low_dim_state=False,
-    )
+
+    if profile.bimanual:
+        # PerAct2 uses dict-based camera_configs API.
+        obs_config = ObservationConfig(
+            camera_configs={cam: on for cam in profile.wrist_cameras},
+            joint_velocities=True,
+            joint_positions=True,
+            joint_forces=False,
+            gripper_open=True,
+            gripper_pose=True,
+            gripper_joint_positions=False,
+            task_low_dim_state=False,
+        )
+    else:
+        # Don't disable unused cameras — _set_camera_properties() calls .remove()
+        # on any camera with all channels off, permanently deleting it from the scene.
+        obs_config = ObservationConfig(
+            wrist_camera=on,
+            joint_velocities=True,
+            joint_positions=True,
+            joint_forces=False,
+            gripper_open=True,
+            gripper_pose=True,
+            gripper_joint_positions=False,
+            task_low_dim_state=False,
+        )
     return obs_config
 
 
@@ -146,19 +160,20 @@ _UNUSED_OBS_ATTRS = [
     "mesh_points",
 ]
 
-_WRIST_MISC_KEYS = {
-    "wrist_camera_near", "wrist_camera_far",
-    "wrist_camera_extrinsics", "wrist_camera_intrinsics",
-}
+def _wrist_misc_keys(wrist_cameras):
+    """Build the set of misc keys to keep for the given wrist camera names."""
+    suffixes = ("near", "far", "extrinsics", "intrinsics")
+    return {f"{cam}_camera_{s}" for cam in wrist_cameras for s in suffixes}
 
 
-def _strip_obs(obs):
+def _strip_obs(obs, profile=PERACT_PROFILE):
     """Null out obs fields not needed by the zarr converter, in-place."""
     for attr in _UNUSED_OBS_ATTRS:
         if hasattr(obs, attr):
             setattr(obs, attr, None)
     if hasattr(obs, "misc") and isinstance(obs.misc, dict):
-        obs.misc = {k: v for k, v in obs.misc.items() if k in _WRIST_MISC_KEYS}
+        keep = _wrist_misc_keys(profile.wrist_cameras)
+        obs.misc = {k: v for k, v in obs.misc.items() if k in keep}
 
 
 def make_obs_config_low_dim():
@@ -204,28 +219,26 @@ def save_low_dim_episode(demo, ep_path, variation):
         f.write("{}\n".format(variation))
 
 
-def save_orbital_episode(demo, ep_path, group, orbital_extrinsics):
+def save_orbital_episode(demo, ep_path, group, orbital_extrinsics, profile=PERACT_PROFILE):
     """
     Save a single orbital demo to ep_path/:
-      orbital_left_rgb/      orbital_left_depth/
-      orbital_right_rgb/     orbital_right_depth/
-      wrist_rgb/             wrist_depth/
-      low_dim_obs.pkl
-      camera_group.txt
-      orbital_extrinsics.pkl
+      orbital_left_rgb/       orbital_right_rgb/
+      {wrist_cam}_rgb/ ...    (one folder per profile.wrist_cameras)
+      low_dim_obs.pkl         camera_group.txt    orbital_extrinsics.pkl
     """
     os.makedirs(ep_path, exist_ok=True)
 
+    wrist_rgbs = [(f"{cam}_rgb", f"{cam}_rgb") for cam in profile.wrist_cameras]
     cam_attrs = [
         ("orbital_left_rgb",  "orbital_left_rgb"),
         ("orbital_right_rgb", "orbital_right_rgb"),
-        ("wrist_rgb",         "wrist_rgb"),
-    ]
+    ] + wrist_rgbs
 
     for attr, folder_name in cam_attrs:
         folder = os.path.join(ep_path, folder_name)
         os.makedirs(folder, exist_ok=True)
         for i, obs in enumerate(demo):
+            # Support both old (direct attr) and new (perception_data dict) obs APIs.
             data = getattr(obs, attr, None)
             if data is None:
                 data = obs.perception_data.get(attr)
@@ -243,7 +256,7 @@ def save_orbital_episode(demo, ep_path, group, orbital_extrinsics):
         pickle.dump(orbital_extrinsics, f)
 
     for obs in demo:
-        _strip_obs(obs)
+        _strip_obs(obs, profile)
     with open(os.path.join(ep_path, "low_dim_obs.pkl"), "wb") as f:
         pickle.dump(demo, f)
 
@@ -252,21 +265,20 @@ def save_orbital_episode(demo, ep_path, group, orbital_extrinsics):
 # Debug video / zarr (--video-only mode)
 # ---------------------------------------------------------------------------
 
-def save_debug_video(demo, video_out, image_size):
-    """Render all frames as a 3-panel side-by-side MP4."""
+def save_debug_video(demo, video_out, image_size, profile=PERACT_PROFILE):
+    """Render all frames as a side-by-side MP4 (one panel per camera)."""
     try:
         import imageio
     except ImportError:
         print("[WARN] imageio not found; skipping video save.")
         return
 
+    cam_names = ["orbital_left_rgb", "orbital_right_rgb"] + [
+        f"{c}_rgb" for c in profile.wrist_cameras
+    ]
     frames = []
     for obs in demo:
-        panels = [
-            _get_rgb(obs, "orbital_left_rgb"),
-            _get_rgb(obs, "orbital_right_rgb"),
-            _get_rgb(obs, "wrist_rgb"),
-        ]
+        panels = [_get_rgb(obs, c) for c in cam_names]
         frames.append(np.concatenate(panels, axis=1))
 
     out_dir = os.path.dirname(os.path.abspath(video_out))

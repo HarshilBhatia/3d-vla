@@ -35,11 +35,11 @@ from data.generation.orbital.collection import (
     make_obs_config,
 )
 from data.generation.orbital.scene import OrbitalEnvironment
-try:
-    from utils.data_preprocessors.rlbench import _load_miscalibration_noise
-except ImportError:
-    _load_miscalibration_noise = None
-from utils.depth2cloud.rlbench import RLBenchDepth2Cloud
+from utils.data_preprocessors.miscalibration import (
+    setup_miscalibration,
+    per_cam_noise_T,
+    apply_miscalibration,
+)
 
 from rlbench.action_modes.action_mode import MoveArmThenGripper
 from rlbench.action_modes.gripper_action_modes import Discrete
@@ -157,6 +157,7 @@ class RLBenchEnv:
         task_group_mapping_file=None,
         fov_deg=60.0,
         miscalibration_noise_level=None,
+        orbital_miscal_noise_level_per_task_group=None,
         camera_groups=None,
         spawn_camera_group=None,
     ):
@@ -175,23 +176,23 @@ class RLBenchEnv:
             raise ValueError("task_group_mapping_file must be provided for orbital eval")
         self._task_group_mapping_file = task_group_mapping_file
 
-        # Miscalibration noise (optional)
-        self._miscal_cameras = None
-        self._miscal_noise = None
-        if miscalibration_noise_level is not None:
-            if _load_miscalibration_noise is None:
-                raise ImportError("_load_miscalibration_noise is not available; cannot use miscalibration_noise_level")
-            self._miscal_cameras, self._miscal_noise = _load_miscalibration_noise(
-                miscalibration_noise_level
-            )
-            print(
-                f"[orbital eval] Miscalibration noise: level='{miscalibration_noise_level}', "
-                f"cameras={self._miscal_cameras}"
-            )
-
-        # Depth → point cloud converter (same as training)
+        # Miscalibration noise + depth2cloud module
+        ctx = setup_miscalibration(
+            level=miscalibration_noise_level,
+            level_per_task_group=orbital_miscal_noise_level_per_task_group,
+            image_size=image_size,
+            build_depth2cloud=True,
+            log_prefix="[orbital eval]",
+        )
+        self._miscal_cameras       = ctx.cameras
+        self._miscal_noise         = ctx.per_cam_noise              # may be reassigned in the group loop
+        self._per_task_group_noise = ctx.per_task_group_noise       # {task_group_key: {cam_name: {...}}}
+        self._depth2cloud          = ctx.depth2cloud
+        self._miscal_T = (
+            per_cam_noise_T(self._miscal_noise, self._miscal_cameras, len(self.apply_cameras))
+            if self._miscal_noise is not None else None
+        )
         h, w = image_size if isinstance(image_size, (tuple, list)) else (image_size, image_size)
-        self._depth2cloud = RLBenchDepth2Cloud((h, w))
         self._image_h = h
 
         # Build OrbitalEnvironment (wrist camera via ObservationConfig; orbital via VisionSensors)
@@ -267,17 +268,6 @@ class RLBenchEnv:
     # Observation processing
     # ------------------------------------------------------------------
 
-    def _apply_miscalibration(self, extrinsics):
-        """Perturb extrinsics by index, matching training convention."""
-        ext = extrinsics.clone().float()
-        for cam_idx, cam_name in enumerate(self._miscal_cameras):
-            if cam_name not in self._miscal_noise:
-                continue
-            R_noise = self._miscal_noise[cam_name]["R_noise"].to(ext.device)
-            t_noise = self._miscal_noise[cam_name]["t_noise"].to(ext.device)
-            ext[:, cam_idx, :3, :3] = R_noise @ ext[:, cam_idx, :3, :3]
-            ext[:, cam_idx, :3, 3] += t_noise
-        return ext.to(extrinsics.dtype)
 
     def _extract_video_frame(self, obs):
         wrist = self._get_wrist_attr(obs, "wrist_rgb")
@@ -344,8 +334,8 @@ class RLBenchEnv:
         intrinsics = torch.stack([K_left, K_right, K_wrist]).unsqueeze(0)  # (1, 3, 3, 3)
 
         # --- Miscalibration ---
-        if self._miscal_noise is not None:
-            extrinsics = self._apply_miscalibration(extrinsics)
+        if self._miscal_T is not None:
+            extrinsics = apply_miscalibration(extrinsics, self._miscal_T)
 
         # --- Depth → point cloud ---
         pcd = self._depth2cloud(
@@ -478,6 +468,16 @@ class RLBenchEnv:
             if cam_group != group:
                 print(f"[orbital eval] using camera geometry from {cam_group} (spawn_camera_group override)", flush=True)
             self._spawn_sensors(cam_group)
+            if self._per_task_group_noise is not None:
+                key = f"{task_str}_{cam_group}"
+                self._miscal_noise = self._per_task_group_noise.get(key)
+                if self._miscal_noise is None:
+                    print(f"[orbital eval] WARNING: no per-task-group noise for key '{key}', skipping miscalibration for this group", flush=True)
+                    self._miscal_T = None
+                else:
+                    self._miscal_T = per_cam_noise_T(
+                        self._miscal_noise, self._miscal_cameras, len(self.apply_cameras)
+                    )
 
             if use_orbital_rollout:
                 try:

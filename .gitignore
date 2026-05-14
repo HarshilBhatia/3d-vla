@@ -53,3 +53,4 @@ logs/
 wandb/
 
 *.rrd
+results/

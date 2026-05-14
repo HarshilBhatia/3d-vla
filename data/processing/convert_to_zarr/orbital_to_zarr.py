@@ -43,8 +43,6 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../.."))
 from data.processing.rlbench_utils import PERACT_TASKS
 from data.processing.orbital_utils import process_episode
 
-NCAM   = 3
-NHAND  = 1
 IM_SIZE = 256
 
 
@@ -62,21 +60,33 @@ def parse_args():
                    help="Output zarr path (e.g. data/orbital_train.zarr)")
     p.add_argument("--image-size", type=int, default=IM_SIZE)
     p.add_argument("--tasks",      default=None,
-                   help="Comma-separated task list (default: all 18 PerAct)")
+                   help="Comma-separated task list (default: profile task list)")
     p.add_argument("--groups",     default=None,
                    help="Comma-separated camera groups to include (e.g. G2,G3). Default: all groups present.")
     p.add_argument("--overwrite",  action="store_true",
                    help="Remove existing zarr and rebuild")
+    p.add_argument("--bimanual",   action="store_true",
+                   help="Use PerAct2 (dual_panda) profile instead of PerAct (panda)")
+    p.add_argument("--store-trajectory", action="store_true",
+                   help="Store dense interpolated trajectory instead of next keypose only")
+    p.add_argument("--interp-len", type=int, default=50,
+                   help="Number of interpolated steps per keypose segment (default: 50)")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
 
-    tasks = PERACT_TASKS
+    from data.generation.orbital.constants import PERACT_PROFILE, PERACT2_PROFILE
+    profile = PERACT2_PROFILE if args.bimanual else PERACT_PROFILE
+
+    ncam  = 2 + len(profile.wrist_cameras)  # orbital_left + orbital_right + wrist cam(s)
+    nhand = profile.nhand
+
+    tasks = profile.task_list
     if args.tasks:
         tasks = [t.strip() for t in args.tasks.split(",")]
-    task2id = {t: i for i, t in enumerate(PERACT_TASKS)}
+    task2id = {t: i for i, t in enumerate(profile.task_list)}
     allowed_groups = None
     if args.groups:
         allowed_groups = set(g.strip() for g in args.groups.split(","))
@@ -103,14 +113,15 @@ def main():
                 compressor=compressor, dtype=dtype,
             )
 
-        _create("rgb",                   (NCAM, 3, im, im), "uint8")
-        _create("depth",                 (NCAM, im, im),    "float16")
-        _create("extrinsics",            (NCAM, 4, 4),      "float16")
-        _create("intrinsics",            (NCAM, 3, 3),      "float16")
-        _create("proprioception",        (3, NHAND, 8),     "float32")
-        _create("action",                (1, NHAND, 8),     "float32")
-        _create("proprioception_joints", (1, NHAND, 8),     "float32")
-        _create("action_joints",         (1, NHAND, 8),     "float32")
+        _create("rgb",                   (ncam, 3, im, im), "uint8")
+        _create("depth",                 (ncam, im, im),    "float16")
+        _create("extrinsics",            (ncam, 4, 4),      "float16")
+        _create("intrinsics",            (ncam, 3, 3),      "float16")
+        _create("proprioception",        (3, nhand, 8),     "float32")
+        action_len = args.interp_len if args.store_trajectory else 1
+        _create("action",                (action_len, nhand, 8), "float32")
+        _create("proprioception_joints", (1, nhand, 8),     "float32")
+        _create("action_joints",         (1, nhand, 8),     "float32")
         _create("task_id",               (),                "uint8")
         _create("variation",             (),                "uint8")
         _create("camera_group",          (),                "uint8")
@@ -143,13 +154,15 @@ def main():
                 for ep in tqdm(episodes, desc="{}/{}".format(task, group_str)):
                     ep_path = os.path.join(group_root, ep)
                     try:
-                        n = process_episode(ep_path, tid, group_str, zf, im, demo_id=n_episodes)
+                        n = process_episode(ep_path, tid, group_str, zf, im, demo_id=n_episodes, profile=profile,
+                                            store_trajectory=args.store_trajectory, interp_len=args.interp_len)
                         total += n
                         n_episodes += 1
                     except Exception as e:
                         print("[WARN] Skipping {}: {}".format(ep_path, e))
 
-        print("\n[DONE] Wrote {} keyframe rows to {}".format(total, args.out))
+        mode_str = "dense (interp_len={})".format(args.interp_len) if args.store_trajectory else "sparse (keypose-only)"
+        print("\n[DONE] Wrote {} keyframe rows ({}) to {}".format(total, mode_str, args.out))
         for key in zf.keys():
             print("  {}: {}".format(key, zf[key].shape))
 

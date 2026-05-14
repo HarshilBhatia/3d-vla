@@ -22,14 +22,11 @@ from pyrep.const import RenderMode
 from modeling.encoder.text import fetch_tokenizers
 from online_evaluation_rlbench.get_stored_demos import get_stored_demos
 
-try:
-    from utils.data_preprocessors.rlbench import _load_miscalibration_noise
-except ImportError:
-    _load_miscalibration_noise = None
-try:
-    from utils.depth2cloud.rlbench import RLBenchDepth2Cloud
-except ImportError:
-    RLBenchDepth2Cloud = None
+from utils.data_preprocessors.miscalibration import (
+    setup_miscalibration,
+    per_cam_noise_T,
+    build_pcd_from_obs,
+)
 
 
 def task_file_to_task_class(task_file):
@@ -179,42 +176,20 @@ class RLBenchEnv:
             headless=headless, robot_setup="dual_panda"
         )
 
-        # Miscalibration noise (optional)
-        self._miscal_cameras = None
-        self._miscal_noise = None
-        if miscalibration_noise_level is not None:
-            if _load_miscalibration_noise is None:
-                raise ImportError("_load_miscalibration_noise unavailable; cannot use miscalibration_noise_level")
-            self._miscal_cameras, self._miscal_noise = _load_miscalibration_noise(miscalibration_noise_level)
-            print(
-                f"[bimanual eval] Miscalibration: level='{miscalibration_noise_level}', "
-                f"cameras={self._miscal_cameras}"
-            )
-
-        # Depth2cloud module (needed for miscal or explicit use_depth2cloud)
-        if self._use_depth2cloud:
-            if RLBenchDepth2Cloud is None:
-                raise ImportError("RLBenchDepth2Cloud unavailable; cannot use use_depth2cloud")
-            h, w = image_size if isinstance(image_size, (tuple, list)) else (image_size, image_size)
-            self._depth2cloud = RLBenchDepth2Cloud((h, w))
-            print(f"[bimanual eval] Using depth2cloud path (miscal={miscalibration_noise_level})")
-
-    def _apply_miscalibration(self, extrinsics):
-        """Perturb extrinsics by camera index — same convention as orbital/peract eval.
-
-        extrinsics: (1, ncam, 4, 4) float tensor
-        """
-        ext = extrinsics.clone().float()
-        for cam_idx, cam_name in enumerate(self._miscal_cameras):
-            if cam_idx >= ext.shape[1]:
-                break
-            if cam_name not in self._miscal_noise:
-                continue
-            R_noise = self._miscal_noise[cam_name]["R_noise"].to(ext.device)
-            t_noise = self._miscal_noise[cam_name]["t_noise"].to(ext.device)
-            ext[:, cam_idx, :3, :3] = R_noise @ ext[:, cam_idx, :3, :3]
-            ext[:, cam_idx, :3, 3] += t_noise
-        return ext.to(extrinsics.dtype)
+        # Miscalibration noise + depth2cloud module (optional)
+        ctx = setup_miscalibration(
+            level=miscalibration_noise_level,
+            image_size=image_size,
+            build_depth2cloud=self._use_depth2cloud,
+            log_prefix="[bimanual eval]",
+        )
+        self._miscal_cameras = ctx.cameras
+        self._miscal_noise   = ctx.per_cam_noise
+        self._depth2cloud    = ctx.depth2cloud
+        self._miscal_T = (
+            per_cam_noise_T(ctx.per_cam_noise, ctx.cameras, len(self.apply_cameras))
+            if ctx.per_cam_noise is not None else None
+        )
 
     def _get_pcd_from_depth(self, obs):
         """Compute point clouds from depth + extrinsics, applying miscalibration if configured.
@@ -222,29 +197,11 @@ class RLBenchEnv:
         Returns:
             pcd: (1, ncam, 3, H, W) float32 CPU tensor
         """
-        depths, exts, ints = [], [], []
-        for cam in self.apply_cameras:
-            depth_raw = obs.perception_data[f"{cam}_depth"]
-            near = obs.misc.get(f"{cam}_camera_near", 0.1)
-            far = obs.misc.get(f"{cam}_camera_far", 4.0)
-            depths.append(torch.tensor(near + depth_raw * (far - near), dtype=torch.float32))
-            exts.append(torch.tensor(obs.misc.get(f"{cam}_camera_extrinsics", np.eye(4)), dtype=torch.float32))
-            ints.append(torch.tensor(obs.misc.get(f"{cam}_camera_intrinsics", np.eye(3)), dtype=torch.float32))
-
-        depth = torch.stack(depths).unsqueeze(0)       # (1, ncam, H, W)
-        extrinsics = torch.stack(exts).unsqueeze(0)    # (1, ncam, 4, 4)
-        intrinsics = torch.stack(ints).unsqueeze(0)    # (1, ncam, 3, 3)
-
-        if self._miscal_noise is not None:
-            extrinsics = self._apply_miscalibration(extrinsics)
-
-        pcd = self._depth2cloud(
-            depth.cuda(non_blocking=True).to(torch.bfloat16),
-            extrinsics.cuda(non_blocking=True).to(torch.bfloat16),
-            intrinsics.cuda(non_blocking=True).to(torch.bfloat16),
-        ).float().cpu()  # (1, ncam, 3, H, W)
-
-        return pcd
+        return build_pcd_from_obs(
+            obs, self.apply_cameras, self._depth2cloud,
+            T_noise=self._miscal_T,
+            depth_accessor=lambda o, name: o.perception_data[name],
+        )
 
     def get_rgb_pcd_gripper_from_obs(self, obs):
         """

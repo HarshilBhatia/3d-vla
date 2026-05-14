@@ -149,6 +149,9 @@ class RLBenchDataset(BaseDataset):
             )
         ]
 
+    def _get_variation(self, idx):
+        return [int(v) for v in self.annos['variation'][idx:idx + self.chunk_size]]
+
     def _get_rgb2d(self, idx):
         if self.camera_inds2d is not None:
             return self._get_attr_by_idx(idx, 'rgb', False)[:, self.camera_inds2d]
@@ -185,6 +188,7 @@ class RLBenchDataset(BaseDataset):
         return {
             "task": self._get_task(idx),  # [str]
             "instr": self._get_instr(idx),  # [str]
+            "variation": self._get_variation(idx),  # [int]
             "rgb": self._get_attr_hist(idx, 'rgb', True) if use_hist else self._get_rgb(idx),
             "depth": self._get_attr_hist(idx, 'depth', True) if use_hist else self._get_depth(idx),
             "rgb2d": self._get_rgb2d(idx),  # tensor(n_cam2d, 3, H, W)
@@ -240,6 +244,7 @@ class PeractDataset(RLBenchDataset):
         return {
             "task": self._get_task(idx),  # [str]
             "instr": self._get_instr(idx),  # [str]
+            "variation": self._get_variation(idx),  # [int]
             "rgb": self._get_attr_hist(idx, 'rgb', True) if use_hist else self._get_rgb(idx),
             "pcd": self._get_attr_hist(idx, 'pcd', True) if use_hist else self._get_attr_by_idx(idx, 'pcd', True),
             "proprioception": self._get_proprioception(idx),  # tensor(1, 8)

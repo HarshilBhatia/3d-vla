@@ -22,7 +22,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #SBATCH --job-name=collect_open_drawer_3cam
 #SBATCH --partition=all
-#SBATCH --exclude=grogu-0-29,grogu-3-5
+#SBATCH --exclude=grogu-0-29,grogu-3-5,grogu-0-14
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=8
@@ -36,8 +36,11 @@ set -euo pipefail
 ulimit -c 0
 
 # ── (task, group) lookup ──────────────────────────────────────────────────────
-TASKS=(   open_drawer  open_drawer  open_drawer )
-MY_GROUPS=( G1           G2           G4 )
+# TASKS=(   turn_tap  turn_tap  turn_tap turn_tap)
+# MY_GROUPS=( G1           G2           G3  G4)
+
+TASKS=(stack_cups stack_cups stack_cups)
+MY_GROUPS=( G1 G2 G4)
 
 IDX="${SLURM_ARRAY_TASK_ID}"
 TASK="${TASKS[$IDX]}"
@@ -47,7 +50,7 @@ N_EPISODES=40
 REPO_DIR="/home/harshilb/3d_flowmatch_actor"
 CONTAINER="/home/harshilb/my_eval_env"
 CAMERAS_FILE="${REPO_DIR}/instructions/orbital_cameras_grouped.json"
-SAVE_PATH="/grogu/user/harshilb/    "
+SAVE_PATH="/grogu/user/harshilb/stack_cups_new_data/"
 
 echo "========================================"
 echo "  Array job ${SLURM_ARRAY_JOB_ID}[${IDX}]"

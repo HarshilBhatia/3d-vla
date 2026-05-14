@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=dino_orb
+#SBATCH --job-name=single
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
@@ -24,13 +24,12 @@ MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
 data=orbital
-main_dir=Orbital
+main_dir=final
 experiment=default
-run_log_dir=open_drawer_multi_groups_dino_clip
+run_log_dir=siglip_single_group
 train_iters=70000
 
-
-checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
+checkpoint=train_logs/${main_dir}/${run_log_dir}/best.pth
 
 TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
@@ -39,9 +38,9 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     exp_log_dir=$main_dir \
     run_log_dir=$run_log_dir \
     train_iters=$train_iters \
-    train_data_dir=/grogu/user/harshilb/open_drawer_multi_cam/train.zarr \
-    eval_data_dir=/grogu/user/harshilb/open_drawer_multi_cam/train.zarr \
+    train_data_dir=/grogu/user/harshilb/open_drawer/single/train.zarr \
+    eval_data_dir=/grogu/user/harshilb/open_drawer/val.zarr \
+    backbone=siglip2 \
     checkpoint=$checkpoint \
-    backbone=dino \
-    text_backbone=clip \
-    batch_size=128
+    lang_dropout_prob=0.2 \
+    batch_size=128 \

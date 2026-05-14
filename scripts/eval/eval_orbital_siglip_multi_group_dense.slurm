@@ -1,23 +1,15 @@
 #!/bin/bash
-
-# Usage:
-#   sbatch scripts/eval/eval_orbital_open_drawer_miscal.slurm
-#   Array index: ckpt=(id/2), group=(id%2)  →  0=ckpt0/G1, 1=ckpt0/G3, 2=ckpt1/G1, 3=ckpt1/G3, 4=ckpt2/G1, 5=ckpt2/G3
-
-
-#SBATCH --job-name=eval_orb_miscal
-#SBATCH --partition=all
+#SBATCH --job-name=eval_orb_mg_dense
+#SBATCH --partition=shubhamlong
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16
 #SBATCH --gres=gpu:1
 #SBATCH --mem=64G
 #SBATCH --time=4:00:00
-#SBATCH --array=3-3
-#SBATCH --output=logs/eval_orb_miscal_%A_%a.out
-#SBATCH --error=logs/eval_orb_miscal_%A_%a.err
-#SBATCH --exclude=grogu-1-14,grogu-3-5
-
+#SBATCH --array=0-1
+#SBATCH --output=logs/eval_orbital_%A_%a.out
+#SBATCH --error=logs/eval_orbital_%A_%a.err
 
 set -euo pipefail
 ulimit -c 0
@@ -30,34 +22,19 @@ CONTAINER_REPO=/root/3d_flowmatch_actor
 CONTAINER=/home/harshilb/my_eval_env
 COPPELIASIM_ROOT=/root/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
 
-CHECKPOINTS=(
-    /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multigroup_miscal_medium_3dfa/last.pth
-    /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_multigroup_miscal_medium/last.pth
-    /root/3d_flowmatch_actor/train_logs/Orbital/open_drawer_G1_siglip/best.pth
-)
-
-RUN_NAMES=(
-    miscal_med_no_deltaM_med
-    miscal_med_deltaM_med
-    miscal_med_3DFA
-)
-
 GROUP_NAMES=(G1 G3)
-CKPT_IDX=$(( SLURM_ARRAY_TASK_ID / 2 ))
-GROUP_IDX=$(( SLURM_ARRAY_TASK_ID % 2 ))
-GROUP_NAME="${GROUP_NAMES[$GROUP_IDX]}"
+GROUP_NAME="${GROUP_NAMES[$SLURM_ARRAY_TASK_ID]}"
 
-CHECKPOINT="${CHECKPOINTS[$CKPT_IDX]}"
-RUN_NAME="${RUN_NAMES[$CKPT_IDX]}"
-RUN_IDX=$SLURM_ARRAY_TASK_ID
+RUN_LOG_DIR=siglip_multi_group_dense
+CHECKPOINT="/root/3d_flowmatch_actor/train_logs/Orbital/siglip_multi_group_dense/best.pth"
 
-OUTPUT_DIR="${HOST_REPO}/eval_logs/Orbital_miscal/${RUN_NAME}/${GROUP_NAME}/"
-OUTPUT_FILE="${OUTPUT_DIR}/new_results_${RUN_IDX}.json"
+OUTPUT_DIR="${HOST_REPO}/eval_logs/Orbital/${RUN_LOG_DIR}/${GROUP_NAME}"
+OUTPUT_FILE="${CONTAINER_REPO}/eval_logs/Orbital/${RUN_LOG_DIR}/${GROUP_NAME}/results_open_drawer.json"
 
 mkdir -p "$OUTPUT_DIR" logs
 
 echo "Checkpoint: $CHECKPOINT"
-echo "Run:        $RUN_IDX"
+echo "Group:      $GROUP_NAME"
 echo "Output:     $OUTPUT_FILE"
 
 apptainer exec \
@@ -80,8 +57,6 @@ apptainer exec \
         task="open_drawer" \
         data_dir="/grogu/user/harshilb/open_drawer_multi_cam/" \
         spawn_camera_group="$GROUP_NAME" \
-        miscalibration_noise_level=medium \
         save_video=true
-
 
 echo "Done at: $(date)"

@@ -71,6 +71,7 @@ class BaseTrainTester:
             miscal_max_angle_deg=getattr(self.args, 'miscal_max_angle_deg', None),
             miscal_max_translation_m=getattr(self.args, 'miscal_max_translation_m', None),
             orbital_miscal_noise_level=getattr(self.args, 'orbital_miscal_noise_level', None),
+            orbital_miscal_noise_level_per_task_group=getattr(self.args, 'orbital_miscal_noise_level_per_task_group', None),
         )
 
         gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else ""
@@ -130,7 +131,7 @@ class BaseTrainTester:
         # Samplers and loaders
         g = torch.Generator()
         g.manual_seed(0)
-        train_sampler = DistributedSampler(train_dataset, drop_last=True, shuffle=False)
+        train_sampler = DistributedSampler(train_dataset, drop_last=True, shuffle=True)
         
         # Divide batch size by world size to keep effective batch size constant
         world_size = dist.get_world_size()
@@ -504,8 +505,8 @@ class BaseTrainTester:
                 if dist.get_rank() == 0:
                     emergency_path = self.args.log_dir / "last.pth"
                     _atomic_save({
-                        "weight": model.state_dict(),
-                        "ema_weight": ema_model.state_dict() if self.args.use_ema else None,
+                        "weight": self._trainable_state_dict(model),
+                        "ema_weight": self._trainable_state_dict(ema_model) if self.args.use_ema else None,
                         "optimizer": optimizer.state_dict(),
                         "scaler": scaler.state_dict(),
                         "iter": step_id,
@@ -566,6 +567,10 @@ class BaseTrainTester:
 
             if (step_id + 1) % self.args.last_ckpt_freq == 0 and dist.get_rank() == 0:
                 self._save_rolling_checkpoint(model, ema_model, optimizer, scaler, step_id, best_loss)
+
+            interm_freq = getattr(self.args, "interm_ckpt_freq", None)
+            if interm_freq and (step_id + 1) % interm_freq == 0 and dist.get_rank() == 0:
+                self._save_interm_checkpoint(model, ema_model, step_id, best_loss)
 
             if (step_id + 1) % self.args.val_freq == 0:
                 model.eval()
@@ -830,34 +835,50 @@ class BaseTrainTester:
         return start_iter, best_loss
 
     def _save_rolling_checkpoint(self, model, ema_model, optimizer, scaler, step_id, best_loss):
-        """Save a rolling step checkpoint and prune old ones beyond keep_last_k."""
-        ckpt_path = self.args.log_dir / f"step_{step_id + 1}.pth"
+        """Save rolling checkpoint to last.pth only (no per-step files, no frozen backbone)."""
         state = {
-            "weight": {k: v.cpu() for k, v in model.state_dict().items()},
-            "ema_weight": ema_model.state_dict() if ema_model is not None else None,
+            "weight": self._trainable_state_dict(model),
+            "ema_weight": self._trainable_state_dict(ema_model) if ema_model is not None else None,
             "optimizer": optimizer.state_dict(),
             "scaler": scaler.state_dict(),
             "iter": step_id + 1,
             "best_loss": best_loss,
             "config": _args_to_dict(self.args),
         }
-        _atomic_save(state, ckpt_path)
         _atomic_save(state, self.args.log_dir / "last.pth")
 
-        k = getattr(self.args, "keep_last_k", None)
-        if k is not None:
-            step_ckpts = sorted(
-                self.args.log_dir.glob("step_*.pth"),
-                key=lambda p: int(p.stem.split("_")[1]),
-            )
-            for old in step_ckpts[:-k]:
-                old.unlink()
+    def _trainable_state_dict(self, model):
+        """State dict with only trainable params + workspace_normalizer (skips frozen backbone)."""
+        base = model.module if hasattr(model, "module") else model
+        trainable = {n for n, p in base.named_parameters() if p.requires_grad}
+        full = model.state_dict()
+        # DDP prefixes keys with "module." — normalise to match base.named_parameters()
+        prefix = "module." if next(iter(full)).startswith("module.") else ""
+        keep = {}
+        for k, v in full.items():
+            bare = k[len(prefix):]
+            if bare in trainable or bare == "workspace_normalizer":
+                keep[k] = v.cpu()
+        return keep
+
+    def _save_interm_checkpoint(self, model, ema_model, step_id, best_loss):
+        """Save periodic checkpoint (trainable weights only for eval)."""
+        ckpt_path = self.args.log_dir / f"interm_step_{step_id + 1}.pth"
+        state = {
+            "weight": self._trainable_state_dict(model),
+            "ema_weight": self._trainable_state_dict(ema_model) if ema_model is not None else None,
+            "iter": step_id + 1,
+            "best_loss": best_loss,
+            "config": _args_to_dict(self.args),
+        }
+        _atomic_save(state, ckpt_path)
+        print(f"Saved periodic checkpoint: {ckpt_path}", flush=True)
 
     def save_checkpoint(self, model, ema_model, optimizer, scaler,
                         step_id, new_loss, best_loss):
         """Save best and intermediate checkpoints; rolling last-K is handled separately."""
-        model_state = {k: v.cpu() for k, v in model.state_dict().items()}
-        ema_state = ema_model.state_dict() if self.args.use_ema else None
+        model_state = self._trainable_state_dict(model)
+        ema_state = self._trainable_state_dict(ema_model) if self.args.use_ema else None
         config_container = _args_to_dict(self.args)
 
         def _save(path):
@@ -886,7 +907,7 @@ def base_collate_fn(batch):
     _dict = {}
 
     # Values for these come as lists
-    list_keys = ["task", "instr"]
+    list_keys = ["task", "instr", "variation"]
     for key in list_keys:
         if key not in batch[0].keys():
             continue

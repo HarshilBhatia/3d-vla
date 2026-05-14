@@ -26,10 +26,10 @@ ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 data=orbital
 main_dir=Orbital
 experiment=default
-run_log_dir=open_drawer_default_G1
+run_log_dir=siglip_multi_group_dense
 train_iters=70000
 
-checkpoint=train_logs/${main_dir}/${run_log_dir}/step_47000.pth
+checkpoint=train_logs/${main_dir}/${run_log_dir}/best.pth
 
 TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
@@ -40,5 +40,8 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     train_iters=$train_iters \
     train_data_dir=/grogu/user/harshilb/1task_new.zarr \
     eval_data_dir=/grogu/user/harshilb/1task_new.zarr \
+    backbone=siglip2 \
     checkpoint=$checkpoint \
-    batch_size=128
+    lang_dropout_prob=0.2 \
+    batch_size=128 \
+    use_compile=false

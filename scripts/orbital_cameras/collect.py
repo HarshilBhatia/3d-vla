@@ -35,6 +35,7 @@ from data.generation.orbital.collection import (
     save_debug_video,
     save_orbital_episode,
 )
+from data.generation.orbital.constants import PERACT_PROFILE, PERACT2_PROFILE
 
 
 def parse_args():
@@ -60,35 +61,36 @@ def parse_args():
                    help="Debug: collect 1 episode, save MP4")
     p.add_argument("--video-dir",    default="debug_videos",
                    help="Output directory for debug MP4s (used with --video-only)")
+    p.add_argument("--bimanual",     action="store_true",
+                   help="Use PerAct2 (dual_panda) robot instead of PerAct (panda)")
     return p.parse_args()
 
 
 def main():
     args = parse_args()
 
+    profile = PERACT2_PROFILE if args.bimanual else PERACT_PROFILE
+
     try:
-        from rlbench.action_modes.action_mode import MoveArmThenGripper
-        from rlbench.action_modes.arm_action_modes import JointVelocity
-        from rlbench.action_modes.gripper_action_modes import Discrete
-        from rlbench.backend.utils import task_file_to_task_class
+        profile.make_action_mode()  # dry-run import check
     except ImportError as e:
         sys.exit("[ERROR] RLBench import failed: {}\n"
                  "Set COPPELIASIM_ROOT etc. first.".format(e))
 
     from data.generation.orbital.scene import OrbitalEnvironment
 
-    obs_config  = make_obs_config(args.image_size)
-    action_mode = MoveArmThenGripper(JointVelocity(), Discrete())
+    obs_config  = make_obs_config(args.image_size, profile)
+    action_mode = profile.make_action_mode()
 
     env = OrbitalEnvironment(
         action_mode=action_mode,
         obs_config=obs_config,
         headless=True,
-        robot_setup="panda",
+        robot_setup=profile.robot_setup,
     )
     env.launch()
 
-    task_class  = task_file_to_task_class(args.task)
+    task_class  = profile.task_loader(args.task)
     task_env    = env.get_task(task_class)
     n_variations = task_env.variation_count()
     scene       = env._scene
@@ -120,7 +122,7 @@ def main():
                 timing["reset"], timing["sensors"], timing["demos"], timing["cleanup"], len(demo)))
 
             t0 = time.perf_counter()
-            save_debug_video(demo, video_out, args.image_size)
+            save_debug_video(demo, video_out, args.image_size, profile)
             print("[TIME] video={:.2f}s total={:.2f}s".format(
                 time.perf_counter() - t0, t_collect + time.perf_counter() - t0))
 
@@ -155,7 +157,7 @@ def main():
 
                 print("[STEP] Saving episode to {}...".format(ep_path))
                 t0 = time.perf_counter()
-                save_orbital_episode(demo, ep_path, group, orbital_extrinsics)
+                save_orbital_episode(demo, ep_path, group, orbital_extrinsics, profile)
                 # Record which variation this episode used.
                 with open(os.path.join(ep_path, "variation.txt"), "w") as f:
                     f.write("{}\n".format(variation))
