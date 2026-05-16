@@ -197,22 +197,25 @@ class TransformerHead(BaseTransformerHead):
             fps_scene_pos = _transform_pcd_with_extrinsics(fps_scene_pos, cam_params_rt)
             delta_M = None
 
-        # Expand per-camera delta_M (B, ncam, 6, 6) to per-token for rgb3d and fps sequences
+        # Expand per-camera delta_M (B, ncam, ...) to per-token for rgb3d and fps sequences.
+        # For 6x6: expand dense to (B, Np, 6, 6) as before.
+        # For DxD: skip dense expand; pass (B, ncam, D, D) and use grouped matmul via ncam kwarg.
         delta_M_rgb3d = delta_M
         delta_M_fps = delta_M
+        grouped_ncam = None
         if delta_M is not None and delta_M.ndim == 4 and fps_cam_ids is not None:
             B, ncam = delta_M.shape[:2]
             Np = rgb3d_pos.shape[1]
-            P = Np // ncam  # tokens per camera in the dense sequence
-
-            # Dense rgb3d tokens: cam index = token_index // P
-            dense_cam_ids = torch.arange(ncam, device=delta_M.device).repeat_interleave(P)  # (Np,)
-            delta_M_rgb3d = delta_M[:, dense_cam_ids, :, :]  # (B, Np, 6, 6)
-
-            # FPS tokens: first M from fps_cam_ids, last ncam are per-image tokens (cam 0..ncam-1)
             M = fps_cam_ids.shape[1]
-            delta_M_fps_sparse = delta_M[torch.arange(B, device=delta_M.device)[:, None], fps_cam_ids]  # (B, M, 6, 6) or (B, M, D, D)
-            delta_M_fps = torch.cat([delta_M_fps_sparse, delta_M], dim=1)  # (B, M+ncam, 6, 6) or (B, M+ncam, D, D)
+            delta_M_fps_sparse = delta_M[torch.arange(B, device=delta_M.device)[:, None], fps_cam_ids]
+            delta_M_fps = torch.cat([delta_M_fps_sparse, delta_M], dim=1)  # (B, M+ncam, ...)
+            if delta_M.shape[-1] == 6:
+                P = Np // ncam
+                dense_cam_ids = torch.arange(ncam, device=delta_M.device).repeat_interleave(P)
+                delta_M_rgb3d = delta_M[:, dense_cam_ids, :, :]  # (B, Np, 6, 6)
+            else:
+                delta_M_rgb3d = delta_M  # (B, ncam, D, D)
+                grouped_ncam = ncam
 
         rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
         rel_scene_pos = self.relative_pe_layer(
@@ -220,6 +223,7 @@ class TransformerHead(BaseTransformerHead):
             allow_grad=allow_grad,
             stopgrad_k=stopgrad_k,
             delta_M=delta_M_rgb3d,
+            ncam=grouped_ncam,
         )
 
         rel_fps_pos = self.relative_pe_layer(
@@ -249,17 +253,20 @@ class TransformerHead(BaseTransformerHead):
         fps_base = self.relative_pe_layer._compute_sincos_base(fps_scene_pos, stopgrad_k)
         return traj_base, scene_base, fps_base
 
-    def _apply_delta_M_rope(self, traj_base, scene_base, fps_base, delta_M, delta_M_fps=None):
+    def _apply_delta_M_rope(self, traj_base, scene_base, fps_base, delta_M, delta_M_fps=None,
+                            ncam=None):
         """Apply delta_M to pre-computed sin/cos bases and return RoPE positions.
 
         Traj uses no delta_M. Scene gets delta_M_scene, fps gets delta_M_fps (defaults to delta_M).
+        ncam: if set, delta_M for the scene is (B, ncam, D, D) and the grouped path is used.
 
         Returns (rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos).
         """
         if delta_M_fps is None:
             delta_M_fps = delta_M
         rel_traj_pos = self.relative_pe_layer._finalize_from_base(traj_base, delta_M=None)
-        rel_scene_pos = self.relative_pe_layer._finalize_from_base(scene_base, delta_M=delta_M)
+        rel_scene_pos = self.relative_pe_layer._finalize_from_base(scene_base, delta_M=delta_M,
+                                                                    ncam=ncam)
         rel_fps_pos = self.relative_pe_layer._finalize_from_base(fps_base, delta_M=delta_M_fps)
 
         batch_size = traj_base.shape[0]
@@ -303,28 +310,39 @@ class TransformerHead(BaseTransformerHead):
             rgb3d_pos = orig_rgb3d_pos
             fps_scene_pos = orig_fps_scene_pos
 
-        # Expand per-camera delta_M (B, ncam, ...) to per-token for rgb3d and fps
+        # Expand per-camera delta_M (B, ncam, ...) to per-token for rgb3d and fps.
+        # For 6x6 (small): expand dense to (B, Np, 6, 6) as before.
+        # For DxD (large): skip dense expand; pass (B, ncam, D, D) directly and use grouped matmul.
         delta_M_rgb3d = delta_M
         delta_M_fps = delta_M
+        grouped_ncam = None
         if delta_M is not None and delta_M.ndim >= 4:
             B, ncam = delta_M.shape[:2]
             Np = orig_rgb3d_pos.shape[1]
-            P = Np // ncam
-            dense_cam_ids = torch.arange(ncam, device=delta_M.device).repeat_interleave(P)
-            delta_M_rgb3d = delta_M[:, dense_cam_ids, :, :]  # (B, Np, 6, 6) or (B, Np, D, D)
             M = fps_cam_ids.shape[1]
             delta_M_fps_sparse = delta_M[torch.arange(B, device=delta_M.device)[:, None], fps_cam_ids]
             delta_M_fps = torch.cat([delta_M_fps_sparse, delta_M], dim=1)  # (B, M+ncam, ...)
+            if delta_M.shape[-1] == 6:
+                # 6x6: dense expand is cheap (8.8 MB), keep existing path
+                P = Np // ncam
+                dense_cam_ids = torch.arange(ncam, device=delta_M.device).repeat_interleave(P)
+                delta_M_rgb3d = delta_M[:, dense_cam_ids, :, :]  # (B, Np, 6, 6)
+            else:
+                # DxD: skip 3.5 GB expand; grouped matmul in _finalize_from_base
+                delta_M_rgb3d = delta_M  # (B, ncam, D, D)
+                grouped_ncam = ncam
 
         # delta_M mode with pre-computed bases: skip sin/cos recomputation
         if delta_M is not None and bases is not None:
             traj_base, scene_base, fps_base = bases
             rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos = self._apply_delta_M_rope(
-                traj_base, scene_base, fps_base, delta_M_rgb3d, delta_M_fps)
+                traj_base, scene_base, fps_base, delta_M_rgb3d, delta_M_fps,
+                ncam=grouped_ncam)
         else:
             rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
             rel_scene_pos = self.relative_pe_layer(
-                rgb3d_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M_rgb3d)
+                rgb3d_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M_rgb3d,
+                ncam=grouped_ncam)
             rel_fps_pos = self.relative_pe_layer(
                 fps_scene_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M_fps)
 

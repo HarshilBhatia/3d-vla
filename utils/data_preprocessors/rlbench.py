@@ -21,9 +21,13 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
                  rotate_pcd=False, rotate_angle_deg=0.0, rotate_axis='z',
                  miscal_max_angle_deg=None, miscal_max_translation_m=None,
+                 miscal_fixed_angle_deg=None, miscal_fixed_translation_m=None,
                  orbital_miscal_noise_level=None,
                  orbital_miscal_noise_level_per_task_group=None,
                  orbital_miscal_noise_levels=None,
+                 cotrain_miscal_group_ids=None,
+                 cotrain_miscal_level=None,
+                 cotrain_miscal_levels=None,
                  **kwargs):
         super().__init__(
             keypose_only=keypose_only,
@@ -35,25 +39,41 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             orbital_miscal_noise_level is not None,
             orbital_miscal_noise_level_per_task_group is not None,
             bool(orbital_miscal_noise_levels),
+            bool(cotrain_miscal_group_ids),
         ])
         if active > 1:
             raise ValueError(
-                "orbital_miscal_noise_level, orbital_miscal_noise_level_per_task_group, and "
-                "orbital_miscal_noise_levels are mutually exclusive; set only one."
+                "orbital_miscal_noise_level, orbital_miscal_noise_level_per_task_group, "
+                "orbital_miscal_noise_levels, and cotrain_miscal_group_ids are mutually exclusive; "
+                "set only one."
             )
         self.rotate_pcd = rotate_pcd
         self.rotate_angle_deg = rotate_angle_deg
         self.rotate_axis = rotate_axis
         self.miscal_max_angle_deg = miscal_max_angle_deg or 0.0
         self.miscal_max_translation_m = miscal_max_translation_m or 0.0
+        # Fixed-magnitude variant: when >0, override the "max" sampler so each
+        # perturbation has *exactly* this rotation angle / translation length
+        # (random direction). Useful for plotting metric vs. noise magnitude.
+        self.miscal_fixed_angle_deg = miscal_fixed_angle_deg or 0.0
+        self.miscal_fixed_translation_m = miscal_fixed_translation_m or 0.0
         self._orbital_miscal_noise_level = orbital_miscal_noise_level
         self._orbital_miscal_noise_level_per_task_group = orbital_miscal_noise_level_per_task_group
         self._orbital_miscal_noise_levels = list(orbital_miscal_noise_levels) if orbital_miscal_noise_levels else None
+        self._cotrain_miscal_group_ids = set(int(g) for g in cotrain_miscal_group_ids) if cotrain_miscal_group_ids else None
+        self._cotrain_miscal_level = cotrain_miscal_level
+        self._cotrain_miscal_levels = list(cotrain_miscal_levels) if cotrain_miscal_levels else None
+        if self._cotrain_miscal_group_ids is not None and (cotrain_miscal_level is None) == (self._cotrain_miscal_levels is None):
+            raise ValueError(
+                "cotrain_miscal_group_ids requires exactly one of cotrain_miscal_level "
+                "(single level) or cotrain_miscal_levels (list, sampled per-sample)."
+            )
         self._group_noise_table        = None  # (K_groups,            ncam, 4, 4) CPU float32, lazy-init
         self._group_level_noise_table  = None  # (K_group_levels,      ncam, 4, 4) CPU float32, lazy-init
         self._group_level_key_to_row   = None  # {"G1_small": int, ...}
         self._task_group_noise_table   = None  # (K_tasks * K_groups,  ncam, 4, 4) CPU float32, lazy-init
         self._task_group_key_to_row    = None  # {"task_G1": int}
+        self._cotrain_group_noise_table = None  # (K_groups, ncam, 4, 4) for cotrain_miscal_level, lazy-init
         self._miscal_logged = False
         if orbital_miscal_noise_level is not None:
             print(f"[miscal] per-group FILE: level='{orbital_miscal_noise_level}'", flush=True)
@@ -61,6 +81,24 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             print(f"[miscal] per-task-group FILE: level='{orbital_miscal_noise_level_per_task_group}'", flush=True)
         elif self._orbital_miscal_noise_levels:
             print(f"[miscal] per-group MULTI-LEVEL (random): levels={self._orbital_miscal_noise_levels}", flush=True)
+        elif self._cotrain_miscal_group_ids is not None:
+            level_str = (
+                f"levels={self._cotrain_miscal_levels} (sampled per-sample)"
+                if self._cotrain_miscal_levels is not None
+                else f"level='{cotrain_miscal_level}'"
+            )
+            print(
+                f"[miscal] co-train MIXED: groups {sorted(self._cotrain_miscal_group_ids)} get "
+                f"{level_str}, all others clean",
+                flush=True,
+            )
+        elif self.miscal_fixed_angle_deg > 0 or self.miscal_fixed_translation_m > 0:
+            print(
+                f"[miscal] fixed-magnitude ENABLED: "
+                f"angle={self.miscal_fixed_angle_deg}deg, "
+                f"translation={self.miscal_fixed_translation_m}m",
+                flush=True,
+            )
         elif self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
             print(f"[miscal] random ENABLED: max_angle={self.miscal_max_angle_deg}deg, max_translation={self.miscal_max_translation_m}m", flush=True)
         else:
@@ -117,6 +155,23 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         self._group_level_key_to_row  = {k: i for i, k in enumerate(group_level_keys)}
         print(f"[miscal] per-group-level loaded: K={K}, ncam={ncam}", flush=True)
 
+    def _ensure_cotrain_group_noise_table(self, ncam):
+        """Lazily load the (K_groups, ncam, 4, 4) noise table for the co-training mixed-miscal mode."""
+        if self._cotrain_group_noise_table is not None and self._cotrain_group_noise_table.shape[1] == ncam:
+            return
+        file_cameras, groups, noise = _load_orbital_group_noise(self._cotrain_miscal_level)
+        K = len(groups)
+        table = torch.eye(4).view(1, 1, 4, 4).expand(K, ncam, 4, 4).clone()
+        for k, group in enumerate(groups):
+            R, t = noise_RT_from_dict(noise[group], file_cameras[:ncam])
+            table[k, :, :3, :3] = R
+            table[k, :, :3,  3] = t
+        self._cotrain_group_noise_table = table
+        print(
+            f"[miscal] cotrain group noise loaded: level='{self._cotrain_miscal_level}', K={K}, ncam={ncam}",
+            flush=True,
+        )
+
     def _ensure_task_group_noise_table(self, ncam):
         """Lazily load the (K_task_groups, ncam, 4, 4) noise table for per-(task, group) miscal."""
         if self._task_group_noise_table is not None and self._task_group_noise_table.shape[1] == ncam:
@@ -134,6 +189,27 @@ class RLBenchDataPreprocessor(DataPreprocessor):
 
     def _get_miscal_noise(self, B, ncam, device, dtype, camera_group=None, task=None):
         """Return (B, ncam, 4, 4) noise transform, or None if miscal is disabled."""
+        if self._cotrain_miscal_group_ids is not None and camera_group is not None:
+            if self._cotrain_miscal_levels is not None:
+                # Per-sample random level drawn from the configured list, looked up
+                # in the per-group-level table by key 'G{group}_{level}'.
+                self._ensure_group_level_noise_table(ncam)
+                levels = self._cotrain_miscal_levels
+                rand_levels = [levels[i] for i in torch.randint(0, len(levels), (B,)).tolist()]
+                keys = [f"G{int(g)}_{l}" for g, l in zip(camera_group.tolist(), rand_levels)]
+                idx = torch.tensor([self._group_level_key_to_row[k] for k in keys], dtype=torch.long)
+                T = self._group_level_noise_table[idx].to(device=device, dtype=dtype)
+            else:
+                self._ensure_cotrain_group_noise_table(ncam)
+                idx = camera_group.long() - 1  # (B,) 0-based
+                T = self._cotrain_group_noise_table[idx].to(device=device, dtype=dtype)  # (B, ncam, 4, 4)
+            # Samples whose group is not in the miscal set get identity (clean extrinsics).
+            in_miscal = torch.tensor(
+                [int(g.item()) in self._cotrain_miscal_group_ids for g in camera_group],
+                dtype=torch.bool, device=device,
+            ).view(B, 1, 1, 1)
+            eye = torch.eye(4, device=device, dtype=dtype).view(1, 1, 4, 4).expand(B, ncam, 4, 4)
+            return torch.where(in_miscal, T, eye)
         if self._orbital_miscal_noise_level is not None and camera_group is not None:
             self._ensure_group_noise_table(ncam)
             idx = camera_group.long() - 1  # (B,) 0-based
@@ -155,7 +231,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                 dtype=torch.long,
             )
             return self._task_group_noise_table[idx].to(device=device, dtype=dtype)
-        if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
+        if (self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0
+                or self.miscal_fixed_angle_deg > 0 or self.miscal_fixed_translation_m > 0):
             return self._sample_random_miscalibration(B, ncam, device, dtype)
         return None
 
@@ -165,11 +242,17 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         Returns (B, ncam, 4, 4) transforms to left-multiply onto extrinsics.
         Sampled once per batch item so all nhist snapshots get the same noise.
         """
-        # Random rotation via axis-angle: axis uniform on S², angle uniform in [-max, +max]
+        # Random rotation via axis-angle: axis uniform on S². Angle is either
+        # uniform in [-max, +max] (random "noise budget" mode) or exactly the
+        # fixed magnitude (deterministic-magnitude mode for sweeps).
         axes = torch.randn(B, ncam, 3, device=device)
         axes = axes / (axes.norm(dim=-1, keepdim=True) + 1e-8)
-        max_rad = self.miscal_max_angle_deg * math.pi / 180.0
-        angles = (torch.rand(B, ncam, device=device) * 2 - 1) * max_rad  # (B, ncam)
+        if self.miscal_fixed_angle_deg > 0:
+            rad = self.miscal_fixed_angle_deg * math.pi / 180.0
+            angles = torch.full((B, ncam), rad, device=device)
+        else:
+            max_rad = self.miscal_max_angle_deg * math.pi / 180.0
+            angles = (torch.rand(B, ncam, device=device) * 2 - 1) * max_rad  # (B, ncam)
 
         # Rodrigues: R = I + sin(θ)K + (1-cos(θ))K²
         kx, ky, kz = axes[..., 0], axes[..., 1], axes[..., 2]
@@ -184,8 +267,14 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         cos_a = angles.cos()[..., None, None]
         R = I + sin_a * K_skew + (1 - cos_a) * (K_skew @ K_skew)  # (B, ncam, 3, 3)
 
-        # Random translation: uniform in [-max, +max] per axis
-        t = (torch.rand(B, ncam, 3, device=device) * 2 - 1) * self.miscal_max_translation_m
+        # Random translation: either uniform-in-cube up to ±max per axis, or a
+        # uniform unit direction times a fixed length (sweep mode).
+        if self.miscal_fixed_translation_m > 0:
+            t_dir = torch.randn(B, ncam, 3, device=device)
+            t_dir = t_dir / (t_dir.norm(dim=-1, keepdim=True) + 1e-8)
+            t = t_dir * self.miscal_fixed_translation_m
+        else:
+            t = (torch.rand(B, ncam, 3, device=device) * 2 - 1) * self.miscal_max_translation_m
 
         # Assemble 4×4
         T = torch.eye(4, device=device, dtype=dtype).view(1, 1, 4, 4).expand(B, ncam, 4, 4).clone()
@@ -260,7 +349,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             b, nc, _, h, w = rgbs.shape
             # Augment in half precision
             obs = torch.cat((
-                rgbs.cuda(non_blocking=True).half() / 255,
+                rgbs.to(device='cuda', dtype=torch.float16, non_blocking=True) / 255,
                 pcds[:, :rgbs.size(1)].half()
             ), 2)  # (B, ncam, 6, H, W)
             obs = obs.reshape(-1, 6, h, w)
@@ -270,7 +359,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             pcd_3d = obs[:, 3:].reshape(b, nc, 3, h, w).float()
         else:
             # Simply convert to full precision
-            rgb_3d = rgbs.cuda(non_blocking=True).float() / 255
+            rgb_3d = rgbs.to(device='cuda', dtype=torch.float32, non_blocking=True) / 255
             pcd_3d = pcds[:, :rgb_3d.size(1)].float()
         if self.custom_imsize is not None and self.custom_imsize != rgb_3d.size(-1):
             b, nc, _, _, _ = rgb_3d.shape
@@ -282,7 +371,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         # Handle wrist cameras, no augmentations
         rgb_2d = None
         if rgb2d is not None:
-            rgb_2d = rgb2d.cuda(non_blocking=True).float() / 255
+            rgb_2d = rgb2d.to(device='cuda', dtype=torch.float32, non_blocking=True) / 255
             if self.custom_imsize is not None and self.custom_imsize != rgb_2d.size(-1):
                 b, nc, _, _, _ = rgb_2d.shape
                 rgb_2d = F.interpolate(

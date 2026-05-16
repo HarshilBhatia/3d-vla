@@ -73,6 +73,9 @@ class BaseTrainTester:
             orbital_miscal_noise_level=getattr(self.args, 'orbital_miscal_noise_level', None),
             orbital_miscal_noise_level_per_task_group=getattr(self.args, 'orbital_miscal_noise_level_per_task_group', None),
             orbital_miscal_noise_levels=getattr(self.args, 'orbital_miscal_noise_levels', None),
+            cotrain_miscal_group_ids=getattr(self.args, 'cotrain_miscal_group_ids', None),
+            cotrain_miscal_level=getattr(self.args, 'cotrain_miscal_level', None),
+            cotrain_miscal_levels=getattr(self.args, 'cotrain_miscal_levels', None),
         )
 
         gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else ""
@@ -341,9 +344,16 @@ class BaseTrainTester:
                 optimizer_grouped_parameters[2]["params"].append(param)
             else:
                 optimizer_grouped_parameters[1]["params"].append(param)
+
+        for i, g in enumerate(optimizer_grouped_parameters):
+            print(i, len(g['params']))
+
+
         optimizer = optim.AdamW(
             optimizer_grouped_parameters,
-            betas=(0.9, 0.95)
+            betas=(0.9, 0.95),
+            # foreach=True
+            fused=True,
         )
         return optimizer
 
@@ -354,6 +364,23 @@ class BaseTrainTester:
         print(f"[Rank {rank}] Building data loaders...", flush=True)
         train_loader, val_loader, train_sampler = self.get_loaders()
         print(f"[Rank {rank}] Data loaders ready.", flush=True)
+
+        # If train_epochs is set, derive train_iters from dataset size so runs are
+        # batch-size invariant in samples-seen. len(train_loader) already accounts
+        # for batch_size and world_size (DistributedSampler), so doubling batch_size
+        # halves train_iters and samples_seen = train_epochs * len(dataset) is fixed.
+        train_epochs = getattr(self.args, 'train_epochs', None)
+        if train_epochs is not None:
+            steps_per_epoch = len(train_loader)
+            derived_iters = int(train_epochs) * steps_per_epoch
+            if rank == 0:
+                print(
+                    f"train_epochs={train_epochs} → train_iters={derived_iters} "
+                    f"(steps_per_epoch={steps_per_epoch})"
+                )
+                if self.args.train_iters is not None:
+                    print(f"  (overriding configured train_iters={self.args.train_iters})")
+            self.args.train_iters = derived_iters
 
         print(f"[Rank {rank}] Building model...", flush=True)
         model = self.get_model()
@@ -379,6 +406,10 @@ class BaseTrainTester:
         if self.args.use_compile:
             model.compute_loss = torch.compile(model.compute_loss, fullgraph=True)
 
+        for name, param in model.named_parameters():
+            if param.shape == torch.Size([120, 768, 1, 1]):
+                print(name)
+
         # Wrap in DDP
         # Note: find_unused_parameters=False for better performance
         # If you get unused parameter warnings, it means some model parameters
@@ -388,6 +419,7 @@ class BaseTrainTester:
             static_graph=True,
             find_unused_parameters=False,
             bucket_cap_mb=10,
+            gradient_as_bucket_view=True,
         )
 
         print(f"[Rank {rank}] DDP ready.", flush=True)
@@ -401,8 +433,7 @@ class BaseTrainTester:
         lr_scheduler = fetch_scheduler(
             self.args.lr_scheduler, optimizer, self.args.train_iters
         )
-        scaler = torch.GradScaler(enabled=self.amp_dtype != torch.float32)
-        
+
         # Watch model with wandb
         if dist.get_rank() == 0 and self.run_mode == "train":
             if getattr(self.args, 'wandb_watch_model', False):
@@ -416,7 +447,7 @@ class BaseTrainTester:
         start_iter, best_loss = 0, None
         if not dummy and self.args.checkpoint:
             if os.path.exists(self.args.checkpoint):
-                start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer, scaler)
+                start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer)
                 print(f"[Rank {dist.get_rank()}] Loaded checkpoint: {self.args.checkpoint} (resuming from step {start_iter})")
             else:
                 print(f"[Rank {dist.get_rank()}] Checkpoint not found: {self.args.checkpoint} — starting from scratch")
@@ -468,15 +499,14 @@ class BaseTrainTester:
                 n = getattr(self.args, 'benchmark_profile_steps', 10)
                 self._profile_start_step = start_iter + bench_warmup
                 self._profile_n_steps = n
-                trace_dir = str(self.args.log_dir / "profile_trace")
+                profiler_dir = self.args.log_dir / "profiler"
+                profiler_dir.mkdir(parents=True, exist_ok=True)
                 self._profiler = profile(
                     activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA],
-                    record_shapes=True,
-                    with_stack=True,
-                    on_trace_ready=torch.profiler.tensorboard_trace_handler(trace_dir),
+                    on_trace_ready=torch.profiler.tensorboard_trace_handler(str(profiler_dir)),
                 )
                 print(f"Torch profiler will capture {n} steps starting at step {self._profile_start_step}")
-                print(f"Trace will be written to {trace_dir} — view with: tensorboard --logdir {trace_dir}")
+                print(f"Trace will be written to {profiler_dir} (view via `tensorboard --logdir {self.args.log_dir}` with the torch-tb-profiler plugin)")
 
         # Training loop
         model.train()
@@ -497,7 +527,7 @@ class BaseTrainTester:
                 self._profiler.__enter__()
 
             try:
-                timing = self.train_one_step(model, optimizer, scaler, lr_scheduler, sample, step_id)
+                timing = self.train_one_step(model, optimizer, lr_scheduler, sample, step_id)
             except Exception as e:
                 # Save an emergency checkpoint before dying so the next torchrun restart
                 # (--max-restarts) picks up from the current step instead of the last
@@ -509,7 +539,6 @@ class BaseTrainTester:
                         "weight": self._trainable_state_dict(model),
                         "ema_weight": self._trainable_state_dict(ema_model) if self.args.use_ema else None,
                         "optimizer": optimizer.state_dict(),
-                        "scaler": scaler.state_dict(),
                         "iter": step_id,
                         "best_loss": best_loss,
                         "config": _args_to_dict(self.args),
@@ -567,7 +596,7 @@ class BaseTrainTester:
                     self._profiler = None  # don't profile again
 
             if (step_id + 1) % self.args.last_ckpt_freq == 0 and dist.get_rank() == 0:
-                self._save_rolling_checkpoint(model, ema_model, optimizer, scaler, step_id, best_loss)
+                self._save_rolling_checkpoint(model, ema_model, optimizer, step_id, best_loss)
 
             interm_freq = getattr(self.args, "interm_ckpt_freq", None)
             if interm_freq and (step_id + 1) % interm_freq == 0 and dist.get_rank() == 0:
@@ -592,7 +621,7 @@ class BaseTrainTester:
                 )
                 if dist.get_rank() == 0:
                     best_loss = self.save_checkpoint(
-                        model, ema_model, optimizer, scaler, step_id,
+                        model, ema_model, optimizer, step_id,
                         new_loss, best_loss
                     )
                 model.train()
@@ -645,7 +674,7 @@ class BaseTrainTester:
         
         return int(k_float)
 
-    def train_one_step(self, model, optimizer, scaler, lr_scheduler, sample, step_id=None):
+    def train_one_step(self, model, optimizer, lr_scheduler, sample, step_id=None):
         """Run a single training step. Returns GPU timing dict when benchmark_logger is set."""
         optimizer.zero_grad()
 
@@ -664,65 +693,97 @@ class BaseTrainTester:
         t_fwd_e.record()
 
         t_bwd_s.record()
-        scaler.scale(loss).backward()
+        loss.backward()
         # bwd_ms includes DDP NCCL allreduce (overlapped but contributes to latency)
         t_bwd_e.record()
 
         t_opt_s.record()
         # Clip gradients
-        scaler.unscale_(optimizer)
+        for p in model.parameters():
+            if p.grad is not None and not p.grad.is_contiguous():
+                p.grad = p.grad.contiguous()
         grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
 
         # Update
-        scaler.step(optimizer)
-        scaler.update()
+        optimizer.step()
 
         # Step the lr scheduler
         lr_scheduler.step()
         t_opt_e.record()
         
-        # Log training metrics
+        # Buffered logging: accumulate detached tensors on-device, sync once per
+        # `train_log_freq` steps so the wandb path costs ~1 .item() window instead
+        # of ~10+ per step. Loss/grad_norm/extrinsics are averaged over the window.
         if dist.get_rank() == 0 and step_id is not None:
-            metrics = {
-                'train/loss': loss.item(),
-                'train/learning_rate': optimizer.param_groups[0]['lr'],
-                'train/grad_norm': grad_norm.item(),
-            }
-            
-            # Log RoPE stopgrad K if using stopgrad
-            if hasattr(self.args, 'rope_type') and self.args.rope_type == 'stopgrad':
-                metrics['train/rope_stopgrad_k'] = stopgrad_k
-            
-            # Log learnable extrinsics if enabled
+            if not hasattr(self, '_log_buf'):
+                self._log_buf = {'loss': [], 'grad_norm': [], 'extrinsics_learn': [], 'extrinsics_pred': []}
+                self._log_freq = getattr(self.args, 'train_log_freq', 50)
+
+            self._log_buf['loss'].append(loss.detach())
+            self._log_buf['grad_norm'].append(grad_norm.detach())
+
             base_model = model.module if hasattr(model, 'module') else model
             prediction_head = base_model.prediction_head
 
             # NOTE: BATCH STATISTIC FOR SINGLE SCENE -- doesn't work for multi-scene.
-
             if hasattr(base_model, 'learn_extrinsics') and base_model.learn_extrinsics:
-                for i, axis in enumerate(('x', 'y', 'z')):
-                    metrics[f'extrinsics/cam_axis_angle_{axis}'] = base_model.cam_axis_angle[i].item()
-                    metrics[f'extrinsics/cam_translation_{axis}'] = base_model.cam_translation[i].item()
-                metrics['extrinsics/rotation_angle_rad'] = torch.norm(base_model.cam_axis_angle).item()
-                metrics['extrinsics/translation_magnitude'] = torch.norm(base_model.cam_translation).item()
-            # Log predicted extrinsics only when mode is 'rt' (stored (B, 6)); when 'delta_m' stored shape is (B, 6, 6)
+                self._log_buf['extrinsics_learn'].append(torch.cat([
+                    base_model.cam_axis_angle.detach().flatten(),
+                    base_model.cam_translation.detach().flatten(),
+                ]))  # (6,)
             elif hasattr(prediction_head, 'predict_extrinsics') and prediction_head.predict_extrinsics:
-                if hasattr(prediction_head, '_last_predicted_cam_params') and \
-                   prediction_head._last_predicted_cam_params is not None:
+                if getattr(prediction_head, '_last_predicted_cam_params', None) is not None:
                     cam_params = prediction_head._last_predicted_cam_params
                     if cam_params.dim() == 2 and cam_params.shape[-1] == 6:
-                        cam_params_mean = cam_params.mean(dim=0)
-                        for i, axis in enumerate(('x', 'y', 'z')):
-                            metrics[f'extrinsics/cam_axis_angle_{axis}'] = cam_params_mean[i].item()
-                            metrics[f'extrinsics/cam_translation_{axis}'] = cam_params_mean[3 + i].item()
-                        metrics['extrinsics/rotation_angle_rad'] = torch.norm(cam_params_mean[:3]).item()
-                        metrics['extrinsics/translation_magnitude'] = torch.norm(cam_params_mean[3:6]).item()
-                        cam_params_std = cam_params.std(dim=0)
-                        metrics['extrinsics/rotation_std'] = cam_params_std[:3].mean().item()
-                        metrics['extrinsics/translation_std'] = cam_params_std[3:6].mean().item()
+                        # Keep full (B, 6) so flush can compute window-wide mean+std in one shot
+                        self._log_buf['extrinsics_pred'].append(cam_params.detach())
 
-            if getattr(self.args, 'use_wandb', True):
-                wandb.log(metrics, step=step_id)
+            if (step_id + 1) % self._log_freq == 0:
+                # Stack everything first (no sync), then a single .tolist() drains the window.
+                loss_mean      = torch.stack(self._log_buf['loss']).mean()
+                grad_norm_mean = torch.stack(self._log_buf['grad_norm']).mean()
+
+                metrics = {
+                    'train/loss':          loss_mean.item(),
+                    'train/grad_norm':     grad_norm_mean.item(),
+                    'train/learning_rate': optimizer.param_groups[0]['lr'],
+                }
+                if hasattr(self.args, 'rope_type') and self.args.rope_type == 'stopgrad':
+                    metrics['train/rope_stopgrad_k'] = stopgrad_k
+
+                if self._log_buf['extrinsics_learn']:
+                    mean = torch.stack(self._log_buf['extrinsics_learn']).mean(dim=0)  # (6,)
+                    rot_mag   = torch.norm(mean[:3])
+                    trans_mag = torch.norm(mean[3:])
+                    vals = mean.tolist()
+                    for i, axis in enumerate(('x', 'y', 'z')):
+                        metrics[f'extrinsics/cam_axis_angle_{axis}']  = vals[i]
+                        metrics[f'extrinsics/cam_translation_{axis}'] = vals[3 + i]
+                    metrics['extrinsics/rotation_angle_rad']    = rot_mag.item()
+                    metrics['extrinsics/translation_magnitude'] = trans_mag.item()
+
+                if self._log_buf['extrinsics_pred']:
+                    all_params = torch.cat(self._log_buf['extrinsics_pred'], dim=0)  # (N_window*B, 6)
+                    mean = all_params.mean(dim=0)
+                    std  = all_params.std(dim=0)
+                    rot_mag   = torch.norm(mean[:3])
+                    trans_mag = torch.norm(mean[3:])
+                    rot_std   = std[:3].mean()
+                    trans_std = std[3:].mean()
+                    vals = mean.tolist()
+                    for i, axis in enumerate(('x', 'y', 'z')):
+                        metrics[f'extrinsics/cam_axis_angle_{axis}']  = vals[i]
+                        metrics[f'extrinsics/cam_translation_{axis}'] = vals[3 + i]
+                    metrics['extrinsics/rotation_angle_rad']    = rot_mag.item()
+                    metrics['extrinsics/translation_magnitude'] = trans_mag.item()
+                    metrics['extrinsics/rotation_std']          = rot_std.item()
+                    metrics['extrinsics/translation_std']       = trans_std.item()
+
+                if getattr(self.args, 'use_wandb', True):
+                    wandb.log(metrics, step=step_id)
+
+                for k in self._log_buf:
+                    self._log_buf[k].clear()
 
         if self.benchmark_logger is not None:
             torch.cuda.synchronize()
@@ -784,7 +845,7 @@ class BaseTrainTester:
 
         return -values[f'{split}-losses/mean/traj_pos_acc_001']
 
-    def load_checkpoint(self, model, ema_model, optimizer, scaler):
+    def load_checkpoint(self, model, ema_model, optimizer):
         """Load from checkpoint."""
         print("=> trying checkpoint '{}'".format(self.args.checkpoint))
         if not os.path.exists(self.args.checkpoint):
@@ -823,8 +884,6 @@ class BaseTrainTester:
         if self.run_mode == "train":
             if 'optimizer' in model_dict:
                 optimizer.load_state_dict(model_dict["optimizer"])
-            if 'scaler' in model_dict and model_dict["scaler"]:
-                scaler.load_state_dict(model_dict["scaler"])
         start_iter = model_dict.get("iter", 0)
         best_loss = model_dict.get("best_loss", None)
 
@@ -835,13 +894,12 @@ class BaseTrainTester:
         torch.cuda.empty_cache()
         return start_iter, best_loss
 
-    def _save_rolling_checkpoint(self, model, ema_model, optimizer, scaler, step_id, best_loss):
+    def _save_rolling_checkpoint(self, model, ema_model, optimizer, step_id, best_loss):
         """Save rolling checkpoint to last.pth only (no per-step files, no frozen backbone)."""
         state = {
             "weight": self._trainable_state_dict(model),
             "ema_weight": self._trainable_state_dict(ema_model) if ema_model is not None else None,
             "optimizer": optimizer.state_dict(),
-            "scaler": scaler.state_dict(),
             "iter": step_id + 1,
             "best_loss": best_loss,
             "config": _args_to_dict(self.args),
@@ -875,7 +933,7 @@ class BaseTrainTester:
         _atomic_save(state, ckpt_path)
         print(f"Saved periodic checkpoint: {ckpt_path}", flush=True)
 
-    def save_checkpoint(self, model, ema_model, optimizer, scaler,
+    def save_checkpoint(self, model, ema_model, optimizer,
                         step_id, new_loss, best_loss):
         """Save best and intermediate checkpoints; rolling last-K is handled separately."""
         model_state = self._trainable_state_dict(model)
@@ -887,7 +945,6 @@ class BaseTrainTester:
                 "weight": model_state,
                 "ema_weight": ema_state,
                 "optimizer": optimizer.state_dict(),
-                "scaler": scaler.state_dict(),
                 "iter": step_id + 1,
                 "best_loss": best_loss,
                 "config": config_container,

@@ -1,13 +1,13 @@
 #!/bin/bash
-#SBATCH --job-name=orb_ml_miscal
+#SBATCH --job-name=3dfa_profile
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=50
-#SBATCH --gres=gpu:8
+#SBATCH --gres=gpu:1
 #SBATCH --mem=200G
-#SBATCH --time=24:00:00
+#SBATCH --time=00:30:00
 #SBATCH --partition=shubhamlong
 #SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-14,grogu-3-25
 
@@ -20,13 +20,15 @@ source ~/miniconda3/etc/profile.d/conda.sh
 conda activate 3dfa
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
-ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
 data=orbital
 main_dir=Orbital
-experiment=orb_deltaM_full
-run_log_dir=deltaM_miscal
-train_iters=160000
+experiment=debug
+run_log_dir=profile_run
+
+# Warmup steps before profiler captures, then capture this many steps
+WARMUP=20
+PROFILE_STEPS=10
 
 train_data_dir=/grogu/user/harshilb/multi_cam/train.zarr
 eval_data_dir=/grogu/user/harshilb/multi_cam/val.zarr
@@ -35,17 +37,20 @@ source /home/harshilb/3d_flowmatch_actor/scripts/helpers/slurm_utils.sh
 to_scratch train_data_dir
 to_scratch eval_data_dir
 
-checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
-
-TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
+# No checkpoint — fresh start so we profile from step 0+warmup
+torchrun --nproc_per_node 1 --master_port $MASTER_PORT \
     main.py \
     data=$data \
     experiment=$experiment \
     exp_log_dir=$main_dir \
     run_log_dir=$run_log_dir \
-    train_iters=$train_iters \
+    train_iters=$((WARMUP + PROFILE_STEPS + 5)) \
     train_data_dir=$train_data_dir \
     eval_data_dir=$eval_data_dir \
-    checkpoint=$checkpoint \
-    batch_size=512 \
-    "orbital_miscal_noise_levels=[medium]"
+    batch_size=64 \
+    "orbital_miscal_noise_levels=[medium]" \
+    use_compile=true \
+    benchmark=true \
+    benchmark_warmup_steps=$WARMUP \
+    benchmark_profile_steps=$PROFILE_STEPS \
+    benchmark_dummy_data=false

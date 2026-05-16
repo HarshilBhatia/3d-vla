@@ -30,7 +30,14 @@ train_iters=240000
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
-# TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY 
+train_data_dir=/grogu/user/harshilb/orbital_rollouts/4task_final.zarr
+eval_data_dir=$train_data_dir
+
+source /home/harshilb/3d_flowmatch_actor/scripts/helpers/slurm_utils.sh
+to_scratch train_data_dir
+eval_data_dir=$train_data_dir
+
+# TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY
 
 torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
@@ -39,8 +46,8 @@ torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     exp_log_dir=$main_dir \
     run_log_dir=$run_log_dir \
     train_iters=$train_iters \
-    train_data_dir=/grogu/user/harshilb/orbital_rollouts/4task_final.zarr \
-    eval_data_dir=/grogu/user/harshilb/orbital_rollouts/4task_final.zarr \
+    train_data_dir=$train_data_dir \
+    eval_data_dir=$eval_data_dir \
     checkpoint=$checkpoint \
     batch_size=128 \
     orbital_miscal_noise_level_per_task_group=medium

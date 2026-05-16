@@ -858,7 +858,7 @@ class TransformerHead(nn.Module):
             # Pre-compute sin/cos bases once; reuse across all blocks (delta_M mode only)
             precomputed_bases = (
                 self._precompute_rope_bases(traj_xyz, rgb3d_pos, fps_scene_pos, stopgrad_k)
-                if self.extrinsics_prediction_mode == 'delta_m' else None
+                if self.extrinsics_prediction_mode in ('delta_m', 'delta_m_full') else None
             )
 
             # Cross-attention: per-layer RoPE recompute (per-image feats are static pre-SA)

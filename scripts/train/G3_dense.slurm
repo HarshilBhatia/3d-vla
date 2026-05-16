@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=orbital_mini
+#SBATCH --job-name=G3G4_miscal_dense
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
@@ -7,8 +7,9 @@
 #SBATCH --cpus-per-task=50
 #SBATCH --gres=gpu:4
 #SBATCH --mem=96G
-#SBATCH --time=48:00:00
+#SBATCH --time=24:00:00
 #SBATCH --partition=shubhamlong
+#SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-[6,9,14],grogu-3-25
 
 echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
@@ -24,18 +25,28 @@ ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 data=orbital
 main_dir=Orbital
 experiment=orb_deltaM_full
-run_log_dir=orbital_mini_deltaM
-train_iters=70000
+run_log_dir=G3_dense
+train_epochs=6200
+
+
+zarr=/grogu/user/harshilb/dense_new/G3.zarr
+
+source /home/harshilb/3d_flowmatch_actor/scripts/helpers/slurm_utils.sh
+to_scratch zarr
 
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
-WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
+TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
     data=$data \
     experiment=$experiment \
     exp_log_dir=$main_dir \
     run_log_dir=$run_log_dir \
+    train_epochs=$train_epochs \
     train_iters=$train_iters \
-    train_data_dir=/home/harshilb/data/orbital_mini.zarr \
-    eval_data_dir=/home/harshilb/data/orbital_mini.zarr \
-    checkpoint=$checkpoint
+    train_data_dir=$zarr \
+    eval_data_dir=$zarr \
+    checkpoint=$checkpoint \
+    batch_size=512 \
+    keypose_only=false \
+    "$@"

@@ -24,7 +24,7 @@ class DiNOv2Transform(nn.Module):
 class DiNOv2Features(nn.Module):
     """
     DINOv2 ViT backbone.
-    Returns a 2D spatial feature map (B, hidden_size, h, w).
+    Returns flat patch tokens (B, h*w, hidden_size).
     Works with any square input resolution; h = w = sqrt(num_patches).
     """
 
@@ -40,11 +40,7 @@ class DiNOv2Features(nn.Module):
             if x.dtype != model_dtype:
                 x = x.to(model_dtype)
         tokens = self.model(pixel_values=x).last_hidden_state  # (B, 1+h*w, C)
-        tokens = tokens[:, 1:]                                   # strip CLS: (B, h*w, C)
-        B, N, C = tokens.shape
-        h = w = int(N ** 0.5)
-        tokens = tokens.reshape(B, h, w, C).permute(0, 3, 1, 2)  # (B, C, h, w)
-        return tokens
+        return tokens[:, 1:]                                    # strip CLS: (B, h*w, C)
 
 
 def load_dinov2(model_name=DINOV2_MODEL):

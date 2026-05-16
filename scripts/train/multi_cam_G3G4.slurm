@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=no_dropout
+#SBATCH --job-name=G3G4_miscal
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
@@ -7,10 +7,9 @@
 #SBATCH --cpus-per-task=50
 #SBATCH --gres=gpu:4
 #SBATCH --mem=96G
-#SBATCH --time=12:00:00
+#SBATCH --time=24:00:00
 #SBATCH --partition=shubhamlong
-#SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-[6,9,14],grogu-3-25,grogu-2-22
-
+#SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-[6,9,14],grogu-3-25
 
 echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
@@ -22,14 +21,21 @@ conda activate 3dfa
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
+# ngpus=1
+# ${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
 data=orbital
-main_dir=final
-experiment=default
-run_log_dir=siglip_single_group_nodropout
-train_iters=70000
+main_dir=Orbital
+experiment=orb_deltaM_full
+run_log_dir=multi_cam_G3G4
+train_iters=160000
 
-checkpoint=train_logs/${main_dir}/${run_log_dir}/best.pth
+zarr=/grogu/user/harshilb/multi_cam_G3G4.zarr
+
+source /home/harshilb/3d_flowmatch_actor/scripts/helpers/slurm_utils.sh
+to_scratch zarr
+
+checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
 TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
@@ -38,8 +44,8 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     exp_log_dir=$main_dir \
     run_log_dir=$run_log_dir \
     train_iters=$train_iters \
-    train_data_dir=/grogu/user/harshilb/open_drawer/single/train.zarr \
-    eval_data_dir=/grogu/user/harshilb/open_drawer/val.zarr \
-    backbone=siglip2 \
+    train_data_dir=$zarr \
+    eval_data_dir=$zarr \
     checkpoint=$checkpoint \
-    batch_size=128
+    batch_size=256 \
+    "$@"

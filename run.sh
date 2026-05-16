@@ -57,11 +57,18 @@ export XDG_RUNTIME_DIR=/run/user/27491
 
 # python scripts/helpers/vis_low_dim_obs.py /grogu/user/harshilb/orbital_rollouts_mini/open_drawer/G1/episode_0/
 
+# python data/processing/convert_to_zarr/orbital_to_zarr.py \
+#     --root /grogu/user/harshilb/multi_cam_val \
+#     --out /grogu/user/harshilb/multi_cam/val.zarr --overwrite
+
+
 python data/processing/convert_to_zarr/orbital_to_zarr.py \
-    --root /grogu/user/harshilb/multi_cam_val \
-    --out /grogu/user/harshilb/multi_cam/val.zarr --overwrite
-
-
+    --root /grogu/user/harshilb/multi_cam_rollouts \
+    --out /grogu/user/harshilb/dense_new/G3.zarr \
+    --groups G3 \
+    --store-trajectory \
+    --tasks insert_onto_square_peg,light_bulb_in,open_drawer,turn_tap \
+    --overwrite
 
 # xvfb-run -a python scripts/orbital_cameras/collect_low_dim_only.py \
 #     --tasks inset_onto_squ \
@@ -76,15 +83,8 @@ python data/processing/convert_to_zarr/orbital_to_zarr.py \
 #     --root /grogu/user/harshilb/peract_rollouts/ \
 #     --tgt /grogu/user/harshilb/peract_mini.zarr \
 #     --overwrite
-    
-
-# apptainer exec \
-#       --nv \
-#       --env "COPPELIASIM_ROOT=${COPPELIASIM_ROOT}" \
-#       --env "LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${COPPELIASIM_ROOT}" \
-#       --env "QT_QPA_PLATFORM_PLUGIN_PATH=${COPPELIASIM_ROOT}" \
-#       --bind /ocean/projects/cis240058p/hbhatia1/3d-vla:/ocean/projects/cis240058p/hbhatia1/3d-vla \
-#       /ocean/projects/cis240058p/hbhatia1/containers/3dfa-sandbox.sif \
-#       bash
 
 
+# apptainer shell --nv --fakeroot --writable --bind /usr/bin/xvfb-run:/usr/bin/xvfb-run  --bind /grogu/user/harshilb/:/grogu/user/harshilb/ --env PATH=/root/miniconda3/envs/3dfa/bin:$PATH  my_eval_env
+
+# apptainer shell --nv --fakeroot --bind /scratch:/scratch --bind /grogu/user/harshilb/:/grogu/user/harshilb/ 3dfa_flash

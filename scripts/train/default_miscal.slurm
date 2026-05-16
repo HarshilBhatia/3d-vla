@@ -31,6 +31,10 @@ train_iters=160000
 train_data_dir=/grogu/user/harshilb/multi_cam/train.zarr
 eval_data_dir=/grogu/user/harshilb/multi_cam/val.zarr
 
+source /home/harshilb/3d_flowmatch_actor/scripts/helpers/slurm_utils.sh
+to_scratch train_data_dir
+to_scratch eval_data_dir
+
 checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 
 TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
