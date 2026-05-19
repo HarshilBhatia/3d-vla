@@ -127,7 +127,7 @@ class Encoder(BaseEncoder):
             B = rgb3d.shape[0]
             instr_feats = self.lang_mask_token.expand(B, 1, -1)
         else:
-            instruction = self.text_encoder(text)
+            instruction = self.text_encoder(text).to(next(self.instruction_encoder.parameters()).dtype)
             instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
             instr_feats = self.maybe_drop_lang(instr_feats)
 
@@ -185,7 +185,7 @@ class Encoder(BaseEncoder):
             B = rgb3d.shape[0]
             instr_feats = self.lang_mask_token.expand(B, 1, -1)
         else:
-            instruction = self.text_encoder(text)
+            instruction = self.text_encoder(text).to(next(self.instruction_encoder.parameters()).dtype)
             instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
             instr_feats = self.maybe_drop_lang(instr_feats)
 
@@ -242,7 +242,7 @@ class Encoder(BaseEncoder):
             B = rgb3d.shape[0]
             instr_feats = self.lang_mask_token.expand(B, 1, -1)
         else:
-            instruction = self.text_encoder(text)
+            instruction = self.text_encoder(text).to(next(self.instruction_encoder.parameters()).dtype)
             instr_feats = self.instruction_encoder(instruction)  # (B, L, F)
             instr_feats = self.maybe_drop_lang(instr_feats)
 

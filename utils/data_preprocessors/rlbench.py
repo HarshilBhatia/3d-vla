@@ -9,8 +9,8 @@ from .base import DataPreprocessor
 from .miscalibration import (
     _load_orbital_group_noise,
     _load_orbital_group_level_noise,
-    _load_orbital_task_group_noise,
-    noise_RT_from_dict,
+
+    per_cam_noise_T,
     apply_miscalibration,
 )
 
@@ -23,11 +23,13 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                  miscal_max_angle_deg=None, miscal_max_translation_m=None,
                  miscal_fixed_angle_deg=None, miscal_fixed_translation_m=None,
                  orbital_miscal_noise_level=None,
-                 orbital_miscal_noise_level_per_task_group=None,
+
                  orbital_miscal_noise_levels=None,
                  cotrain_miscal_group_ids=None,
                  cotrain_miscal_level=None,
                  cotrain_miscal_levels=None,
+                 noise_curriculum=False,
+                 noise_curriculum_warmup_frac=1.0,
                  **kwargs):
         super().__init__(
             keypose_only=keypose_only,
@@ -37,15 +39,13 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         )
         active = sum([
             orbital_miscal_noise_level is not None,
-            orbital_miscal_noise_level_per_task_group is not None,
             bool(orbital_miscal_noise_levels),
             bool(cotrain_miscal_group_ids),
         ])
         if active > 1:
             raise ValueError(
-                "orbital_miscal_noise_level, orbital_miscal_noise_level_per_task_group, "
-                "orbital_miscal_noise_levels, and cotrain_miscal_group_ids are mutually exclusive; "
-                "set only one."
+                "orbital_miscal_noise_level, orbital_miscal_noise_levels, and "
+                "cotrain_miscal_group_ids are mutually exclusive; set only one."
             )
         self.rotate_pcd = rotate_pcd
         self.rotate_angle_deg = rotate_angle_deg
@@ -58,35 +58,51 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         self.miscal_fixed_angle_deg = miscal_fixed_angle_deg or 0.0
         self.miscal_fixed_translation_m = miscal_fixed_translation_m or 0.0
         self._orbital_miscal_noise_level = orbital_miscal_noise_level
-        self._orbital_miscal_noise_level_per_task_group = orbital_miscal_noise_level_per_task_group
+
         self._orbital_miscal_noise_levels = list(orbital_miscal_noise_levels) if orbital_miscal_noise_levels else None
         self._cotrain_miscal_group_ids = set(int(g) for g in cotrain_miscal_group_ids) if cotrain_miscal_group_ids else None
         self._cotrain_miscal_level = cotrain_miscal_level
         self._cotrain_miscal_levels = list(cotrain_miscal_levels) if cotrain_miscal_levels else None
-        if self._cotrain_miscal_group_ids is not None and (cotrain_miscal_level is None) == (self._cotrain_miscal_levels is None):
+        # Random mode: cotrain_miscal_group_ids + miscal_max_angle_deg (no file-based level needed)
+        self._cotrain_random_mode = (
+            bool(self._cotrain_miscal_group_ids)
+            and (miscal_max_angle_deg or 0.0) > 0
+            and cotrain_miscal_level is None
+            and not cotrain_miscal_levels
+        )
+        if self._cotrain_miscal_group_ids is not None and not self._cotrain_random_mode \
+                and (cotrain_miscal_level is None) == (self._cotrain_miscal_levels is None):
             raise ValueError(
                 "cotrain_miscal_group_ids requires exactly one of cotrain_miscal_level "
-                "(single level) or cotrain_miscal_levels (list, sampled per-sample)."
+                "(single level) or cotrain_miscal_levels (list, sampled per-sample), "
+                "or set miscal_max_angle_deg>0 for per-group random noise."
             )
         self._group_noise_table        = None  # (K_groups,            ncam, 4, 4) CPU float32, lazy-init
         self._group_level_noise_table  = None  # (K_group_levels,      ncam, 4, 4) CPU float32, lazy-init
         self._group_level_key_to_row   = None  # {"G1_small": int, ...}
-        self._task_group_noise_table   = None  # (K_tasks * K_groups,  ncam, 4, 4) CPU float32, lazy-init
-        self._task_group_key_to_row    = None  # {"task_G1": int}
+
         self._cotrain_group_noise_table = None  # (K_groups, ncam, 4, 4) for cotrain_miscal_level, lazy-init
         self._miscal_logged = False
+        self.noise_curriculum = noise_curriculum
+        self.noise_curriculum_warmup_frac = max(float(noise_curriculum_warmup_frac), 1e-6)
+        self._noise_progress = 0.0  # updated by trainer; 0 = no noise, 1 = full noise
+        if noise_curriculum:
+            print(f"[miscal] noise curriculum ENABLED: linear ramp over {noise_curriculum_warmup_frac:.1%} of training", flush=True)
         if orbital_miscal_noise_level is not None:
-            print(f"[miscal] per-group FILE: level='{orbital_miscal_noise_level}'", flush=True)
-        elif orbital_miscal_noise_level_per_task_group is not None:
-            print(f"[miscal] per-task-group FILE: level='{orbital_miscal_noise_level_per_task_group}'", flush=True)
+            extra = ""
+            if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
+                extra = f" + random top-up max_angle={miscal_max_angle_deg}deg, max_t={miscal_max_translation_m}m"
+            print(f"[miscal] per-group FILE: level='{orbital_miscal_noise_level}'{extra}", flush=True)
+
         elif self._orbital_miscal_noise_levels:
             print(f"[miscal] per-group MULTI-LEVEL (random): levels={self._orbital_miscal_noise_levels}", flush=True)
         elif self._cotrain_miscal_group_ids is not None:
-            level_str = (
-                f"levels={self._cotrain_miscal_levels} (sampled per-sample)"
-                if self._cotrain_miscal_levels is not None
-                else f"level='{cotrain_miscal_level}'"
-            )
+            if self._cotrain_random_mode:
+                level_str = f"RANDOM max_angle={miscal_max_angle_deg}deg, max_t={miscal_max_translation_m}m"
+            elif self._cotrain_miscal_levels is not None:
+                level_str = f"levels={self._cotrain_miscal_levels} (sampled per-sample)"
+            else:
+                level_str = f"level='{cotrain_miscal_level}'"
             print(
                 f"[miscal] co-train MIXED: groups {sorted(self._cotrain_miscal_group_ids)} get "
                 f"{level_str}, all others clean",
@@ -118,119 +134,86 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             )
         ).cuda()
 
-    def _ensure_group_noise_table(self, ncam):
-        """Lazily load the (K, ncam, 4, 4) noise table from instructions/orbital_miscalibration_noise.json.
+    def set_noise_progress(self, p: float):
+        """Set curriculum progress (0.0 = start, 1.0 = full noise). Called by trainer each step."""
+        self._noise_progress = float(p)
 
-        Table is indexed by (camera_group - 1), so row k corresponds to group G(k+1).
+    def _build_noise_table(self, loader_fn, ncam):
+        """Build a (K, ncam, 4, 4) noise table from a loader function.
+
+        Returns (table, keys, key_to_row) where key_to_row maps key string → row index.
+        loader_fn() must return (file_cameras, keys, noise_dict).
         """
+        file_cameras, keys, noise = loader_fn()
+        K = len(keys)
+        table = torch.eye(4).view(1, 1, 4, 4).expand(K, ncam, 4, 4).clone()
+        for k, key in enumerate(keys):
+            table[k] = per_cam_noise_T(noise[key], file_cameras[:ncam], ncam)
+        key_to_row = {k: i for i, k in enumerate(keys)}
+        return table, keys, key_to_row
+
+    def _ensure_group_noise_table(self, ncam):
+        """Lazily load (K, ncam, 4, 4) table indexed by (camera_group - 1)."""
         if self._group_noise_table is not None and self._group_noise_table.shape[1] == ncam:
             return
-        file_cameras, groups, noise = _load_orbital_group_noise(self._orbital_miscal_noise_level)
-        K = len(groups)
-        table = torch.eye(4).view(1, 1, 4, 4).expand(K, ncam, 4, 4).clone()
-        for k, group in enumerate(groups):
-            R, t = noise_RT_from_dict(noise[group], file_cameras[:ncam])
-            table[k, :, :3, :3] = R
-            table[k, :, :3,  3] = t
-        self._group_noise_table = table
-        print(f"[miscal] loaded from file: level='{self._orbital_miscal_noise_level}', K={K}, ncam={ncam}", flush=True)
+        loader = lambda: _load_orbital_group_noise(self._orbital_miscal_noise_level)
+        self._group_noise_table, groups, _ = self._build_noise_table(loader, ncam)
+        print(f"[miscal] loaded from file: level='{self._orbital_miscal_noise_level}', K={len(groups)}, ncam={ncam}", flush=True)
 
     def _ensure_group_level_noise_table(self, ncam):
-        """Lazily load (K_group_levels, ncam, 4, 4) noise table from per_group_levels JSON section.
-
-        Keys are like 'G1_small', 'G1_medium', 'G1_large', 'G2_small', ...
-        During forward, one level per batch sample is drawn uniformly at random from
-        _orbital_miscal_noise_levels and the key G{group}_{level} is used for lookup.
-        """
+        """Lazily load (K_group_levels, ncam, 4, 4) table with keys like 'G1_small'."""
         if self._group_level_noise_table is not None and self._group_level_noise_table.shape[1] == ncam:
             return
-        file_cameras, group_level_keys, noise = _load_orbital_group_level_noise()
-        K = len(group_level_keys)
-        table = torch.eye(4).view(1, 1, 4, 4).expand(K, ncam, 4, 4).clone()
-        for k, key in enumerate(group_level_keys):
-            R, t = noise_RT_from_dict(noise[key], file_cameras[:ncam])
-            table[k, :, :3, :3] = R
-            table[k, :, :3,  3] = t
-        self._group_level_noise_table = table
-        self._group_level_key_to_row  = {k: i for i, k in enumerate(group_level_keys)}
-        print(f"[miscal] per-group-level loaded: K={K}, ncam={ncam}", flush=True)
+        self._group_level_noise_table, keys, self._group_level_key_to_row = self._build_noise_table(_load_orbital_group_level_noise, ncam)
+        print(f"[miscal] per-group-level loaded: K={len(keys)}, ncam={ncam}", flush=True)
 
     def _ensure_cotrain_group_noise_table(self, ncam):
-        """Lazily load the (K_groups, ncam, 4, 4) noise table for the co-training mixed-miscal mode."""
+        """Lazily load (K_groups, ncam, 4, 4) table for co-training mixed-miscal mode."""
         if self._cotrain_group_noise_table is not None and self._cotrain_group_noise_table.shape[1] == ncam:
             return
-        file_cameras, groups, noise = _load_orbital_group_noise(self._cotrain_miscal_level)
-        K = len(groups)
-        table = torch.eye(4).view(1, 1, 4, 4).expand(K, ncam, 4, 4).clone()
-        for k, group in enumerate(groups):
-            R, t = noise_RT_from_dict(noise[group], file_cameras[:ncam])
-            table[k, :, :3, :3] = R
-            table[k, :, :3,  3] = t
-        self._cotrain_group_noise_table = table
-        print(
-            f"[miscal] cotrain group noise loaded: level='{self._cotrain_miscal_level}', K={K}, ncam={ncam}",
-            flush=True,
-        )
+        loader = lambda: _load_orbital_group_noise(self._cotrain_miscal_level)
+        self._cotrain_group_noise_table, groups, _ = self._build_noise_table(loader, ncam)
+        print(f"[miscal] cotrain group noise loaded: level='{self._cotrain_miscal_level}', K={len(groups)}, ncam={ncam}", flush=True)
 
-    def _ensure_task_group_noise_table(self, ncam):
-        """Lazily load the (K_task_groups, ncam, 4, 4) noise table for per-(task, group) miscal."""
-        if self._task_group_noise_table is not None and self._task_group_noise_table.shape[1] == ncam:
-            return
-        file_cameras, task_group_keys, noise = _load_orbital_task_group_noise(self._orbital_miscal_noise_level_per_task_group)
-        K = len(task_group_keys)
-        table = torch.eye(4).view(1, 1, 4, 4).expand(K, ncam, 4, 4).clone()
-        for k, key in enumerate(task_group_keys):
-            R, t = noise_RT_from_dict(noise[key], file_cameras[:ncam])
-            table[k, :, :3, :3] = R
-            table[k, :, :3,  3] = t
-        self._task_group_noise_table = table
-        self._task_group_key_to_row = {k: i for i, k in enumerate(task_group_keys)}
-        print(f"[miscal] per-task-group loaded: level='{self._orbital_miscal_noise_level_per_task_group}', K={K}, ncam={ncam}", flush=True)
+
+    def _lookup_group_level_noise(self, camera_group, levels, ncam, device, dtype):
+        """Shared helper: randomly pick a level per sample, look up (B, ncam, 4, 4) from the group-level table."""
+        self._ensure_group_level_noise_table(ncam)
+        rand_levels = [levels[i] for i in torch.randint(0, len(levels), (len(camera_group),)).tolist()]
+        keys = [f"G{int(g)}_{l}" for g, l in zip(camera_group.tolist(), rand_levels)]
+        idx = torch.tensor([self._group_level_key_to_row[k] for k in keys], dtype=torch.long)
+        return self._group_level_noise_table[idx].to(device=device, dtype=dtype)
 
     def _get_miscal_noise(self, B, ncam, device, dtype, camera_group=None, task=None):
         """Return (B, ncam, 4, 4) noise transform, or None if miscal is disabled."""
+        # Flatten to (B,) — dataset yields camera_group as (1,) or (1,1); collation
+        # via torch.cat produces (B,) or (B,1). Squeeze to ensure 1-D indexing.
+        if camera_group is not None:
+            camera_group = camera_group.reshape(B)
         if self._cotrain_miscal_group_ids is not None and camera_group is not None:
             if self._cotrain_miscal_levels is not None:
-                # Per-sample random level drawn from the configured list, looked up
-                # in the per-group-level table by key 'G{group}_{level}'.
-                self._ensure_group_level_noise_table(ncam)
-                levels = self._cotrain_miscal_levels
-                rand_levels = [levels[i] for i in torch.randint(0, len(levels), (B,)).tolist()]
-                keys = [f"G{int(g)}_{l}" for g, l in zip(camera_group.tolist(), rand_levels)]
-                idx = torch.tensor([self._group_level_key_to_row[k] for k in keys], dtype=torch.long)
-                T = self._group_level_noise_table[idx].to(device=device, dtype=dtype)
-            else:
+                T = self._lookup_group_level_noise(camera_group, self._cotrain_miscal_levels, ncam, device, dtype)
+            elif self._cotrain_miscal_level is not None:
                 self._ensure_cotrain_group_noise_table(ncam)
-                idx = camera_group.long() - 1  # (B,) 0-based
-                T = self._cotrain_group_noise_table[idx].to(device=device, dtype=dtype)  # (B, ncam, 4, 4)
+                T = self._cotrain_group_noise_table[camera_group.long() - 1].to(device=device, dtype=dtype)
+            else:
+                # Random mode: freshly-sampled noise per batch, masked to miscal groups only
+                T = self._sample_random_miscalibration(B, ncam, device, dtype)
             # Samples whose group is not in the miscal set get identity (clean extrinsics).
-            in_miscal = torch.tensor(
-                [int(g.item()) in self._cotrain_miscal_group_ids for g in camera_group],
-                dtype=torch.bool, device=device,
-            ).view(B, 1, 1, 1)
+            ids = torch.tensor(sorted(self._cotrain_miscal_group_ids), dtype=camera_group.dtype)
+            in_miscal = torch.isin(camera_group, ids).to(device=device).view(B, 1, 1, 1)
             eye = torch.eye(4, device=device, dtype=dtype).view(1, 1, 4, 4).expand(B, ncam, 4, 4)
             return torch.where(in_miscal, T, eye)
         if self._orbital_miscal_noise_level is not None and camera_group is not None:
             self._ensure_group_noise_table(ncam)
-            idx = camera_group.long() - 1  # (B,) 0-based
-            return self._group_noise_table[idx].to(device=device, dtype=dtype)  # (B, ncam, 4, 4)
+            T_base = self._group_noise_table[camera_group.long() - 1].to(device=device, dtype=dtype)
+            if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
+                T_rand = self._sample_random_miscalibration(B, ncam, device, dtype)
+                return T_rand @ T_base
+            return T_base
         if self._orbital_miscal_noise_levels is not None and camera_group is not None:
-            self._ensure_group_level_noise_table(ncam)
-            levels = self._orbital_miscal_noise_levels
-            rand_levels = [levels[i] for i in torch.randint(0, len(levels), (B,)).tolist()]
-            keys = [f"G{int(g)}_{l}" for g, l in zip(camera_group.tolist(), rand_levels)]
-            idx = torch.tensor([self._group_level_key_to_row[k] for k in keys], dtype=torch.long)
-            return self._group_level_noise_table[idx].to(device=device, dtype=dtype)
-        if self._orbital_miscal_noise_level_per_task_group is not None:
-            if task is None or camera_group is None:
-                return None
-            self._ensure_task_group_noise_table(ncam)
-            keys = [f"{t}_G{int(g)}" for t, g in zip(task, camera_group)]
-            idx = torch.tensor(
-                [self._task_group_key_to_row[k] for k in keys],
-                dtype=torch.long,
-            )
-            return self._task_group_noise_table[idx].to(device=device, dtype=dtype)
+            return self._lookup_group_level_noise(camera_group, self._orbital_miscal_noise_levels, ncam, device, dtype)
+
         if (self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0
                 or self.miscal_fixed_angle_deg > 0 or self.miscal_fixed_translation_m > 0):
             return self._sample_random_miscalibration(B, ncam, device, dtype)
@@ -242,16 +225,22 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         Returns (B, ncam, 4, 4) transforms to left-multiply onto extrinsics.
         Sampled once per batch item so all nhist snapshots get the same noise.
         """
+        # Curriculum scale: linearly ramp from 0 to 1 over warmup_frac of training
+        curriculum_scale = (
+            min(1.0, self._noise_progress / self.noise_curriculum_warmup_frac)
+            if self.noise_curriculum else 1.0
+        )
+
         # Random rotation via axis-angle: axis uniform on S². Angle is either
         # uniform in [-max, +max] (random "noise budget" mode) or exactly the
         # fixed magnitude (deterministic-magnitude mode for sweeps).
         axes = torch.randn(B, ncam, 3, device=device)
         axes = axes / (axes.norm(dim=-1, keepdim=True) + 1e-8)
         if self.miscal_fixed_angle_deg > 0:
-            rad = self.miscal_fixed_angle_deg * math.pi / 180.0
+            rad = self.miscal_fixed_angle_deg * math.pi / 180.0 * curriculum_scale
             angles = torch.full((B, ncam), rad, device=device)
         else:
-            max_rad = self.miscal_max_angle_deg * math.pi / 180.0
+            max_rad = self.miscal_max_angle_deg * math.pi / 180.0 * curriculum_scale
             angles = (torch.rand(B, ncam, device=device) * 2 - 1) * max_rad  # (B, ncam)
 
         # Rodrigues: R = I + sin(θ)K + (1-cos(θ))K²
@@ -272,9 +261,9 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         if self.miscal_fixed_translation_m > 0:
             t_dir = torch.randn(B, ncam, 3, device=device)
             t_dir = t_dir / (t_dir.norm(dim=-1, keepdim=True) + 1e-8)
-            t = t_dir * self.miscal_fixed_translation_m
+            t = t_dir * (self.miscal_fixed_translation_m * curriculum_scale)
         else:
-            t = (torch.rand(B, ncam, 3, device=device) * 2 - 1) * self.miscal_max_translation_m
+            t = (torch.rand(B, ncam, 3, device=device) * 2 - 1) * (self.miscal_max_translation_m * curriculum_scale)
 
         # Assemble 4×4
         T = torch.eye(4, device=device, dtype=dtype).view(1, 1, 4, 4).expand(B, ncam, 4, 4).clone()

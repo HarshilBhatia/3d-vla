@@ -129,6 +129,7 @@ class DenoiseActor(nn.Module):
             rgb3d_feats = rgb3d_feats[:, -1]
             pcd = pcd[:, -1]
 
+        # Returns (traj_list, ee_stacked) — ee_stacked is empty tensor when predict_ee_aux=False
         return self.prediction_head(
             trajectory_feats,
             traj_xyz,
@@ -155,13 +156,13 @@ class DenoiseActor(nn.Module):
         # Iterative denoising
         timesteps = self.position_scheduler.timesteps
         for t_ind, t in enumerate(timesteps):
-            out = self.policy_forward_pass(
+            traj_preds, _ = self.policy_forward_pass(
                 trajectory,
                 t * torch.ones(len(trajectory), device=device, dtype=torch.long),
                 fixed_inputs,
                 stopgrad_k=stopgrad_k
             )
-            out = out[-1]  # keep only last layer's output
+            out = traj_preds[-1]  # keep only last layer's output
             pos = self.position_scheduler.step(
                 out[..., :3],
                 t_ind, trajectory[..., :3]
@@ -183,12 +184,12 @@ class DenoiseActor(nn.Module):
         for t_ind, t in enumerate(timesteps):
             t_batch = t * torch.ones(len(trajectory), device=device, dtype=torch.long)
 
-            out_uncond = self.policy_forward_pass(trajectory, t_batch, uncond_fixed_inputs, stopgrad_k=stopgrad_k)[-1]
+            out_uncond = self.policy_forward_pass(trajectory, t_batch, uncond_fixed_inputs, stopgrad_k=stopgrad_k)[0][-1]
 
             if cfg_scale == 0:
                 out = out_uncond
             else:
-                out_cond = self.policy_forward_pass(trajectory, t_batch, cond_fixed_inputs, stopgrad_k=stopgrad_k)[-1]
+                out_cond = self.policy_forward_pass(trajectory, t_batch, cond_fixed_inputs, stopgrad_k=stopgrad_k)[0][-1]
 
                 diff = (out_cond - out_uncond).norm(dim=-1).mean().item()
                 print(f"[CFG t={t_ind}] cfg_scale={cfg_scale}  |out_cond - out_uncond|={diff:.4f}", flush=True)
@@ -295,10 +296,16 @@ class DenoiseActor(nn.Module):
             gt_trajectory.flatten(1, 2)
         ).unflatten(1, (traj_len, nhand))
 
+        # GT EE XYZ for aux loss: first keypose, mean over hands, in normalized coords
+        head = self.prediction_head
+        if head.predict_ee_aux:
+            gt_ee_xyz = gt_trajectory[:, 0, :, :3].mean(dim=1).detach()  # (B, 3)
+
         # Loop lv2_batch_size times and sample different noises with same input
         # Trick to effectively increase the batch size without re-encoding
         # It speeds up training but may decrease performance a bit
         total_loss = 0
+        self._last_ee_aux_loss = None
         for _ in range(self._lv2_batch_size):
             # Sample noise
             noise = torch.randn(gt_trajectory.shape, device=gt_trajectory.device)
@@ -318,18 +325,18 @@ class DenoiseActor(nn.Module):
                 timesteps
             )
 
-            # Q: uhhm, why add noise seperately? 
+            # Q: uhhm, why add noise seperately?
 
             noisy_trajectory = torch.cat((pos, rot), -1)
 
-            # Predict the noise residual
-            pred = self.policy_forward_pass(
+            # Predict the noise residual; returns (traj_list, ee_stacked)
+            pred, ee_stacked = self.policy_forward_pass(
                 noisy_trajectory,
                 timesteps, fixed_inputs,
                 stopgrad_k=stopgrad_k
             )
 
-            # Compute loss
+            # Compute flow-matching loss
             for layer_pred in pred:
                 pos = layer_pred[..., :3]
                 rot = layer_pred[..., 3:-1]
@@ -343,6 +350,16 @@ class DenoiseActor(nn.Module):
                     + F.binary_cross_entropy_with_logits(openess, gt_openess)
                 )
                 total_loss = total_loss + loss
+
+            # EE aux loss: ee_stacked is (n_layers, B, n_ext_cams, 3) when predict_ee_aux=True
+            if head.predict_ee_aux:
+                n_ext = len(head.ee_aux_cam_ids)
+                gt_ee_exp = gt_ee_xyz[:, None, :].expand(-1, n_ext, -1)  # (B, n_ext, 3)
+                # mean over SA layers
+                loss_aux = F.mse_loss(ee_stacked, gt_ee_exp.unsqueeze(0).expand_as(ee_stacked))
+                total_loss = total_loss + head.lambda_aux * loss_aux
+                self._last_ee_aux_loss = loss_aux.detach()
+
         return total_loss / self._lv2_batch_size
 
     def normalize_pos(self, signal):
@@ -506,7 +523,11 @@ class TransformerHead(nn.Module):
                  extrinsics_prediction_mode='delta_m',  # 'rt' = R,T (6D) and log; 'delta_m' = 6x6 matrix
                  learn_extrinsics=False,
                  dynamic_rope_from_camtoken=False,
-                 use_proprio_rope=False):
+                 use_proprio_rope=False,
+                 use_learned_abs_pe=False,
+                 predict_ee_aux=False,
+                 lambda_aux=1.0,
+                 ee_aux_cam_ids=(0, 1)):
         super().__init__()
 
         self.use_proprio_rope = use_proprio_rope
@@ -518,11 +539,33 @@ class TransformerHead(nn.Module):
         self.traj_scene_rope = traj_scene_rope
         self.predict_extrinsics = predict_extrinsics
         self.dynamic_rope_from_camtoken = dynamic_rope_from_camtoken
-        self._rope_mode = "none" if not traj_scene_rope else "standard"
+        if use_learned_abs_pe:
+            self._rope_mode = "learned_abs"
+            assert not predict_extrinsics, \
+                "use_learned_abs_pe=True: predict_extrinsics transforms 3D positions — disable it"
+            assert not use_proprio_rope, \
+                "use_learned_abs_pe=True: use_proprio_rope injects 3D gripper position — disable it"
+            assert not dynamic_rope_from_camtoken, \
+                "use_learned_abs_pe=True: dynamic_rope_from_camtoken re-computes RoPE from 3D positions — disable it"
+        elif not traj_scene_rope:
+            self._rope_mode = "none"
+        else:
+            self._rope_mode = "standard"
 
         # When traj_scene_rope=False, RoPE is disabled in this TransformerHead in:
         #   - cross_attn (traj-to-scene), shared self-attn branch, position/rotation output heads.
         # Encoder RoPE (encoder3d) is unchanged and controlled by rope_type / encoder config only.
+
+        # Learned absolute positional encoding for trajectory tokens only.
+        # Uses a learnable parameter table of shape (1, max_traj_tokens, embedding_dim),
+        # sliced to the actual traj_len * nhand at forward time.
+        if use_learned_abs_pe:
+            self.traj_abs_pe = nn.Parameter(torch.zeros(1, 32, embedding_dim))
+            nn.init.trunc_normal_(self.traj_abs_pe, std=0.02)
+            print('Using learned absolute positional encoding for traj tokens (abs_pe)')
+
+        # _use_rope_in_attn: False when RoPE is replaced by abs PE or disabled entirely
+        _use_rope_in_attn = rotary_pe and self._rope_mode == "standard"
 
         # Different embeddings
         
@@ -558,7 +601,7 @@ class TransformerHead(nn.Module):
             is_self=False
         )
 
-        # Estimate attends to context (no subsampling). RoPE off when traj_scene_rope=False.
+        # Estimate attends to context (no subsampling). RoPE off when traj_scene_rope=False or learned_abs.
         self.cross_attn = AttentionModule(
             num_layers=2,
             d_model=embedding_dim,
@@ -566,15 +609,18 @@ class TransformerHead(nn.Module):
             dropout=0.1,
             n_heads=num_attn_heads,
             pre_norm=False,
-            rotary_pe=rotary_pe and traj_scene_rope,
+            rotary_pe=_use_rope_in_attn,
             use_adaln=True,
             is_self=False
         )
 
         # Shared attention layers
 
-        if self.traj_scene_rope:
-            print(f'Using traj_scene_rope = True (standard RoPE)')
+        if self.traj_scene_rope or use_learned_abs_pe:
+            if use_learned_abs_pe:
+                print('Using learned absolute positional encoding (no RoPE)')
+            else:
+                print(f'Using traj_scene_rope = True (standard RoPE)')
             self.self_attn = AttentionModule(
                     num_layers=num_shared_attn_layers,
                     d_model=embedding_dim,
@@ -582,7 +628,7 @@ class TransformerHead(nn.Module):
                     dropout=0.1,
                     n_heads=num_attn_heads,
                     pre_norm=False,
-                    rotary_pe=rotary_pe,
+                    rotary_pe=_use_rope_in_attn,
                     use_adaln=True,
                     is_self=True
                 )
@@ -633,7 +679,7 @@ class TransformerHead(nn.Module):
                 dropout=0.1,
                 n_heads=num_attn_heads,
                 pre_norm=False,
-                rotary_pe=rotary_pe and self.traj_scene_rope,
+                rotary_pe=_use_rope_in_attn,
                 use_adaln=True,
                 is_self=True
             )
@@ -652,7 +698,7 @@ class TransformerHead(nn.Module):
                 dropout=0.1,
                 n_heads=num_attn_heads,
                 pre_norm=False,
-                rotary_pe=rotary_pe and self.traj_scene_rope,
+                rotary_pe=_use_rope_in_attn,
                 use_adaln=True,
                 is_self=True
             )
@@ -672,35 +718,38 @@ class TransformerHead(nn.Module):
         # 4. Predict extrinsics from cam_token: either R,T (6D), delta_M (6x6), or delta_m_full (D×D)
         if predict_extrinsics:
             self.camera_proj = nn.Linear(embedding_dim, embedding_dim)
+            # Shared trunk (Linear+ReLU) — used by both the extrinsics and EE aux heads
+            self.camera_trunk = nn.Sequential(
+                nn.Linear(embedding_dim, embedding_dim),
+                nn.ReLU()
+            )
             if self.extrinsics_prediction_mode == 'rt':
-                self.camera_predictor = nn.Sequential(
-                    nn.Linear(embedding_dim, embedding_dim),
-                    nn.ReLU(),
-                    nn.Linear(embedding_dim, 6)  # axis_angle (3) + translation (3)
-                )
-                # Init last layer so output ≈ 0 -> axis_angle=0, t=0 = identity transform at start
-                nn.init.normal_(self.camera_predictor[-1].weight, mean=0.0, std=0.01)
-                nn.init.zeros_(self.camera_predictor[-1].bias)
+                self.camera_predictor = nn.Linear(embedding_dim, 6)  # axis_angle (3) + translation (3)
+                # Init so output ≈ 0 -> axis_angle=0, t=0 = identity transform at start
+                nn.init.normal_(self.camera_predictor.weight, mean=0.0, std=0.01)
+                nn.init.zeros_(self.camera_predictor.bias)
             elif self.extrinsics_prediction_mode == 'delta_m_full':
                 D = (embedding_dim // 6) * 6
                 self._delta_m_full_dim = D
-                self.camera_predictor = nn.Sequential(
-                    nn.Linear(embedding_dim, embedding_dim),
-                    nn.ReLU(),
-                    nn.Linear(embedding_dim, D * D)  # D×D A_skew for full delta_M
-                )
-                # Init last layer so A_skew ≈ 0 -> delta_M = exp(A) ≈ I at start
-                nn.init.normal_(self.camera_predictor[-1].weight, mean=0.0, std=0.01)
-                nn.init.zeros_(self.camera_predictor[-1].bias)
+                self.camera_predictor = nn.Linear(embedding_dim, D * D)  # D×D A_skew for full delta_M
+                # Init so A_skew ≈ 0 -> delta_M = exp(A) ≈ I at start
+                nn.init.normal_(self.camera_predictor.weight, mean=0.0, std=0.01)
+                nn.init.zeros_(self.camera_predictor.bias)
             else:  # delta_m
-                self.camera_predictor = nn.Sequential(
-                    nn.Linear(embedding_dim, embedding_dim),
-                    nn.ReLU(),
-                    nn.Linear(embedding_dim, 36)  # 6x6 A_skew for delta_M
-                )
-                # Init last layer so A_skew ≈ 0 -> delta_M = exp(A) ≈ I (small delta_M at start)
-                nn.init.normal_(self.camera_predictor[-1].weight, mean=0.0, std=0.01)
-                nn.init.zeros_(self.camera_predictor[-1].bias)
+                self.camera_predictor = nn.Linear(embedding_dim, 36)  # 6x6 A_skew for delta_M
+                # Init so A_skew ≈ 0 -> delta_M = exp(A) ≈ I (small delta_M at start)
+                nn.init.normal_(self.camera_predictor.weight, mean=0.0, std=0.01)
+                nn.init.zeros_(self.camera_predictor.bias)
+
+        # 5. EE aux prediction head — branches from camera_trunk (shared with extrinsics predictor)
+        self.predict_ee_aux = predict_ee_aux
+        self.lambda_aux = lambda_aux
+        self.ee_aux_cam_ids = list(ee_aux_cam_ids)
+        if predict_ee_aux:
+            assert predict_extrinsics, "predict_ee_aux requires predict_extrinsics=True"
+            self.ee_predictor = nn.Linear(embedding_dim, 3)
+            nn.init.normal_(self.ee_predictor.weight, mean=0.0, std=0.01)
+            nn.init.zeros_(self.ee_predictor.bias)
 
         self.extrinsics_predictor = make_extrinsics_predictor(
             self, predict_extrinsics, self.extrinsics_prediction_mode
@@ -718,8 +767,9 @@ class TransformerHead(nn.Module):
             Shape mirrors input: (B, 6, 6) or (B, ncam, 6, 6) for delta_m mode.
         """
         h = self.camera_proj(cam_feat)
+        trunk = self.camera_trunk(h)
         if self.extrinsics_prediction_mode == 'delta_m':
-            A_skew = self.camera_predictor(h).reshape(*cam_feat.shape[:-1], 6, 6)
+            A_skew = self.camera_predictor(trunk).reshape(*cam_feat.shape[:-1], 6, 6)
             A = A_skew - A_skew.transpose(-1, -2)
             max_norm = 3.0
             norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
@@ -728,7 +778,7 @@ class TransformerHead(nn.Module):
             return None, delta_M
         elif self.extrinsics_prediction_mode == 'delta_m_full':
             D = self._delta_m_full_dim
-            A_skew = self.camera_predictor(h).reshape(*cam_feat.shape[:-1], D, D)
+            A_skew = self.camera_predictor(trunk).reshape(*cam_feat.shape[:-1], D, D)
             A = A_skew - A_skew.transpose(-1, -2)
             max_norm = 3.0
             norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
@@ -736,7 +786,7 @@ class TransformerHead(nn.Module):
             delta_M = torch.linalg.matrix_exp(A)
             return None, delta_M
         else:  # rt
-            return self.camera_predictor(h), None
+            return self.camera_predictor(trunk), None
 
     def _predict_rt(self, batch_size, device):
         """Predict axis-angle (3) + translation (3) from cam token. Returns (B, 6)."""
@@ -762,6 +812,19 @@ class TransformerHead(nn.Module):
             cam_feat = self._expand_camera_token(batch_size)
             _, delta_M = self._predict_from_cam_feat(cam_feat)  # (B, 6, 6)
         return delta_M
+
+    def _predict_ee_from_per_img_feats(self, per_img_feats):
+        """Predict EE XYZ for external cameras from per-image avg features.
+
+        Args:
+            per_img_feats: (B, ncam, C)
+        Returns:
+            (B, n_ext_cams, 3) predicted EE XYZ in normalized workspace coords
+        """
+        cam_feats = per_img_feats[:, self.ee_aux_cam_ids, :]  # (B, n_ext_cams, C)
+        h = self.camera_proj(cam_feats)
+        trunk = self.camera_trunk(h)
+        return self.ee_predictor(trunk)
 
     def _expand_camera_token(self, batch_size):
         """Expand (1, C) camera_token to (B, C)."""
@@ -802,6 +865,7 @@ class TransformerHead(nn.Module):
             list of (B, trajectory_length, nhand, 3+6+X)
         """
         _, traj_len, nhand, _ = trajectory.shape
+        _ee_layer_preds = []  # local accumulator — avoids module-attribute mutation for torch.compile
 
         # Trajectory features
         if nhand > 1:
@@ -893,6 +957,10 @@ class TransformerHead(nn.Module):
                 current_cam_feat = features[:, -1, :]  # camera token is last in SA sequence
                 ncam = fps_scene_feats.shape[1] - M
                 current_per_img_feats = features[:, traj_seq_len + M:traj_seq_len + M + ncam, :]
+                if self.predict_ee_aux:
+                    _ee_layer_preds.append(
+                        self._predict_ee_from_per_img_feats(current_per_img_feats)
+                    )
 
             rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1])
             position, position_features = self.predict_pos(features, rel_pos, time_embs, traj_feats.shape[1])
@@ -927,8 +995,37 @@ class TransformerHead(nn.Module):
                 seq2_pos=rel_pos,
                 ada_sgnl=time_embs,
             )[-1]
+            if self.predict_ee_aux and fps_cam_ids is not None:
+                traj_seq_len = traj_feats.shape[1]
+                M = fps_cam_ids.shape[1]
+                ncam = fps_scene_feats.shape[1] - M
+                final_per_img_feats = features[:, traj_seq_len + M:traj_seq_len + M + ncam, :]
+                _ee_layer_preds.append(self._predict_ee_from_per_img_feats(final_per_img_feats))
             rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1])
             position, position_features = self.predict_pos(features, rel_pos, time_embs, traj_feats.shape[1])
+        elif self._rope_mode == "learned_abs":
+            # Learned absolute PE: add per-index learned embedding to traj tokens only, no RoPE anywhere.
+            traj_feats = traj_feats + self.traj_abs_pe[:, :traj_feats.shape[1], :]
+            traj_feats = self.cross_attn(
+                seq1=traj_feats,
+                seq2=rgb3d_feats,
+                seq1_pos=None,
+                seq2_pos=None,
+                ada_sgnl=time_embs
+            )[-1]
+            features = self.get_sa_feature_sequence(
+                traj_feats, fps_scene_feats,
+                rgb3d_feats, rgb2d_feats, instr_feats
+            )
+            features = self.self_attn(
+                seq1=features,
+                seq2=features,
+                seq1_pos=None,
+                seq2_pos=None,
+                ada_sgnl=time_embs,
+            )[-1]
+            rotation = self.predict_rot(features, None, time_embs, traj_feats.shape[1])
+            position, position_features = self.predict_pos(features, None, time_embs, traj_feats.shape[1])
         else:
             # No RoPE: skip get_positional_embeddings; no position args to attention
             traj_feats = self.cross_attn(
@@ -969,11 +1066,15 @@ class TransformerHead(nn.Module):
         # Openess head from position head
         openess = self.openess_predictor(position_features[:, :self.embedding_dim]) # don't use camera and register tokens here.
 
+        traj_pred = torch.cat((position, rotation, openess), -1).unflatten(1, (traj_len, nhand))
 
-        return [
-            torch.cat((position, rotation, openess), -1)
-                 .unflatten(1, (traj_len, nhand))
-        ]
+        # Stack per-layer EE predictions into a single tensor for compile-safe return
+        if self.predict_ee_aux and _ee_layer_preds:
+            ee_stacked = torch.stack(_ee_layer_preds, dim=0)  # (n_layers, B, n_ext_cams, 3)
+        else:
+            ee_stacked = traj_pred.new_empty(0)  # empty sentinel when unused
+
+        return [traj_pred], ee_stacked
 
     def encode_denoising_timestep(self, timestep, proprio_feats):
         """

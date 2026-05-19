@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=G3G4_miscal
+#SBATCH --job-name=G3G4_ft_deltaM_eef
 #SBATCH --output=logs/%j.out
 #SBATCH --error=logs/%j.err
 #SBATCH --nodes=1
@@ -21,23 +21,27 @@ conda activate 3dfa
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
-# ngpus=1
-# ${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
 data=orbital
 main_dir=final
-experiment=default
-run_log_dir=3dfa_multi_cam_G3G4
+experiment=orb_deltaM_full
+run_log_dir=G3G4_finetune_3dfa
+
+
 train_epochs=3000
 
+# Fine-tune from the G3G4 checkpoint (weights only, fresh optimizer + iter)
+pretrained_checkpoint=train_logs/${main_dir}/multi_cam_G3G4/last.pth
 
-zarr=/grogu/user/harshilb/multi_cam_G3G4.zarr
-eval=/grogu/user/harshilb/multi_cam/val.zarr
+# Resume within this run (after first launch, switch to checkpoint= for restarts)
+checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
+
+train_data_dir=/grogu/user/harshilb/multi_cam/train.zarr
+eval_data_dir=/grogu/user/harshilb/multi_cam/val.zarr
 
 source /home/harshilb/3d_flowmatch_actor/scripts/helpers/slurm_utils.sh
-to_scratch zarr
-
-checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
+to_scratch train_data_dir
+to_scratch eval_data_dir
 
 TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
@@ -46,9 +50,13 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     exp_log_dir=$main_dir \
     run_log_dir=$run_log_dir \
     train_iters=$train_iters \
-    train_data_dir=$zarr \
-    eval_data_dir=$eval \
+    train_data_dir=$train_data_dir \
+    eval_data_dir=$eval_data_dir \
+    pretrained_checkpoint=$pretrained_checkpoint \
     checkpoint=$checkpoint \
     batch_size=256 \
     train_epochs=$train_epochs \
+    "cotrain_miscal_group_ids=[1,2]" \
+    miscal_max_angle_deg=5.0 \
+    miscal_max_translation_m=0.02 \
     "$@"

@@ -27,7 +27,7 @@ class SigLIP2TextEncoder(nn.Module):
     def __init__(self, model_name=SIGLIP2_MODEL):
         super().__init__()
         self.model = SiglipTextModel.from_pretrained(
-            model_name ,torch_dtype=torch.bfloat16
+            model_name 
         )
         # print('LOLOLOL')
         self.hidden_size = self.model.config.hidden_size

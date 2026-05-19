@@ -110,70 +110,43 @@ def _parse_noise_entries(cameras, keys, level_data, noise_path, section):
     return noise
 
 
-def _load_orbital_group_noise(level):
-    """Load per-group orbital miscal noise from instructions/orbital_miscalibration_noise.json.
-
-    Returns (cameras, groups, noise) where:
-      cameras: list[str], camera names in file order
-      groups:  list[str], e.g. ["G1", ..., "G6"]
-      noise:   {group_str: {cam_name: {"R_noise": Tensor(3,3), "t_noise": Tensor(3)}}}
-    """
+def _load_orbital_noise_json():
+    """Load and return the parsed orbital_miscalibration_noise.json data dict."""
     noise_path = Path(__file__).resolve().parents[2] / "instructions/orbital_miscalibration_noise.json"
     with open(noise_path) as f:
-        data = json.load(f)
+        return json.load(f), noise_path
 
+
+def _load_orbital_group_noise(level):
+    """Load per-group orbital miscal noise.
+
+    Returns (cameras, groups, noise) where groups is e.g. ["G1", ..., "G6"] and
+    noise is {group_str: {cam_name: {"R_noise": Tensor(3,3), "t_noise": Tensor(3)}}}.
+    """
+    data, path = _load_orbital_noise_json()
     cameras = data["cameras"]
     groups  = data["groups"]
     if level not in data["levels"]:
         raise ValueError(f"Unknown orbital miscal level '{level}'. Available: {list(data['levels'].keys())}")
+    return cameras, groups, _parse_noise_entries(cameras, groups, data["levels"][level], path, f"levels.{level}")
 
-    noise = _parse_noise_entries(cameras, groups, data["levels"][level], noise_path, f"levels.{level}")
-    return cameras, groups, noise
-
-
-def _load_orbital_task_group_noise(level):
-    """Load per-(task, group) orbital miscal noise.
-
-    Returns (cameras, task_group_keys, noise) where task_group_keys are strings
-    like "place_cups_G1" and noise[key] is {cam_name: {R_noise, t_noise}}.
-    """
-    noise_path = Path(__file__).resolve().parents[2] / "instructions/orbital_miscalibration_noise.json"
-    with open(noise_path) as f:
-        data = json.load(f)
-
-    if "per_task_group_levels" not in data:
-        raise ValueError(
-            f"No 'per_task_group_levels' section found in {noise_path}. "
-            "Re-run scripts/generate_orbital_miscal_noise.py --overwrite to add it."
-        )
-    cameras         = data["cameras"]
-    task_group_keys = data["task_group_keys"]
-    if level not in data["per_task_group_levels"]:
-        raise ValueError(f"Unknown per-task-group level '{level}'. Available: {list(data['per_task_group_levels'].keys())}")
-
-    noise = _parse_noise_entries(cameras, task_group_keys, data["per_task_group_levels"][level], noise_path, f"per_task_group_levels.{level}")
-    return cameras, task_group_keys, noise
 
 
 def _load_orbital_group_level_noise():
-    """Load per-(group, level) flat noise from the per_group_levels section.
+    """Load per-(group, level) flat noise.
 
     Returns (cameras, group_level_keys, noise) where group_level_keys are strings
     like "G1_small" and noise[key] is {cam_name: {R_noise, t_noise}}.
     """
-    noise_path = Path(__file__).resolve().parents[2] / "instructions/orbital_miscalibration_noise.json"
-    with open(noise_path) as f:
-        data = json.load(f)
-
+    data, path = _load_orbital_noise_json()
     if "per_group_levels" not in data:
         raise ValueError(
-            f"No 'per_group_levels' section found in {noise_path}. "
+            f"No 'per_group_levels' section found in {path}. "
             "Re-run scripts/generate_orbital_miscal_noise.py --overwrite to add it."
         )
     cameras          = data["cameras"]
     group_level_keys = data["group_level_keys"]
-    noise = _parse_noise_entries(cameras, group_level_keys, data["per_group_levels"], noise_path, "per_group_levels")
-    return cameras, group_level_keys, noise
+    return cameras, group_level_keys, _parse_noise_entries(cameras, group_level_keys, data["per_group_levels"], path, "per_group_levels")
 
 
 def _load_miscalibration_noise(level):
@@ -189,19 +162,7 @@ def _load_miscalibration_noise(level):
     if level not in data["levels"]:
         raise ValueError(f"Unknown miscalibration level '{level}'. Available: {list(data['levels'].keys())}")
 
-    level_data = data["levels"][level]
-    noise = {}
-    for cam_name in cameras:
-        if cam_name not in level_data:
-            continue
-        entry = level_data[cam_name]
-        aa = np.array(entry["axis_angle_rad"], dtype=np.float64)
-        t  = np.array(entry["translation_m"], dtype=np.float64)
-        noise[cam_name] = {
-            "R_noise": torch.tensor(_axis_angle_to_R(aa), dtype=torch.float32),
-            "t_noise": torch.tensor(t, dtype=torch.float32),
-        }
-
+    noise = _parse_noise_entries(cameras, cameras, data["levels"][level], noise_path, f"levels.{level}")
     return cameras, noise
 
 
@@ -215,13 +176,12 @@ class MiscalibrationContext:
     the corresponding feature is not configured."""
     cameras: list | None = None
     per_cam_noise: dict | None = None
-    per_task_group_noise: dict | None = None
+
     depth2cloud: RLBenchDepth2Cloud | None = None
 
 
 def setup_miscalibration(
     level=None,
-    level_per_task_group=None,
     image_size=None,
     build_depth2cloud=True,
     log_prefix="[miscal]",
@@ -230,42 +190,20 @@ def setup_miscalibration(
 
     Args:
         level: name of a per-camera noise level in instructions/miscalibration_noise.json,
-            or None to disable per-camera noise.
-        level_per_task_group: name of a per-(task, group) level in
-            instructions/orbital_miscalibration_noise.json (orbital eval only).
-            Mutually exclusive with `level`.
+            or None to disable noise.
         image_size: (h, w) or int; required when build_depth2cloud=True.
-        build_depth2cloud: if True, construct an RLBenchDepth2Cloud module for
-            the given image_size and return it on the context.
+        build_depth2cloud: if True, construct an RLBenchDepth2Cloud module.
         log_prefix: prefix used in [miscal] log lines.
 
     Returns:
-        MiscalibrationContext with whichever of (cameras, per_cam_noise,
-        per_task_group_noise, depth2cloud) are configured.
+        MiscalibrationContext with whichever of (cameras, per_cam_noise, depth2cloud) are configured.
     """
-    if level is not None and level_per_task_group is not None:
-        raise ValueError(
-            "level and level_per_task_group are mutually exclusive; set only one."
-        )
-
     cameras = None
     per_cam_noise = None
-    per_task_group_noise = None
 
     if level is not None:
         cameras, per_cam_noise = _load_miscalibration_noise(level)
-        print(
-            f"{log_prefix} Miscalibration: level='{level}', cameras={cameras}",
-            flush=True,
-        )
-    elif level_per_task_group is not None:
-        cameras, _, per_task_group_noise = _load_orbital_task_group_noise(level_per_task_group)
-        keys_preview = list(per_task_group_noise.keys())[:4]
-        print(
-            f"{log_prefix} Per-task-group miscalibration: level='{level_per_task_group}', "
-            f"cameras={cameras}, keys={keys_preview}...",
-            flush=True,
-        )
+        print(f"{log_prefix} Miscalibration: level='{level}', cameras={cameras}", flush=True)
 
     depth2cloud = None
     if build_depth2cloud:
@@ -278,7 +216,6 @@ def setup_miscalibration(
     return MiscalibrationContext(
         cameras=cameras,
         per_cam_noise=per_cam_noise,
-        per_task_group_noise=per_task_group_noise,
         depth2cloud=depth2cloud,
     )
 

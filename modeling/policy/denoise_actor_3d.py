@@ -47,10 +47,15 @@ class DenoiseActor(BaseDenoiseActor):
                  # RoPE type
                  rope_type='adam',
                  dynamic_rope_from_camtoken=False,
+                 use_learned_abs_pe=False,
                  # Recursive Set Transformer Encoder
                  use_recursive_set_encoder=False,
                  recursive_set_encoder_num_layers=2,
-                 recursive_set_encoder_ncam=3):
+                 recursive_set_encoder_ncam=3,
+                 # EE aux head
+                 predict_ee_aux=False,
+                 lambda_aux=1.0,
+                 ee_aux_cam_ids=(0, 1)):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -106,6 +111,10 @@ class DenoiseActor(BaseDenoiseActor):
             rope_type=rope_type,
             dynamic_rope_from_camtoken=dynamic_rope_from_camtoken,
             use_proprio_rope=use_proprio_rope,
+            use_learned_abs_pe=use_learned_abs_pe,
+            predict_ee_aux=predict_ee_aux,
+            lambda_aux=lambda_aux,
+            ee_aux_cam_ids=ee_aux_cam_ids,
         )
         
         # Recursive Set Transformer Encoder (optional upstream feature refinement)
@@ -165,6 +174,10 @@ class TransformerHead(BaseTransformerHead):
             learn_extrinsics=learn_extrinsics,
             extrinsics_prediction_mode=kwargs.get("extrinsics_prediction_mode", 'delta_m'),
             dynamic_rope_from_camtoken=kwargs.get("dynamic_rope_from_camtoken", False),
+            use_learned_abs_pe=kwargs.get("use_learned_abs_pe", False),
+            predict_ee_aux=kwargs.get("predict_ee_aux", False),
+            lambda_aux=kwargs.get("lambda_aux", 1.0),
+            ee_aux_cam_ids=kwargs.get("ee_aux_cam_ids", (0, 1)),
         )
 
         # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
@@ -187,6 +200,8 @@ class TransformerHead(BaseTransformerHead):
         cam_params_rt=None,
         fps_cam_ids=None,
     ):
+        if self._rope_mode == "learned_abs":
+            return None, None, None, None
         # RT mode: transform positions by predicted R,t (camera -> world); no delta_M in RoPE.
         # delta_M mode: no position transform; delta_M mixes sin/cos in RoPE.
         allow_grad = self.training and (self.learn_extrinsics or self.predict_extrinsics)

@@ -10,3 +10,8 @@ G1 - no miscal - open_drawer.
 G3 - no miscal - open_drawer (eval set).
 G5 - low_dim_demos - open drawer.
 
+
+SACRIFISED 1 DENSE JOB FOR THIS NEW Prioperception prediction experiment!! 
+Lets think of minor variations to this that might help => then run on delta! 
+
++ CLean up paths idc about? 

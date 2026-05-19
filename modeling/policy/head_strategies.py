@@ -54,7 +54,7 @@ def run_output_attn(attn_module, features, rel_pos, time_embs, rope_mode):
     """
     Call position_self_attn or rotation_self_attn with the right args for rope_mode.
     Returns the last layer output (B, S, C).
-    rope_mode: "standard" | "none"
+    rope_mode: "standard" | "learned_abs" | "none"
     """
     if rope_mode == "standard":
         out = attn_module(

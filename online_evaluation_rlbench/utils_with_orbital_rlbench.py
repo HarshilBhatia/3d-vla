@@ -157,7 +157,7 @@ class RLBenchEnv:
         task_group_mapping_file=None,
         fov_deg=60.0,
         miscalibration_noise_level=None,
-        orbital_miscal_noise_level_per_task_group=None,
+
         camera_groups=None,
         spawn_camera_group=None,
     ):
@@ -179,14 +179,12 @@ class RLBenchEnv:
         # Miscalibration noise + depth2cloud module
         ctx = setup_miscalibration(
             level=miscalibration_noise_level,
-            level_per_task_group=orbital_miscal_noise_level_per_task_group,
             image_size=image_size,
             build_depth2cloud=True,
             log_prefix="[orbital eval]",
         )
         self._miscal_cameras       = ctx.cameras
-        self._miscal_noise         = ctx.per_cam_noise              # may be reassigned in the group loop
-        self._per_task_group_noise = ctx.per_task_group_noise       # {task_group_key: {cam_name: {...}}}
+        self._miscal_noise         = ctx.per_cam_noise
         self._depth2cloud          = ctx.depth2cloud
         self._miscal_T = (
             per_cam_noise_T(self._miscal_noise, self._miscal_cameras, len(self.apply_cameras))
@@ -468,16 +466,10 @@ class RLBenchEnv:
             if cam_group != group:
                 print(f"[orbital eval] using camera geometry from {cam_group} (spawn_camera_group override)", flush=True)
             self._spawn_sensors(cam_group)
-            if self._per_task_group_noise is not None:
-                key = f"{task_str}_{cam_group}"
-                self._miscal_noise = self._per_task_group_noise.get(key)
-                if self._miscal_noise is None:
-                    print(f"[orbital eval] WARNING: no per-task-group noise for key '{key}', skipping miscalibration for this group", flush=True)
-                    self._miscal_T = None
-                else:
-                    self._miscal_T = per_cam_noise_T(
-                        self._miscal_noise, self._miscal_cameras, len(self.apply_cameras)
-                    )
+            if self._miscal_noise is not None:
+                self._miscal_T = per_cam_noise_T(
+                    self._miscal_noise, self._miscal_cameras, len(self.apply_cameras)
+                )
 
             if use_orbital_rollout:
                 try:

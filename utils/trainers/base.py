@@ -71,7 +71,7 @@ class BaseTrainTester:
             miscal_max_angle_deg=getattr(self.args, 'miscal_max_angle_deg', None),
             miscal_max_translation_m=getattr(self.args, 'miscal_max_translation_m', None),
             orbital_miscal_noise_level=getattr(self.args, 'orbital_miscal_noise_level', None),
-            orbital_miscal_noise_level_per_task_group=getattr(self.args, 'orbital_miscal_noise_level_per_task_group', None),
+
             orbital_miscal_noise_levels=getattr(self.args, 'orbital_miscal_noise_levels', None),
             cotrain_miscal_group_ids=getattr(self.args, 'cotrain_miscal_group_ids', None),
             cotrain_miscal_level=getattr(self.args, 'cotrain_miscal_level', None),
@@ -212,6 +212,7 @@ class BaseTrainTester:
             'use_recursive_set_encoder', 'recursive_set_encoder_num_layers',
             'recursive_set_encoder_ncam',
             'lang_dropout_prob',
+            'predict_ee_aux', 'lambda_aux', 'ee_aux_cam_ids',
         ):
             if hasattr(self.args, _key):
                 model_kwargs[_key] = getattr(self.args, _key)
@@ -406,9 +407,6 @@ class BaseTrainTester:
         if self.args.use_compile:
             model.compute_loss = torch.compile(model.compute_loss, fullgraph=True)
 
-        for name, param in model.named_parameters():
-            if param.shape == torch.Size([120, 768, 1, 1]):
-                print(name)
 
         # Wrap in DDP
         # Note: find_unused_parameters=False for better performance
@@ -444,13 +442,21 @@ class BaseTrainTester:
         self.ema = EMA()
 
         # Check for a checkpoint (skipped when benchmark_dummy_data=true so start_iter stays 0)
+        # Priority: resume checkpoint (run's own last.pth) > pretrained (fine-tuning seed) > scratch.
+        # This means re-submitting the same slurm script safely resumes without editing it.
         start_iter, best_loss = 0, None
-        if not dummy and self.args.checkpoint:
-            if os.path.exists(self.args.checkpoint):
-                start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer)
-                print(f"[Rank {dist.get_rank()}] Loaded checkpoint: {self.args.checkpoint} (resuming from step {start_iter})")
-            else:
-                print(f"[Rank {dist.get_rank()}] Checkpoint not found: {self.args.checkpoint} — starting from scratch")
+        pretrained_ckpt = getattr(self.args, 'pretrained_checkpoint', None)
+        resume_ckpt = self.args.checkpoint
+        if not dummy and resume_ckpt and os.path.exists(resume_ckpt):
+            start_iter, best_loss = self.load_checkpoint(model, ema_model, optimizer)
+            print(f"[Rank {dist.get_rank()}] Loaded checkpoint: {resume_ckpt} (resuming from step {start_iter})")
+        elif not dummy and pretrained_ckpt and os.path.exists(pretrained_ckpt):
+            self.load_pretrained_checkpoint(model, ema_model, pretrained_ckpt)
+            print(f"[Rank {dist.get_rank()}] Loaded pretrained weights: {pretrained_ckpt} (training from step 0)")
+        elif not dummy and pretrained_ckpt:
+            print(f"[Rank {dist.get_rank()}] Pretrained checkpoint not found: {pretrained_ckpt} — starting from scratch")
+        elif not dummy and resume_ckpt:
+            print(f"[Rank {dist.get_rank()}] Checkpoint not found: {resume_ckpt} — starting from scratch")
         else:
             print(f"[Rank {dist.get_rank()}] No checkpoint specified — starting from scratch")
         print(model.module.workspace_normalizer)
@@ -680,24 +686,15 @@ class BaseTrainTester:
 
         stopgrad_k = self.compute_rope_stopgrad_k(step_id) if step_id is not None else 0
 
-        # CUDA Events for accurate GPU-side timing (negligible overhead)
-        t_fwd_s = torch.cuda.Event(enable_timing=True)
-        t_fwd_e = torch.cuda.Event(enable_timing=True)
-        t_bwd_s = torch.cuda.Event(enable_timing=True)
-        t_bwd_e = torch.cuda.Event(enable_timing=True)
-        t_opt_s = torch.cuda.Event(enable_timing=True)
-        t_opt_e = torch.cuda.Event(enable_timing=True)
+        if step_id is not None and hasattr(self, 'preprocessor') \
+                and hasattr(self.preprocessor, 'set_noise_progress'):
+            progress = step_id / max(1, self.args.train_iters - 1)
+            self.preprocessor.set_noise_progress(progress)
 
-        t_fwd_s.record()
         loss = self._model_forward(model, sample, training=True, stopgrad_k=stopgrad_k)
-        t_fwd_e.record()
 
-        t_bwd_s.record()
         loss.backward()
-        # bwd_ms includes DDP NCCL allreduce (overlapped but contributes to latency)
-        t_bwd_e.record()
 
-        t_opt_s.record()
         # Clip gradients
         for p in model.parameters():
             if p.grad is not None and not p.grad.is_contiguous():
@@ -709,20 +706,23 @@ class BaseTrainTester:
 
         # Step the lr scheduler
         lr_scheduler.step()
-        t_opt_e.record()
         
         # Buffered logging: accumulate detached tensors on-device, sync once per
         # `train_log_freq` steps so the wandb path costs ~1 .item() window instead
         # of ~10+ per step. Loss/grad_norm/extrinsics are averaged over the window.
         if dist.get_rank() == 0 and step_id is not None:
             if not hasattr(self, '_log_buf'):
-                self._log_buf = {'loss': [], 'grad_norm': [], 'extrinsics_learn': [], 'extrinsics_pred': []}
+                self._log_buf = {'loss': [], 'grad_norm': [], 'extrinsics_learn': [], 'extrinsics_pred': [], 'ee_aux_loss': []}
                 self._log_freq = getattr(self.args, 'train_log_freq', 50)
 
             self._log_buf['loss'].append(loss.detach())
             self._log_buf['grad_norm'].append(grad_norm.detach())
 
             base_model = model.module if hasattr(model, 'module') else model
+
+            base_ee_aux = getattr(base_model, '_last_ee_aux_loss', None)
+            if base_ee_aux is not None:
+                self._log_buf['ee_aux_loss'].append(base_ee_aux)
             prediction_head = base_model.prediction_head
 
             # NOTE: BATCH STATISTIC FOR SINGLE SCENE -- doesn't work for multi-scene.
@@ -750,6 +750,9 @@ class BaseTrainTester:
                 }
                 if hasattr(self.args, 'rope_type') and self.args.rope_type == 'stopgrad':
                     metrics['train/rope_stopgrad_k'] = stopgrad_k
+
+                if self._log_buf['ee_aux_loss']:
+                    metrics['train/ee_aux_loss'] = torch.stack(self._log_buf['ee_aux_loss']).mean().item()
 
                 if self._log_buf['extrinsics_learn']:
                     mean = torch.stack(self._log_buf['extrinsics_learn']).mean(dim=0)  # (6,)
@@ -785,13 +788,6 @@ class BaseTrainTester:
                 for k in self._log_buf:
                     self._log_buf[k].clear()
 
-        if self.benchmark_logger is not None:
-            torch.cuda.synchronize()
-            return {
-                'fwd_ms': t_fwd_s.elapsed_time(t_fwd_e),
-                'bwd_ms': t_bwd_s.elapsed_time(t_bwd_e),
-                'opt_ms': t_opt_s.elapsed_time(t_opt_e),
-            }
         return None
 
     @torch.inference_mode()
@@ -844,6 +840,38 @@ class BaseTrainTester:
                 print(f"{key}: {value:.03f}")
 
         return -values[f'{split}-losses/mean/traj_pos_acc_001']
+
+    def load_pretrained_checkpoint(self, model, ema_model, ckpt_path):
+        """Load weights from a pretrained checkpoint — no optimizer restore, iter resets to 0.
+
+        Useful for fine-tuning: new heads (e.g. ee_predictor, camera_trunk) start randomly
+        initialised when missing from the checkpoint; unexpected keys are ignored.
+        """
+        print(f"=> loading pretrained weights from '{ckpt_path}'")
+        model_dict = torch.load(ckpt_path, map_location="cpu", weights_only=False)
+        if "config" in model_dict:
+            print(f"Pretrained checkpoint config: {model_dict['config']}")
+
+        msn, unxpct = model.load_state_dict(model_dict["weight"], strict=False)
+        if msn:
+            print(f"[pretrained] Missing keys (will be randomly initialised): {len(msn)}")
+            print(msn)
+        if unxpct:
+            print(f"[pretrained] Unexpected keys (ignored): {len(unxpct)}")
+            print(unxpct)
+        if not msn and not unxpct:
+            print("[pretrained] All keys matched.")
+
+        if model_dict.get("ema_weight") is not None and ema_model is not None:
+            msn_e, unxpct_e = ema_model.load_state_dict(model_dict["ema_weight"], strict=False)
+            if msn_e:
+                print(f"[pretrained EMA] Missing keys: {len(msn_e)}")
+            if unxpct_e:
+                print(f"[pretrained EMA] Unexpected keys (ignored): {len(unxpct_e)}")
+
+        del model_dict
+        torch.cuda.empty_cache()
+        print(f"=> pretrained weights loaded from '{ckpt_path}'")
 
     def load_checkpoint(self, model, ema_model, optimizer):
         """Load from checkpoint."""

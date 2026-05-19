@@ -22,7 +22,7 @@ _EVAL_RUNTIME_KEYS = frozenset({
     "checkpoint", "data_dir", "eval_data_dir", "output_file",
     "task", "headless", "max_tries", "seed",
     "cameras_file", "task_group_mapping_file", "camera_groups",
-    "miscalibration_noise_level", "orbital_miscal_noise_level_per_task_group", "fov_deg",
+    "miscalibration_noise_level", "fov_deg",
     "spawn_camera_group",
     "val_instructions", "log_dir", "base_log_dir",
     "save_video", "save_trajectory", "debug_pcd_dir",
@@ -146,7 +146,7 @@ if __name__ == "__main__":
                 task_group_mapping_file=str(args.task_group_mapping_file),
                 fov_deg=float(args.fov_deg),
                 miscalibration_noise_level=args.miscalibration_noise_level,
-                orbital_miscal_noise_level_per_task_group=args.orbital_miscal_noise_level_per_task_group,
+
                 camera_groups=[g.strip() for g in args.camera_groups.split(",")] if args.camera_groups else None,
                 spawn_camera_group=args.spawn_camera_group if args.spawn_camera_group else None,
             )

@@ -5,10 +5,11 @@
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=50
-#SBATCH --gres=gpu:8
+#SBATCH --gres=gpu:4
 #SBATCH --mem=96G
 #SBATCH --time=24:00:00
 #SBATCH --partition=shubhamlong
+#SBATCH --nodelist=grogu-1-34
 #SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-[6,9,14],grogu-3-25
 
 echo "Job started at: $(date)"
@@ -23,10 +24,11 @@ MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
 data=orbital
-main_dir=Orbital
+main_dir=final
 experiment=orb_deltaM_full
-run_log_dir=cotrain_mixed_miscal
-train_iters=160000
+run_log_dir=cotrain_medium_12_deltaM
+train_epochs=5000
+
 
 train_data_dir=/grogu/user/harshilb/multi_cam/train.zarr
 eval_data_dir=/grogu/user/harshilb/multi_cam/val.zarr
@@ -48,6 +50,7 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     eval_data_dir=$eval_data_dir \
     checkpoint=$checkpoint \
     batch_size=256 \
+    train_epochs=$train_epochs \
     "cotrain_miscal_group_ids=[1,2]" \
     cotrain_miscal_level=medium \
     "$@"

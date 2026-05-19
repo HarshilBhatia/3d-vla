@@ -14,6 +14,11 @@ export XDG_RUNTIME_DIR=/run/user/27491
 
 
 
+EXTRA_ARGS=""
+if [[ -n "${COLLECT_CHECK_PATH:-}" ]]; then
+    EXTRA_ARGS="--check-path ${COLLECT_CHECK_PATH}"
+fi
+
 exec xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" \
     python /home/harshilb/3d_flowmatch_actor/scripts/orbital_cameras/collect.py \
     --task         "${COLLECT_TASK}" \
@@ -22,4 +27,5 @@ exec xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" \
     --save-path    "${COLLECT_SAVE_PATH}" \
     --cameras-file "${COLLECT_CAMERAS_FILE}" \
     --image-size   256 \
-    --fov-deg      60.0
+    --fov-deg      60.0 \
+    ${EXTRA_ARGS}

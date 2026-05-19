@@ -1,0 +1,7 @@
+# Experiment: learned absolute positional encoding on traj tokens only (no 3D RoPE).
+# Run: python main.py experiment=abs_pe
+
+predict_extrinsics: false
+dynamic_rope_from_camtoken: false
+traj_scene_rope: true
+use_learned_abs_pe: true

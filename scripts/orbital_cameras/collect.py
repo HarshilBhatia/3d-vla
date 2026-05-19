@@ -52,6 +52,9 @@ def parse_args():
                         "the same directory (default: 0)")
     p.add_argument("--save-path",    default="data/orbital_rollouts",
                    help="Root directory for raw episode output")
+    p.add_argument("--check-path",   default=None,
+                   help="Additional root to check for already-collected episodes "
+                        "(episodes present here are skipped, new ones go to --save-path)")
     p.add_argument("--image-size",   type=int, default=256)
     p.add_argument("--fov-deg",      type=float, default=60.0,
                    help="FOV for orbital cameras (degrees)")
@@ -100,6 +103,24 @@ def main():
         "video" if args.video_only else "collect"))
 
     for group in args.groups:
+        if not args.video_only:
+            base_path  = os.path.join(args.save_path, args.task, group)
+            check_path = os.path.join(args.check_path, args.task, group) \
+                         if args.check_path else None
+            ep_end = args.ep_start + args.n_episodes
+
+            def episode_exists(i):
+                if os.path.exists(os.path.join(base_path, "episode_{}".format(i))):
+                    return True
+                if check_path and os.path.exists(os.path.join(check_path, "episode_{}".format(i))):
+                    return True
+                return False
+
+            if all(episode_exists(i) for i in range(args.ep_start, ep_end)):
+                print("[SKIP] All {} episodes for {}/{} already exist.".format(
+                    args.n_episodes, args.task, group))
+                continue
+
         cam_left, cam_right = load_group_cameras(args.cameras_file, group)
 
         if args.video_only:
@@ -127,14 +148,11 @@ def main():
                 time.perf_counter() - t0, t_collect + time.perf_counter() - t0))
 
         else:
-            base_path = os.path.join(args.save_path, args.task, group)
-
-            ep_end = args.ep_start + args.n_episodes
             ep_times = []
             for ep_idx in range(args.ep_start, ep_end):
                 ep_path = os.path.join(base_path, "episode_{}".format(ep_idx))
-                if os.path.exists(ep_path):
-                    print("[SKIP] {} already exists.".format(ep_path))
+                if episode_exists(ep_idx):
+                    print("[SKIP] episode_{} already exists (save or check path).".format(ep_idx))
                     continue
 
                 # Cycle variations sequentially, same as generate.py.

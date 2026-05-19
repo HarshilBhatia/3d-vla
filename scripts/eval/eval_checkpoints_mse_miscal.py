@@ -38,7 +38,6 @@ from scripts.eval.eval_utils import (
 
 SCRIPT_KEYS = BASE_SCRIPT_KEYS | {
     "orbital_miscal_noise_level",
-    "orbital_miscal_noise_level_per_task_group",
 }
 CSV_HEADER = ["step", "miscal_level", "dataset", "n_samples"] + METRIC_KEYS
 
@@ -51,7 +50,6 @@ def main():
     output_csv = Path(custom.get("output_csv", "results/checkpoint_mse_miscal/results.csv"))
     num_batches = int(custom.get("num_batches", 100))
     miscal_level = custom.get("orbital_miscal_noise_level") or None
-    miscal_level_per_task = custom.get("orbital_miscal_noise_level_per_task_group") or None
 
     if not checkpoints:
         raise ValueError("Pass at least one checkpoint path via checkpoints=path1.pth")
@@ -60,7 +58,7 @@ def main():
 
     args = load_args(hydra_argv)
 
-    csv_miscal_label = miscal_level_per_task or miscal_level or "none"
+    csv_miscal_label = miscal_level or "none"
 
     print(f"Checkpoints ({len(checkpoints)}):")
     for p in checkpoints:
@@ -80,7 +78,6 @@ def main():
         preprocessor = make_preprocessor(
             args_copy,
             orbital_miscal_noise_level=miscal_level,
-            orbital_miscal_noise_level_per_task_group=miscal_level_per_task,
         )
         tokenizer = make_tokenizer(args_copy)
 
