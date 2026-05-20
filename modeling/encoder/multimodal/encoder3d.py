@@ -24,7 +24,6 @@ class Encoder(BaseEncoder):
                  image_space_sampling=False,
                  finetune_backbone=False,
                  finetune_text_encoder=False,
-                 learn_extrinsics=False,
                  rope_type='normal',
                  lang_dropout_prob=0.0):
         super().__init__(
@@ -43,9 +42,6 @@ class Encoder(BaseEncoder):
             lang_dropout_prob=lang_dropout_prob,
         )
         
-        # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
-        self.learn_extrinsics = learn_extrinsics
-
         # Postprocess scene features
         if self._backbone_name == 'clip':
             # self.backbone.to(memory_format=torch.channels_last)
@@ -95,9 +91,6 @@ class Encoder(BaseEncoder):
 
         # Rotary positional encoding
         proprio_pos = self.relative_pe_layer(proprio[..., :3], stopgrad_k=stopgrad_k)
-        # Allow gradients for context_pos if learning extrinsics
-        # This is needed because point cloud positions depend on learned camera parameters
-        # allow_grad = self.training and self.learn_extrinsics
         context_pos = self.relative_pe_layer(context_pos, allow_grad=False, stopgrad_k=stopgrad_k) # this is to encode the proprio, don't need to backprop here.
 
         # Attention to scene tokens

@@ -21,15 +21,12 @@ class Encoder(nn.Module):
                  image_space_sampling=False,
                  finetune_backbone=False,
                  finetune_text_encoder=False,
-                 lang_dropout_prob=0.0,
-                 debug_dir=None):
+                 lang_dropout_prob=0.0):
         super().__init__()
         self.subsampling_factor = fps_subsampling_factor
         self.skip_fps = skip_fps
         self.position_based_sampling = position_based_sampling
         self.image_space_sampling = image_space_sampling
-        self.debug_dir = debug_dir
-        self._debug_step = 0
         self._backbone_name = backbone
         self._finetune_backbone = finetune_backbone
         self.lang_dropout_prob = lang_dropout_prob
@@ -141,11 +138,7 @@ class Encoder(nn.Module):
                 rgb3d_feats_curr, pcd_curr, cam_ids_full
             )
 
-        if self.debug_dir is not None:
-            from utils.pcd_io import save_encoder_debug_pcd
-            save_encoder_debug_pcd(self.debug_dir, self._debug_step,
-                                   pcd_curr, fps_scene_pos, rgb3d)
-            self._debug_step += 1
+
 
         # Per-image average tokens from current frame
         per_img_feats = rgb3d_feats_curr.reshape(rgb3d_feats_curr.shape[0], ncam, -1, rgb3d_feats_curr.shape[-1]).mean(dim=2)

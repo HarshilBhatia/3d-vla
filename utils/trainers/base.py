@@ -67,15 +67,13 @@ class BaseTrainTester:
             self.args.num_history,
             custom_imsize=self.args.custom_img_size,
             depth2cloud=fetch_depth2cloud(self.args.dataset),
-            miscalibration_noise_level=getattr(self.args, 'miscalibration_noise_level', None),
-            miscal_max_angle_deg=getattr(self.args, 'miscal_max_angle_deg', None),
-            miscal_max_translation_m=getattr(self.args, 'miscal_max_translation_m', None),
-            orbital_miscal_noise_level=getattr(self.args, 'orbital_miscal_noise_level', None),
-
-            orbital_miscal_noise_levels=getattr(self.args, 'orbital_miscal_noise_levels', None),
-            cotrain_miscal_group_ids=getattr(self.args, 'cotrain_miscal_group_ids', None),
-            cotrain_miscal_level=getattr(self.args, 'cotrain_miscal_level', None),
-            cotrain_miscal_levels=getattr(self.args, 'cotrain_miscal_levels', None),
+            miscal_max_angle_deg=self.args.miscal_max_angle_deg,
+            miscal_max_translation_m=self.args.miscal_max_translation_m,
+            orbital_miscal_noise_level=self.args.orbital_miscal_noise_level,
+            orbital_miscal_noise_levels=self.args.orbital_miscal_noise_levels,
+            cotrain_miscal_group_ids=self.args.cotrain_miscal_group_ids,
+            cotrain_miscal_level=self.args.cotrain_miscal_level,
+            cotrain_miscal_levels=self.args.cotrain_miscal_levels,
         )
 
         gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else ""
@@ -210,7 +208,7 @@ class BaseTrainTester:
         )
         
         for _key in (
-            'learn_extrinsics', 'predict_extrinsics', 'extrinsics_prediction_mode',
+            'predict_extrinsics', 'extrinsics_prediction_mode',
             'dynamic_rope_from_camtoken', 'rope_type',
             'use_recursive_set_encoder', 'recursive_set_encoder_num_layers',
             'recursive_set_encoder_ncam',
@@ -251,12 +249,6 @@ class BaseTrainTester:
                 print(f"  Start K: {getattr(self.args, 'rope_schedule_start_k', 0)}")
                 print(f"  End K: {getattr(self.args, 'rope_schedule_end_k', 0)}")
                 print(f"  Schedule steps: {getattr(self.args, 'rope_schedule_steps', 1)}")
-            
-            # Print if learning extrinsics
-            if hasattr(_model, 'learn_extrinsics') and _model.learn_extrinsics:
-                print(f"\nLearning camera extrinsics enabled")
-                print(f"Initial cam_axis_angle: {_model.cam_axis_angle.data}")
-                print(f"Initial cam_translation: {_model.cam_translation.data}")
             
             # Print if predicting extrinsics
             if hasattr(_model, 'prediction_head') and hasattr(_model.prediction_head, 'predict_extrinsics') \
@@ -463,10 +455,6 @@ class BaseTrainTester:
         else:
             print(f"[Rank {dist.get_rank()}] No checkpoint specified — starting from scratch")
         print(model.module.workspace_normalizer)
-
-        if getattr(self.args, 'debug_pcd_dir', None) and rank == 0:
-            model.module.encoder.debug_dir = str(self.args.debug_pcd_dir)
-            print(f"[debug] saving PCDs to {model.module.encoder.debug_dir}")
 
         # Eval only (offline validation, no training)
         if self.run_mode == "eval_offline":
@@ -729,12 +717,7 @@ class BaseTrainTester:
             prediction_head = base_model.prediction_head
 
             # NOTE: BATCH STATISTIC FOR SINGLE SCENE -- doesn't work for multi-scene.
-            if hasattr(base_model, 'learn_extrinsics') and base_model.learn_extrinsics:
-                self._log_buf['extrinsics_learn'].append(torch.cat([
-                    base_model.cam_axis_angle.detach().flatten(),
-                    base_model.cam_translation.detach().flatten(),
-                ]))  # (6,)
-            elif hasattr(prediction_head, 'predict_extrinsics') and prediction_head.predict_extrinsics:
+            if hasattr(prediction_head, 'predict_extrinsics') and prediction_head.predict_extrinsics:
                 if getattr(prediction_head, '_last_predicted_cam_params', None) is not None:
                     cam_params = prediction_head._last_predicted_cam_params
                     if cam_params.dim() == 2 and cam_params.shape[-1] == 6:

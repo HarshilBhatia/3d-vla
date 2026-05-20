@@ -72,6 +72,35 @@ def per_cam_noise_T(noise_dict, cameras, ncam, dtype=torch.float32):
     return T
 
 
+def load_random_miscal_noise_T(ncam, rot_level=None, trans_level=None, dtype=torch.float32):
+    """Build (ncam, 4, 4) from pre-sampled random_miscal_noise.json.
+
+    rot_level and trans_level are independent — pass either or both.
+    """
+    noise_path = Path(__file__).resolve().parents[2] / "instructions/random_miscal_noise.json"
+    with open(noise_path) as f:
+        data = json.load(f)
+    cameras = data["cameras"]
+
+    if rot_level is not None and rot_level not in data["rotation"]:
+        raise ValueError(f"Unknown rot_level '{rot_level}'. Available: {data['rotation_levels']}")
+    if trans_level is not None and trans_level not in data["translation"]:
+        raise ValueError(f"Unknown trans_level '{trans_level}'. Available: {data['translation_levels']}")
+
+    noise_dict = {}
+    for cam in cameras:
+        R = torch.eye(3, dtype=dtype)
+        t = torch.zeros(3, dtype=dtype)
+        if rot_level is not None:
+            aa = np.array(data["rotation"][rot_level][cam]["axis_angle_rad"])
+            R = torch.tensor(_axis_angle_to_R(aa), dtype=dtype)
+        if trans_level is not None:
+            t = torch.tensor(data["translation"][trans_level][cam]["translation_m"], dtype=dtype)
+        noise_dict[cam] = {"R_noise": R, "t_noise": t}
+
+    return per_cam_noise_T(noise_dict, cameras, ncam)
+
+
 def apply_miscalibration(extrinsics, T_noise):
     """Canonical SE(3) composition: T_new = T_noise @ extrinsics.
 

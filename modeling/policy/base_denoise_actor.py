@@ -33,7 +33,6 @@ class DenoiseActor(nn.Module):
                  # Training arguments
                  lv2_batch_size=1,
                  traj_scene_rope=True,
-                 learn_extrinsics=False,
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m'):
         super().__init__()
@@ -520,7 +519,6 @@ class TransformerHead(nn.Module):
                  traj_scene_rope=True,
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m',  # 'rt' = R,T (6D) and log; 'delta_m' = 6x6 matrix
-                 learn_extrinsics=False,
                  dynamic_rope_from_camtoken=False,
                  use_proprio_rope=False,
                  use_learned_abs_pe=False,

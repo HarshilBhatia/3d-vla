@@ -172,7 +172,6 @@ def load_model(args, ckpt_path, arch_overrides=None):
         denoise_timesteps=args.denoise_timesteps,
         denoise_model=args.denoise_model,
         lv2_batch_size=args.lv2_batch_size,
-        learn_extrinsics=getattr(args, "learn_extrinsics", False),
         traj_scene_rope=args.traj_scene_rope,
         predict_extrinsics=getattr(args, "predict_extrinsics", False),
         extrinsics_prediction_mode=getattr(args, "extrinsics_prediction_mode", "delta_m"),

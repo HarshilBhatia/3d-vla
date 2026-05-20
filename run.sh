@@ -38,7 +38,6 @@ export XDG_RUNTIME_DIR=/run/user/27491
     # embedding_dim=192           
 
 
-#       "miscalibration_noise_level=medium"
     #   --extra "data_dir=/ocean/projects/cis240058p/hbhatia1/3d-vla/data/peract_G1_data camera_groups=G1"
 
 
@@ -88,3 +87,6 @@ python data/processing/convert_to_zarr/orbital_to_zarr.py \
 # apptainer shell --nv --fakeroot --writable --bind /usr/bin/xvfb-run:/usr/bin/xvfb-run  --bind /grogu/user/harshilb/:/grogu/user/harshilb/ --env PATH=/root/miniconda3/envs/3dfa/bin:$PATH  my_eval_env
 
 # apptainer shell --nv --fakeroot --bind /scratch:/scratch --bind /grogu/user/harshilb/:/grogu/user/harshilb/ 3dfa_flash
+
+
+# rsync -avzP /grogu/user/harshilb/open_drawer.zip  hbhatia1@login.delta.ncsa.illinois.edu:/work/hdd/bgkz/hbhatia1

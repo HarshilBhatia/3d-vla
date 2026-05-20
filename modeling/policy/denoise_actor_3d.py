@@ -39,8 +39,6 @@ class DenoiseActor(BaseDenoiseActor):
                  denoise_model="ddpm",
                  # Training arguments
                  lv2_batch_size=1,
-                 # Learnable extrinsics (camera -> world)
-                 learn_extrinsics=False,
                  traj_scene_rope=True,
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m',
@@ -68,13 +66,11 @@ class DenoiseActor(BaseDenoiseActor):
             denoise_model=denoise_model,
             lv2_batch_size=lv2_batch_size,
             traj_scene_rope=traj_scene_rope,
-            learn_extrinsics=learn_extrinsics,
             predict_extrinsics=predict_extrinsics,
             extrinsics_prediction_mode=extrinsics_prediction_mode,
         )
 
 
-        print(f'learn_extrinsics: {learn_extrinsics}')
         print(f'predict_extrinsics: {predict_extrinsics}')
         print(f'extrinsics_prediction_mode: {extrinsics_prediction_mode}')
         print(f'rope_type: {rope_type}')
@@ -93,7 +89,6 @@ class DenoiseActor(BaseDenoiseActor):
             image_space_sampling=image_space_sampling,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder,
-            learn_extrinsics=learn_extrinsics,
             rope_type=rope_type,
             lang_dropout_prob=lang_dropout_prob,
         )
@@ -104,7 +99,6 @@ class DenoiseActor(BaseDenoiseActor):
             nhist=nhist * nhand,
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
-            learn_extrinsics=learn_extrinsics,
             traj_scene_rope=traj_scene_rope,
             predict_extrinsics=predict_extrinsics,
             extrinsics_prediction_mode=extrinsics_prediction_mode,
@@ -126,8 +120,6 @@ class DenoiseActor(BaseDenoiseActor):
                 num_attn_heads=num_attn_heads,
                 rope_type=rope_type,
             )
-
-        self.learn_extrinsics = learn_extrinsics
 
 
 
@@ -158,7 +150,6 @@ class TransformerHead(BaseTransformerHead):
                  nhist=3,
                  num_shared_attn_layers=4,
                  rotary_pe=True,
-                 learn_extrinsics=False,
                  traj_scene_rope=True,
                  predict_extrinsics=True,
                  rope_type='normal',
@@ -171,7 +162,6 @@ class TransformerHead(BaseTransformerHead):
             rotary_pe=rotary_pe,
             traj_scene_rope=traj_scene_rope,
             predict_extrinsics=predict_extrinsics,
-            learn_extrinsics=learn_extrinsics,
             extrinsics_prediction_mode=kwargs.get("extrinsics_prediction_mode", 'delta_m'),
             dynamic_rope_from_camtoken=kwargs.get("dynamic_rope_from_camtoken", False),
             use_learned_abs_pe=kwargs.get("use_learned_abs_pe", False),
@@ -180,8 +170,6 @@ class TransformerHead(BaseTransformerHead):
             ee_aux_cam_ids=kwargs.get("ee_aux_cam_ids", (0, 1)),
         )
 
-        # Store whether we're learning extrinsics (needed for gradient flow through RoPE)
-        self.learn_extrinsics = learn_extrinsics
         self.predict_extrinsics = predict_extrinsics
 
         # Relative positional embeddings
@@ -204,7 +192,7 @@ class TransformerHead(BaseTransformerHead):
             return None, None, None, None
         # RT mode: transform positions by predicted R,t (camera -> world); no delta_M in RoPE.
         # delta_M mode: no position transform; delta_M mixes sin/cos in RoPE.
-        allow_grad = self.training and (self.learn_extrinsics or self.predict_extrinsics)
+        allow_grad = self.training and self.predict_extrinsics
 
         if cam_params_rt is not None:
             # Predict R,T: transform scene positions to world frame; RoPE sees transformed positions, no delta_M
@@ -310,7 +298,7 @@ class TransformerHead(BaseTransformerHead):
         Returns:
             (rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos)
         """
-        allow_grad = self.training and (self.learn_extrinsics or self.predict_extrinsics)
+        allow_grad = self.training and self.predict_extrinsics
 
         assert fps_cam_ids is not None and per_img_feats is not None, \
             "_recompute_rope requires fps_cam_ids and per_img_feats"

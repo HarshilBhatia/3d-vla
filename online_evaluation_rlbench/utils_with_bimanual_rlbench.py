@@ -150,10 +150,8 @@ class RLBenchEnv:
         apply_cameras=("over_shoulder_left", "over_shoulder_right", "wrist_left", "wrist_right", "front"),
         collision_checking=False,
         use_depth2cloud=False,
-        miscalibration_noise_level=None,
     ):
-        # depth2cloud path is required for miscalibration
-        self._use_depth2cloud = use_depth2cloud or (miscalibration_noise_level is not None)
+        self._use_depth2cloud = use_depth2cloud
         if self._use_depth2cloud:
             apply_depth = True
 
@@ -176,20 +174,15 @@ class RLBenchEnv:
             headless=headless, robot_setup="dual_panda"
         )
 
-        # Miscalibration noise + depth2cloud module (optional)
+        # depth2cloud module (optional, enabled via use_depth2cloud)
         ctx = setup_miscalibration(
-            level=miscalibration_noise_level,
+            level=None,
             image_size=image_size,
             build_depth2cloud=self._use_depth2cloud,
             log_prefix="[bimanual eval]",
         )
-        self._miscal_cameras = ctx.cameras
-        self._miscal_noise   = ctx.per_cam_noise
-        self._depth2cloud    = ctx.depth2cloud
-        self._miscal_T = (
-            per_cam_noise_T(ctx.per_cam_noise, ctx.cameras, len(self.apply_cameras))
-            if ctx.per_cam_noise is not None else None
-        )
+        self._depth2cloud = ctx.depth2cloud
+        self._miscal_T = None
 
     def _get_pcd_from_depth(self, obs):
         """Compute point clouds from depth + extrinsics, applying miscalibration if configured.

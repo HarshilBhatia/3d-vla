@@ -22,10 +22,10 @@ _EVAL_RUNTIME_KEYS = frozenset({
     "checkpoint", "data_dir", "eval_data_dir", "output_file",
     "task", "headless", "max_tries", "seed",
     "cameras_file", "task_group_mapping_file", "camera_groups",
-    "miscalibration_noise_level", "fov_deg",
+    "orbital_miscal_noise_level", "miscal_rot_level", "miscal_trans_level", "fov_deg",
     "spawn_camera_group",
     "val_instructions", "log_dir", "base_log_dir",
-    "save_video", "save_trajectory", "debug_pcd_dir",
+    "save_video", "save_trajectory",
     # PerAct online-eval runtime controls
     "eval_use_depth2cloud", "image_size", "collision_checking",
     "cfg_scale",
@@ -126,10 +126,6 @@ if __name__ == "__main__":
     # Load models
     model = load_models(args)
     print("workspace_normalizer:", model.workspace_normalizer)
-    if getattr(args, 'debug_pcd_dir', None):
-        model.encoder.debug_dir = str(args.debug_pcd_dir)
-        print(f"[debug] saving PCDs to {model.encoder.debug_dir}")
-
     # Evaluate - reload environment for each task (crashes otherwise)
     task_success_rates = {}
     for task_str in [args.task]:
@@ -145,20 +141,18 @@ if __name__ == "__main__":
                 cameras_file=str(args.cameras_file),
                 task_group_mapping_file=str(args.task_group_mapping_file),
                 fov_deg=float(args.fov_deg),
-                miscalibration_noise_level=args.miscalibration_noise_level,
-
+                orbital_miscal_noise_level=getattr(args, "orbital_miscal_noise_level", None),
+                miscal_rot_level=getattr(args, "miscal_rot_level", None),
+                miscal_trans_level=getattr(args, "miscal_trans_level", None),
                 camera_groups=[g.strip() for g in args.camera_groups.split(",")] if args.camera_groups else None,
                 spawn_camera_group=args.spawn_camera_group if args.spawn_camera_group else None,
             )
         elif "peract" in args.dataset.lower():
             _env_extra = dict(
                 use_depth2cloud=args.eval_use_depth2cloud,
-                miscalibration_noise_level=args.miscalibration_noise_level,
             )
         elif args.bimanual:
-            _env_extra = dict(
-                miscalibration_noise_level=args.miscalibration_noise_level,
-            )
+            _env_extra = dict()
         else:
             _env_extra = dict()
 

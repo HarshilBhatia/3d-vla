@@ -138,7 +138,6 @@ use_learned_abs_pe: false  # if true, replaces 3D RoPE with a learned per-index 
 lang_dropout_prob: 0.0
 
 
-learn_extrinsics: false
 predict_extrinsics: false
 extrinsics_prediction_mode: delta_m  # 'rt' = R,T (6D); 'delta_m' = 6x6 matrix
 dynamic_rope_from_camtoken: true  # re-predict delta_M/(R,T) from cam-token after each SA/CA block
@@ -146,11 +145,7 @@ dynamic_rope_from_camtoken: true  # re-predict delta_M/(R,T) from cam-token afte
 predict_ee_aux: false
 lambda_aux: 1.0        # weight of EE aux loss relative to flow loss
 ee_aux_cam_ids: [0, 1] # camera indices (into per_img_feats) to predict EE from
-# miscalibration_noise_level: null = no noise; "small" / "medium" / "large" = constant per-camera extrinsics noise
-miscalibration_noise_level: null
-# random miscalibration: sample fresh noise per batch. set both to enable (overridden by miscalibration_noise_level).
-# miscal_max_angle_deg: max rotation noise per axis in degrees (e.g. 5.0)
-# miscal_max_translation_m: max translation noise per axis in metres (e.g. 0.01)
+# random miscalibration (training + eval): random direction, magnitude sampled uniformly in [0, max].
 miscal_max_angle_deg: null
 miscal_max_translation_m: null
 # per-group constant miscalibration: pre-sample K fixed noise matrices (one per camera group).
@@ -163,9 +158,6 @@ miscal_max_translation_m: null
 orbital_miscal_noise_level: null
 # per-task constant miscalibration: one fixed noise matrix per task (same magnitude as per-group, different values).
 # Mutually exclusive with orbital_miscal_noise_level. null | "small" | "medium" | "large"
-# per-(task, group) constant miscalibration: one fixed noise per (task, camera_group) pair.
-# Mutually exclusive with the other orbital_miscal_noise_level options. null | "small" | "medium" | "large"
-orbital_miscal_noise_level_per_task_group: null
 # per-group multi-level miscalibration: randomly draw one level per batch sample from the list.
 # Mutually exclusive with the other orbital_miscal options. null | [small, medium, large]
 orbital_miscal_noise_levels: null

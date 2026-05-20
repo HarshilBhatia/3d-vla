@@ -58,6 +58,5 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MAS
     backbone=siglip2 \
     lang_dropout_prob=0.2 \
     batch_size=128 \
-    orbital_miscal_noise_level_per_task_group=medium \
     ${checkpoint:+checkpoint=$checkpoint} \
     "$@"

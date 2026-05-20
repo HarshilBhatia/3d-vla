@@ -27,7 +27,7 @@ ngpus=1
 data=orbital
 main_dir=Orbital
 experiment=debug
-run_log_dir=debug_fused
+run_log_dir=asdf
 train_iters=160000
 
 train_data_dir=/grogu/user/harshilb/multi_cam/train.zarr

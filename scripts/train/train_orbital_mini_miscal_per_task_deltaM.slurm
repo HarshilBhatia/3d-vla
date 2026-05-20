@@ -49,5 +49,4 @@ torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     train_data_dir=$train_data_dir \
     eval_data_dir=$eval_data_dir \
     checkpoint=$checkpoint \
-    batch_size=128 \
-    orbital_miscal_noise_level_per_task_group=medium
+    batch_size=128
