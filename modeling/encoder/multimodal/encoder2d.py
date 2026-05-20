@@ -1,4 +1,3 @@
-import einops
 from torch import nn
 from torchvision.ops import Conv2dNormActivation
 
@@ -82,24 +81,21 @@ class Encoder(BaseEncoder):
         rgb3d_feats = None
         if rgb3d is not None:
             num_cameras = rgb3d.shape[1]
+            _bt = rgb3d.shape[0]
             # Pass each view independently through backbone
-            rgb3d = einops.rearrange(rgb3d, "bt ncam c h w -> (bt ncam) c h w")
+            rgb3d = rgb3d.reshape(-1, *rgb3d.shape[2:])
             rgb3d = self.normalize(rgb3d)
             rgb3d_feats = self.backbone(rgb3d)
             # Pass visual features through feature pyramid network
             rgb3d_feats = self.feature_pyramid(rgb3d_feats)["res4"]
             # Add camera id embeddings
-            rgb3d_feats = einops.rearrange(
-                rgb3d_feats,
-                "(bt ncam) c h w -> bt ncam c h w", ncam=num_cameras
-            )
+            _c, _fh, _fw = rgb3d_feats.shape[1], rgb3d_feats.shape[2], rgb3d_feats.shape[3]
+            rgb3d_feats = rgb3d_feats.reshape(_bt, num_cameras, _c, _fh, _fw)
             rgb3d_feats = rgb3d_feats + self.camera_ids.weight[:num_cameras][
                 None, :, :, None, None
             ]
             # Merge different cameras
-            rgb3d_feats = einops.rearrange(
-                rgb3d_feats, "bt ncam c h w -> bt (ncam h w) c"
-            )
+            rgb3d_feats = rgb3d_feats.permute(0, 1, 3, 4, 2).reshape(_bt, num_cameras * _fh * _fw, _c)
             # Attention from vision to language
             rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_feats)[-1]
 

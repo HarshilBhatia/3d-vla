@@ -15,7 +15,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-import einops
 import numpy as np
 import rerun as rr
 import torch
@@ -61,7 +60,7 @@ def extract_fps_tokens(encoder, rgb, pcd, fps_factor, backbone_name):
         fps_pos:   (M, 3) float32 cpu — world-frame XYZ of those points
     """
     B, ncam = rgb.shape[:2]
-    rgb_flat = einops.rearrange(rgb.cuda(), 'b ncam c h w -> (b ncam) c h w')
+    rgb_flat = rgb.cuda().reshape(-1, *rgb.shape[2:])
     rgb_norm = encoder.normalize(rgb_flat)
 
     raw = encoder.backbone(rgb_norm)
@@ -73,11 +72,12 @@ def extract_fps_tokens(encoder, rgb, pcd, fps_factor, backbone_name):
     fh, fw = feat_map.shape[-2:]
     feat_dim = feat_map.shape[1]
 
-    feats = einops.rearrange(feat_map, '(b ncam) c fh fw -> b (ncam fh fw) c', b=B, ncam=ncam)
+    feats = feat_map.reshape(B, ncam, feat_dim, fh, fw).permute(0, 1, 3, 4, 2).reshape(B, ncam * fh * fw, feat_dim)
 
-    pcd_flat = einops.rearrange(pcd.cuda(), 'b ncam c h w -> (b ncam) c h w')
+    pcd_flat = pcd.cuda().reshape(-1, *pcd.shape[2:])
     pcd_interp = F.interpolate(pcd_flat, (fh, fw), mode='bilinear', align_corners=False)
-    pos = einops.rearrange(pcd_interp, '(b ncam) c fh fw -> b (ncam fh fw) c', b=B, ncam=ncam)
+    _c_pcd = pcd_interp.shape[1]
+    pos = pcd_interp.reshape(B, ncam, _c_pcd, fh, fw).permute(0, 1, 3, 4, 2).reshape(B, ncam * fh * fw, _c_pcd)
 
     inds = density_based_sampler(feats, fps_factor)                              # (B, M)
     fps_feats = feats.gather(1, inds.unsqueeze(-1).expand(-1, -1, feat_dim))    # (B, M, C)

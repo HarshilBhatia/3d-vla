@@ -1,6 +1,5 @@
 import os
 
-import einops
 import numpy as np
 import torch
 
@@ -73,13 +72,13 @@ def save_encoder_debug_pcd(debug_dir, step, pcd_curr, fps_scene_pos, rgb3d):
     rgb_raw = rgb3d[:, -1] if rgb3d.ndim == 6 else rgb3d  # (B, ncam, 3, H, W)
 
     # Downsample to backbone feature resolution so each point has a matching color
+    _b = rgb_raw.shape[0]
+    _c_rgb = rgb_raw.shape[2]
     rgb_interp = F_interp(
-        einops.rearrange(rgb_raw, 'b ncam c h w -> (b ncam) c h w').float(),
+        rgb_raw.reshape(-1, *rgb_raw.shape[2:]).float(),
         size=(feat_h, feat_w), mode='bilinear', align_corners=False,
     )
-    rgb_interp = einops.rearrange(
-        rgb_interp, '(b ncam) c h w -> b (ncam h w) c', ncam=ncam,
-    )  # (B, Np, 3) in [0, 1]
+    rgb_interp = rgb_interp.reshape(_b, ncam, _c_rgb, feat_h, feat_w).permute(0, 1, 3, 4, 2).reshape(_b, ncam * feat_h * feat_w, _c_rgb)  # (B, Np, 3) in [0, 1]
 
     # fps_scene_pos is gathered from pcd_curr rows, so nearest-neighbor gives exact matches
     dists = torch.cdist(fps_scene_pos[0].float(), pcd_curr[0].float())

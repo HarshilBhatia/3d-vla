@@ -3,8 +3,6 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 from torch.nn.attention import SDPBackend, sdpa_kernel
-import einops
-
 from .position_encodings import RotaryPositionEncoding
 
 
@@ -147,9 +145,10 @@ def multi_head_attention_forward(query,
             q = RotaryPositionEncoding.embed_rotary(q.transpose(0, 1), q_cos, q_sin).transpose(0, 1)
             k = RotaryPositionEncoding.embed_rotary(k.transpose(0, 1), k_cos, k_sin).transpose(0, 1)
 
-    q = einops.rearrange(q, "S B (H D) -> B H S D", H=num_heads, D=head_dim)
-    k = einops.rearrange(k, "S B (H D) -> B H S D", H=num_heads, D=head_dim)
-    v = einops.rearrange(v, "S B (H D) -> B H S D", H=num_heads, D=head_dim)
+    S, B_sz = q.shape[0], q.shape[1]
+    q = q.view(S, B_sz, num_heads, head_dim).permute(1, 2, 0, 3)
+    k = k.view(k.shape[0], B_sz, num_heads, head_dim).permute(1, 2, 0, 3)
+    v = v.view(v.shape[0], B_sz, num_heads, head_dim).permute(1, 2, 0, 3)
 
     if force_math:
         with sdpa_kernel(SDPBackend.MATH):
@@ -160,7 +159,7 @@ def multi_head_attention_forward(query,
         attn_output = F.scaled_dot_product_attention(
             q, k, v, attn_mask, dropout_p if training else 0.0, is_causal=False
         )
-    attn_output = einops.rearrange(attn_output, "B H S D -> S B (H D)")
+    attn_output = attn_output.permute(2, 0, 1, 3).reshape(S, B_sz, num_heads * head_dim)
     attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
     attn_output = F.dropout(attn_output, p=dropout_p, training=training)
 

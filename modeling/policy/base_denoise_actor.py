@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from torch.nn import functional as F
-import einops
 
 from ..noise_scheduler import fetch_schedulers
 from ..utils.layers import AttentionModule
@@ -872,14 +871,14 @@ class TransformerHead(nn.Module):
             traj_feats = traj_feats + self.hand_embed.weight[None, None] # bimanual support.
 
         # noisy
-        traj_feats = einops.rearrange(traj_feats, 'b l h c -> b (l h) c')
-        trajectory = einops.rearrange(trajectory, 'b l h c -> b (l h) c')
+        traj_feats = traj_feats.reshape(traj_feats.shape[0], -1, traj_feats.shape[-1])
+        trajectory = trajectory.reshape(trajectory.shape[0], -1, trajectory.shape[-1])
 
         # Trajectory features cross-attend to context features
         traj_time_pos = self.traj_time_emb(
             torch.arange(0, traj_len, device=traj_feats.device)
         )[None, None].repeat(len(traj_feats), 1, nhand, 1)
-        traj_time_pos = einops.rearrange(traj_time_pos, 'b l h c -> b (l h) c')
+        traj_time_pos = traj_time_pos.reshape(traj_time_pos.shape[0], -1, traj_time_pos.shape[-1])
         traj_feats = self.traj_lang_attention(
             seq1=traj_feats,
             seq2=instr_feats,

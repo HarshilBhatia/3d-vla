@@ -9,7 +9,6 @@ from tqdm import tqdm
 import numpy as np
 import torch
 import torch.nn.functional as F
-import einops
 
 from rlbench.observation_config import ObservationConfig, CameraConfig
 from rlbench.environment import Environment
@@ -222,13 +221,9 @@ class RLBenchEnv:
             for i in range(len(state_dict["rgb"]))
         ]
         state = torch.cat(obs_rgb + obs_pc, dim=0)
-        state = einops.rearrange(
-            state,
-            "(m n ch) h w -> n m ch h w",
-            ch=3,
-            n=len(self.apply_cameras),
-            m=2
-        )
+        _n, _m, _ch = len(self.apply_cameras), 2, 3
+        _h, _w = state.shape[-2], state.shape[-1]
+        state = state.reshape(_m, _n, _ch, _h, _w).permute(1, 0, 2, 3, 4)
         rgb = state[:, 0].unsqueeze(0)  # 1, N, C, H, W
         pcd = state[:, 1].unsqueeze(0)  # 1, N, C, H, W
 

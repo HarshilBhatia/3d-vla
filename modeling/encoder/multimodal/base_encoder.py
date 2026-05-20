@@ -1,4 +1,3 @@
-import einops
 import torch
 from torch import nn
 
@@ -149,12 +148,8 @@ class Encoder(nn.Module):
             self._debug_step += 1
 
         # Per-image average tokens from current frame
-        per_img_feats = einops.rearrange(
-            rgb3d_feats_curr, 'b (ncam p) f -> b ncam p f', ncam=ncam
-        ).mean(dim=2)
-        per_img_pos = einops.rearrange(
-            pcd_curr, 'b (ncam p) c -> b ncam p c', ncam=ncam
-        ).mean(dim=2)
+        per_img_feats = rgb3d_feats_curr.reshape(rgb3d_feats_curr.shape[0], ncam, -1, rgb3d_feats_curr.shape[-1]).mean(dim=2)
+        per_img_pos = pcd_curr.reshape(pcd_curr.shape[0], ncam, -1, pcd_curr.shape[-1]).mean(dim=2)
 
         fps_scene_feats = torch.cat([fps_scene_feats, per_img_feats], dim=1)
         fps_scene_pos = torch.cat([fps_scene_pos, per_img_pos], dim=1)
