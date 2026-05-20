@@ -1,0 +1,66 @@
+#!/usr/bin/env bash
+# Submit a .slurm script to a named cluster.
+#
+# Usage:
+#   bash scripts/submit <cluster> <script.slurm> [extra sbatch args...]
+#
+# The cluster name maps to config/clusters/<name>.env, which provides
+# SBATCH overrides (partition, account, time, exclude).  Any extra args
+# are forwarded verbatim to sbatch.
+#
+# Examples:
+#   bash scripts/submit grogu   scripts/train/cotrain_mixed_miscal.slurm
+#   bash scripts/submit delta   scripts/train/train_multicam_default.slurm
+#   bash scripts/submit deltaai scripts/train/train_multicam_default.slurm --gres=gpu:4
+#   bash scripts/submit grogu   scripts/train/debug.slurm --time=02:00:00
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [[ $# -lt 2 ]]; then
+    echo "Usage: bash scripts/submit <cluster> <script.slurm> [extra sbatch args...]"
+    echo ""
+    echo "Available clusters:"
+    ls "$REPO_ROOT/config/clusters/"*.env 2>/dev/null \
+        | xargs -n1 basename | sed 's/\.env/    /'
+    exit 1
+fi
+
+CLUSTER=$1
+SLURM_SCRIPT=$2
+shift 2
+
+ENV_FILE="$REPO_ROOT/config/clusters/${CLUSTER}.env"
+if [[ ! -f "$ENV_FILE" ]]; then
+    echo "[ERROR] Unknown cluster: '$CLUSTER' (no file at $ENV_FILE)"
+    exit 1
+fi
+
+if [[ ! -f "$SLURM_SCRIPT" ]]; then
+    echo "[ERROR] Script not found: $SLURM_SCRIPT"
+    exit 1
+fi
+
+source "$ENV_FILE"
+
+# Build sbatch override args from cluster profile
+SBATCH_ARGS=(
+    "--partition=${CLUSTER_PARTITION}"
+    "--time=${CLUSTER_TIME}"
+)
+[[ -n "${CLUSTER_ACCOUNT:-}" ]]    && SBATCH_ARGS+=("--account=${CLUSTER_ACCOUNT}")
+[[ -n "${CLUSTER_EXCLUDE:-}" ]]    && SBATCH_ARGS+=("--exclude=${CLUSTER_EXCLUDE}")
+[[ -n "${CLUSTER_CONSTRAINT:-}" ]] && SBATCH_ARGS+=("--constraint=${CLUSTER_CONSTRAINT}")
+[[ -n "${CLUSTER_MAIL_USER:-}" ]]  && SBATCH_ARGS+=("--mail-user=${CLUSTER_MAIL_USER}" "--mail-type=FAIL,TIME_LIMIT,REQUEUE")
+
+echo "[submit] cluster    : $CLUSTER_NAME"
+echo "[submit] partition  : $CLUSTER_PARTITION"
+echo "[submit] script     : $SLURM_SCRIPT"
+[[ -n "${CLUSTER_ACCOUNT:-}" ]] && echo "[submit] account    : $CLUSTER_ACCOUNT"
+[[ -n "${CLUSTER_EXCLUDE:-}" ]] && echo "[submit] exclude    : $CLUSTER_EXCLUDE"
+[[ $# -gt 0 ]]                  && echo "[submit] extra args : $*"
+echo ""
+
+sbatch "${SBATCH_ARGS[@]}" --export=ALL,REPO_ROOT="$REPO_ROOT",CLUSTER="$CLUSTER" "$@" "$SLURM_SCRIPT"

@@ -14,9 +14,9 @@ echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
-cd /home/harshilb/3d_flowmatch_actor
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate 3dfa
+
+source "${REPO_ROOT}/scripts/helpers/slurm_utils.sh"
+load_cluster "${CLUSTER:-grogu}"
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}

@@ -15,9 +15,9 @@ echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
-cd /home/harshilb/3d_flowmatch_actor
-source ~/miniconda3/etc/profile.d/conda.sh
-conda activate 3dfa
+
+source "${REPO_ROOT}/scripts/helpers/slurm_utils.sh"
+load_cluster "${CLUSTER:-grogu}"
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
@@ -39,9 +39,8 @@ checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
 train_data_dir=/grogu/user/harshilb/multi_cam/train.zarr
 eval_data_dir=/grogu/user/harshilb/multi_cam/val.zarr
 
-source /home/harshilb/3d_flowmatch_actor/scripts/helpers/slurm_utils.sh
-to_scratch train_data_dir
-to_scratch eval_data_dir
+stage_data train_data_dir
+stage_data eval_data_dir
 
 TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
