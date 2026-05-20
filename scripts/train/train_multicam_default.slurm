@@ -6,7 +6,7 @@ echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
 source "${REPO_ROOT}/scripts/helpers/slurm_utils.sh"
-load_cluster "${CLUSTER:-babel}"
+load_cluster "${CLUSTER:-$CLUSTER_NAME}"
 
 train_data_dir=$CLUSTER_ORB_DATA/peract_orb_new/train.zarr
 eval_data_dir=$CLUSTER_ORB_DATA/peract_orb_new/val.zarr

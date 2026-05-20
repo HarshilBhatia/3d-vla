@@ -10,7 +10,7 @@ echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
 source "${REPO_ROOT}/scripts/helpers/slurm_utils.sh"
-load_cluster "${CLUSTER:-grogu}"
+load_cluster "${CLUSTER:-$CLUSTER_NAME}"
 
 MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
