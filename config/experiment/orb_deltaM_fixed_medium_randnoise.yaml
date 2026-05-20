@@ -7,6 +7,4 @@ predict_extrinsics: true
 extrinsics_prediction_mode: delta_m
 dynamic_rope_from_camtoken: true
 
-orbital_miscal_noise_level: medium
-miscal_max_angle_deg: 3.0
-miscal_max_translation_m: 0.01
+# miscal: use miscal=orbital_fixed_medium_randnoise

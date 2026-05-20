@@ -62,12 +62,17 @@ export XDG_RUNTIME_DIR=/run/user/27491
 
 
 python data/processing/convert_to_zarr/orbital_to_zarr.py \
-    --root /grogu/user/harshilb/multi_cam_rollouts \
-    --out /grogu/user/harshilb/dense_new/G3.zarr \
-    --groups G3 \
-    --store-trajectory \
-    --tasks insert_onto_square_peg,light_bulb_in,open_drawer,turn_tap \
+    --root /grogu/user/harshilb/full_rollouts_merged \
+    --out /grogu/datasets/hbhatia/peract_orb_new/ \
+    --train-episodes 33 \
     --overwrite
+
+
+
+# python orbital_to_zarr.py \
+#     --root /path/to/data \
+#     --out /path/to/output_dir \
+#     --overwrite
 
 # xvfb-run -a python scripts/orbital_cameras/collect_low_dim_only.py \
 #     --tasks inset_onto_squ \
@@ -84,9 +89,12 @@ python data/processing/convert_to_zarr/orbital_to_zarr.py \
 #     --overwrite
 
 
-# apptainer shell --nv --fakeroot --writable --bind /usr/bin/xvfb-run:/usr/bin/xvfb-run  --bind /grogu/user/harshilb/:/grogu/user/harshilb/ --env PATH=/root/miniconda3/envs/3dfa/bin:$PATH  my_eval_env
+# apptainer shell --nv --fakeroot --writable --bind /usr/bin/xvfb-run:/usr/bin/xvfb-run  --bind /grogu/datasets/hbhatia/:/grogu/datasets/hbhatia/  --bind /grogu/user/harshilb/:/grogu/user/harshilb/ --env PATH=/root/miniconda3/envs/3dfa/bin:$PATH  my_eval_env
 
 # apptainer shell --nv --fakeroot --bind /scratch:/scratch --bind /grogu/user/harshilb/:/grogu/user/harshilb/ 3dfa_flash
 
 
 # rsync -avzP /grogu/user/harshilb/open_drawer.zip  hbhatia1@login.delta.ncsa.illinois.edu:/work/hdd/bgkz/hbhatia1
+
+
+#olp_8dvL4vVgioXAnRBdxB0tdS7e336VCj1I22bb
