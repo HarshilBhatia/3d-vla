@@ -37,4 +37,5 @@ TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --np
     eval_data_dir=$eval_data_dir \
     checkpoint=$checkpoint \
     batch_size=512 \
+    preload=true \
     "$@"
