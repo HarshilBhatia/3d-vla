@@ -25,9 +25,10 @@ if [[ "${1:-}" == "--dry-run" ]]; then
     shift
 fi
 
-if [[ $# -lt 2 ]]; then
-    echo "Usage: bash scripts/submit [--dry-run] <cluster> <script.slurm> [extra sbatch args...]"
+if [[ $# -lt 1 ]]; then
+    echo "Usage: bash scripts/submit [--dry-run] [<cluster>] <script.slurm> [extra sbatch args...]"
     echo ""
+    echo "  <cluster>   optional; defaults to \$CLUSTER_NAME (currently: ${CLUSTER_NAME:-unset})"
     echo "  --dry-run   run the script directly with bash instead of submitting to sbatch"
     echo ""
     echo "Available clusters:"
@@ -36,9 +37,17 @@ if [[ $# -lt 2 ]]; then
     exit 1
 fi
 
-CLUSTER=$1
-SLURM_SCRIPT=$2
-shift 2
+# If the first arg looks like a known cluster env file, treat it as the cluster name;
+# otherwise fall back to $CLUSTER_NAME.
+if [[ -f "$REPO_ROOT/config/clusters/${1}.env" ]]; then
+    CLUSTER=$1
+    shift
+else
+    CLUSTER="${CLUSTER_NAME:?CLUSTER_NAME is not set — set it in ~/.bashrc or pass a cluster name explicitly}"
+fi
+
+SLURM_SCRIPT=$1
+shift
 
 ENV_FILE="$REPO_ROOT/config/clusters/${CLUSTER}.env"
 if [[ ! -f "$ENV_FILE" ]]; then
