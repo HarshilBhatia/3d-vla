@@ -1,0 +1,2 @@
+# All groups draw one level per sample from [medium] (effectively always medium).
+orbital_miscal_noise_levels: [medium]

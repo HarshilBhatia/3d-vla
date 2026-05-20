@@ -1,5 +1,9 @@
 #!/bin/bash
-# SLURM: --gres=gpu:8 --mem=200G --cpus-per-task=50
+# SLURM: --gres=gpu:4 --mem=200G --cpus-per-task=50
+
+# Usage:
+#   bash   scripts/train/train_full/train_full.sh experiment=camtoken_deltaM_full run_log_dir=deltaM_full_fixed_medium_randnoise [overrides...]
+#   sbatch scripts/train/train_full/train_full.sh experiment=camtoken_deltaM_full run_log_dir=deltaM_full_fixed_medium_randnoise [overrides...]
 
 echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
@@ -11,33 +15,20 @@ load_cluster "${CLUSTER:-grogu}"
 MASTER_PORT=$((27500 + RANDOM % 1000))
 ngpus=${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}
 
-ngpus=1
-
-data=orbital
 main_dir=Orbital
-experiment=debug
-run_log_dir=asdf
-train_iters=160000
-
+train_epochs=7000
 train_data_dir=$CLUSTER_ORB_DATA/peract_orb_new/train.zarr
 eval_data_dir=$CLUSTER_ORB_DATA/peract_orb_new/val.zarr
 
 stage_data train_data_dir
 stage_data eval_data_dir
 
-checkpoint=train_logs/${main_dir}/${run_log_dir}/last.pth
-
-# TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY 
-
-torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
+TORCHELASTIC_ERROR_FILE=/tmp/err.json WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     main.py \
-    data=$data \
-    experiment=$experiment \
+    data=orbital \
     exp_log_dir=$main_dir \
-    run_log_dir=$run_log_dir \
-    train_iters=$train_iters \
+    train_epochs=$train_epochs \
     train_data_dir=$train_data_dir \
     eval_data_dir=$eval_data_dir \
-    checkpoint=$checkpoint \
-    batch_size=64 \
-    "orbital_miscal_noise_levels=[medium]"
+    batch_size=512 \
+    "$@"

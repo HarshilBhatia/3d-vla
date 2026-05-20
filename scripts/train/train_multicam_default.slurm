@@ -1,28 +1,15 @@
 #!/bin/bash
-
-
-#SBATCH --job-name=default
-#SBATCH --output=logs/%j.out
-#SBATCH --error=logs/%j.err
-#SBATCH --partition=general
-#SBATCH --gres=gpu:L40S:4
-#SBATCH --ntasks=1
-#SBATCH --cpus-per-task=20
-#SBATCH --mem=96G
-#SBATCH --time=2-00:00:00
-
+# SLURM: --gres=gpu:4 --mem=96G --cpus-per-task=20
 
 echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
 
-
 source "${REPO_ROOT}/scripts/helpers/slurm_utils.sh"
 load_cluster "${CLUSTER:-babel}"
-conda activate wm
 
-train_data_dir=$CLUSTER_DATA_ROOT/peract_orb_new/train.zarr
-eval_data_dir=$CLUSTER_DATA_ROOT/peract_orb_new/val.zarr
+train_data_dir=$CLUSTER_ORB_DATA/peract_orb_new/train.zarr
+eval_data_dir=$CLUSTER_ORB_DATA/peract_orb_new/val.zarr
 
 stage_data train_data_dir
 stage_data eval_data_dir

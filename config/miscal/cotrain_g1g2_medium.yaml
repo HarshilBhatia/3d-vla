@@ -1,0 +1,3 @@
+# Groups 1+2 receive fixed per-group medium noise; groups 3+4 see clean extrinsics.
+cotrain_miscal_group_ids: [1, 2]
+cotrain_miscal_level: medium

@@ -1,19 +1,9 @@
 #!/bin/bash
-#SBATCH --job-name=orb_default
-#SBATCH --output=logs/%j.out
-#SBATCH --error=logs/%j.err
-#SBATCH --nodes=1
-#SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=16
-#SBATCH --gres=gpu:2
-#SBATCH --mem=200G
-#SBATCH --time=24:00:00
-#SBATCH --partition=shubhamlong
+# SLURM: --gres=gpu:2 --mem=200G --cpus-per-task=16
 
 echo "Job started at: $(date)"
 echo "Running on node: $(hostname)"
 echo "Job ID: $SLURM_JOB_ID"
-
 
 source "${REPO_ROOT}/scripts/helpers/slurm_utils.sh"
 load_cluster "${CLUSTER:-grogu}"

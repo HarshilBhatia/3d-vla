@@ -1,5 +1,5 @@
-# Default experiment: no overrides. Use as base; override run_log_dir etc. from CLI or script.
-# Run: python main.py experiment=default
+# Experiment: 6×6 delta_m RoPE mixing matrix with dynamic re-prediction from camera token.
+# Run: python main.py experiment=camtoken_deltaM
 
 
 predict_extrinsics: true

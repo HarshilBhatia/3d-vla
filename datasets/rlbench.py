@@ -62,10 +62,11 @@ class RLBenchDataset(BaseDataset):
         
         # Store filter_tasks for later use
         self.filter_tasks = filter_tasks
-        
+
         # Filter by tasks if specified
         if filter_tasks is not None:
             self._filter_by_tasks(filter_tasks)
+
 
     @staticmethod
     def _zarr_to_numpy(annos, indices=None):
@@ -183,6 +184,13 @@ class RLBenchDataset(BaseDataset):
         # and then which chunk
         idx = idx * self.chunk_size
 
+        # Skip samples whose variation has no instructions (e.g. missing stack_blocks variations)
+        n = len(self.annos['action'])
+        while True:
+            t, v = self.annos['task_id'][idx], self.annos['variation'][idx]
+            if str(int(v)) in self._instructions.get(self.tasks[int(t)], {}):
+                break
+            idx = (idx + self.chunk_size) % n
 
         if self._actions_only:
             return {"action": self._get_action(idx)}

@@ -19,8 +19,16 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+DRY_RUN=0
+if [[ "${1:-}" == "--dry-run" ]]; then
+    DRY_RUN=1
+    shift
+fi
+
 if [[ $# -lt 2 ]]; then
-    echo "Usage: bash scripts/submit <cluster> <script.slurm> [extra sbatch args...]"
+    echo "Usage: bash scripts/submit [--dry-run] <cluster> <script.slurm> [extra sbatch args...]"
+    echo ""
+    echo "  --dry-run   run the script directly with bash instead of submitting to sbatch"
     echo ""
     echo "Available clusters:"
     ls "$REPO_ROOT/config/clusters/"*.env 2>/dev/null \
@@ -45,10 +53,28 @@ fi
 
 source "$ENV_FILE"
 
-# Build sbatch override args from cluster profile
+# Parse per-script resource args from a '# SLURM: --flag val ...' comment line
+SCRIPT_SLURM_ARGS=()
+while IFS= read -r line; do
+    if [[ "$line" =~ ^#\ SLURM:\ (.*) ]]; then
+        read -ra _args <<< "${BASH_REMATCH[1]}"
+        SCRIPT_SLURM_ARGS+=("${_args[@]}")
+        break
+    fi
+done < "$SLURM_SCRIPT"
+
+JOB_NAME="$(basename "$SLURM_SCRIPT" .slurm)"
+
+# Build sbatch args: fixed defaults + cluster profile + per-script resources
 SBATCH_ARGS=(
+    "--job-name=${JOB_NAME}"
+    "--output=logs/%j.out"
+    "--error=logs/%j.err"
+    "--nodes=1"
+    "--ntasks-per-node=1"
     "--partition=${CLUSTER_PARTITION}"
     "--time=${CLUSTER_TIME}"
+    "${SCRIPT_SLURM_ARGS[@]}"
 )
 [[ -n "${CLUSTER_ACCOUNT:-}" ]]    && SBATCH_ARGS+=("--account=${CLUSTER_ACCOUNT}")
 [[ -n "${CLUSTER_EXCLUDE:-}" ]]    && SBATCH_ARGS+=("--exclude=${CLUSTER_EXCLUDE}")
@@ -63,4 +89,10 @@ echo "[submit] script     : $SLURM_SCRIPT"
 [[ $# -gt 0 ]]                  && echo "[submit] extra args : $*"
 echo ""
 
-sbatch "${SBATCH_ARGS[@]}" --export=ALL,REPO_ROOT="$REPO_ROOT",CLUSTER="$CLUSTER" "$@" "$SLURM_SCRIPT"
+if [[ $DRY_RUN -eq 1 ]]; then
+    export REPO_ROOT CLUSTER
+    export "${!CLUSTER_@}"
+    bash "$SLURM_SCRIPT" "$@"
+else
+    sbatch "${SBATCH_ARGS[@]}" --export=ALL,REPO_ROOT="$REPO_ROOT",CLUSTER="$CLUSTER" "$@" "$SLURM_SCRIPT"
+fi

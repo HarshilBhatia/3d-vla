@@ -1,0 +1,4 @@
+# Groups 1+2 receive random miscalibration (uniform direction, up to 5°/0.02m); groups 3+4 clean.
+cotrain_miscal_group_ids: [1, 2]
+miscal_max_angle_deg: 5.0
+miscal_max_translation_m: 0.02

@@ -51,7 +51,7 @@ def _cfg_to_args(cfg, base_dir: Path = None) -> SimpleNamespace:
 
 
 # Config groups that use @_global_ in defaults; CLI override "group=option" must be passed as "group@_global_=option"
-_GLOBAL_GROUP_OVERRIDES = ("data", "rope_mode", "experiment")
+_GLOBAL_GROUP_OVERRIDES = ("data", "rope_mode", "experiment", "miscal")
 
 
 def _normalize_overrides(overrides):

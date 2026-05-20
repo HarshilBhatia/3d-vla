@@ -1,0 +1,5 @@
+# All groups get a fixed per-group medium noise (from file) plus small random noise each batch
+# (T_combined = T_random @ T_base).
+orbital_miscal_noise_level: medium
+miscal_max_angle_deg: 3.0
+miscal_max_translation_m: 0.01
