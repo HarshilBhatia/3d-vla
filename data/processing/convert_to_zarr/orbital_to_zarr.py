@@ -1,5 +1,5 @@
 """
-Convert raw orbital rollout episodes → train.zarr + val.zarr.
+Convert raw orbital rollout episodes -> train.zarr + val.zarr.
 
 Directory layout expected (from collect_orbital_rollouts.py):
   {root}/{task}/{group}/episode_{N}/
@@ -30,9 +30,10 @@ Zarr schema:
 Camera order:  [orbital_left, orbital_right, wrist]
 
 Output: {out}/train.zarr and {out}/val.zarr
-Split: first --train-episodes episodes per task/group → train; remaining → val.
+Split: first --train-episodes episodes per task/group -> train; remaining -> val.
 """
 import argparse
+import json
 import os
 import sys
 
@@ -51,6 +52,22 @@ IM_SIZE = 256
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+def _load_done(out_dir):
+    """Return (done_train, done_val) sets of episode paths already written."""
+    p = os.path.join(out_dir, "done_episodes.json")
+    if os.path.exists(p):
+        with open(p) as f:
+            d = json.load(f)
+        return set(d.get("train", [])), set(d.get("val", []))
+    return set(), set()
+
+
+def _save_done(out_dir, done_train, done_val):
+    p = os.path.join(out_dir, "done_episodes.json")
+    with open(p, "w") as f:
+        json.dump({"train": sorted(done_train), "val": sorted(done_val)}, f, indent=2)
+
 
 def _init_zarr(path, ncam, nhand, im, action_len, compressor):
     zf = zarr.open_group(path, mode="w")
@@ -132,25 +149,41 @@ def main():
     train_path = os.path.join(args.out, "train.zarr")
     val_path   = os.path.join(args.out, "val.zarr")
 
-    for path in (train_path, val_path):
-        if os.path.exists(path):
-            if args.overwrite:
-                import shutil
-                shutil.rmtree(path)
-                print("[INFO] Removed existing zarr at {}".format(path))
-            else:
-                print("[SKIP] {} already exists. Use --overwrite to rebuild.".format(path))
-                return
-
     im = args.image_size
     compressor = Blosc(cname="lz4", clevel=1, shuffle=Blosc.SHUFFLE)
     action_len = args.interp_len if args.store_trajectory else 1
 
-    train_zf = _init_zarr(train_path, ncam, nhand, im, action_len, compressor)
-    val_zf   = _init_zarr(val_path,   ncam, nhand, im, action_len, compressor)
+    either_exists = os.path.exists(train_path) or os.path.exists(val_path)
+    resuming = either_exists and not args.overwrite
 
-    train_total, val_total = 0, 0
-    train_eps,   val_eps   = 0, 0
+    if either_exists and args.overwrite:
+        import shutil
+        for path in (train_path, val_path):
+            if os.path.exists(path):
+                shutil.rmtree(path)
+                print("[INFO] Removed existing zarr at {}".format(path))
+        done_sidecar = os.path.join(args.out, "done_episodes.json")
+        if os.path.exists(done_sidecar):
+            os.remove(done_sidecar)
+
+    if resuming:
+        train_zf = zarr.open_group(train_path, mode="a") if os.path.exists(train_path) \
+                   else _init_zarr(train_path, ncam, nhand, im, action_len, compressor)
+        val_zf   = zarr.open_group(val_path,   mode="a") if os.path.exists(val_path) \
+                   else _init_zarr(val_path,   ncam, nhand, im, action_len, compressor)
+        done_train, done_val = _load_done(args.out)
+        train_total = int(train_zf["rgb"].shape[0])
+        val_total   = int(val_zf["rgb"].shape[0])
+        train_eps   = int(train_zf["demo_id"][-1]) + 1 if train_total > 0 else 0
+        val_eps     = int(val_zf["demo_id"][-1])   + 1 if val_total   > 0 else 0
+        print("[RESUME] train.zarr: {} rows, {} episodes; val.zarr: {} rows, {} episodes".format(
+            train_total, train_eps, val_total, val_eps))
+    else:
+        train_zf = _init_zarr(train_path, ncam, nhand, im, action_len, compressor)
+        val_zf   = _init_zarr(val_path,   ncam, nhand, im, action_len, compressor)
+        done_train, done_val = set(), set()
+        train_total, val_total = 0, 0
+        train_eps,   val_eps   = 0, 0
 
     for task in tasks:
         tid = task2id.get(task, 0)
@@ -177,10 +210,13 @@ def main():
                 task, group_str, len(episodes), n_train, n_val))
 
             for i, ep in enumerate(tqdm(episodes, desc="{}/{}".format(task, group_str))):
-                ep_path = os.path.join(group_root, ep)
+                ep_path  = os.path.join(group_root, ep)
                 is_train = i < args.train_episodes
-                zf       = train_zf if is_train else val_zf
-                demo_id  = train_eps if is_train else val_eps
+                done_set = done_train if is_train else done_val
+                if ep_path in done_set:
+                    continue
+                zf      = train_zf if is_train else val_zf
+                demo_id = train_eps if is_train else val_eps
                 try:
                     n = process_episode(ep_path, tid, group_str, zf, im,
                                         demo_id=demo_id, profile=profile,
@@ -192,6 +228,8 @@ def main():
                     else:
                         val_total += n
                         val_eps   += 1
+                    done_set.add(ep_path)
+                    _save_done(args.out, done_train, done_val)
                 except Exception as e:
                     print("[WARN] Skipping {}: {}".format(ep_path, e))
 
