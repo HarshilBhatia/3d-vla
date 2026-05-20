@@ -16,7 +16,7 @@ dataset: Peract2_3dfront_3dwrist
 
 # DataLoader: num_workers >= (1+prefetch) per GPU; increase if GPU waits on data. memory_limit = zarr LRU cache (GB).
 num_workers: 8
-prefetch_factor: 8  # batches to prefetch per worker; try 8 if RAM allows
+prefetch_factor: 4  # batches to prefetch per worker; try 8 if RAM allows
 batch_size: 32
 batch_size_val: 32
 chunk_size: 1

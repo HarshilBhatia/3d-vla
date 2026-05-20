@@ -64,12 +64,13 @@ while IFS= read -r line; do
 done < "$SLURM_SCRIPT"
 
 JOB_NAME="$(basename "$SLURM_SCRIPT" .slurm)"
+mkdir -p "$REPO_ROOT/logs/${CLUSTER}"
 
 # Build sbatch args: fixed defaults + cluster profile + per-script resources
 SBATCH_ARGS=(
     "--job-name=${JOB_NAME}"
-    "--output=logs/%j.out"
-    "--error=logs/%j.err"
+    "--output=logs/${CLUSTER}/%j.out"
+    "--error=logs/${CLUSTER}/%j.err"
     "--nodes=1"
     "--ntasks-per-node=1"
     "--partition=${CLUSTER_PARTITION}"
