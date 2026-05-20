@@ -3,7 +3,7 @@ import json
 import torch
 from torch.utils.data import Dataset
 
-from .utils import to_tensor, read_zarr_with_cache, to_relative_action
+from .utils import to_tensor, read_zarr_with_cache, load_zarr_to_ram, to_relative_action
 
 
 class BaseDataset(Dataset):
@@ -17,10 +17,11 @@ class BaseDataset(Dataset):
         instructions,  # path to instruction file
         copies=None,  # copy the dataset for less loader restarts
         relative_action=False,  # whether to return relative actions
-        mem_limit=8,  # cache limit per dataset class in GigaBytes
+        mem_limit=8,  # cache limit per dataset class in GigaBytes (ignored when preload=True)
         actions_only=False,  # return actions without observations
         chunk_size=4,  # chunk size for zarr
         num_history=1,  # number of visual history frames (1 = current frame only)
+        preload=False,  # load entire dataset into RAM at init
     ):
         super().__init__()
         self.copies = self.train_copies if copies is None else copies
@@ -36,8 +37,12 @@ class BaseDataset(Dataset):
         self.tasks = list(self._instructions.keys())
 
 
-        # Load all annotations lazily
+        # Load all annotations — either lazily (LRU cache) or fully into RAM
         self.annos = read_zarr_with_cache(root, mem_gb=mem_limit)
+        if preload:
+            print(f"Preloading dataset to RAM: {root}")
+            self.annos = load_zarr_to_ram(self.annos)
+            print("Preload complete.")
 
         # Sanity check
         len_ = len(self.annos['action'])

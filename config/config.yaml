@@ -21,6 +21,7 @@ batch_size: 32
 batch_size_val: 32
 chunk_size: 1
 memory_limit: 8.0
+preload: false              # load full dataset into RAM at init (ignores memory_limit)
 
 # === Logging ===
 base_log_dir: train_logs

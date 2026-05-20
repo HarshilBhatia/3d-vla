@@ -1,13 +1,13 @@
 #!/bin/bash
 #SBATCH --job-name=multicam_deltaM_med
-#SBATCH --output=logs/%j.out
-#SBATCH --error=logs/%j.err
+#SBATCH --output=logs_ai/%j.out
+#SBATCH --error=logs_ai/%j.err
 #SBATCH --partition=ghx4
 #SBATCH --account=bgkz-dtai-gh
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
-#SBATCH --cpus-per-task=24
-#SBATCH --gres=gpu:2
+#SBATCH --cpus-per-task=12
+#SBATCH --gres=gpu:1
 #SBATCH --mem=96G
 #SBATCH --time=48:00:00
 
@@ -24,6 +24,8 @@ micromamba activate 3dfa
 
 train_data_dir=/work/nvme/bgkz/harshilb/multi_cam/train.zarr
 eval_data_dir=/work/nvme/bgkz/harshilb/multi_cam/val.zarr
+
+mkdir logs_ai/
 
 LOCAL_DATA=/tmp/$SLURM_JOB_ID
 echo "Staging data to $LOCAL_DATA ..."
@@ -56,5 +58,6 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MAS
     train_data_dir=$train_data_dir \
     eval_data_dir=$eval_data_dir \
     batch_size=512 \
+    preload=true \
     ${checkpoint:+checkpoint=$checkpoint} \
     "$@"

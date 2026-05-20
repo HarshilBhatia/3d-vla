@@ -45,7 +45,8 @@ class RLBenchDataset(BaseDataset):
         actions_only=False,
         chunk_size=4,
         num_history=1,
-        filter_tasks=None  # List of task names to include, None means all tasks
+        filter_tasks=None,  # List of task names to include, None means all tasks
+        preload=False,
     ):
         super().__init__(
             root=root,
@@ -56,6 +57,7 @@ class RLBenchDataset(BaseDataset):
             actions_only=actions_only,
             chunk_size=chunk_size,
             num_history=num_history,
+            preload=preload,
         )
         
         # Store filter_tasks for later use

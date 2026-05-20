@@ -17,14 +17,14 @@ def to_tensor(x):
 
 
 def read_zarr_with_cache(fname, mem_gb=16):
-    # Configure the underlying store
     store = DirectoryStore(fname)
-
-    # Wrap the store with a cache
-    cached_store = LRUStoreCache(store, max_size=mem_gb * 2**30)  # GB cache
-
-    # Open Zarr file with caching
+    cached_store = LRUStoreCache(store, max_size=mem_gb * 2**30)
     return zarr.open_group(cached_store, mode="r")
+
+
+def load_zarr_to_ram(zarr_group):
+    """Load all arrays in a zarr group into RAM as numpy arrays."""
+    return {key: np.array(zarr_group[key][:]) for key in zarr_group}
 
 
 def to_relative_action(actions, anchor_action, qform='xyzw'):

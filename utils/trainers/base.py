@@ -103,6 +103,7 @@ class BaseTrainTester:
         """Initialize datasets."""
         # Initialize datasets with arguments
         num_history = getattr(self.args, 'num_history', 1)
+        preload = getattr(self.args, 'preload', False)
         print(self.args.train_data_dir)
         train_dataset = self.dataset_cls(
             root=self.args.train_data_dir,
@@ -111,6 +112,7 @@ class BaseTrainTester:
             mem_limit=self.args.memory_limit,
             chunk_size=self.args.chunk_size,
             num_history=num_history,
+            preload=preload,
         )
         val_dataset = self.dataset_cls(
             root=self.args.eval_data_dir,
@@ -120,6 +122,7 @@ class BaseTrainTester:
             mem_limit=0.1,
             chunk_size=self.args.chunk_size,
             num_history=num_history,
+            preload=preload,
         )
         return train_dataset, val_dataset
 
