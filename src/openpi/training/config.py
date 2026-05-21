@@ -20,6 +20,7 @@ import openpi.models.tokenizer as _tokenizer
 import openpi.policies.aloha_policy as aloha_policy
 import openpi.policies.droid_policy as droid_policy
 import openpi.policies.libero_policy as libero_policy
+import openpi.policies.multicam_keypose_policy as multicam_keypose_policy
 import openpi.shared.download as _download
 import openpi.shared.normalize as _normalize
 import openpi.training.droid_rlds_dataset as droid_rlds_dataset
@@ -352,6 +353,46 @@ class LeRobotLiberoDataConfig(DataConfigFactory):
             repack_transforms=repack_transform,
             data_transforms=data_transforms,
             model_transforms=model_transforms,
+        )
+
+
+@dataclasses.dataclass(frozen=True)
+class MultiCamKeyposeDataConfig(DataConfigFactory):
+    """Data config for keypose zarr data converted to LeRobot format.
+
+    Expects a LeRobot dataset with keys: base_image, left_wrist_image, right_wrist_image, state, actions.
+    Task prompts are read from the LeRobot task field (set prompt_from_task=True via base_config).
+    """
+
+    default_prompt: str | None = None
+
+    @override
+    def create(self, assets_dirs: pathlib.Path, model_config: _model.BaseModelConfig) -> DataConfig:
+        repack_transform = _transforms.Group(
+            inputs=[
+                _transforms.RepackTransform(
+                    {
+                        "observation/base_image": "base_image",
+                        "observation/left_wrist_image": "left_wrist_image",
+                        "observation/right_wrist_image": "right_wrist_image",
+                        "observation/state": "state",
+                        "actions": "actions",
+                        "prompt": "prompt",
+                    }
+                )
+            ]
+        )
+        data_transforms = _transforms.Group(
+            inputs=[multicam_keypose_policy.MultiCamKeyposeInputs(model_type=model_config.model_type)],
+            outputs=[multicam_keypose_policy.MultiCamKeyposeOutputs()],
+        )
+        model_transforms = ModelTransformFactory(default_prompt=self.default_prompt)(model_config)
+        return dataclasses.replace(
+            self.create_base_config(assets_dirs, model_config),
+            repack_transforms=repack_transform,
+            data_transforms=data_transforms,
+            model_transforms=model_transforms,
+            prompt_from_task=True,
         )
 
 
@@ -929,6 +970,35 @@ _CONFIGS = [
         ),
         weight_loader=weight_loaders.CheckpointWeightLoader("gs://openpi-assets/checkpoints/pi0_base/params"),
         num_train_steps=20_000,
+    ),
+    #
+    # MultiCam Keypose configs.
+    #
+    TrainConfig(
+        name="pi05_multicam_keypose",
+        model=pi0_config.Pi0Config(
+            pi05=True,
+            action_dim=32,      # match pi05_base pretraining; 8-dim EEF actions are padded to 32
+            action_horizon=1,   # keypose: predict one target pose per observation
+        ),
+        data=MultiCamKeyposeDataConfig(
+            repo_id="local/multicam_keypose",
+        ),
+        weight_loader=weight_loaders.CheckpointWeightLoader(
+            "gs://openpi-assets/checkpoints/pi05_base/params"
+        ),
+        lr_schedule=_optimizer.CosineDecaySchedule(
+            warmup_steps=500,
+            peak_lr=2e-5,
+            decay_steps=10_000,
+            decay_lr=2e-6,
+        ),
+        optimizer=_optimizer.AdamW(clip_gradient_norm=1.0),
+        ema_decay=0.999,
+        batch_size=32,
+        num_train_steps=10_000,
+        log_interval=50,
+        save_interval=500,
     ),
     #
     # Debugging configs.
