@@ -96,12 +96,14 @@ run: |
   uv pip install --python "$(which python)" --quiet boto3 einops
   S3="$WORK/scripts/eval/s3_transfer.py"
 
-  # Upstream policy code, pinned, with the num_demos patch applied.
+  # Upstream policy code, pinned, with the eval patch applied: adds num_demos
+  # (episode matching) and drops the ret_obs kwarg this RLBench fork rejects.
+  # See scripts/sky/patches/README.md.
   REPO=/tmp/3dfa_upstream
   git clone --quiet "$UPSTREAM_REPO" "$REPO"
   git -C "$REPO" checkout --quiet "$UPSTREAM_COMMIT"
-  git -C "$REPO" apply --3way "$WORK/scripts/sky/patches/upstream_3dfa_num_demos.patch"
-  echo "upstream at $(git -C "$REPO" rev-parse --short HEAD) + num_demos patch"
+  git -C "$REPO" apply --3way "$WORK/scripts/sky/patches/upstream_3dfa_eval.patch"
+  echo "upstream at $(git -C "$REPO" rev-parse --short HEAD) + eval patch"
 
   # Set outright rather than prepended: the image bakes PYTHONPATH and REPO_DIR
   # pointing at an empty /workspace volume, which would otherwise shadow this.
