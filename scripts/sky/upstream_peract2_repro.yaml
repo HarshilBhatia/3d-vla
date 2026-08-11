@@ -1,0 +1,153 @@
+# Upstream 3D FlowMatch Actor PerAct2 reproduction, 1 node x 1 B200.
+#
+# Runs the UPSTREAM repo (nickgkan/3d_flowmatch_actor @ ab70932), not this fork,
+# staged separately on NFS. The recipe is scripts/rlbench/train_peract2.sh from
+# that repo verbatim — CLIP RN50 frozen backbone, num_attn_heads=8,
+# fps_subsampling_factor=4, num_history=3, batch 64, lr 1e-4 constant,
+# backbone_lr 1e-6, wd 1e-10, denoise_timesteps=5 rectified flow — with only
+# paths, ngpus=1, train_iters, and wandb flags overridden.
+#
+# train_iters is 350000 rather than upstream's 300000, to match the horizon of
+# the fork runs it is compared against.
+#
+# Pre-staged on NFS by hand:
+#   /k8s-nfs/harsvbha/3dfa/repo_upstream   (upstream clone @ ab70932 + wandb patch)
+#   /k8s-nfs/harsvbha/3dfa/venv_upstream   (py3.11: torch 2.9.1+cu128, openai CLIP)
+#   /k8s-nfs/harsvbha/3dfa/clip-cache/RN50.pt   (CLIP RN50 weights)
+#   /k8s-nfs/harsvbha/3dfa/data/peract2_zarr/Peract2_zarr/{train,val}.zarr
+# The zarr is the PerAct2 dataset published by the upstream authors, so it is
+# already in the format their loader expects.
+name: hb-3dfa-upstream-peract2-repro
+
+resources:
+  # Pinned rather than auto: unpinned B200 submissions sit PENDING without
+  # creating a pod.
+  infra: k8s/ll-sea
+  accelerators: B200:1
+  disk_size: 512
+  image_id:
+    ll-sea: 913524929094.dkr.ecr.us-east-1.amazonaws.com/covariant-dev:latest_updatabot
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 3
+
+num_nodes: 1
+
+file_mounts:
+  ~/.netrc: ~/.netrc
+
+envs:
+  # Required for kueue admission on this queue; omitting it leaves the job
+  # PENDING indefinitely rather than failing fast.
+  PREEMPTIBLE: "1"
+  REPO: /k8s-nfs/harsvbha/3dfa/repo_upstream
+  VENV: /k8s-nfs/harsvbha/3dfa/venv_upstream
+  CLIP_CACHE: /k8s-nfs/harsvbha/3dfa/clip-cache
+  DATA: /k8s-nfs/harsvbha/3dfa/data/peract2_zarr/Peract2_zarr
+  RUN_LOG_DIR: upstream_peract2_repro
+  BASE_LOG_DIR: /k8s-nfs/harsvbha/3dfa/train_logs
+  # Upstream's own recipe values; batch_size is per-GPU in their trainer.
+  BATCH_SIZE: "64"
+  LR: "1e-4"
+  BACKBONE_LR: "1e-6"
+  NUM_WORKERS: "4"
+  TRAIN_ITERS: "350000"
+
+setup: |
+  set -euo pipefail
+  umask 000
+  # The venv is pre-staged on NFS; a missing interpreter is a staging bug, so
+  # fail here rather than silently training against the wrong environment.
+  test -x "$VENV/bin/python"
+  "$VENV/bin/python" -c "import torch, zarr, clip, einops; print(torch.__version__, torch.cuda.is_available())"
+
+run: |
+  set -euo pipefail
+  umask 000
+  cd "$REPO"
+
+  export PYTHONPATH="$REPO:${PYTHONPATH:-}"
+  export TOKENIZERS_PARALLELISM=false
+  export PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True
+  # openai/CLIP resolves RN50 from a hardcoded ~/.cache/clip with no env var
+  # override, and modeling/encoder/vision/clip.py calls clip.load("RN50")
+  # without download_root. Seed that directory from the NFS copy so the job
+  # never reaches for the network; clip._download still checks the SHA256, so a
+  # corrupt copy surfaces as a checksum error rather than silent bad weights.
+  mkdir -p "$HOME/.cache/clip"
+  cp -n "$CLIP_CACHE/RN50.pt" "$HOME/.cache/clip/RN50.pt"
+  export WANDB_BASE_URL=https://far.wandb.io
+  export WANDB_CACHE_DIR="$HOME/.cache/wandb"
+  export WANDB_CONFIG_DIR="$HOME/.config/wandb"
+  mkdir -p "$WANDB_CACHE_DIR" "$WANDB_CONFIG_DIR"
+  chmod 600 "$HOME/.netrc"
+  # Extracted rather than left for wandb to read out of ~/.netrc: this fails at
+  # startup if the credential is missing, instead of training for hours and
+  # logging nothing.
+  export WANDB_API_KEY=$("$VENV/bin/python" -c 'import netrc; print(netrc.netrc().authenticators("far.wandb.io")[2])')
+
+  LOG_DIR="$BASE_LOG_DIR/exp/$RUN_LOG_DIR"
+  mkdir -p "$LOG_DIR"
+  # Their trainer loads checkpoint= when it exists and computes the workspace
+  # normalizer from scratch when it does not, so one command covers first launch
+  # and every job recovery.
+  CKPT="$LOG_DIR/last.pth"
+
+  echo "Repo: $REPO"
+  echo "Venv: $VENV"
+  echo "Log dir: $LOG_DIR"
+  echo "Resume checkpoint (if present): $CKPT"
+
+  ulimit -n 65536
+  "$VENV/bin/torchrun" \
+    --nnodes=1 \
+    --nproc_per_node=1 \
+    --master_port=29500 \
+    --max-restarts=3 \
+    main.py \
+    --train_data_dir "$DATA/train.zarr" \
+    --eval_data_dir "$DATA/val.zarr" \
+    --train_instructions instructions/peract2/instructions.json \
+    --val_instructions instructions/peract2/instructions.json \
+    --dataset Peract2_3dfront_3dwrist \
+    --num_workers "$NUM_WORKERS" \
+    --batch_size "$BATCH_SIZE" \
+    --batch_size_val 64 \
+    --chunk_size 1 \
+    --memory_limit 8 \
+    --base_log_dir "$BASE_LOG_DIR" \
+    --exp_log_dir exp \
+    --run_log_dir "$RUN_LOG_DIR" \
+    --checkpoint "$CKPT" \
+    --val_freq 4000 \
+    --eval_only false \
+    --lr "$LR" \
+    --backbone_lr "$BACKBONE_LR" \
+    --lr_scheduler constant \
+    --wd 1e-10 \
+    --train_iters "$TRAIN_ITERS" \
+    --use_compile false \
+    --use_ema false \
+    --lv2_batch_size 1 \
+    --model_type denoise3d \
+    --bimanual true \
+    --keypose_only true \
+    --pre_tokenize true \
+    --backbone clip \
+    --finetune_backbone false \
+    --finetune_text_encoder false \
+    --fps_subsampling_factor 4 \
+    --embedding_dim 120 \
+    --num_attn_heads 8 \
+    --num_vis_instr_attn_layers 3 \
+    --num_history 3 \
+    --num_shared_attn_layers 4 \
+    --workspace_normalizer_buffer 0.05 \
+    --relative_action false \
+    --rotation_format quat_xyzw \
+    --denoise_timesteps 5 \
+    --denoise_model rectified_flow \
+    --use_wandb true \
+    --wandb_entity far-wandb \
+    --wandb_project 3dfa \
+    --wandb_run_name "$RUN_LOG_DIR"
