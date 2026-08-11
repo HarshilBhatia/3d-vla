@@ -1,0 +1,13 @@
+# Orbital PerAct2 (13 bimanual tasks, 3 camera groups per task) staged on NFS.
+#
+# Built by data/processing/convert_to_zarr/merge_orbital_shards.py --mapping
+# instructions/peract2_orbital_task_group_mapping.json, which keeps each task's
+# three assigned camera groups and holds out a fourth for online eval.
+# Use: python main.py data=orbital_peract2_nfs dataset=OrbitalPeract2
+train_data_dir: /k8s-nfs/harsvbha/3dfa/data/orbital_peract2/train.zarr
+eval_data_dir: /k8s-nfs/harsvbha/3dfa/data/orbital_peract2/val.zarr
+train_instructions: instructions/peract2/instructions_full.json
+val_instructions: instructions/peract2/instructions_full.json
+# ~1053 train episodes, about 1/8 of full PerAct2 (~8400), so iters are scaled
+# down from the 350k used for the full dataset.
+train_iters: 100000

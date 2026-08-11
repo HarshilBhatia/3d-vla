@@ -1,0 +1,137 @@
+# 3DFA training on the orbital PerAct2 dataset (13 bimanual tasks), 1 node x 4 B200.
+#
+# Orbital variant of peract2_base_b200.yaml: the dataset is self-collected with
+# two orbital cameras plus both wrists, three camera groups per task, and a
+# fourth group per task held out for unseen-camera online eval (see
+# instructions/peract2_orbital_task_group_mapping.json).
+#
+# Repo, uv venv, and the orbital zarr dataset are pre-staged on NFS by hand:
+#   /k8s-nfs/harsvbha/3dfa/repo   (this repo)
+#   /k8s-nfs/harsvbha/3dfa/venv   (uv sync --frozen against uv.lock, py3.11)
+#   /k8s-nfs/harsvbha/3dfa/data/orbital_peract2/{train,val}.zarr
+# The job re-runs `uv sync --frozen` against an NFS uv cache so the venv is
+# reproducible if the staged one is missing or stale, then runs torchrun in place.
+#
+# batch_size in this repo is GLOBAL: the trainer divides it by world_size
+# (utils/trainers/base.py get_loaders), so batch_size=256 is 64 per GPU on 4 GPUs.
+name: hb-3dfa-peract2-orbital-b200
+
+resources:
+  # Pinned rather than auto: unpinned B200 submissions sit PENDING without
+  # creating a pod.
+  infra: k8s/ll-sea
+  accelerators: B200:4
+  disk_size: 512
+  image_id:
+    ll-sea: 913524929094.dkr.ecr.us-east-1.amazonaws.com/covariant-dev:latest_updatabot
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 3
+
+num_nodes: 1
+
+file_mounts:
+  ~/.netrc: ~/.netrc
+
+envs:
+  # Required for kueue admission on this queue; omitting it leaves the job
+  # PENDING indefinitely rather than failing fast.
+  PREEMPTIBLE: "1"
+  REPO: /k8s-nfs/harsvbha/3dfa/repo
+  VENV: /k8s-nfs/harsvbha/3dfa/venv
+  UV_CACHE_DIR: /k8s-nfs/harsvbha/uv-cache
+  RUN_LOG_DIR: peract2_orbital_b200
+  BASE_LOG_DIR: /k8s-nfs/harsvbha/3dfa/train_logs
+  # Global batch; the trainer divides by world_size (4) -> 64 per GPU.
+  # 64/GPU sits at the throughput knee measured on a single B200: samples/sec
+  # saturates near 950/GPU from 64 upward (the pipeline is zarr-on-NFS bound, not
+  # GPU bound — peak memory at 64/GPU is 3.6 GB of 183 GB), so a larger per-GPU
+  # batch buys no speed and only costs gradient-noise fidelity.
+  BATCH_SIZE: "256"
+  # 3x the recipe lr (1e-4). Global batch grows 8x over the 32-batch recipe;
+  # linear scaling would be 8e-4, capped at 3x for stability.
+  LR: "0.0003"
+  # 16 loaders/GPU: measured 982 samples/sec vs 595 at 8 and 420 at 32 (112 CPUs
+  # on the node, so 4x16 leaves headroom).
+  NUM_WORKERS: "16"
+  # ~1053 train episodes, about 1/8 of full PerAct2 (~8400 episodes, trained for
+  # 350k iters), so iters are scaled down proportionally.
+  TRAIN_ITERS: "100000"
+
+setup: |
+  set -euo pipefail
+  umask 000
+  # NFS venvs are shared; only rebuild when the interpreter is missing, so
+  # concurrent jobs don't fight over the same tree.
+  if [ ! -x "$VENV/bin/python" ]; then
+    cd "$REPO"
+    UV_PROJECT_ENVIRONMENT="$VENV" uv sync --frozen --python 3.11
+  fi
+  "$VENV/bin/python" -c "import torch, zarr, transformers; print(torch.__version__, torch.cuda.is_available())"
+
+run: |
+  set -euo pipefail
+  umask 000
+  cd "$REPO"
+
+  export PYTHONPATH="$REPO:${PYTHONPATH:-}"
+  export TOKENIZERS_PARALLELISM=false
+  export PYTORCH_ALLOC_CONF=expandable_segments:True
+  # A 3dfa-owned cache, pre-populated with google/siglip2-base-patch16-256 and
+  # world-writable. The shared /k8s-nfs/harsvbha/hf-cache is owned by uid 10001
+  # and not writable by the job's uid, which fails every rank at backbone load
+  # with a transformers PermissionError rather than falling back to a download.
+  export HF_HUB_CACHE=/k8s-nfs/harsvbha/3dfa/hf-cache
+  # The backbone is pre-staged, so a cache miss is a staging bug, not something
+  # to paper over with a slow per-rank download.
+  export HF_HUB_OFFLINE=1
+  export TORCH_HOME="$HOME/.cache/torch"
+  export WANDB_BASE_URL=https://far.wandb.io
+  export WANDB_CACHE_DIR="$HOME/.cache/wandb"
+  export WANDB_CONFIG_DIR="$HOME/.config/wandb"
+  mkdir -p "$TORCH_HOME" "$WANDB_CACHE_DIR" "$WANDB_CONFIG_DIR"
+  chmod 600 "$HOME/.netrc"
+  # Extracted rather than left for wandb to read out of ~/.netrc: this fails at
+  # startup if the credential is missing, instead of training for hours and
+  # logging nothing.
+  export WANDB_API_KEY=$("$VENV/bin/python" -c 'import netrc; print(netrc.netrc().authenticators("far.wandb.io")[2])')
+
+  LOG_DIR="$BASE_LOG_DIR/exp/$RUN_LOG_DIR"
+  mkdir -p "$LOG_DIR"
+  # The trainer resumes from checkpoint= when the file exists and starts from
+  # scratch when it does not, so the same command covers first launch and every
+  # --max-restarts recovery.
+  CKPT="$LOG_DIR/last.pth"
+
+  echo "Repo: $REPO"
+  echo "Venv: $VENV"
+  echo "Log dir: $LOG_DIR"
+  echo "Resume checkpoint (if present): $CKPT"
+  echo "Global batch: $BATCH_SIZE   lr: $LR   iters: $TRAIN_ITERS"
+
+  ulimit -n 65536
+  "$VENV/bin/torchrun" \
+    --nnodes=1 \
+    --nproc_per_node=4 \
+    --master_port=29500 \
+    --max-restarts=3 \
+    main.py \
+    data=orbital_peract2_nfs \
+    experiment=default \
+    bimanual=true \
+    dataset=OrbitalPeract2 \
+    batch_size="$BATCH_SIZE" \
+    batch_size_val=64 \
+    lr="$LR" \
+    backbone_lr="$LR" \
+    train_iters="$TRAIN_ITERS" \
+    base_log_dir="$BASE_LOG_DIR" \
+    exp_log_dir=exp \
+    run_log_dir="$RUN_LOG_DIR" \
+    checkpoint="$CKPT" \
+    use_wandb=true \
+    wandb_entity=far-wandb \
+    wandb_project=3dfa \
+    wandb_run_name="$RUN_LOG_DIR" \
+    num_workers="$NUM_WORKERS" \
+    prefetch_factor=4
