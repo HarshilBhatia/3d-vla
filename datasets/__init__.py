@@ -4,6 +4,8 @@ from .rlbench import (
     PeractCollectedDataset,
     HiveformerDataset,
     OrbitalWristDataset,
+    OrbitalPeract2Dataset,
+    OrbitalPeract2NoWristDataset,
 )
 
 
@@ -17,6 +19,8 @@ def fetch_dataset_class(dataset_name):
         "PeractCollected": PeractCollectedDataset,
         "HiveformerRLBench": HiveformerDataset,
         "OrbitalWrist": OrbitalWristDataset,
+        "OrbitalPeract2": OrbitalPeract2Dataset,
+        "OrbitalPeract2NoWrist": OrbitalPeract2NoWristDataset,
     }
     
     if dataset_name not in dataset_classes:

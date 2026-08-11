@@ -290,6 +290,29 @@ class OrbitalWristDataset(RLBenchDataset):
     train_copies = 10
     camera_inds2d = None
 
+
+class OrbitalPeract2Dataset(RLBenchDataset):
+    """Bimanual orbital dataset: orbital left/right + both wrist cameras.
+
+    Camera order matches data/processing/orbital_utils.process_episode with
+    PERACT2_PROFILE, and task_id indexes PERACT2_TASKS. Actions are
+    (T, nhand=2, 8) -- 16 values per step.
+    """
+    tasks = PERACT2_TASKS
+    cameras = ("orbital_left", "orbital_right", "wrist_left", "wrist_right")
+    camera_inds = None
+    train_copies = 10
+    camera_inds2d = None
+
+
+class OrbitalPeract2NoWristDataset(OrbitalPeract2Dataset):
+    """Bimanual orbital dataset restricted to the two orbital cameras.
+
+    The zarr still stores all four cameras; camera_inds drops the wrists at load
+    time so the "2 cameras like the orbital" setup needs no reconversion.
+    """
+    camera_inds = [0, 1]
+
     # def __getitem__(self, idx):
     #     """
     #     self.annos: {
