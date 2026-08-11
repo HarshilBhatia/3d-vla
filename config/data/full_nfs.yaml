@@ -1,0 +1,8 @@
+# Full PerAct2 dataset (13 bimanual tasks) staged on the FAR cluster NFS.
+# Same content as data/full.yaml; only the zarr roots differ.
+# Use: python main.py data=full_nfs
+train_data_dir: /k8s-nfs/harsvbha/3dfa/data/peract2_zarr/Peract2_zarr/train.zarr
+eval_data_dir: /k8s-nfs/harsvbha/3dfa/data/peract2_zarr/Peract2_zarr/val.zarr
+train_instructions: instructions/peract2/instructions_full.json
+val_instructions: instructions/peract2/instructions_full.json
+train_iters: 350000

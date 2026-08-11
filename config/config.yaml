@@ -37,6 +37,9 @@ benchmark_profile_steps: 10   # number of steps to capture with torch.profiler (
 
 # === Wandb ===
 use_wandb: true
+# wandb_entity: team/user that owns the run. Must exist on the wandb server the
+# API key points at (WANDB_BASE_URL). null = the API key's default entity.
+wandb_entity: harshilb-carnegie-mellon-university
 wandb_project: orbital_runs
 wandb_run_name: null
 wandb_run_id: null
@@ -114,6 +117,7 @@ fp16: false
 prediction_len: 1
 save_trajectory: false
 save_video: false
+num_demos: null
 cfg_scale: null
 
 
