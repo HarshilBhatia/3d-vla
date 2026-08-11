@@ -1,0 +1,172 @@
+# Online PerAct2 evaluation of the ORIGINAL upstream 3DFA released checkpoint,
+# one task per job. This is the baseline arm of the comparison against our own
+# trained checkpoint (see scripts/sky/peract2_online_eval.yaml, which is the
+# equivalent job for our checkpoint and must not be modified).
+#
+#   for t in bimanual_push_box bimanual_lift_ball ...; do
+#     SKYPILOT_WORKSPACE=default sky jobs launch -n "hb-3dfa-upstream-eval-$t" -d \
+#       --infra k8s/sky-us-east-1 --env PREEMPTIBLE=1 --env TASK="$t" \
+#       scripts/sky/peract2_upstream_eval.yaml
+#   done
+#
+# FAR L40S capacity in us-east-1 is the karpenter-backed k8s context
+# (sky-us-east-1), not raw EC2, and lives in the `default` sky workspace — so
+# launches need SKYPILOT_WORKSPACE=default. Fall back to k8s/sky-us-east-2 if
+# us-east-1 l40s-default is contended.
+#
+# WHY THIS RUNS UPSTREAM CODE INSTEAD OF THIS FORK
+# ------------------------------------------------
+# The released checkpoint (katefgroup/3d_flowmatch_actor -> 3dfa_peract2.pth) is
+# NOT loadable by this fork:
+#
+#   * It carries no saved `config` dict — only a `weight` key. This fork's
+#     evaluate_policy.py hard-raises ValueError("model missing config") because
+#     it rebuilds the model by overlaying the checkpoint's training config.
+#     Every arch flag therefore has to come from upstream's eval_peract2.sh.
+#   * Loaded into this fork's model it leaves 10 non-encoder keys missing —
+#     prediction_head.camera_token / camera_proj / camera_trunk /
+#     camera_predictor / register_tokens and relative_pe_layer.adam_v — i.e. the
+#     extrinsics-prediction machinery this fork added. Those would be randomly
+#     initialised at eval.
+#
+# Against upstream at ab70932 the same checkpoint has ZERO non-encoder missing
+# keys, so the released weights fully determine the policy. Hence: clone
+# upstream in-job, pin the commit, run its evaluate_policy.py.
+#
+# The container image is reused unchanged from the fork's eval job: CoppeliaSim
+# 4.1 + the markusgrotz PerAct2 PyRep/RLBench forks at /opt/src/RLBench2, which
+# is exactly the RLBench upstream expects for bimanual_* tasks
+# (BimanualMoveArmThenGripper). Policy code is not baked into the image.
+name: hb-3dfa-upstream-peract2-eval
+
+resources:
+  accelerators: L40S:1
+  cloud: kubernetes
+  cpus: 8+
+  memory: 32+
+  disk_size: 128
+  image_id: docker:241533154612.dkr.ecr.us-east-1.amazonaws.com/rfm-h-eval-job:hb-3dfa-peract2-20260811
+  # Recover from preemption, but do NOT retry on error: an erroring eval
+  # relaunched on a fresh pod destroys the log that explained the failure.
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 0
+
+num_nodes: 1
+
+# Only needed for scripts/sky/patches/ and scripts/eval/s3_transfer.py — the
+# policy code itself comes from the upstream clone below.
+workdir: .
+
+envs:
+  # Required for kueue admission; omitting it leaves the job PENDING.
+  PREEMPTIBLE: "1"
+  TASK: bimanual_push_box
+  UPSTREAM_REPO: https://github.com/nickgkan/3d_flowmatch_actor
+  # Pinned so the arch flags below keep matching the code that consumes them.
+  UPSTREAM_COMMIT: ab7093270371964c58fd6cd9169070920c82992c
+  CKPT_S3: s3://far-research-internal/harsvbha/3dfa/eval/ckpt/upstream_3dfa_peract2.pth
+  SEEDS_S3: s3://far-research-internal/harsvbha/3dfa/eval/peract2_test
+  OUT_S3: s3://far-research-internal/harsvbha/3dfa/eval/results/upstream_3dfa_peract2
+  # Episode-matched to our own checkpoint's run (25 of the 100 staged seeds).
+  NUM_DEMOS: "25"
+  SAVE_VIDEO: "false"
+
+run: |
+  set -euo pipefail
+  export AWS_REGION=us-east-1 AWS_DEFAULT_REGION=us-east-1
+
+  WORK=$(pwd)
+
+  # CoppeliaSim needs its own libs on the loader path and must NOT get
+  # QT_QPA_PLATFORM=offscreen — the bundled xcb plugin talks to Xvfb instead.
+  export COPPELIASIM_ROOT=/opt/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
+  export LD_LIBRARY_PATH="${COPPELIASIM_ROOT}:${LD_LIBRARY_PATH:-}"
+  export QT_QPA_PLATFORM_PLUGIN_PATH="${COPPELIASIM_ROOT}"
+  unset QT_QPA_PLATFORM || true
+  export XDG_RUNTIME_DIR=/tmp/runtime-root
+  mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+
+  python -c "import torch; assert torch.cuda.is_available(), 'no CUDA'; print('gpu:', torch.cuda.get_device_name(0))"
+  python -c "from rlbench.action_modes.action_mode import BimanualMoveArmThenGripper; print('bimanual rlbench OK')"
+
+  # The image ships neither the AWS CLI nor boto3. einops is imported by
+  # upstream's encoder modules but is absent from the image (this fork dropped
+  # the dependency, so the image never needed it).
+  uv pip install --python "$(which python)" --quiet boto3 einops
+  S3="$WORK/scripts/eval/s3_transfer.py"
+
+  # Upstream policy code, pinned, with the num_demos patch applied.
+  REPO=/tmp/3dfa_upstream
+  git clone --quiet "$UPSTREAM_REPO" "$REPO"
+  git -C "$REPO" checkout --quiet "$UPSTREAM_COMMIT"
+  git -C "$REPO" apply --3way "$WORK/scripts/sky/patches/upstream_3dfa_num_demos.patch"
+  echo "upstream at $(git -C "$REPO" rev-parse --short HEAD) + num_demos patch"
+
+  # Set outright rather than prepended: the image bakes PYTHONPATH and REPO_DIR
+  # pointing at an empty /workspace volume, which would otherwise shadow this.
+  export PYTHONPATH="$REPO"
+  export REPO_DIR="$REPO"
+
+  LOCAL=/tmp/3dfa_eval
+  mkdir -p "$LOCAL/seeds" "$LOCAL/out"
+  python "$S3" down "$CKPT_S3" "$LOCAL/upstream.pth"
+  # Only this task's seeds — the full staged set is 1.2 GB across 13 tasks.
+  python "$S3" sync-down "$SEEDS_S3/$TASK" "$LOCAL/seeds/$TASK"
+
+  OUT="$LOCAL/out/results_${TASK}.json"
+  EVAL_LOG="$LOCAL/out/${TASK}.log"
+
+  # Upstream's checkpoint carries no config, so every architecture flag is
+  # passed explicitly. Values are transcribed from upstream's own
+  # online_evaluation_rlbench/eval_peract2.sh (the released PerAct2 recipe):
+  # embedding_dim=120, num_attn_heads=8, num_vis_instr_attn_layers=3,
+  # num_history=3, num_shared_attn_layers=4, fps_subsampling_factor=4,
+  # denoise_timesteps=5, rectified_flow, quat_xyzw, dataset
+  # Peract2_3dfront_3dwrist (cameras: front, wrist_left, wrist_right),
+  # image_size 256,256. max_tries is 1 here (not upstream's 2) to match the
+  # protocol our own checkpoint was evaluated under.
+  cd "$REPO"
+  rc=0
+  xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" \
+    python online_evaluation_rlbench/evaluate_policy.py \
+      --checkpoint "$LOCAL/upstream.pth" \
+      --task "$TASK" \
+      --num_demos "$NUM_DEMOS" \
+      --max_tries 1 \
+      --max_steps 25 \
+      --headless true \
+      --collision_checking false \
+      --seed 0 \
+      --data_dir "$LOCAL/seeds" \
+      --dataset Peract2_3dfront_3dwrist \
+      --image_size 256,256 \
+      --output_file "$OUT" \
+      --model_type denoise3d \
+      --bimanual true \
+      --prediction_len 1 \
+      --backbone clip \
+      --fps_subsampling_factor 4 \
+      --embedding_dim 120 \
+      --num_attn_heads 8 \
+      --num_vis_instr_attn_layers 3 \
+      --num_history 3 \
+      --num_shared_attn_layers 4 \
+      --relative_action false \
+      --rotation_format quat_xyzw \
+      --denoise_timesteps 5 \
+      --denoise_model rectified_flow 2>&1 | tee "$EVAL_LOG" || rc=$?
+
+  # Upload the log even on failure: a managed job's pod is recycled on exit, so
+  # an un-exported log is unrecoverable.
+  python "$S3" up "$EVAL_LOG" "$OUT_S3/logs/${TASK}.log" || true
+  if [ "$rc" -ne 0 ] || [ ! -f "$OUT" ]; then
+    echo "EVAL_FAILED $TASK rc=$rc — log at $OUT_S3/logs/${TASK}.log" >&2
+    exit 1
+  fi
+
+  python "$S3" up "$OUT" "$OUT_S3/${TASK}.json"
+  if [ "$SAVE_VIDEO" = "true" ]; then
+    python "$S3" sync-up "$LOCAL/out" "$OUT_S3/videos/$TASK"
+  fi
+  echo "EVAL_DONE $TASK"
