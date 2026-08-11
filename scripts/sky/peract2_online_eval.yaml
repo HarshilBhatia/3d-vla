@@ -29,9 +29,11 @@ resources:
   memory: 32+
   disk_size: 128
   image_id: docker:241533154612.dkr.ecr.us-east-1.amazonaws.com/rfm-h-eval-job:hb-3dfa-peract2-20260811
+  # Recover from preemption, but do NOT retry on error: an erroring eval used to
+  # be relaunched on a fresh pod, destroying the log that explained the failure.
   job_recovery:
     strategy: EAGER_NEXT_REGION
-    max_restarts_on_errors: 3
+    max_restarts_on_errors: 0
 
 num_nodes: 1
 
@@ -97,6 +99,10 @@ run: |
   # Arch flags are intentionally absent: evaluate_policy.py overlays the
   # checkpoint's saved training config onto args, so the model is rebuilt exactly
   # as trained. Only genuine eval-runtime values are passed here.
+  # Tee to a file and upload it even on failure: a managed job's pod is recycled
+  # on exit, so an un-exported log is unrecoverable.
+  EVAL_LOG="$LOCAL/out/${TASK}.log"
+  rc=0
   xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" \
     python online_evaluation_rlbench/evaluate_policy.py \
       data=full \
@@ -108,7 +114,12 @@ run: |
       num_demos="$NUM_DEMOS" \
       max_tries=1 \
       headless=true \
-      save_video="$SAVE_VIDEO"
+      save_video="$SAVE_VIDEO" 2>&1 | tee "$EVAL_LOG" || rc=$?
+  python "$S3" up "$EVAL_LOG" "$OUT_S3/logs/${TASK}.log" || true
+  if [ "$rc" -ne 0 ] || [ ! -f "$OUT" ]; then
+    echo "EVAL_FAILED $TASK rc=$rc — log at $OUT_S3/logs/${TASK}.log" >&2
+    exit 1
+  fi
 
   python "$S3" up "$OUT" "$OUT_S3/${TASK}.json"
   # The progress file is the only record of which demos completed, so keep it
