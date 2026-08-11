@@ -38,10 +38,17 @@ envs:
   RUN_LOG_DIR: peract2_base_b200
   BASE_LOG_DIR: /k8s-nfs/harsvbha/3dfa/train_logs
   # Global batch; the trainer divides by world_size (4) -> 64 per GPU.
+  # 64/GPU sits at the throughput knee measured on a single B200: samples/sec
+  # saturates near 950/GPU from 64 upward (the pipeline is zarr-on-NFS bound, not
+  # GPU bound — peak memory at 64/GPU is 3.6 GB of 183 GB), so a larger per-GPU
+  # batch buys no speed and only costs gradient-noise fidelity.
   BATCH_SIZE: "256"
-  # 3x the recipe lr (1e-4) for an 8x global-batch increase over the 32-batch
-  # recipe: linear scaling would be 8e-4, capped at 3x for stability.
+  # 3x the recipe lr (1e-4). Global batch grows 8x over the 32-batch recipe;
+  # linear scaling would be 8e-4, capped at 3x for stability.
   LR: "0.0003"
+  # 16 loaders/GPU: measured 982 samples/sec vs 595 at 8 and 420 at 32 (112 CPUs
+  # on the node, so 4x16 leaves headroom).
+  NUM_WORKERS: "16"
   TRAIN_ITERS: "350000"
 
 setup: |
@@ -112,5 +119,5 @@ run: |
     wandb_entity=far-wandb \
     wandb_project=3dfa \
     wandb_run_name="$RUN_LOG_DIR" \
-    num_workers=8 \
-    prefetch_factor=2
+    num_workers="$NUM_WORKERS" \
+    prefetch_factor=4
