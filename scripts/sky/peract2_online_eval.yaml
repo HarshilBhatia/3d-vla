@@ -10,7 +10,8 @@
 #
 # FAR L40S capacity is the karpenter-backed k8s contexts (sky-us-east-1 /
 # sky-us-east-2), not raw EC2, and lives in the `default` sky workspace — the
-# `ext-eval` workspace has no AWS or L40S enabled. Fall back to
+# `ext-eval` workspace has no AWS or L40S enabled, so launches need
+# SKYPILOT_WORKSPACE=default (`workspace` is not a task-YAML field). Fall back to
 # k8s/sky-us-east-2 if us-east-1 l40s-default is contended.
 #
 # The container image carries CoppeliaSim 4.1 + the repo's PyRep/RLBench forks.
@@ -20,8 +21,6 @@
 # Checkpoint and test seeds are pulled from S3 because AWS nodes cannot reach the
 # ll-sea NFS where training wrote them.
 name: hb-3dfa-peract2-eval
-
-workspace: default
 
 resources:
   accelerators: L40S:1
