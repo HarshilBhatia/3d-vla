@@ -8,6 +8,10 @@ from rlbench.sim2real.domain_randomization_scene import DomainRandomizationScene
 
 class CustomizedScene(Scene):
 
+    # Per-observation mesh capture calls get_mesh_data() on every arm and task
+    # shape. Subclasses whose consumers discard obs.mesh_points set this False.
+    capture_mesh_points = True
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Cache of object handle -> (name, local-frame vertices)
@@ -26,7 +30,11 @@ class CustomizedScene(Scene):
 
     def _build_robot_static(self):
         """Build the static arm-joint + table entry list (once per scene lifetime)."""
-        joints = self.robot.arm.get_visuals()
+        if self.robot.is_bimanual:
+            joints = (self.robot.right_arm.get_visuals()
+                      + self.robot.left_arm.get_visuals())
+        else:
+            joints = self.robot.arm.get_visuals()
         joints.append(Shape('diningTable_visible'))
         self._robot_static = [
             (obj.get_name(), obj, self._vertices(obj)) for obj in joints
@@ -51,6 +59,9 @@ class CustomizedScene(Scene):
 
     def get_observation(self):
         obs = super().get_observation()
+
+        if not self.capture_mesh_points:
+            return self.task.decorate_observation(obs)
 
         # Build caches lazily
         if self._robot_static is None:

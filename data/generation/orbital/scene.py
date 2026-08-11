@@ -20,6 +20,10 @@ from data.generation.customized_rlbench import CustomizedScene, CustomizedEnviro
 class OrbitalScene(CustomizedScene):
     """CustomizedScene that also captures two orbital camera sensors."""
 
+    # save_orbital_episode() strips obs.mesh_points before pickling and the zarr
+    # converter never reads it, so the per-step mesh capture is pure overhead.
+    capture_mesh_points = False
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self._orbital_left  = None
