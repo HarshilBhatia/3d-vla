@@ -70,7 +70,14 @@ run: |
   export PYTHONPATH="$REPO:${PYTHONPATH:-}"
   export TOKENIZERS_PARALLELISM=false
   export PYTORCH_ALLOC_CONF=expandable_segments:True
-  export HF_HUB_CACHE=/k8s-nfs/harsvbha/hf-cache
+  # A 3dfa-owned cache, pre-populated with google/siglip2-base-patch16-256 and
+  # world-writable. The shared /k8s-nfs/harsvbha/hf-cache is owned by uid 10001
+  # and not writable by the job's uid, which fails every rank at backbone load
+  # with a transformers PermissionError rather than falling back to a download.
+  export HF_HUB_CACHE=/k8s-nfs/harsvbha/3dfa/hf-cache
+  # The backbone is pre-staged, so a cache miss is a staging bug, not something
+  # to paper over with a slow per-rank download.
+  export HF_HUB_OFFLINE=1
   export TORCH_HOME="$HOME/.cache/torch"
   export WANDB_BASE_URL=https://far.wandb.io
   export WANDB_CACHE_DIR="$HOME/.cache/wandb"
