@@ -239,6 +239,7 @@ class RLBenchEnv:
         save_video=False,
         output_file=None,
         progress_file=None,
+        num_demos=None,
     ):
         progress = {}
         if progress_file is not None and os.path.exists(progress_file):
@@ -276,6 +277,7 @@ class RLBenchEnv:
                     output_file=output_file,
                     progress=progress,
                     progress_file=progress_file,
+                    num_demos=num_demos,
                 )
             )
             if valid:
@@ -306,6 +308,7 @@ class RLBenchEnv:
         output_file=None,
         progress=None,
         progress_file=None,
+        num_demos=None,
     ):
         success_rate = 0
         total_reward = 0
@@ -317,6 +320,12 @@ class RLBenchEnv:
             random_selection=False,
             from_episode_number=0
         )
+        if num_demos is not None:
+            var_demos = var_demos[:num_demos]
+            print(
+                f"  capped to {len(var_demos)} demos (num_demos={num_demos})",
+                flush=True,
+            )
 
         for demo_id, demo in enumerate(var_demos):
 

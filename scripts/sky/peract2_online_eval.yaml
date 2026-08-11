@@ -1,0 +1,98 @@
+# Online PerAct2 evaluation of a trained 3DFA checkpoint — one task per job.
+#
+# Launch one managed job per task (13 tasks total) so a CoppeliaSim crash costs
+# one task instead of the whole sweep:
+#
+#   for t in bimanual_push_box bimanual_lift_ball ...; do
+#     sky jobs launch -n "hb-3dfa-eval-$t" -d --infra aws/us-east-1 \
+#       --env PREEMPTIBLE=1 --env TASK="$t" scripts/sky/peract2_online_eval.yaml
+#   done
+#
+# The container image carries CoppeliaSim 4.1 + the repo's PyRep/RLBench forks.
+# The bimanual RLBench fork (BimanualMoveArmThenGripper) lives at /opt/src/RLBench2
+# and is required for every bimanual_* task.
+#
+# Checkpoint and test seeds are pulled from S3 because AWS nodes cannot reach the
+# ll-sea NFS where training wrote them.
+name: hb-3dfa-peract2-eval
+
+resources:
+  accelerators: L40S:1
+  cpus: 8+
+  memory: 32+
+  disk_size: 128
+  image_id: docker:241533154612.dkr.ecr.us-east-1.amazonaws.com/rfm-h-eval-job:hb-3dfa-peract2-20260811
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 3
+
+num_nodes: 1
+
+envs:
+  # Required for kueue admission; omitting it leaves the job PENDING.
+  PREEMPTIBLE: "1"
+  TASK: bimanual_push_box
+  RUN_NAME: peract2_base_b200
+  CKPT_S3: s3://far-research-internal/harsvbha/3dfa/eval/ckpt/peract2_base_b200_last.pth
+  SEEDS_S3: s3://far-research-internal/harsvbha/3dfa/eval/peract2_test
+  OUT_S3: s3://far-research-internal/harsvbha/3dfa/eval/results/peract2_base_b200
+  # Episodes per variation. The staged test set holds 100 seeds per task; 25 is
+  # the benchmark convention and keeps a task inside a single job's runtime.
+  NUM_DEMOS: "25"
+  SAVE_VIDEO: "false"
+
+run: |
+  set -euo pipefail
+  export AWS_REGION=us-east-1 AWS_DEFAULT_REGION=us-east-1
+
+  # The repo is baked into the image at this path; the online-eval Dockerfile
+  # declares it as a VOLUME so an unmounted run still has the source.
+  REPO=/workspace/3d_flowmatch_actor
+  cd "$REPO"
+
+  # CoppeliaSim needs its own libs on the loader path and must NOT get
+  # QT_QPA_PLATFORM=offscreen — the bundled xcb plugin talks to Xvfb instead.
+  export COPPELIASIM_ROOT=/opt/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
+  export LD_LIBRARY_PATH="${COPPELIASIM_ROOT}:${LD_LIBRARY_PATH:-}"
+  export QT_QPA_PLATFORM_PLUGIN_PATH="${COPPELIASIM_ROOT}"
+  unset QT_QPA_PLATFORM || true
+  export PYTHONPATH="$REPO:${PYTHONPATH:-}"
+  export XDG_RUNTIME_DIR=/tmp/runtime-root
+  mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+
+  python -c "import torch; assert torch.cuda.is_available(), 'no CUDA'; print('gpu:', torch.cuda.get_device_name(0))"
+  python -c "from rlbench.action_modes.action_mode import BimanualMoveArmThenGripper; print('bimanual rlbench OK')"
+
+  LOCAL=/tmp/3dfa_eval
+  mkdir -p "$LOCAL/seeds" "$LOCAL/out"
+  aws s3 cp "$CKPT_S3" "$LOCAL/last.pth" --only-show-errors
+  # Only this task's seeds — the full staged set is 1.2 GB across 13 tasks.
+  aws s3 sync "$SEEDS_S3/$TASK" "$LOCAL/seeds/$TASK" --only-show-errors
+
+  OUT="$LOCAL/out/results_${TASK}.json"
+
+  # Arch flags are intentionally absent: evaluate_policy.py overlays the
+  # checkpoint's saved training config onto args, so the model is rebuilt exactly
+  # as trained. Only genuine eval-runtime values are passed here.
+  xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" \
+    python online_evaluation_rlbench/evaluate_policy.py \
+      data=full \
+      bimanual=true \
+      data_dir="$LOCAL/seeds" \
+      checkpoint="$LOCAL/last.pth" \
+      output_file="$OUT" \
+      task="$TASK" \
+      num_demos="$NUM_DEMOS" \
+      max_tries=1 \
+      headless=true \
+      save_video="$SAVE_VIDEO"
+
+  # Upload results even though a failed eval exits non-zero above: the progress
+  # file is the only record of which demos completed.
+  aws s3 cp "$OUT" "$OUT_S3/${TASK}.json" --only-show-errors
+  PROGRESS="${OUT%.json}.progress.json"
+  [ -f "$PROGRESS" ] && aws s3 cp "$PROGRESS" "$OUT_S3/${TASK}.progress.json" --only-show-errors
+  if [ "$SAVE_VIDEO" = "true" ]; then
+    aws s3 sync "$LOCAL/out" "$OUT_S3/videos/$TASK" --exclude '*.json' --only-show-errors
+  fi
+  echo "EVAL_DONE $TASK"
