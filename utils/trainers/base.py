@@ -630,10 +630,14 @@ class BaseTrainTester:
     def prepare_batch(self, sample, augment=False):
         pass  # implement in children
 
-    def _model_forward(self, model, sample, training=True, stopgrad_k=0):
+    def _model_forward(self, model, sample, training=True, stopgrad_k=0, augment=None):
+        # `augment` defaults to `training` but can be forced off so the validation
+        # pass can score the training loss on un-augmented observations.
+        if augment is None:
+            augment = training
         with torch.profiler.record_function("step/prepare_batch"):
             action, action_mask, rgbs, rgb2d, pcds, instr, prop = self.prepare_batch(
-                sample, augment=training
+                sample, augment=augment
             )
         if self.args.pre_tokenize:
             with torch.profiler.record_function("step/tokenize"):
@@ -646,6 +650,15 @@ class BaseTrainTester:
                     stopgrad_k=stopgrad_k
                 )
         return out  # loss if training, else action
+
+    def _forward_loss(self, model, sample):
+        """Training-objective loss on a batch, no grad and no augmentation.
+
+        `run_inference=True` (the validation path) returns a predicted action, not
+        a loss, so the flow-matching objective has to be re-run with
+        `run_inference=False` to get a comparable scalar.
+        """
+        return self._model_forward(model, sample, training=True, augment=False)
     
     def compute_rope_stopgrad_k(self, step_id):
         """Compute the number of bins to zero out in RoPE backward based on schedule."""
@@ -794,6 +807,11 @@ class BaseTrainTester:
                 gt_action = relative_to_absolute(gt_action[:, :, 0], prop)
 
             losses, losses_B = compute_metrics(pred_action, gt_action)
+
+            # The training objective itself, so train/val loss are directly comparable.
+            values.setdefault(f"{split}-losses/mean/loss", []).append(
+                self._forward_loss(model, sample).detach().float()
+            )
 
             # Gather global statistics — collect into lists, stack once at the end
             for n, l in losses.items():
