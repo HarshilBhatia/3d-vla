@@ -4,9 +4,14 @@
 # one task instead of the whole sweep:
 #
 #   for t in bimanual_push_box bimanual_lift_ball ...; do
-#     sky jobs launch -n "hb-3dfa-eval-$t" -d --infra aws/us-east-1 \
+#     sky jobs launch -n "hb-3dfa-eval-$t" -d --infra k8s/sky-us-east-1 \
 #       --env PREEMPTIBLE=1 --env TASK="$t" scripts/sky/peract2_online_eval.yaml
 #   done
+#
+# FAR L40S capacity is the karpenter-backed k8s contexts (sky-us-east-1 /
+# sky-us-east-2), not raw EC2, and lives in the `default` sky workspace — the
+# `ext-eval` workspace has no AWS or L40S enabled. Fall back to
+# k8s/sky-us-east-2 if us-east-1 l40s-default is contended.
 #
 # The container image carries CoppeliaSim 4.1 + the repo's PyRep/RLBench forks.
 # The bimanual RLBench fork (BimanualMoveArmThenGripper) lives at /opt/src/RLBench2
@@ -16,8 +21,11 @@
 # ll-sea NFS where training wrote them.
 name: hb-3dfa-peract2-eval
 
+workspace: default
+
 resources:
   accelerators: L40S:1
+  cloud: kubernetes
   cpus: 8+
   memory: 32+
   disk_size: 128
