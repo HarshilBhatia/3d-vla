@@ -1,0 +1,123 @@
+{
+  "_comment": [
+    "Orbital PerAct2 (bimanual) camera-group assignment.",
+    "Deterministic rotation over G1-G6 keyed on the task's index in",
+    "PERACT2_TASKS (datasets/rlbench.py), which is also its task_id:",
+    "task i trains on [G(i%6+1), G((i+1)%6+1), G((i+2)%6+1)] and is",
+    "evaluated on the next group in the rotation, G((i+3)%6+1).",
+    "train_groups: the 3 (task, group) shards that build train.zarr/val.zarr,",
+    "30 collected episodes each -> 90 train episodes per task.",
+    "eval_group: held-out 'new cam' for online VLA rollouts (10 per task).",
+    "Camera poses for every group live in instructions/orbital_cameras_grouped.json.",
+    "The 3 groups per task that appear in neither field stay on disk as",
+    "unused shards for later ablations."
+  ],
+  "n_train_episodes_per_group": 30,
+  "n_eval_rollouts_per_task": 10,
+  "tasks": {
+    "bimanual_push_box": {
+      "train_groups": [
+        "G1",
+        "G2",
+        "G3"
+      ],
+      "eval_group": "G4"
+    },
+    "bimanual_lift_ball": {
+      "train_groups": [
+        "G2",
+        "G3",
+        "G4"
+      ],
+      "eval_group": "G5"
+    },
+    "bimanual_dual_push_buttons": {
+      "train_groups": [
+        "G3",
+        "G4",
+        "G5"
+      ],
+      "eval_group": "G6"
+    },
+    "bimanual_pick_plate": {
+      "train_groups": [
+        "G4",
+        "G5",
+        "G6"
+      ],
+      "eval_group": "G1"
+    },
+    "bimanual_put_item_in_drawer": {
+      "train_groups": [
+        "G5",
+        "G6",
+        "G1"
+      ],
+      "eval_group": "G2"
+    },
+    "bimanual_put_bottle_in_fridge": {
+      "train_groups": [
+        "G6",
+        "G1",
+        "G2"
+      ],
+      "eval_group": "G3"
+    },
+    "bimanual_handover_item": {
+      "train_groups": [
+        "G1",
+        "G2",
+        "G3"
+      ],
+      "eval_group": "G4"
+    },
+    "bimanual_pick_laptop": {
+      "train_groups": [
+        "G2",
+        "G3",
+        "G4"
+      ],
+      "eval_group": "G5"
+    },
+    "bimanual_straighten_rope": {
+      "train_groups": [
+        "G3",
+        "G4",
+        "G5"
+      ],
+      "eval_group": "G6"
+    },
+    "bimanual_sweep_to_dustpan": {
+      "train_groups": [
+        "G4",
+        "G5",
+        "G6"
+      ],
+      "eval_group": "G1"
+    },
+    "bimanual_lift_tray": {
+      "train_groups": [
+        "G5",
+        "G6",
+        "G1"
+      ],
+      "eval_group": "G2"
+    },
+    "bimanual_handover_item_easy": {
+      "train_groups": [
+        "G6",
+        "G1",
+        "G2"
+      ],
+      "eval_group": "G3"
+    },
+    "bimanual_take_tray_out_of_oven": {
+      "train_groups": [
+        "G1",
+        "G2",
+        "G3"
+      ],
+      "eval_group": "G4"
+    }
+  }
+}

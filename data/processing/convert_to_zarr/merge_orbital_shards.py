@@ -8,11 +8,18 @@ their shard is converted; this script stitches the surviving shard zarrs togethe
 
 demo_id is rebased per shard so it stays unique across the merged output.
 
+--mapping restricts the merge to each task's designated train_groups (see
+instructions/peract2_orbital_task_group_mapping.json). Shards outside that
+assignment -- including every task's held-out eval_group -- stay on disk but
+are excluded from the merged zarrs.
+
 Usage:
     python data/processing/convert_to_zarr/merge_orbital_shards.py \
-        --shards /path/to/shards --out /path/to/zarr
+        --shards /path/to/shards --out /path/to/zarr \
+        --mapping instructions/peract2_orbital_task_group_mapping.json
 """
 import argparse
+import json
 import os
 import shutil
 
@@ -39,7 +46,21 @@ def parse_args():
                    help="Remove existing merged zarrs first")
     p.add_argument("--batch-rows", type=int, default=64,
                    help="Rows copied per append (bounds peak memory)")
+    p.add_argument("--mapping",
+                   help="Task -> camera-group mapping JSON. When given, only "
+                        "each task's train_groups shards are merged.")
     return p.parse_args()
+
+
+def load_allowed_shards(path):
+    """Return the set of '{task}__{group}' shard names a mapping allows."""
+    with open(path) as f:
+        doc = json.load(f)
+    allowed = set()
+    for task, spec in doc["tasks"].items():
+        for group in spec["train_groups"]:
+            allowed.add("{}__{}".format(task, group))
+    return allowed
 
 
 def _init_like(path, src, compressor):
@@ -88,6 +109,21 @@ def main():
     if skipped:
         print("[WARN] Ignoring {} incomplete shard(s): {}".format(
             len(skipped), ", ".join(skipped)))
+
+    if args.mapping:
+        allowed = load_allowed_shards(args.mapping)
+        selected = [d for d in complete if d in allowed]
+        excluded = sorted(set(complete) - allowed)
+        missing = sorted(allowed - set(complete))
+        print("[INFO] Mapping {} selects {} shard(s)".format(
+            args.mapping, len(allowed)))
+        print("[INFO] Excluded {} collected shard(s) (kept on disk)".format(
+            len(excluded)))
+        if missing:
+            print("[WARN] {} mapped shard(s) not collected: {}".format(
+                len(missing), ", ".join(missing)))
+        complete = selected
+
     print("[INFO] Merging {} complete shard(s)".format(len(complete)))
 
     os.makedirs(args.out, exist_ok=True)
