@@ -35,6 +35,12 @@ resources:
 
 num_nodes: 1
 
+# The image declares /workspace/3d_flowmatch_actor as a VOLUME and ships it
+# EMPTY — the repo is expected to be bind-mounted at runtime, so a cloud job has
+# to bring its own copy. .skyignore keeps this upload to ~10 MB by excluding the
+# PyRep/RLBench forks (already installed in the image) plus data and checkpoints.
+workdir: .
+
 envs:
   # Required for kueue admission; omitting it leaves the job PENDING.
   PREEMPTIBLE: "1"
@@ -54,10 +60,9 @@ run: |
   set -euo pipefail
   export AWS_REGION=us-east-1 AWS_DEFAULT_REGION=us-east-1
 
-  # The repo is baked into the image at this path; the online-eval Dockerfile
-  # declares it as a VOLUME so an unmounted run still has the source.
-  REPO=/workspace/3d_flowmatch_actor
-  cd "$REPO"
+  # SkyPilot puts the uploaded workdir here; the image's own
+  # /workspace/3d_flowmatch_actor is an empty VOLUME.
+  REPO=$(pwd)
 
   # CoppeliaSim needs its own libs on the loader path and must NOT get
   # QT_QPA_PLATFORM=offscreen — the bundled xcb plugin talks to Xvfb instead.
@@ -65,7 +70,11 @@ run: |
   export LD_LIBRARY_PATH="${COPPELIASIM_ROOT}:${LD_LIBRARY_PATH:-}"
   export QT_QPA_PLATFORM_PLUGIN_PATH="${COPPELIASIM_ROOT}"
   unset QT_QPA_PLATFORM || true
-  export PYTHONPATH="$REPO:${PYTHONPATH:-}"
+  # Set outright rather than prepended: the image bakes PYTHONPATH and REPO_DIR
+  # pointing at the empty /workspace volume, which would otherwise shadow the
+  # uploaded source.
+  export PYTHONPATH="$REPO"
+  export REPO_DIR="$REPO"
   export XDG_RUNTIME_DIR=/tmp/runtime-root
   mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
 

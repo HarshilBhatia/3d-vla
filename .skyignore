@@ -1,0 +1,22 @@
+# Keep the SkyPilot workdir upload small: eval jobs need only the Python source,
+# configs, and instruction JSONs. The PyRep/RLBench forks are already installed
+# inside the eval image (/opt/src/PyRep2, /opt/src/RLBench2), and datasets and
+# checkpoints come from S3 at runtime.
+.git
+PyRep
+RLBench
+data
+logs
+train_logs
+eval_logs
+debug_videos
+results
+paper
+plots
+.venv
+*.rrd
+*.pth
+*.zip
+*.out
+__pycache__
+*.egg-info
