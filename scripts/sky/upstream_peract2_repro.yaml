@@ -13,6 +13,9 @@
 # Pre-staged on NFS by hand:
 #   /k8s-nfs/harsvbha/3dfa/repo_upstream   (upstream clone @ ab70932 + wandb patch)
 #   /k8s-nfs/harsvbha/3dfa/venv_upstream   (py3.11: torch 2.9.1+cu128, openai CLIP)
+#     Its bin/python and pyvenv.cfg `home` must point at the NFS interpreter
+#     /k8s-nfs/harsvbha/3dfa/uv-python/cpython-3.11-linux-x86_64-gnu, not at a
+#     devbox-local ~/.local/share/uv path, which a job pod cannot see.
 #   /k8s-nfs/harsvbha/3dfa/clip-cache/RN50.pt   (CLIP RN50 weights)
 #   /k8s-nfs/harsvbha/3dfa/data/peract2_zarr/Peract2_zarr/{train,val}.zarr
 # The zarr is the PerAct2 dataset published by the upstream authors, so it is
@@ -58,7 +61,20 @@ setup: |
   umask 000
   # The venv is pre-staged on NFS; a missing interpreter is a staging bug, so
   # fail here rather than silently training against the wrong environment.
-  test -x "$VENV/bin/python"
+  #
+  # `$VENV/bin/python` must resolve to an interpreter that is itself on NFS.
+  # `uv venv` points it at whichever interpreter uv managed on the machine that
+  # built the venv, which for a devbox is ~/.local/share/uv/python/... — a path
+  # that does not exist on a job pod, so the symlink dangles and every python
+  # call fails. Report the resolved target on failure; a bare `test -x` surfaces
+  # only as `setup failed, returncode=1` with nothing to diagnose.
+  if [ ! -x "$VENV/bin/python" ]; then
+    echo "FATAL: $VENV/bin/python is not executable."
+    echo "  symlink target: $(readlink -f "$VENV/bin/python" || true)"
+    echo "  pyvenv.cfg home: $(grep '^home' "$VENV/pyvenv.cfg" || true)"
+    echo "  Both must be under /k8s-nfs to be visible from a job pod."
+    exit 1
+  fi
   "$VENV/bin/python" -c "import torch, zarr, clip, einops; print(torch.__version__, torch.cuda.is_available())"
 
 run: |
