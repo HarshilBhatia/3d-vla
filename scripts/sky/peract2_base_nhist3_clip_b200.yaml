@@ -1,0 +1,176 @@
+# 3DFA PerAct2 (13 bimanual tasks), CLIP RN50 backbone, num_history=3,
+# 1 node x 1 B200.
+#
+# Backbone ablation against scripts/sky/peract2_base_nhist3_b200.yaml. That run
+# is byte-identical to this one except backbone=siglip2 (the config default), so
+# the vision encoder is the only variable: batch_size=256, batch_size_val=64,
+# lr=backbone_lr=3e-4, train_iters=350000, num_history=3.
+#
+# The head geometry stays at THIS repo's defaults — num_attn_heads=6,
+# fps_subsampling_factor=5 — not upstream's 8/4. upstream_peract2_repro.yaml
+# runs the upstream recipe with CLIP and those upstream head values; mixing them
+# in here would confound the backbone comparison with a head change.
+#
+# backbone=clip swaps in a multi-scale path that siglip2 does not use: the CLIP
+# ModifiedResNet emits res1-res5, and encoder3d feeds all five into
+# EfficientFeaturePyramidNetwork([64, 256, 512, 1024, 2048]) at output_level
+# res3, whereas siglip2 takes a single ViT feature map through a 1x1 conv. The
+# CLIP text encoder (openai/clip-vit-base-patch32, 512-d) also replaces the
+# SigLIP2 text tower, so both towers change together with this one flag.
+#
+# Repo, uv venv, CLIP weights, and the PerAct2 zarr are pre-staged on NFS:
+#   /k8s-nfs/harsvbha/3dfa/repo        (this repo)
+#   /k8s-nfs/harsvbha/3dfa/venv_clip   (uv sync --frozen --extra clip, py3.11)
+#   /k8s-nfs/harsvbha/3dfa/clip-cache/RN50.pt   (CLIP RN50 vision weights)
+#   /k8s-nfs/harsvbha/3dfa/data/peract2_zarr/Peract2_zarr/{train,val}.zarr
+#
+# The venv is venv_clip rather than the shared .../3dfa/venv on purpose: the
+# `clip` extra pulls openai/CLIP plus ftfy, and .../3dfa/venv is the interpreter
+# other running jobs execute from, so it is not safe to mutate in place. Both
+# venvs pin the same torch 2.9.1+cu128 / torchvision 0.24.1+cu128.
+name: hb-3dfa-peract2-base-nhist3-clip-b200
+
+resources:
+  # Pinned rather than auto: unpinned B200 submissions sit PENDING without
+  # creating a pod.
+  infra: k8s/ll-sea
+  accelerators: B200:1
+  disk_size: 512
+  image_id:
+    ll-sea: 913524929094.dkr.ecr.us-east-1.amazonaws.com/covariant-dev:latest_updatabot
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 3
+
+num_nodes: 1
+
+file_mounts:
+  ~/.netrc: ~/.netrc
+
+envs:
+  # Required for kueue admission on this queue; omitting it leaves the job
+  # PENDING indefinitely rather than failing fast.
+  PREEMPTIBLE: "1"
+  REPO: /k8s-nfs/harsvbha/3dfa/repo
+  VENV: /k8s-nfs/harsvbha/3dfa/venv_clip
+  CLIP_CACHE: /k8s-nfs/harsvbha/3dfa/clip-cache
+  UV_CACHE_DIR: /k8s-nfs/harsvbha/uv-cache
+  RUN_LOG_DIR: peract2_base_nhist3_clip_b200
+  BASE_LOG_DIR: /k8s-nfs/harsvbha/3dfa/train_logs
+  # Global batch; the trainer divides by world_size, which is 1 here, so this is
+  # also the per-GPU batch. A batch probe measured ~10 GB at 256/GPU against the
+  # 183 GB B200, so the 4x-larger per-GPU batch of the 1-GPU layout still fits
+  # with wide margin. Kept at 256 to match the 4-GPU run's global batch and lr.
+  BATCH_SIZE: "256"
+  LR: "0.0003"
+  # 16 loaders on a single GPU (the 4-GPU run used 16/GPU); the pipeline is
+  # zarr-on-NFS bound, so loader count is what sets throughput.
+  NUM_WORKERS: "16"
+  TRAIN_ITERS: "350000"
+  NUM_HISTORY: "3"
+
+setup: |
+  set -euo pipefail
+  umask 000
+  # venv_clip is pre-staged on NFS, built with the `clip` extra. Rebuilding it
+  # here would need that same extra, and a bare `uv sync --frozen` would produce
+  # an env without the `clip` module that then fails at backbone load — so treat
+  # a missing interpreter as a staging bug and fail loudly instead.
+  #
+  # `$VENV/bin/python` must resolve to an interpreter that is itself on NFS; a
+  # devbox-local ~/.local/share/uv/python target does not exist on a job pod, so
+  # the symlink dangles and every python call fails.
+  if [ ! -x "$VENV/bin/python" ]; then
+    echo "FATAL: $VENV/bin/python is not executable."
+    echo "  symlink target: $(readlink -f "$VENV/bin/python" || true)"
+    echo "  pyvenv.cfg home: $(grep '^home' "$VENV/pyvenv.cfg" || true)"
+    echo "  Rebuild with: UV_PROJECT_ENVIRONMENT=$VENV uv sync --frozen --extra clip"
+    exit 1
+  fi
+  "$VENV/bin/python" -c "import torch, zarr, transformers, clip, ftfy; print(torch.__version__, torch.cuda.is_available())"
+
+run: |
+  set -euo pipefail
+  umask 000
+  cd "$REPO"
+
+  export PYTHONPATH="$REPO:${PYTHONPATH:-}"
+  export TOKENIZERS_PARALLELISM=false
+  export PYTORCH_ALLOC_CONF=expandable_segments:True
+  # A 3dfa-owned cache, world-writable, pre-populated with
+  # openai/clip-vit-base-patch32 (the CLIP text tower and tokenizer this run
+  # needs). The shared /k8s-nfs/harsvbha/hf-cache is owned by uid 10001 and not
+  # writable by the job's uid, which fails every rank at backbone load with a
+  # transformers PermissionError rather than falling back to a download.
+  #
+  # Staging that repo needed one manual fix: upstream `main` ships only
+  # pytorch_model.bin, and model.safetensors exists solely on a
+  # refs/pr/66 (SFconvertbot) revision, so `from_pretrained(...,
+  # use_safetensors=True)` resolves nothing under main. The safetensors blob was
+  # copied into the main snapshot, and the stale `.no_exist/<main>/
+  # model.safetensors` marker left by the first online attempt was deleted —
+  # that marker makes huggingface_hub report the file as absent even once it is
+  # on disk.
+  export HF_HUB_CACHE=/k8s-nfs/harsvbha/3dfa/hf-cache
+  # Both towers are pre-staged, so a cache miss is a staging bug, not something
+  # to paper over with a slow per-rank download.
+  export HF_HUB_OFFLINE=1
+  export TORCH_HOME="$HOME/.cache/torch"
+  # openai/CLIP resolves RN50 from a hardcoded ~/.cache/clip with no env var
+  # override, and modeling/encoder/vision/clip.py calls clip.load("RN50")
+  # without download_root. Seed that directory from the NFS copy so the job
+  # never reaches for the network; clip._download still verifies the SHA256, so
+  # a corrupt copy surfaces as a checksum error rather than silent bad weights.
+  mkdir -p "$HOME/.cache/clip"
+  cp -n "$CLIP_CACHE/RN50.pt" "$HOME/.cache/clip/RN50.pt"
+  export WANDB_BASE_URL=https://far.wandb.io
+  export WANDB_CACHE_DIR="$HOME/.cache/wandb"
+  export WANDB_CONFIG_DIR="$HOME/.config/wandb"
+  mkdir -p "$TORCH_HOME" "$WANDB_CACHE_DIR" "$WANDB_CONFIG_DIR"
+  chmod 600 "$HOME/.netrc"
+  # Extracted rather than left for wandb to read out of ~/.netrc: this fails at
+  # startup if the credential is missing, instead of training for hours and
+  # logging nothing.
+  export WANDB_API_KEY=$("$VENV/bin/python" -c 'import netrc; print(netrc.netrc().authenticators("far.wandb.io")[2])')
+
+  LOG_DIR="$BASE_LOG_DIR/exp/$RUN_LOG_DIR"
+  mkdir -p "$LOG_DIR"
+  # The trainer resumes from checkpoint= when the file exists and starts from
+  # scratch when it does not, so the same command covers first launch and every
+  # --max-restarts recovery.
+  CKPT="$LOG_DIR/last.pth"
+
+  echo "Repo: $REPO"
+  echo "Venv: $VENV"
+  echo "Log dir: $LOG_DIR"
+  echo "Resume checkpoint (if present): $CKPT"
+  echo "Global batch: $BATCH_SIZE   lr: $LR   iters: $TRAIN_ITERS   nhist: $NUM_HISTORY"
+
+  ulimit -n 65536
+  "$VENV/bin/torchrun" \
+    --nnodes=1 \
+    --nproc_per_node=1 \
+    --master_port=29500 \
+    --max-restarts=3 \
+    main.py \
+    data=full_nfs \
+    experiment=default \
+    bimanual=true \
+    dataset=Peract2_3dfront_3dwrist \
+    backbone=clip \
+    num_history="$NUM_HISTORY" \
+    batch_size="$BATCH_SIZE" \
+    batch_size_val=64 \
+    lr="$LR" \
+    backbone_lr="$LR" \
+    train_iters="$TRAIN_ITERS" \
+    base_log_dir="$BASE_LOG_DIR" \
+    exp_log_dir=exp \
+    run_log_dir="$RUN_LOG_DIR" \
+    checkpoint="$CKPT" \
+    use_wandb=true \
+    wandb_entity=far-wandb \
+    wandb_project=3dfa \
+    wandb_run_name="$RUN_LOG_DIR" \
+    num_workers="$NUM_WORKERS" \
+    prefetch_factor=4
