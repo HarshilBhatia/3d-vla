@@ -23,12 +23,13 @@ _EVAL_RUNTIME_KEYS = frozenset({
     "task", "headless", "max_tries", "seed",
     "cameras_file", "task_group_mapping_file", "camera_groups",
     "orbital_miscal_noise_level", "miscal_rot_level", "miscal_trans_level", "fov_deg",
+    "num_demos",
     "spawn_camera_group",
     "val_instructions", "log_dir", "base_log_dir",
     "save_video", "save_trajectory",
     # PerAct online-eval runtime controls
     "eval_use_depth2cloud", "image_size", "collision_checking",
-    "cfg_scale",
+    "cfg_scale", "prediction_len", "max_steps",
 })
 
 
@@ -188,6 +189,7 @@ if __name__ == "__main__":
             save_video=args.save_video,
             output_file=args.output_file,
             progress_file=progress_file,
+            num_demos=getattr(args, "num_demos", None),
         )
         print()
         print(
