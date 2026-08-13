@@ -193,6 +193,8 @@ class BaseTrainTester:
             num_vis_instr_attn_layers=self.args.num_vis_instr_attn_layers,
             fps_subsampling_factor=self.args.fps_subsampling_factor,
             position_based_sampling=self.args.position_based_sampling,
+            image_space_sampling=self.args.image_space_sampling,
+            skip_fps=self.args.skip_fps,
             use_proprio_rope=self.args.use_proprio_rope,
             embedding_dim=self.args.embedding_dim,
             num_attn_heads=self.args.num_attn_heads,
