@@ -24,6 +24,10 @@ _EVAL_RUNTIME_KEYS = frozenset({
     "cameras_file", "task_group_mapping_file", "camera_groups",
     "orbital_miscal_noise_level", "miscal_rot_level", "miscal_trans_level", "fov_deg",
     "num_demos",
+    # The trainer used to drop image_space_sampling from model_kwargs, so a
+    # checkpoint's saved value does not reliably describe the sampler it was
+    # trained with. The caller must state the sampler explicitly at eval time.
+    "image_space_sampling",
     "spawn_camera_group",
     "val_instructions", "log_dir", "base_log_dir",
     "save_video", "save_trajectory",

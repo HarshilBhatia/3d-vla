@@ -54,6 +54,12 @@ envs:
   # Episodes per variation. The staged test set holds 100 seeds per task; 25 is
   # the benchmark convention and keeps a task inside a single job's runtime.
   NUM_DEMOS: "25"
+  # Scene-token sampler. The trainer used to drop image_space_sampling from the
+  # model kwargs, so anything trained before that fix ran density-based FPS
+  # sampling (the constructor default) no matter what its saved config claims —
+  # those checkpoints must be evaluated with ISS=false. Checkpoints trained
+  # after the fix should pass whatever they actually trained with.
+  ISS: "false"
   # Rollout videos are the only way to tell a policy failure from a harness
   # failure (wrong camera, wrong scene) when a success rate comes back at zero.
   SAVE_VIDEO: "true"
@@ -96,9 +102,10 @@ run: |
 
   OUT="$LOCAL/out/results_${TASK}.json"
 
-  # Arch flags are intentionally absent: evaluate_policy.py overlays the
-  # checkpoint's saved training config onto args, so the model is rebuilt exactly
-  # as trained. Only genuine eval-runtime values are passed here.
+  # Arch flags are otherwise intentionally absent: evaluate_policy.py overlays
+  # the checkpoint's saved training config onto args, so the model is rebuilt
+  # exactly as trained. image_space_sampling is the exception — the saved value
+  # is untrustworthy for pre-fix checkpoints, so it is passed explicitly.
   # Tee to a file and upload it even on failure: a managed job's pod is recycled
   # on exit, so an un-exported log is unrecoverable.
   EVAL_LOG="$LOCAL/out/${TASK}.log"
@@ -112,6 +119,7 @@ run: |
       output_file="$OUT" \
       task="$TASK" \
       num_demos="$NUM_DEMOS" \
+      image_space_sampling="$ISS" \
       max_tries=1 \
       headless=true \
       save_video="$SAVE_VIDEO" 2>&1 | tee "$EVAL_LOG" || rc=$?
