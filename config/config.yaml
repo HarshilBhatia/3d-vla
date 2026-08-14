@@ -98,7 +98,8 @@ finetune_text_encoder: false
 fps_subsampling_factor: 5
 skip_fps: false                   # if true, skip FPS subsampling and use all image tokens as scene tokens
 position_based_sampling: false   # if true, density sampling uses 3D XYZ distances instead of feature distances
-image_space_sampling: true      # if true, uniformly sample tokens per-camera in image space instead of density-based sampling
+image_space_sampling: false     # if true, uniformly sample tokens per-camera in image space instead of density-based sampling.
+                                # false = density/feature-distance FPS, the validated setting behind the 85.1 result.
 use_proprio_rope: false           # if true, trajectory tokens use current gripper XYZ for RoPE instead of their own noisy positions
 
 
