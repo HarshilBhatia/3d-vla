@@ -1,0 +1,95 @@
+# Validation job for the workdir code-delivery pattern — 30 iters, throwaway.
+#
+# This is the acceptance test for the conversion of the training YAMLs from `cd
+# /k8s-nfs/harsvbha/3dfa/repo` to `workdir: .`. It runs the same launch shape as
+# peract2_base_b200.yaml (uploaded snapshot as code, NFS for venv/data/output) at
+# 30 iterations and no wandb, and it asserts that `modeling` resolves under
+# ~/sky_workdir rather than under /k8s-nfs — the failure mode being that an
+# editable install left in the venv silently supplies the NFS copy instead.
+#
+# Delete this file once the pattern is trusted, or keep it as the smoke test to
+# rerun after touching a venv on NFS.
+#
+#   sky jobs launch scripts/sky/workdir_smoke.yaml -n hb-3dfa-workdir-smoke -y -d
+name: hb-3dfa-workdir-smoke
+
+resources:
+  infra: k8s/ll-sea
+  accelerators: B200:1
+  disk_size: 512
+  image_id:
+    ll-sea: 913524929094.dkr.ecr.us-east-1.amazonaws.com/covariant-dev:latest_updatabot
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 0
+
+num_nodes: 1
+
+workdir: .
+
+envs:
+  PREEMPTIBLE: "1"
+  VENV: /k8s-nfs/harsvbha/3dfa/venv
+  UV_CACHE_DIR: /k8s-nfs/harsvbha/uv-cache
+  RUN_LOG_DIR: workdir_smoke
+  BASE_LOG_DIR: /k8s-nfs/harsvbha/3dfa/train_logs
+
+setup: |
+  set -euo pipefail
+  umask 000
+  "$VENV/bin/python" -c "import torch, zarr, transformers; print(torch.__version__, torch.cuda.is_available())"
+
+run: |
+  set -euo pipefail
+  umask 000
+  REPO="$HOME/sky_workdir"
+  cd "$REPO"
+
+  export PYTHONPATH="$REPO:${PYTHONPATH:-}"
+  export TOKENIZERS_PARALLELISM=false
+  export PYTORCH_ALLOC_CONF=expandable_segments:True
+  export HF_HUB_CACHE=/k8s-nfs/harsvbha/3dfa/hf-cache
+  export HF_HUB_OFFLINE=1
+  export TORCH_HOME="$HOME/.cache/torch"
+  mkdir -p "$TORCH_HOME"
+
+  LOG_DIR="$BASE_LOG_DIR/exp/$RUN_LOG_DIR"
+  mkdir -p "$LOG_DIR"
+
+  # The whole point of the job. Probed from /tmp so cwd is not on sys.path and
+  # PYTHONPATH is the only thing under test.
+  MODELING=$(cd /tmp && "$VENV/bin/python" -c 'import modeling; print(modeling.__file__)')
+  echo "modeling.__file__: $MODELING"
+  case "$MODELING" in
+    "$REPO"/*) echo "PASS: source is the uploaded workdir" ;;
+    *) echo "FATAL: source is $MODELING, not under the uploaded workdir $REPO" >&2; exit 1 ;;
+  esac
+  # Same check for the other top-level packages the editable install mapped.
+  for m in utils datasets config; do
+    F=$(cd /tmp && "$VENV/bin/python" -c "import $m; print($m.__file__)")
+    echo "$m.__file__: $F"
+    case "$F" in "$REPO"/*) ;; *) echo "FATAL: $m from $F" >&2; exit 1 ;; esac
+  done
+
+  ulimit -n 65536
+  "$VENV/bin/torchrun" \
+    --nnodes=1 \
+    --nproc_per_node=1 \
+    --master_port=29500 \
+    main.py \
+    data=full_nfs \
+    experiment=default \
+    bimanual=true \
+    dataset=Peract2_3dfront_3dwrist \
+    batch_size=32 \
+    batch_size_val=32 \
+    train_iters=30 \
+    val_freq=1000000 \
+    base_log_dir="$BASE_LOG_DIR" \
+    exp_log_dir=exp \
+    run_log_dir="$RUN_LOG_DIR" \
+    use_wandb=false \
+    num_workers=4 \
+    prefetch_factor=2
+
+  echo "SMOKE_DONE"
