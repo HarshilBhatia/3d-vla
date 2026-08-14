@@ -41,6 +41,10 @@ def _args_to_dict(args):
     return vars(args)
 
 from modeling.encoder.text import fetch_tokenizers
+from modeling.policy.construction import (
+    assert_model_kwargs_complete,
+    build_model_kwargs,
+)
 from ..common_utils import count_parameters
 from ..depth2cloud import fetch_depth2cloud
 from ..data_preprocessors import fetch_data_preprocessor
@@ -183,42 +187,11 @@ class BaseTrainTester:
 
     def get_model(self):
         """Initialize the model."""
-        # Initialize model with arguments
-        # Build model kwargs
-        model_kwargs = dict(
-            backbone=self.args.backbone,
-            text_backbone=getattr(self.args, 'text_backbone', None),
-            finetune_backbone=self.args.finetune_backbone,
-            finetune_text_encoder=self.args.finetune_text_encoder,
-            num_vis_instr_attn_layers=self.args.num_vis_instr_attn_layers,
-            fps_subsampling_factor=self.args.fps_subsampling_factor,
-            position_based_sampling=self.args.position_based_sampling,
-            image_space_sampling=self.args.image_space_sampling,
-            skip_fps=self.args.skip_fps,
-            use_proprio_rope=self.args.use_proprio_rope,
-            embedding_dim=self.args.embedding_dim,
-            num_attn_heads=self.args.num_attn_heads,
-            nhist=self.args.num_history,
-            nhand=2 if self.args.bimanual else 1,
-            num_shared_attn_layers=self.args.num_shared_attn_layers,
-            relative=self.args.relative_action,
-            rotation_format=self.args.rotation_format,
-            denoise_timesteps=self.args.denoise_timesteps,
-            denoise_model=self.args.denoise_model,
-            lv2_batch_size=self.args.lv2_batch_size,
-            traj_scene_rope=self.args.traj_scene_rope,
-        )
-        
-        for _key in (
-            'predict_extrinsics', 'extrinsics_prediction_mode',
-            'dynamic_rope_from_camtoken', 'rope_type',
-            'use_recursive_set_encoder', 'recursive_set_encoder_num_layers',
-            'recursive_set_encoder_ncam',
-            'lang_dropout_prob',
-            'predict_ee_aux', 'lambda_aux', 'ee_aux_cam_ids',
-        ):
-            if hasattr(self.args, _key):
-                model_kwargs[_key] = getattr(self.args, _key)
+        # Model kwargs come from the shared helper that the eval loader also uses,
+        # so a flag can never be honoured at eval but dropped in training.
+        model_kwargs = build_model_kwargs(self.args, self.model_cls)
+        # Crash at step 0 rather than train with a silently-defaulted flag.
+        assert_model_kwargs_complete(self.args, self.model_cls, model_kwargs)
 
         if dist.get_rank() == 0:
             print(f'model_kwargs: {model_kwargs}')

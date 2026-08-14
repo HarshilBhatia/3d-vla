@@ -6,13 +6,15 @@ import random
 import sys
 from pathlib import Path
 
-import inspect
-
 import numpy as np
 import torch
 
 from datasets import fetch_dataset_class
 from modeling.policy import fetch_model_class
+from modeling.policy.construction import (
+    assert_model_kwargs_complete,
+    build_model_kwargs,
+)
 from utils.common_utils import round_floats
 from utils.hydra_utils import get_config, get_config_path
 
@@ -65,14 +67,10 @@ def load_models(args):
         raise ValueError("model missing config")
 
     model_class = fetch_model_class(args.model_type)
-    # Config uses different names for a few constructor params.
-    _cfg = vars(args) | {
-        "nhist": args.num_history,
-        "nhand": 2 if args.bimanual else 1,
-        "relative": args.relative_action,
-    }
-    _sig = inspect.signature(model_class.__init__).parameters
-    model = model_class(**{k: v for k, v in _cfg.items() if k in _sig})
+    # Same helper the trainer uses, so eval-time construction cannot diverge.
+    model_kwargs = build_model_kwargs(args, model_class)
+    assert_model_kwargs_complete(args, model_class, model_kwargs)
+    model = model_class(**model_kwargs)
 
     model_dict_weight = {}
     for key in ckpt["weight"]:

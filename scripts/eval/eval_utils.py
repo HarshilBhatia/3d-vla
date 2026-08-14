@@ -34,6 +34,7 @@ from tqdm import tqdm
 from datasets import fetch_dataset_class
 from modeling.encoder.text import fetch_tokenizers
 from modeling.policy import fetch_model_class
+from modeling.policy.construction import build_model_kwargs
 from utils.data_preprocessors import fetch_data_preprocessor
 from utils.depth2cloud import fetch_depth2cloud
 from utils.hydra_utils import get_config, get_config_path
@@ -155,33 +156,8 @@ def load_model(args, ckpt_path, arch_overrides=None):
             print(f"[arch_override] {k} = {v}")
 
     model_class = fetch_model_class(args.model_type)
-    model = model_class(
-        backbone=args.backbone,
-        text_backbone=getattr(args, "text_backbone", None),
-        finetune_backbone=args.finetune_backbone,
-        finetune_text_encoder=args.finetune_text_encoder,
-        num_vis_instr_attn_layers=args.num_vis_instr_attn_layers,
-        fps_subsampling_factor=args.fps_subsampling_factor,
-        embedding_dim=args.embedding_dim,
-        num_attn_heads=args.num_attn_heads,
-        nhist=args.num_history,
-        nhand=2 if args.bimanual else 1,
-        num_shared_attn_layers=args.num_shared_attn_layers,
-        relative=args.relative_action,
-        rotation_format=args.rotation_format,
-        denoise_timesteps=args.denoise_timesteps,
-        denoise_model=args.denoise_model,
-        lv2_batch_size=args.lv2_batch_size,
-        traj_scene_rope=args.traj_scene_rope,
-        predict_extrinsics=getattr(args, "predict_extrinsics", False),
-        extrinsics_prediction_mode=getattr(args, "extrinsics_prediction_mode", "delta_m"),
-        dynamic_rope_from_camtoken=getattr(args, "dynamic_rope_from_camtoken", False),
-        rope_type=getattr(args, "rope_type", "normal"),
-        use_recursive_set_encoder=getattr(args, "use_recursive_set_encoder", False),
-        recursive_set_encoder_num_layers=getattr(args, "recursive_set_encoder_num_layers", 2),
-        recursive_set_encoder_ncam=getattr(args, "recursive_set_encoder_ncam", 3),
-        lang_dropout_prob=getattr(args, "lang_dropout_prob", 0.0),
-    )
+    # Shared construction helper: same kwargs the trainer used.
+    model = model_class(**build_model_kwargs(args, model_class))
 
     use_ema = getattr(args, "use_ema", False)
     weight_key = (
