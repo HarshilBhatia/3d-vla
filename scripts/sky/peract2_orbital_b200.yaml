@@ -19,7 +19,20 @@
 #
 # batch_size in this repo is GLOBAL: the trainer divides it by world_size
 # (utils/trainers/base.py get_loaders), so batch_size=256 is 64 per GPU on 4 GPUs.
-name: hb-3dfa-peract2-orbital-b200
+#
+# num_history=3 rather than the config default of 1: the 5-arm PerAct2 eval scored
+# 85.1 for siglip2+nhist3 against 45.0 for nhist1, so 3 is the recipe.
+#
+# On THIS dataset nhist=3 buys more than it does on the HF PerAct2 zarr. Both
+# store proprioception as (N, 3, nhand, 8), so RLBenchDataPreprocessor.process_proprio
+# feeds all three gripper timesteps either way. But the history path for
+# rgb/depth/extrinsics/intrinsics is gated on `num_history > 1 and 'demo_id' in
+# self.annos` (datasets/rlbench.py), and the orbital zarr DOES carry demo_id — so
+# here nhist=3 also stacks three visual frames per sample, with the encoder
+# folding nhist into the batch (modeling/encoder/multimodal/encoder3d.py). That
+# triples the per-sample image bytes read and the backbone's token count relative
+# to nhist=1, which is why batch_size is left at 256 (64/GPU) rather than raised.
+name: hb-3dfa-peract2-orbital-nhist3-b200
 
 resources:
   # Pinned rather than auto: unpinned B200 submissions sit PENDING without
@@ -49,7 +62,7 @@ envs:
   PREEMPTIBLE: "1"
   VENV: /k8s-nfs/harsvbha/3dfa/venv
   UV_CACHE_DIR: /k8s-nfs/harsvbha/uv-cache
-  RUN_LOG_DIR: peract2_orbital_b200
+  RUN_LOG_DIR: peract2_orbital_nhist3_b200
   BASE_LOG_DIR: /k8s-nfs/harsvbha/3dfa/train_logs
   # Global batch; the trainer divides by world_size (4) -> 64 per GPU.
   # 64/GPU sits at the throughput knee measured on a single B200: samples/sec
@@ -66,6 +79,8 @@ envs:
   # ~1053 train episodes, about 1/8 of full PerAct2 (~8400 episodes, trained for
   # 350k iters), so iters are scaled down proportionally.
   TRAIN_ITERS: "100000"
+  # See the header: on this zarr nhist drives both proprio and visual history.
+  NUM_HISTORY: "3"
 
 setup: |
   set -euo pipefail
@@ -120,7 +135,7 @@ run: |
   echo "Venv: $VENV"
   echo "Log dir: $LOG_DIR"
   echo "Resume checkpoint (if present): $CKPT"
-  echo "Global batch: $BATCH_SIZE   lr: $LR   iters: $TRAIN_ITERS"
+  echo "Global batch: $BATCH_SIZE   lr: $LR   iters: $TRAIN_ITERS   nhist: $NUM_HISTORY"
 
   # Prove the run trains the uploaded snapshot, not an NFS tree. An editable
   # install in the venv (a `uv sync` without --no-install-project leaves one, and
@@ -148,6 +163,7 @@ run: |
     experiment=default \
     bimanual=true \
     dataset=OrbitalPeract2 \
+    num_history="$NUM_HISTORY" \
     batch_size="$BATCH_SIZE" \
     batch_size_val=64 \
     lr="$LR" \
