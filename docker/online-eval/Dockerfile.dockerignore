@@ -1,0 +1,28 @@
+# BuildKit honours "<dockerfile>.dockerignore" in preference to the context root
+# .dockerignore, which lets this image keep its ignore rules self-contained
+# (nothing outside docker/online-eval/ is added to the repo).
+#
+# The build context is the repo root (~9 GB). Only PyRep/, RLBench/ and
+# docker/online-eval/ are actually COPYed, so exclude everything else.
+*
+
+!PyRep
+!RLBench
+!docker/online-eval
+
+# Fork git history is ~730 MB and irrelevant to the install.
+**/.git
+**/.github
+**/__pycache__
+**/*.pyc
+**/*.egg-info
+PyRep/docs
+PyRep/tests
+PyRep/tutorials
+RLBench/tests
+RLBench/tutorials
+RLBench/readme_files
+RLBench/docs
+# A previously-extracted CoppeliaSim under PyRep/ would bloat the context; the
+# image downloads its own copy to /opt.
+PyRep/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04

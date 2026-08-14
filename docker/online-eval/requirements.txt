@@ -1,0 +1,60 @@
+# Python deps for 3DFA online evaluation (torch/torchvision installed separately
+# from the PyTorch cu121 index in the Dockerfile).
+#
+# Derived from imports in modeling/, datasets/, utils/, data/,
+# online_evaluation_rlbench/, plus PyRep/requirements.txt and
+# RLBench/requirements.txt.
+
+# --- pinned floors/ceilings that actually matter ---------------------------
+# numpy 2.x breaks PyRep/RLBench-era code and zarr 2 / open3d wheels.
+numpy<2
+# datasets/utils.py uses zarr.storage.DirectoryStore and zarr.LRUStoreCache,
+# both removed in zarr 3.
+zarr<3
+
+# --- PyRep / RLBench ------------------------------------------------------
+cffi>=1.0.0
+setuptools
+wheel
+Pillow
+pyquaternion
+natsort
+html-testRunner
+
+# --- model / training stack -----------------------------------------------
+kornia
+transformers
+diffusers
+hydra-core>=1.3.0
+omegaconf
+scipy
+numcodecs
+blosc
+
+# --- point clouds & vision -------------------------------------------------
+# open3d is imported at the top of the online-eval utils ("DON'T DELETE THIS!")
+# because it must load before CoppeliaSim's bundled GL libs.
+open3d
+opencv-python-headless
+imageio
+imageio-ffmpeg
+moviepy
+
+# --- CLIP backbone (config/config.yaml defaults to siglip2, but
+#     backbone=clip loads the openai clip package) --------------------------
+ftfy
+regex
+clip @ git+https://github.com/openai/CLIP.git
+
+# --- logging / plotting / misc --------------------------------------------
+tqdm
+matplotlib
+pandas
+wandb
+absl-py
+websockets
+
+# NOTE: online_evaluation_rlbench/evaluate_policy_external.py additionally
+# imports `openpi_client`, which is not published on PyPI. Install it into
+# /opt/venv yourself if you need the external-policy-server eval path:
+#   uv pip install "openpi-client @ git+https://github.com/Physical-Intelligence/openpi.git#subdirectory=packages/openpi-client"
