@@ -57,5 +57,17 @@ wandb/
 
 *.rrd
 results/
+plots/
+debug_videos/
 # uv environment
 .venv/
+
+# vendored simulator forks (installed from source, not tracked here)
+/PyRep/
+/RLBench/
+
+# paper sources live in the Overleaf project
+/paper/
+
+# agent + editor local state
+.claude/
