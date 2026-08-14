@@ -1,0 +1,89 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "3d-flowmatch-actor"
+version = "0.1.0"
+description = "3D Flow Matching Actor — offline training environment (no sim / online-eval deps)"
+readme = "README.md"
+requires-python = ">=3.11,<3.12"
+license = { file = "LICENSE" }
+
+# Offline-training dependencies only.
+# PyRep / RLBench / CoppeliaSim (online RLBench evaluation) are deliberately NOT
+# declared here; online evaluation runs in a separate container.
+dependencies = [
+    # Core numerics / DL
+    "torch==2.9.1",
+    "torchvision==0.24.1",
+    "numpy>=1.26,<3",
+    "scipy>=1.11",
+    # Config
+    "hydra-core>=1.3.0",
+    "omegaconf>=2.3.0",
+    # Vision / augmentation backbones
+    "transformers>=4.45",
+    "diffusers>=0.31",
+    "kornia>=0.7",
+    # Data storage (zarr v2 API: zarr.storage.DirectoryStore, zarr.LRUStoreCache)
+    "zarr>=2.16,<3",
+    "numcodecs>=0.12,<0.16",
+    "blosc>=1.11",
+    # IO / imaging
+    "pillow>=10.0",
+    "opencv-python-headless>=4.9",
+    "imageio>=2.34",
+    # Logging / progress
+    "wandb>=0.17",
+    "tensorboard>=2.16",
+    "tqdm>=4.66",
+    # Misc
+    "matplotlib>=3.8",
+    "huggingface-hub>=0.24",
+]
+
+[project.optional-dependencies]
+# OpenAI CLIP RN50 backbone (config: backbone=clip). Lazily imported in
+# modeling/encoder/vision/clip.py, so only needed for CLIP-backbone runs.
+clip = [
+    "clip @ git+https://github.com/openai/CLIP.git",
+    "ftfy>=6.1",
+    "regex>=2023.10",
+]
+# Debug / visualization helpers under scripts/helpers/
+viz = [
+    "rerun-sdk>=0.18",
+]
+# Test runner for tests/ (CPU-only, no sim deps).
+dev = [
+    "pytest>=8.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "slow: instantiates real backbones (downloads weights, needs network)",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["config*", "data*", "datasets*", "modeling*", "utils*"]
+exclude = ["PyRep*", "RLBench*", "online_evaluation_rlbench*", "scripts*", "logs*", "paper*", "docs*"]
+
+[tool.uv]
+# torch/torchvision come from the PyTorch CUDA 12.8 index.
+package = true
+# Some packages are mirrored (with incomplete version coverage) on a private
+# CodeArtifact index configured in ~/.config/uv/uv.toml; allow uv to fall
+# through to PyPI for versions that mirror does not carry.
+index-strategy = "unsafe-best-match"
+
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
+[tool.uv.sources]
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }
