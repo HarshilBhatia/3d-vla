@@ -120,3 +120,56 @@ training
 1. default_3dfa.
 2. 3dfa + noise schedule.
 3. ours + noise_schedule.
+
+---
+
+# August 2026 Campaign — FAR infra (B200 training, L40S eval)
+
+Repo moved from grogu to FAR infra 11 Aug 2026. Training: sky managed jobs on ll-sea k8s (B200), staging on `/k8s-nfs/harsvbha/3dfa/`. Online eval: L40S:1 per task on AWS k8s (sky-us-east-1/-2), docker image `rfm-h-eval-job:hb-3dfa-peract2-20260811` (ECR), test seeds + results on `s3://far-research-internal/harsvbha/3dfa/eval/`. All wandb: `far-wandb/3dfa`.
+
+## Training runs
+
+| Job ID | Date | Run name | Config | Hardware | Status |
+|---|---|---|---|---|---|
+| 112602 | 11 Aug | peract2_base_b200 | fork, PerAct2 (HF zarr), siglip2, nhist=1, bs256, lr3e-4, 350k iters | B200:4 | DONE ~8h |
+| 117608 | 12 Aug | peract2_base_nhist3_b200 | = 112602 + num_history=3 | B200:1 | DONE ~13h |
+| 117772 | 12 Aug | peract2_orbital_b200 | orbital PerAct2 (13 tasks x 3 cam groups x 27 eps), nhist=1, 100k iters | B200:4 | CANCELLED @ ~13k (user; pending nhist decision) |
+| 117879 | 12 Aug | upstream_peract2_repro | upstream code @ab70932, their recipe verbatim (CLIP RN50 frozen, bs64, lr1e-4, nhist=3), 350k | B200:1 | DONE ~18.5h (348k last ckpt) |
+| 118960 | 12 Aug | peract2_base_nhist3_clip_b200 | = 117608 + backbone=clip (RN50+FPN) | B200:1 | DONE ~21h |
+
+Batch-size probe (11 Aug, 1x B200, real NFS data): pipeline is dataloader-bound, not GPU-bound — throughput saturates ~950-980 samples/s/GPU from bs128 up (never OOMed through bs1024 = 41GB/183GB). num_workers is the dominant lever (8→16 workers ~2x at bs128). Chosen: bs256 global, 16 workers, lr 3e-4 (capped 3x linear scaling — a deliberate recipe change vs paper's bs32).
+
+## Online eval — PerAct2 13 tasks, NUM_DEMOS=25/variation, max_tries=1
+
+**CRITICAL BUG + CORRECTION (13-14 Aug):** all pre-fix fork evals ran with a train/eval sampler mismatch — `image_space_sampling: true` in config was never forwarded by the trainer (models trained with density FPS) but WAS overlaid from checkpoint config at eval (rollouts ran uniform sampling). Offline val couldn't see it (uses the trainer's model). Cost: ~9 pts (siglip2) to ~31 pts (clip; 32x32 grid = bigger sampler distribution shift). Fixed: trainer forwards the flag (`eb06b4c`), eval takes explicit `ISS` env (`39efdae`), config default flipped to false = density FPS = what was actually trained (`b933802`), shared construction helper + step-0 guardrail so this class of bug crashes instead of silently degrading (`5777b27`..`b933802`). Audit also found `use_learned_abs_pe` dropped (benign — defaults matched) and offline eval scripts dropping 8-9 flags.
+
+Success rates (%), corrected (`_issfix`) where applicable:
+
+| task | base nhist1 | nhist3 (old→fix) | nhist3+clip (old→fix) | upstream repro | released ckpt |
+|---|---|---|---|---|---|
+| push_box | 100 | 92→96 | 88→92 | 96 | 88 |
+| lift_ball | 92 | 100→100 | 96→100 | 100 | 100 |
+| dual_push_buttons | 35 | 82→85 | 61→92 | 90 | 93 |
+| pick_plate | 20 | 84→80 | 68→36 | 76 | 68 |
+| put_item_in_drawer | 75 | 69→89 | 35→91 | 89 | 93 |
+| put_bottle_in_fridge | 4 | 64→76 | 52→84 | 76 | 88 |
+| handover_item | 11 | 90→96 | 26→85 | 83 | 87 |
+| pick_laptop | 0 | 24→60 | 48→76 | 76 | 48 |
+| straighten_rope | 4 | 8→52 | 24→52 | 24 | 16 |
+| sweep_to_dustpan | 80 | 88→100 | 20→100 | 24 | 100 |
+| lift_tray | 96 | 92→92 | 96→100 | 76 | 92 |
+| handover_item_easy | 68 | 96→100 | 20→76 | 100 | 84 |
+| take_tray_out_of_oven | 0 | 100→80 | 40→92 | 88 | 88 |
+| **MEAN** | **45.0** | **76.1→85.1** | **51.8→82.8** | **76.8** | **80.4** |
+
+Eval campaigns: base 11 Aug (jobs 116805-116826), released ckpt 11-12 Aug (117323-117442, upstream code path + patches), nhist3 12 Aug (118915-118931), clip + repro 13 Aug (120514-120549), issfix falsification + re-eval 13-14 Aug (120580-120619).
+
+**Conclusions**
+1. `num_history=3` is the single biggest factor: 45.0 → 76.1 (pre-fix numbers, same recipe otherwise). Tasks the nhist=1 model scored ≤11 on (take_tray 0→100, handover_item 11→90, put_bottle 4→64) recovered dramatically — history disambiguates multi-phase/occluded states.
+2. With the sampler bug fixed, **the fork beats the released checkpoint**: siglip2+nhist3 85.1, clip+nhist3 82.8, vs released 76.8-80.4. siglip2 ≥ clip on our fork; backbone choice is second-order.
+3. Upstream recipe reproduces on our infra (76.8 vs released 80.4, within noise; per-task profiles match). sweep_to_dustpan repro=24 vs released=100 remains an unexplained single-task outlier (fails largely the same seeds as pre-fix fork+clip).
+4. clip pick_plate 68→36 post-fix is the one unexplained regression (possibly variance; re-run with more demos if it matters).
+
+## Orbital PerAct2 dataset (collected 11-12 Aug, local docker swarm)
+
+13 bimanual tasks x 6 camera groups (G1-G6) x 30 eps = 2,340 episodes, 0 failures (2 pick_plate shards clobbered by a pre-flock race, recollected). 4 cams/episode (orbital pair + 2 over-shoulder). Train mapping: task i → groups [i, i+1, i+2] mod 6 (`instructions/peract2_orbital_task_group_mapping.json`), eval group = i+3, 10 rollouts/task protocol. G7 never collected (fully OOD option). Final zarr: 1053 train / 117 val eps, staged `/k8s-nfs/harsvbha/3dfa/data/orbital_peract2/`. Unused shards on local disk (`/local/home/harsvbha/3dfa_data/orbital_peract2/`). Orbital training relaunch pending — recipe decision: siglip2 + nhist=3.
