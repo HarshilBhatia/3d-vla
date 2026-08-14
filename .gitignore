@@ -37,7 +37,10 @@ temp/
 observations/
 test.py
 wandb
+# Broad rule from upstream; the tests/ package is deliberately re-included.
 test*
+!tests/
+!tests/**
 bdp
 debug.sh
 sbatch_script2.slurm
@@ -54,3 +57,5 @@ wandb/
 
 *.rrd
 results/
+# uv environment
+.venv/
