@@ -424,6 +424,7 @@ class RLBenchEnv:
         save_video=False,
         output_file=None,
         progress_file=None,
+        num_demos=None,
     ):
         progress = {}
         if progress_file is not None and os.path.exists(progress_file):
@@ -499,6 +500,9 @@ class RLBenchEnv:
                 if not group_demos:
                     print(f"[orbital eval] WARNING: skipping group {group} for {task_str} (no valid demos loaded)", flush=True)
                     continue
+                if num_demos is not None:
+                    group_demos = group_demos[:num_demos]
+                    print(f"[orbital eval] capped to {len(group_demos)} demos (num_demos={num_demos})", flush=True)
                 from collections import defaultdict
                 _by_var = defaultdict(list)
                 for d in group_demos:

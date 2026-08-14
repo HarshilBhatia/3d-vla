@@ -53,6 +53,8 @@ flags.DEFINE_boolean('state', False,
                      'Record the state (not available for all tasks).')
 flags.DEFINE_integer('seed', 0,
                      'Seed of randomness')
+flags.DEFINE_integer('episode_start', 0,
+                     'Starting episode index (for parallel jobs writing non-overlapping ranges).')
 
 
 def check_and_make(dir):
@@ -122,13 +124,17 @@ def save_demo(demo, example_path):
         pickle.dump(demo, f)
 
 
-def run(i, lock, task_index, variation_count, results, file_lock, tasks):
-    """Each thread will choose one task and variation, and then gather
-    all the episodes_per_task for that variation."""
+def run(i, lock, task_index, results, file_lock, tasks):
+    """Collect episodes_per_task total episodes per task, cycling variations round-robin.
 
-    # Initialize each thread with random seed
-    np.random.seed(FLAGS.seed)
-    random.seed(FLAGS.seed)
+    Episode ep_idx maps to:
+      variation      = ep_idx % n_variations
+      within-var idx = ep_idx // n_variations
+
+    Parallel jobs use --episode_start to write non-overlapping episode ranges.
+    """
+    np.random.seed(FLAGS.seed + i)
+    random.seed(FLAGS.seed + i)
     num_tasks = len(tasks)
 
     img_size = list(map(int, FLAGS.image_size))
@@ -175,90 +181,73 @@ def run(i, lock, task_index, variation_count, results, file_lock, tasks):
         headless=True
     )
     rlbench_env.launch()
-    task_env = None
     tasks_with_problems = results[i] = ''
 
     while True:
-        # Figure out what task/variation this thread is going to do
         with lock:
-
-            if task_index.value >= num_tasks:
-                print('Process', i, 'finished')
-                break
-
-            my_variation_count = variation_count.value
-            t = tasks[task_index.value]
-            task_env = rlbench_env.get_task(t)
-            var_target = task_env.variation_count()
-            if FLAGS.variations >= 0:
-                var_target = np.minimum(FLAGS.variations+FLAGS.offset, var_target)
-            if my_variation_count >= var_target:
-                # If we have reached the required number of variations for this
-                # task, then move on to the next task.
-                variation_count.value = my_variation_count = FLAGS.offset
-                task_index.value += 1
-
-            variation_count.value += 1
             if task_index.value >= num_tasks:
                 print('Process', i, 'finished')
                 break
             t = tasks[task_index.value]
+            task_index.value += 1
 
         task_env = rlbench_env.get_task(t)
-        task_env.set_variation(my_variation_count)
-        descriptions, obs = task_env.reset()
+        n_variations = task_env.variation_count()
 
-        variation_path = os.path.join(
-            FLAGS.save_path, task_env.get_name(),
-            VARIATIONS_FOLDER % my_variation_count
-        )
-        print(variation_path)
+        ep_start = FLAGS.episode_start
+        ep_end = ep_start + FLAGS.episodes_per_task
+        descriptions_saved = set()
 
-        check_and_make(variation_path)
+        for ep_idx in range(ep_start, ep_end):
+            variation = ep_idx % n_variations
+            within_var_idx = ep_idx // n_variations
 
-        with open(os.path.join(variation_path, VARIATION_DESCRIPTIONS), 'wb') as f:
-            pickle.dump(descriptions, f)
+            variation_path = os.path.join(
+                FLAGS.save_path, task_env.get_name(),
+                VARIATIONS_FOLDER % variation
+            )
+            check_and_make(variation_path)
+            episodes_path = os.path.join(variation_path, EPISODES_FOLDER)
+            check_and_make(episodes_path)
+            episode_path = os.path.join(episodes_path, EPISODE_FOLDER % within_var_idx)
 
-        episodes_path = os.path.join(variation_path, EPISODES_FOLDER)
-        check_and_make(episodes_path)
+            if os.path.exists(episode_path):
+                print('[SKIP] ep_idx=%d (var=%d within=%d) already exists' % (
+                    ep_idx, variation, within_var_idx))
+                continue
 
-        abort_variation = False
-        print("episode per task", FLAGS.episodes_per_task)
-        for ex_idx in range(FLAGS.episodes_per_task):
-            print('Process', i, '// Task:', task_env.get_name(),
-                  '// Variation:', my_variation_count, '// Demo:', ex_idx)
+            task_env.set_variation(variation)
+            descriptions, obs = task_env.reset()
+
+            if variation not in descriptions_saved:
+                with file_lock:
+                    desc_path = os.path.join(variation_path, VARIATION_DESCRIPTIONS)
+                    if not os.path.exists(desc_path):
+                        with open(desc_path, 'wb') as f:
+                            pickle.dump(descriptions, f)
+                descriptions_saved.add(variation)
+
+            print('Process %d // Task: %s // Variation: %d // Demo: %d' % (
+                i, task_env.get_name(), variation, within_var_idx))
+
             attempts = 10
             while attempts > 0:
-                episode_path = os.path.join(episodes_path, EPISODE_FOLDER % ex_idx)
-                if os.path.exists(episode_path):
-                    break
                 try:
-                    print("starting demo")
                     demo, = task_env.get_demos(amount=1, live_demos=True)
-                    print("demo collected")
                 except Exception as e:
                     attempts -= 1
                     if attempts > 0:
-                        print('Process %d failed collecting task %s (variation: %d, '
-                              'example: %d). Retrying...\n%s\n' % (
-                                  i, task_env.get_name(), my_variation_count, ex_idx,
-                                  str(e)))
+                        print('Process %d retrying ep_idx=%d: %s' % (i, ep_idx, e))
                         continue
                     problem = (
-                        'Process %d failed collecting task %s (variation: %d, '
-                        'example: %d). Skipping this task/variation.\n%s\n' % (
-                            i, task_env.get_name(), my_variation_count, ex_idx,
-                            str(e))
+                        'Process %d failed task %s ep_idx=%d (var=%d within=%d): %s\n' % (
+                            i, task_env.get_name(), ep_idx, variation, within_var_idx, e)
                     )
                     print(problem)
                     tasks_with_problems += problem
-                    abort_variation = True
                     break
                 with file_lock:
-                    print("saving demo")
                     save_demo(demo, episode_path)
-                break
-            if abort_variation:
                 break
 
     results[i] = tasks_with_problems
@@ -286,18 +275,16 @@ def main(argv):
     file_lock = manager.Lock()
 
     task_index = manager.Value('i', 0)
-    variation_count = manager.Value('i', FLAGS.offset)
     lock = manager.Lock()
 
     check_and_make(FLAGS.save_path)
 
     processes = [Process(
         target=run, args=(
-            i, lock, task_index, variation_count, result_dict, file_lock,
+            i, lock, task_index, result_dict, file_lock,
             tasks))
         for i in range(FLAGS.processes)]
-    
-    
+
     [t.start() for t in processes]
     [t.join() for t in processes]
 

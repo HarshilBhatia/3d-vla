@@ -16,11 +16,13 @@ import numpy as np
 
 CAMERAS = ["orbital_left", "orbital_right", "wrist"]
 
-# Rotation levels: label -> magnitude in degrees (1..10)
+# Rotation levels: label -> magnitude in degrees (1..10, 15, 20)
 ROTATION_LEVELS = {f"{i}deg": float(i) for i in range(1, 11)}
+ROTATION_LEVELS.update({"15deg": 15.0, "20deg": 20.0})
 
-# Translation levels: label -> magnitude in metres (1cm..10cm)
+# Translation levels: label -> magnitude in metres (1cm..10cm, 15cm, 20cm)
 TRANSLATION_LEVELS = {f"{i}cm": i / 100.0 for i in range(1, 11)}
+TRANSLATION_LEVELS.update({"15cm": 0.15, "20cm": 0.20})
 
 
 def _sample_axis_angle(angle_deg, rng):

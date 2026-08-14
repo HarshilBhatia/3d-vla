@@ -1,0 +1,2 @@
+# All groups get a fixed per-group medium noise (from file). No additional random noise.
+orbital_miscal_noise_level: medium
