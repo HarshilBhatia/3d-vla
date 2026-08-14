@@ -18,8 +18,15 @@
 # CLIP text encoder (openai/clip-vit-base-patch32, 512-d) also replaces the
 # SigLIP2 text tower, so both towers change together with this one flag.
 #
-# Repo, uv venv, CLIP weights, and the PerAct2 zarr are pre-staged on NFS:
-#   /k8s-nfs/harsvbha/3dfa/repo        (this repo)
+# Code delivery: `workdir: .` uploads this checkout (including uncommitted work)
+# to ~/sky_workdir on the pod, and the job runs from there. That snapshot is taken
+# once at submit time and re-uploaded byte-identical on every preemption recovery,
+# so a restart resumes the SAME code — unlike the old `cd
+# /k8s-nfs/harsvbha/3dfa/repo`, a shared mutable tree. Note venv_clip DOES carry
+# an editable install of this project frozen to that old NFS path; PYTHONPATH
+# takes precedence over its meta_path finder, and the run block asserts that.
+#
+# NFS holds only environment, weights, data, and outputs — never code:
 #   /k8s-nfs/harsvbha/3dfa/venv_clip   (uv sync --frozen --extra clip, py3.11)
 #   /k8s-nfs/harsvbha/3dfa/clip-cache/RN50.pt   (CLIP RN50 vision weights)
 #   /k8s-nfs/harsvbha/3dfa/data/peract2_zarr/Peract2_zarr/{train,val}.zarr
@@ -44,6 +51,11 @@ resources:
 
 num_nodes: 1
 
+# The whole tree is uploaded, so the job runs this checkout's code. .skyignore
+# keeps it to ~2 MB by excluding .venv, the PyRep/RLBench forks, and every
+# log/checkpoint/plot directory.
+workdir: .
+
 file_mounts:
   ~/.netrc: ~/.netrc
 
@@ -51,7 +63,6 @@ envs:
   # Required for kueue admission on this queue; omitting it leaves the job
   # PENDING indefinitely rather than failing fast.
   PREEMPTIBLE: "1"
-  REPO: /k8s-nfs/harsvbha/3dfa/repo
   VENV: /k8s-nfs/harsvbha/3dfa/venv_clip
   CLIP_CACHE: /k8s-nfs/harsvbha/3dfa/clip-cache
   UV_CACHE_DIR: /k8s-nfs/harsvbha/uv-cache
@@ -92,6 +103,7 @@ setup: |
 run: |
   set -euo pipefail
   umask 000
+  REPO="$HOME/sky_workdir"
   cd "$REPO"
 
   export PYTHONPATH="$REPO:${PYTHONPATH:-}"
@@ -145,6 +157,21 @@ run: |
   echo "Log dir: $LOG_DIR"
   echo "Resume checkpoint (if present): $CKPT"
   echo "Global batch: $BATCH_SIZE   lr: $LR   iters: $TRAIN_ITERS   nhist: $NUM_HISTORY"
+
+  # Prove the run trains the uploaded snapshot, not an NFS tree. An editable
+  # install in the venv (a `uv sync` without --no-install-project leaves one, and
+  # its MAPPING is frozen to the build-time repo path) would otherwise satisfy
+  # `import modeling` from wherever it was built, and the mismatch is invisible in
+  # the logs. PYTHONPATH wins over such a finder — the .pth appends itself to
+  # sys.meta_path, which is consulted only after sys.path — but assert it rather
+  # than trust it. Probed from /tmp so cwd is not on sys.path and PYTHONPATH is
+  # the only thing under test.
+  MODELING=$(cd /tmp && "$VENV/bin/python" -c 'import modeling; print(modeling.__file__)')
+  echo "modeling.__file__: $MODELING"
+  case "$MODELING" in
+    "$REPO"/*) ;;
+    *) echo "FATAL: source is $MODELING, not under the uploaded workdir $REPO" >&2; exit 1 ;;
+  esac
 
   ulimit -n 65536
   "$VENV/bin/torchrun" \

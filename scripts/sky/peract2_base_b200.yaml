@@ -1,11 +1,17 @@
 # 3DFA base training on PerAct2 (13 bimanual tasks), 1 node x 4 B200.
 #
-# Repo, uv venv, and the PerAct2 zarr dataset are pre-staged on NFS by hand:
-#   /k8s-nfs/harsvbha/3dfa/repo   (this repo)
+# Code delivery: `workdir: .` uploads this checkout (including uncommitted work)
+# to ~/sky_workdir on the pod, and the job runs from there. That snapshot is taken
+# once at submit time and is re-uploaded byte-identical on every preemption
+# recovery, so a restart resumes the SAME code. The job used to `cd
+# /k8s-nfs/harsvbha/3dfa/repo` — a shared mutable tree, which meant a restart
+# silently picked up whatever anyone had edited there since launch.
+#
+# NFS holds only environment, data, and outputs — never code:
 #   /k8s-nfs/harsvbha/3dfa/venv   (uv sync --frozen against uv.lock, py3.11)
+#   /k8s-nfs/harsvbha/3dfa/hf-cache                          (SigLIP2 backbone)
 #   /k8s-nfs/harsvbha/3dfa/data/peract2_zarr/Peract2_zarr/{train,val}.zarr
-# The job re-runs `uv sync --frozen` against an NFS uv cache so the venv is
-# reproducible if the staged one is missing or stale, then runs torchrun in place.
+#   /k8s-nfs/harsvbha/3dfa/train_logs                     (checkpoints, resume)
 #
 # batch_size in this repo is GLOBAL: the trainer divides it by world_size
 # (utils/trainers/base.py get_loaders), so batch_size=256 is 64 per GPU on 4 GPUs.
@@ -25,6 +31,11 @@ resources:
 
 num_nodes: 1
 
+# The whole tree is uploaded, so the job runs this checkout's code. .skyignore
+# keeps it to ~2 MB by excluding .venv, the PyRep/RLBench forks, and every
+# log/checkpoint/plot directory.
+workdir: .
+
 file_mounts:
   ~/.netrc: ~/.netrc
 
@@ -32,7 +43,6 @@ envs:
   # Required for kueue admission on this queue; omitting it leaves the job
   # PENDING indefinitely rather than failing fast.
   PREEMPTIBLE: "1"
-  REPO: /k8s-nfs/harsvbha/3dfa/repo
   VENV: /k8s-nfs/harsvbha/3dfa/venv
   UV_CACHE_DIR: /k8s-nfs/harsvbha/uv-cache
   RUN_LOG_DIR: peract2_base_b200
@@ -55,16 +65,20 @@ setup: |
   set -euo pipefail
   umask 000
   # NFS venvs are shared; only rebuild when the interpreter is missing, so
-  # concurrent jobs don't fight over the same tree.
+  # concurrent jobs don't fight over the same tree. The rebuild reads only
+  # pyproject.toml + uv.lock out of the uploaded workdir; the environment itself
+  # stays on NFS, and --no-install-project keeps the repo out of site-packages so
+  # the venv can never shadow the uploaded source.
   if [ ! -x "$VENV/bin/python" ]; then
-    cd "$REPO"
-    UV_PROJECT_ENVIRONMENT="$VENV" uv sync --frozen --python 3.11
+    cd "$HOME/sky_workdir"
+    UV_PROJECT_ENVIRONMENT="$VENV" uv sync --frozen --no-install-project --python 3.11
   fi
   "$VENV/bin/python" -c "import torch, zarr, transformers; print(torch.__version__, torch.cuda.is_available())"
 
 run: |
   set -euo pipefail
   umask 000
+  REPO="$HOME/sky_workdir"
   cd "$REPO"
 
   export PYTHONPATH="$REPO:${PYTHONPATH:-}"
@@ -101,6 +115,21 @@ run: |
   echo "Log dir: $LOG_DIR"
   echo "Resume checkpoint (if present): $CKPT"
   echo "Global batch: $BATCH_SIZE   lr: $LR   iters: $TRAIN_ITERS"
+
+  # Prove the run trains the uploaded snapshot, not an NFS tree. An editable
+  # install in the venv (a `uv sync` without --no-install-project leaves one, and
+  # its MAPPING is frozen to the build-time repo path) would otherwise satisfy
+  # `import modeling` from wherever it was built, and the mismatch is invisible in
+  # the logs. PYTHONPATH wins over such a finder — the .pth appends itself to
+  # sys.meta_path, which is consulted only after sys.path — but assert it rather
+  # than trust it. Probed from /tmp so cwd is not on sys.path and PYTHONPATH is
+  # the only thing under test.
+  MODELING=$(cd /tmp && "$VENV/bin/python" -c 'import modeling; print(modeling.__file__)')
+  echo "modeling.__file__: $MODELING"
+  case "$MODELING" in
+    "$REPO"/*) ;;
+    *) echo "FATAL: source is $MODELING, not under the uploaded workdir $REPO" >&2; exit 1 ;;
+  esac
 
   ulimit -n 65536
   "$VENV/bin/torchrun" \
