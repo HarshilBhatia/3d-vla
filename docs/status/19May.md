@@ -35,7 +35,7 @@ Have different miscalibration for val-labs!
 
 ### Other things to do by tonight? 
 1. writeup everything on overleaf.
-2. finalise experiments. 
+2. fi nalise experiments.
 3. prepare the dataset (full finetune)
 
 
@@ -47,7 +47,7 @@ To strengthen it further: can you evaluate B and D on out-of-distribution noise 
 
 
 Open Questions:
-1. Is this specific to flow policy? - Yes / No idk. 
+1. Is this specific to a generative policy? - Yes / No idk. 
 2. Are there other ways to have adaptive conditioning instead of deltaM + 3D RoPE?
 3. Should we use 6x6 matrix or the full DxD matrix? (size ablation?)
 . 
