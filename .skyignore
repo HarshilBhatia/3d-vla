@@ -1,15 +1,22 @@
-# Keep the SkyPilot workdir upload small: eval jobs need only the Python source,
-# configs, and instruction JSONs. The PyRep/RLBench forks are already installed
-# inside the eval image (/opt/src/PyRep2, /opt/src/RLBench2), and datasets and
-# checkpoints come from S3 at runtime.
+# Keep the SkyPilot workdir upload small. Both training and eval jobs ship this
+# tree as their code: `workdir: .` uploads it per job, so the pod runs the exact
+# snapshot that was submitted and a preemption restart re-runs the same code.
+# Everything excluded here is either already on the pod or belongs on NFS/S3:
+# the PyRep/RLBench forks live in the eval image (/opt/src/PyRep2,
+# /opt/src/RLBench2), the venv lives on NFS, and datasets and checkpoints are
+# read from NFS (training) or S3 (eval) at runtime. The result is ~2 MB.
 #
 # Every directory pattern is anchored with a leading slash. An unanchored `data`
 # matches at any depth and silently drops `config/data/`, which Hydra needs to
 # compose `data/single` — the eval then dies with MissingConfigException.
+#
+# Note what is NOT excluded: the root `data/` package. It is 350 KB of tracked
+# Python (data.generation / data.processing, imported by the orbital eval and the
+# zarr converters), not a dataset directory. The zarr datasets it produces live
+# under /k8s-nfs/harsvbha/3dfa/data and were never in this tree.
 /.git
 /PyRep
 /RLBench
-/data
 /logs
 /train_logs
 /eval_logs
@@ -17,10 +24,16 @@
 /results
 /paper
 /plots
+/docker
 /.venv
+/.pytest_cache
+/wandb
+/3dfa_data
 *.rrd
 *.pth
+*.pt
 *.zip
 *.out
+*.log
 __pycache__
 *.egg-info
