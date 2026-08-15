@@ -171,10 +171,7 @@ class RLBenchEnv:
             arm_action_mode=BimanualEndEffectorPoseViaPlanning(collision_checking=collision_checking),
             gripper_action_mode=HandoverDiscrete() if 'handover' in task_str else BimanualDiscrete()
         )
-        self.env = Environment(
-            self.action_mode, str(data_path), self.obs_config,
-            headless=headless, robot_setup="dual_panda"
-        )
+        self.env = self._make_env(data_path, headless)
 
         # depth2cloud module (optional, enabled via use_depth2cloud)
         ctx = setup_miscalibration(
@@ -185,6 +182,17 @@ class RLBenchEnv:
         )
         self._depth2cloud = ctx.depth2cloud
         self._miscal_T = None
+
+    def _make_env(self, data_path, headless):
+        """Build the RLBench Environment. Subclasses may return a different class."""
+        return Environment(
+            self.action_mode, str(data_path), self.obs_config,
+            headless=headless, robot_setup="dual_panda"
+        )
+
+    def _launch_env(self):
+        """Launch the CoppeliaSim environment. Subclasses may extend."""
+        self.env.launch()
 
     def _get_pcd_from_depth(self, obs):
         """Compute point clouds from depth + extrinsics, applying miscalibration if configured.
@@ -242,6 +250,7 @@ class RLBenchEnv:
         output_file=None,
         progress_file=None,
         num_demos=None,
+        num_demos_total=None,
     ):
         progress = {}
         if progress_file is not None and os.path.exists(progress_file):
@@ -249,22 +258,43 @@ class RLBenchEnv:
                 progress = json.load(f)
             print(f"[resume] loaded {len(progress)} completed demos from {progress_file}", flush=True)
 
-        self.env.launch()
+        self._launch_env()
         task_type = task_file_to_task_class(task_str)
         task = self.env.get_task(task_type)
         task_variations = glob.glob(
             os.path.join(self.data_path, task_str, "variation*")
         )
-        task_variations = [
+        task_variations = sorted(
             int(n.split('/')[-1].replace('variation', ''))
             for n in task_variations
-        ]
+        )
+
+        # num_demos caps episodes PER VARIATION; num_demos_total is a budget for
+        # the whole task, spread as evenly as possible over its variations so a
+        # 46-variation task costs the same as a single-variation one.
+        per_variation = None
+        if num_demos_total is not None:
+            n_var = len(task_variations)
+            base, extra = divmod(int(num_demos_total), n_var)
+            per_variation = {
+                v: base + (1 if i < extra else 0)
+                for i, v in enumerate(task_variations)
+            }
+            task_variations = [v for v in task_variations if per_variation[v] > 0]
+            print(
+                f"[eval] num_demos_total={num_demos_total} over {n_var} variations -> "
+                f"{ {v: per_variation[v] for v in task_variations} }",
+                flush=True,
+            )
 
         var_success_rates = {}
         var_num_valid_demos = {}
 
         for variation in tqdm(task_variations):
             task.set_variation(variation)
+            var_num_demos = (
+                per_variation[variation] if per_variation is not None else num_demos
+            )
             success_rate, valid, num_valid_demos = (
                 self._evaluate_task_on_one_variation(
                     task_str=task_str,
@@ -279,7 +309,7 @@ class RLBenchEnv:
                     output_file=output_file,
                     progress=progress,
                     progress_file=progress_file,
-                    num_demos=num_demos,
+                    num_demos=var_num_demos,
                 )
             )
             if valid:

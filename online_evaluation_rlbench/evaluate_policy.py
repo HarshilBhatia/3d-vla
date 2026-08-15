@@ -25,7 +25,7 @@ _EVAL_RUNTIME_KEYS = frozenset({
     "task", "headless", "max_tries", "seed",
     "cameras_file", "task_group_mapping_file", "camera_groups",
     "orbital_miscal_noise_level", "miscal_rot_level", "miscal_trans_level", "fov_deg",
-    "num_demos",
+    "num_demos", "num_demos_total",
     # The trainer used to drop image_space_sampling from model_kwargs, so a
     # checkpoint's saved value does not reliably describe the sampler it was
     # trained with. The caller must state the sampler explicitly at eval time.
@@ -114,7 +114,9 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # Bimanual vs single-arm utils
-    if args.bimanual:
+    if args.bimanual and "orbital" in args.dataset.lower():
+        from online_evaluation_rlbench.utils_with_orbital_bimanual_rlbench import RLBenchEnv, Actioner
+    elif args.bimanual:
         from online_evaluation_rlbench.utils_with_bimanual_rlbench import RLBenchEnv, Actioner
     elif "orbital" in args.dataset.lower():
         from online_evaluation_rlbench.utils_with_orbital_rlbench import RLBenchEnv, Actioner
@@ -139,7 +141,15 @@ if __name__ == "__main__":
         random.seed(args.seed)
 
         # Per-backend extra kwargs
-        if "orbital" in args.dataset.lower():
+        if args.bimanual and "orbital" in args.dataset.lower():
+            # Scene state comes from the stored test demo; the camera group is an
+            # independent choice, so it must be named explicitly.
+            _env_extra = dict(
+                cameras_file=str(args.cameras_file),
+                spawn_camera_group=args.spawn_camera_group,
+                fov_deg=float(args.fov_deg),
+            )
+        elif "orbital" in args.dataset.lower():
             _env_extra = dict(
                 cameras_file=str(args.cameras_file),
                 task_group_mapping_file=str(args.task_group_mapping_file),
@@ -180,6 +190,11 @@ if __name__ == "__main__":
         actioner = Actioner(model, backbone=_text_backbone, cfg_scale=getattr(args, "cfg_scale", None))
 
         # Evaluate
+        _eval_extra = {}
+        # A whole-task episode budget: only the bimanual harness spreads it over
+        # variations, so pass it only where it is understood.
+        if getattr(args, "num_demos_total", None) is not None:
+            _eval_extra["num_demos_total"] = int(args.num_demos_total)
         var_success_rates = env.evaluate_task_on_multiple_variations(
             task_str,
             max_steps=args.max_steps,
@@ -192,6 +207,7 @@ if __name__ == "__main__":
             output_file=args.output_file,
             progress_file=progress_file,
             num_demos=getattr(args, "num_demos", None),
+            **_eval_extra,
         )
         print()
         print(

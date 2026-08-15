@@ -1,0 +1,132 @@
+# Online eval of an orbital PerAct2 checkpoint — one (task, camera group) per job.
+#
+# This is the orbital counterpart of peract2_online_eval.yaml. The policy was
+# trained on the orbital dataset (4 cameras: orbital_left, orbital_right,
+# wrist_left, wrist_right) over 3 camera groups per task, with a 4th group held
+# out. Each job evaluates ONE camera group, named by SPAWN_GROUP:
+#
+#   in-domain: the first of the task's train_groups
+#   OOD:       the task's eval_group
+#
+# Both read from instructions/peract2_orbital_task_group_mapping.json.
+#
+# Scene state and camera pose are independent, so the stored PerAct2 test seeds
+# serve every camera group: reset_to_demo() replays the seed's scene, and the two
+# orbital VisionSensors are spawned at SPAWN_GROUP's poses regardless. This is how
+# the earlier single-arm orbital evals worked.
+#
+# Launch (see the loop in the campaign notes):
+#   sky jobs launch -n "hb-3dfa-orb-eval-id-$t" -d --infra k8s/sky-us-east-1 \
+#     --env PREEMPTIBLE=1 --env TASK="$t" --env SPAWN_GROUP=G1 \
+#     --env OUT_S3=.../indomain scripts/sky/peract2_orbital_online_eval.yaml
+name: hb-3dfa-orb-eval
+
+resources:
+  accelerators: L40S:1
+  cloud: kubernetes
+  cpus: 8+
+  memory: 32+
+  disk_size: 128
+  image_id: docker:241533154612.dkr.ecr.us-east-1.amazonaws.com/rfm-h-eval-job:hb-3dfa-peract2-20260811
+  # Recover from preemption but never retry on error: a relaunch on a fresh pod
+  # destroys the log that explains the failure.
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 0
+
+num_nodes: 1
+
+# The image ships /workspace/3d_flowmatch_actor as an EMPTY volume, so the job
+# brings its own copy of the repo. .skyignore keeps this to ~10 MB.
+workdir: .
+
+envs:
+  # Required for kueue admission; omitting it leaves the job PENDING.
+  PREEMPTIBLE: "1"
+  TASK: bimanual_push_box
+  # Camera group whose orbital poses are spawned for every rollout.
+  SPAWN_GROUP: G1
+  CKPT_S3: s3://far-research-internal/harsvbha/3dfa/eval/ckpt/peract2_orbital_nhist3_b200.pth
+  SEEDS_S3: s3://far-research-internal/harsvbha/3dfa/eval/peract2_test
+  OUT_S3: s3://far-research-internal/harsvbha/3dfa/eval/results/peract2_orbital_nhist3_b200/indomain
+  # Episode budget for the WHOLE task, spread over its variations — not per
+  # variation. bimanual_dual_push_buttons has 46 variations, so a per-variation
+  # cap of 10 would mean 460 rollouts.
+  NUM_DEMOS_TOTAL: "10"
+  # Scene-token sampler. This checkpoint trained with density FPS
+  # (image_space_sampling=false), so eval must state the same.
+  ISS: "false"
+  # Rollout videos are the only way to separate a policy failure from a harness
+  # failure (wrong camera, wrong scene) when a success rate comes back at zero.
+  SAVE_VIDEO: "true"
+
+run: |
+  set -euo pipefail
+  export AWS_REGION=us-east-1 AWS_DEFAULT_REGION=us-east-1
+
+  REPO=$(pwd)
+
+  # CoppeliaSim needs its own libs on the loader path and must NOT get
+  # QT_QPA_PLATFORM=offscreen — the bundled xcb plugin talks to Xvfb instead.
+  export COPPELIASIM_ROOT=/opt/CoppeliaSim_Edu_V4_1_0_Ubuntu20_04
+  export LD_LIBRARY_PATH="${COPPELIASIM_ROOT}:${LD_LIBRARY_PATH:-}"
+  export QT_QPA_PLATFORM_PLUGIN_PATH="${COPPELIASIM_ROOT}"
+  unset QT_QPA_PLATFORM || true
+  # Set outright, not prepended: the image bakes PYTHONPATH and REPO_DIR pointing
+  # at the empty /workspace volume, which would shadow the uploaded source.
+  export PYTHONPATH="$REPO"
+  export REPO_DIR="$REPO"
+  export XDG_RUNTIME_DIR=/tmp/runtime-root
+  mkdir -p "$XDG_RUNTIME_DIR" && chmod 700 "$XDG_RUNTIME_DIR"
+
+  python -c "import torch; assert torch.cuda.is_available(), 'no CUDA'; print('gpu:', torch.cuda.get_device_name(0))"
+  python -c "from rlbench.action_modes.action_mode import BimanualMoveArmThenGripper; print('bimanual rlbench OK')"
+
+  # The image ships neither the AWS CLI nor boto3.
+  uv pip install --python "$(which python)" --quiet boto3
+  S3=scripts/eval/s3_transfer.py
+
+  LOCAL=/tmp/3dfa_eval
+  mkdir -p "$LOCAL/seeds" "$LOCAL/out"
+  python "$S3" down "$CKPT_S3" "$LOCAL/last.pth"
+  # Only this task's seeds — the full staged set is 1.2 GB across 13 tasks.
+  python "$S3" sync-down "$SEEDS_S3/$TASK" "$LOCAL/seeds/$TASK"
+
+  OUT="$LOCAL/out/results_${TASK}.json"
+
+  # Arch flags are intentionally absent: evaluate_policy.py overlays the
+  # checkpoint's saved training config, so the model is rebuilt exactly as
+  # trained. dataset/bimanual select the orbital-bimanual harness;
+  # image_space_sampling and the camera group are eval-time choices.
+  EVAL_LOG="$LOCAL/out/${TASK}.log"
+  rc=0
+  xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" \
+    python online_evaluation_rlbench/evaluate_policy.py \
+      data=full \
+      bimanual=true \
+      dataset=OrbitalPeract2 \
+      cameras_file=instructions/orbital_cameras_grouped.json \
+      spawn_camera_group="$SPAWN_GROUP" \
+      data_dir="$LOCAL/seeds" \
+      checkpoint="$LOCAL/last.pth" \
+      output_file="$OUT" \
+      task="$TASK" \
+      num_demos_total="$NUM_DEMOS_TOTAL" \
+      image_space_sampling="$ISS" \
+      max_tries=1 \
+      headless=true \
+      save_video="$SAVE_VIDEO" 2>&1 | tee "$EVAL_LOG" || rc=$?
+  python "$S3" up "$EVAL_LOG" "$OUT_S3/logs/${TASK}.log" || true
+  if [ "$rc" -ne 0 ] || [ ! -f "$OUT" ]; then
+    echo "EVAL_FAILED $TASK group=$SPAWN_GROUP rc=$rc — log at $OUT_S3/logs/${TASK}.log" >&2
+    exit 1
+  fi
+
+  python "$S3" up "$OUT" "$OUT_S3/${TASK}.json"
+  # The progress file is the only record of which demos completed.
+  PROGRESS="${OUT%.json}.progress.json"
+  [ -f "$PROGRESS" ] && python "$S3" up "$PROGRESS" "$OUT_S3/${TASK}.progress.json"
+  if [ "$SAVE_VIDEO" = "true" ]; then
+    python "$S3" sync-up "$LOCAL/out" "$OUT_S3/videos/$TASK"
+  fi
+  echo "EVAL_DONE $TASK group=$SPAWN_GROUP"

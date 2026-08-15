@@ -119,6 +119,10 @@ prediction_len: 1
 save_trajectory: false
 save_video: false
 num_demos: null
+# num_demos_total: episode budget for the WHOLE task, spread over its variations
+# (bimanual harness only). num_demos caps per variation; this caps the task, so a
+# 46-variation task costs the same as a single-variation one. null = unused.
+num_demos_total: null
 cfg_scale: null
 
 
