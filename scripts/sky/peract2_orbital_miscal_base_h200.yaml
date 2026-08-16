@@ -49,7 +49,8 @@
 #     `uv sync --frozen --no-install-project` contract as on ll-sea, which keeps
 #     the repo out of site-packages so the venv can never shadow the uploaded
 #     source. That is 8.3 GB not sent over the wire and a lockfile-reproducible
-#     environment rather than a byte copy of one.
+#     environment rather than a byte copy of one. Because two jobs launch at once
+#     and share that NFS venv, the build is under flock — see the setup block.
 name: hb-3dfa-orbital-miscal-base-h200
 
 resources:
@@ -89,10 +90,23 @@ envs:
 setup: |
   set -euo pipefail
   umask 000
+  # Serialize the NFS venv build across concurrently-submitted jobs. The bare
+  # `[ ! -x $VENV/bin/python ]` guard is not enough: this experiment launches two
+  # jobs at the same moment, both saw the venv missing, and both ran `uv sync`
+  # into the SAME NFS tree. They interleaved package installs and the loser died
+  # with FileNotFoundError on a half-written transformers temp dir
+  # (.../models/herbert/.tmpvjwc6r) — the corruption is silent until first import.
+  # flock makes the check-and-build atomic: the second job blocks, then finds a
+  # complete venv and skips the build. The lock lives beside the venv rather than
+  # in /tmp so it is shared across pods.
+  mkdir -p "$(dirname "$VENV")"
+  exec 9>"$(dirname "$VENV")/.venv-build.lock"
+  flock 9
   if [ ! -x "$VENV/bin/python" ]; then
     cd "$HOME/sky_workdir"
     UV_PROJECT_ENVIRONMENT="$VENV" uv sync --frozen --no-install-project --python 3.11
   fi
+  flock -u 9
   "$VENV/bin/python" -c "import torch, zarr, transformers; print(torch.__version__, torch.cuda.is_available())"
 
 run: |
