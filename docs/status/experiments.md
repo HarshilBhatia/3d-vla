@@ -173,3 +173,28 @@ Eval campaigns: base 11 Aug (jobs 116805-116826), released ckpt 11-12 Aug (11732
 ## Orbital PerAct2 dataset (collected 11-12 Aug, local docker swarm)
 
 13 bimanual tasks x 6 camera groups (G1-G6) x 30 eps = 2,340 episodes, 0 failures (2 pick_plate shards clobbered by a pre-flock race, recollected). 4 cams/episode (orbital pair + 2 over-shoulder). Train mapping: task i → groups [i, i+1, i+2] mod 6 (`instructions/peract2_orbital_task_group_mapping.json`), eval group = i+3, 10 rollouts/task protocol. G7 never collected (fully OOD option). Final zarr: 1053 train / 117 val eps, staged `/k8s-nfs/harsvbha/3dfa/data/orbital_peract2/`. Unused shards on local disk (`/local/home/harsvbha/3dfa_data/orbital_peract2/`). Orbital training relaunch pending — recipe decision: siglip2 + nhist=3.
+
+## Orbital PerAct2 — training + camera-generalization eval (14-15 Aug 2026)
+
+Job 120769 `peract2_orbital_nhist3_b200` (B200:4, ~5h20m, 2 recoveries, full 100k iters verified in ckpt). siglip2, nhist=3, bs256, lr3e-4, dataset=OrbitalPeract2. Note: the orbital zarr has `demo_id`, so nhist=3 enables the full visual-history path (3 stacked rgb/depth frames), unlike standard PerAct2 where it was proprio-only. First run under the workdir-upload pattern (provenance assertion in job log).
+
+Eval (jobs hb-3dfa-orb-eval-*, 15 Aug): 10 rollouts/task/condition, in-domain cam = first train group, OOD cam = held-out group per `peract2_orbital_task_group_mapping.json`. Needed a new harness — no code path did bimanual + orbital spawning (`e042de3`, utils_with_orbital_bimanual_rlbench.py; also `num_demos_total` whole-task budget — per-variation num_demos would have run 460 eps on dual_push_buttons).
+
+| task | in-domain | OOD | delta |
+|---|---|---|---|
+| push_box | 0.90 | 1.00 | +0.10 |
+| lift_ball | 1.00 | 0.90 | -0.10 |
+| dual_push_buttons | 1.00 | 0.90 | -0.10 |
+| pick_plate | 0.20 | 0.20 | 0.00 |
+| put_item_in_drawer | 0.80 | 0.50 | -0.30 |
+| put_bottle_in_fridge | 0.90 | 0.90 | 0.00 |
+| handover_item | 1.00 | 1.00 | 0.00 |
+| pick_laptop | 0.60 | 0.30 | -0.30 |
+| straighten_rope | 0.20 | 0.20 | 0.00 |
+| sweep_to_dustpan | 0.70 | 0.60 | -0.10 |
+| lift_tray | 1.00 | 1.00 | 0.00 |
+| handover_item_easy | 1.00 | 1.00 | 0.00 |
+| take_tray_out_of_oven | 1.00 | 0.90 | -0.10 |
+| **MEAN** | **0.792** | **0.723** | **-0.069** |
+
+**Conclusion:** 3-cams-per-task training generalizes well to an unseen camera group: -6.9 pts, with 8/13 tasks unchanged. The drop concentrates in put_item_in_drawer and pick_laptop (-0.30 each). pick_plate and straighten_rope are weak in BOTH conditions (0.20) — task/policy limitation, not viewpoint. G7 (never-collected, fully-OOD pose) remains an untested harder condition. Results/videos: s3://far-research-internal/harsvbha/3dfa/eval/results/peract2_orbital_nhist3_b200/{indomain,ood}/.
