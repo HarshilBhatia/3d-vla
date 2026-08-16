@@ -191,6 +191,10 @@ task_group_mapping_file: null         # path to task_group_mapping.json (eval us
 camera_groups: null                   # override which groups to eval, e.g. "G1" or "G1,G2"; null = use all from mapping
 spawn_camera_group: null              # if set, always spawn this group's cameras regardless of demo group, e.g. "G3"
 fov_deg: 60.0                         # FOV in degrees for orbital VisionSensors
+# eval-time miscalibration from a pre-sampled noise file (orbital single-arm and bimanual).
+# Levels are independent: e.g. miscal_rot_level=5deg + miscal_trans_level=5cm.
+miscal_rot_level: null                # null | 1deg..10deg | 15deg | 20deg
+miscal_trans_level: null              # null | 1cm..10cm | 15cm | 20cm
 
 # RoPE: traj_scene_rope comes from config/rope_mode/<name>.yaml
 

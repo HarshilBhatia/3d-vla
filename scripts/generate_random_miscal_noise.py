@@ -6,6 +6,13 @@ can be combined freely at eval time.
 
 Run from the repo root:
     python scripts/generate_random_miscal_noise.py [--seed 42] [--overwrite]
+
+The bimanual orbital setup has four cameras instead of three, so it gets its own
+file (regenerating the three-camera file with extra cameras would shift every
+existing level's sampled direction and invalidate past sweeps):
+
+    python scripts/generate_random_miscal_noise.py --cameras bimanual \
+        --out instructions/random_miscal_noise_bimanual.json
 """
 import argparse
 import json
@@ -14,7 +21,10 @@ import os
 
 import numpy as np
 
-CAMERAS = ["orbital_left", "orbital_right", "wrist"]
+CAMERA_SETS = {
+    "single": ["orbital_left", "orbital_right", "wrist"],
+    "bimanual": ["orbital_left", "orbital_right", "wrist_left", "wrist_right"],
+}
 
 # Rotation levels: label -> magnitude in degrees (1..10, 15, 20)
 ROTATION_LEVELS = {f"{i}deg": float(i) for i in range(1, 11)}
@@ -37,7 +47,7 @@ def _sample_translation(magnitude_m, rng):
     return (direction * magnitude_m).tolist()
 
 
-def generate(seed, out_path, overwrite):
+def generate(seed, out_path, overwrite, cameras):
     if os.path.exists(out_path) and not overwrite:
         print(f"File already exists: {out_path}. Use --overwrite to regenerate.")
         return
@@ -48,18 +58,18 @@ def generate(seed, out_path, overwrite):
     for label, deg in ROTATION_LEVELS.items():
         rotation_levels[label] = {
             cam: {"axis_angle_rad": _sample_axis_angle(deg, rng)}
-            for cam in CAMERAS
+            for cam in cameras
         }
 
     translation_levels = {}
     for label, mag_m in TRANSLATION_LEVELS.items():
         translation_levels[label] = {
             cam: {"translation_m": _sample_translation(mag_m, rng)}
-            for cam in CAMERAS
+            for cam in cameras
         }
 
     data = {
-        "cameras": CAMERAS,
+        "cameras": cameras,
         "rotation_levels": list(ROTATION_LEVELS.keys()),
         "translation_levels": list(TRANSLATION_LEVELS.keys()),
         "rotation": rotation_levels,
@@ -72,7 +82,7 @@ def generate(seed, out_path, overwrite):
     print(f"Written: {out_path}")
     print(f"  rotation levels:    {list(ROTATION_LEVELS.keys())}")
     print(f"  translation levels: {list(TRANSLATION_LEVELS.keys())}")
-    print(f"  cameras:            {CAMERAS}")
+    print(f"  cameras:            {cameras}")
     print(f"  seed:               {seed}")
 
 
@@ -80,6 +90,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", default="instructions/random_miscal_noise.json")
+    parser.add_argument("--cameras", default="single", choices=sorted(CAMERA_SETS))
     parser.add_argument("--overwrite", action="store_true")
     args = parser.parse_args()
-    generate(args.seed, args.out, args.overwrite)
+    generate(args.seed, args.out, args.overwrite, CAMERA_SETS[args.cameras])

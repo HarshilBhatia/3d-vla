@@ -59,6 +59,13 @@ envs:
   # Rollout videos are the only way to separate a policy failure from a harness
   # failure (wrong camera, wrong scene) when a success rate comes back at zero.
   SAVE_VIDEO: "true"
+  # Eval-time camera miscalibration, paired rot+trans as in the single-arm sweep.
+  # Empty = clean extrinsics (the harness leaves the extrinsics untouched, so an
+  # empty pair reproduces a plain run exactly). Levels name entries in
+  # instructions/random_miscal_noise_bimanual.json, e.g. MISCAL_ROT=5deg
+  # MISCAL_TRANS=5cm.
+  MISCAL_ROT: ""
+  MISCAL_TRANS: ""
 
 run: |
   set -euo pipefail
@@ -99,6 +106,10 @@ run: |
   # trained. dataset/bimanual select the orbital-bimanual harness;
   # image_space_sampling and the camera group are eval-time choices.
   EVAL_LOG="$LOCAL/out/${TASK}.log"
+  # `|| true` because set -e would abort on the test itself when a level is empty.
+  MISCAL_ARGS=()
+  [ -n "$MISCAL_ROT" ]   && MISCAL_ARGS+=("miscal_rot_level=$MISCAL_ROT")   || true
+  [ -n "$MISCAL_TRANS" ] && MISCAL_ARGS+=("miscal_trans_level=$MISCAL_TRANS") || true
   rc=0
   xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" \
     python online_evaluation_rlbench/evaluate_policy.py \
@@ -113,6 +124,7 @@ run: |
       task="$TASK" \
       num_demos_total="$NUM_DEMOS_TOTAL" \
       image_space_sampling="$ISS" \
+      ${MISCAL_ARGS[@]+"${MISCAL_ARGS[@]}"} \
       max_tries=1 \
       headless=true \
       save_video="$SAVE_VIDEO" 2>&1 | tee "$EVAL_LOG" || rc=$?

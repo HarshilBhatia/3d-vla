@@ -148,6 +148,8 @@ if __name__ == "__main__":
                 cameras_file=str(args.cameras_file),
                 spawn_camera_group=args.spawn_camera_group,
                 fov_deg=float(args.fov_deg),
+                miscal_rot_level=getattr(args, "miscal_rot_level", None),
+                miscal_trans_level=getattr(args, "miscal_trans_level", None),
             )
         elif "orbital" in args.dataset.lower():
             _env_extra = dict(

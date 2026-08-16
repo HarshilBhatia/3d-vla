@@ -17,10 +17,22 @@ test set serves every camera group.
 
 Camera order matches data/processing/orbital_utils.process_episode with
 PERACT2_PROFILE: the two orbital cameras first, then the wrists.
+
+Camera miscalibration is optional and enters exactly where it does in the
+single-arm orbital harness: the extrinsics handed to depth->PCD are perturbed
+after capture, so RGB and depth stay untouched and the model sees a corrupted 3D
+scene. `miscal_rot_level` / `miscal_trans_level` name levels in
+instructions/random_miscal_noise_bimanual.json, whose four cameras are listed in
+this harness's camera order.
 """
 
 import numpy as np
 import torch
+
+from utils.data_preprocessors.miscalibration import (
+    apply_miscalibration,
+    load_random_miscal_noise_T,
+)
 
 from data.generation.orbital.collection import (
     load_group_cameras,
@@ -43,6 +55,9 @@ from online_evaluation_rlbench.utils_with_bimanual_rlbench import (  # noqa: F40
 ORBITAL_CAMERAS = ("orbital_left", "orbital_right")
 WRIST_CAMERAS = ("wrist_left", "wrist_right")
 
+# Pre-sampled noise directions for the four-camera bimanual orbital setup.
+BIMANUAL_MISCAL_NOISE_FILE = "instructions/random_miscal_noise_bimanual.json"
+
 
 class RLBenchEnv(BimanualRLBenchEnv):
     """Bimanual RLBench env whose two orbital cameras are spawned per camera group."""
@@ -61,6 +76,8 @@ class RLBenchEnv(BimanualRLBenchEnv):
         cameras_file=None,
         spawn_camera_group=None,
         fov_deg=60.0,
+        miscal_rot_level=None,
+        miscal_trans_level=None,
     ):
         if cameras_file is None:
             raise ValueError("cameras_file must be provided for orbital eval")
@@ -103,6 +120,20 @@ class RLBenchEnv(BimanualRLBenchEnv):
         self._left_sensor = None
         self._right_sensor = None
         self._orbital_extrinsics = None
+
+        self._miscal_T = None
+        if miscal_rot_level is not None or miscal_trans_level is not None:
+            self._miscal_T = load_random_miscal_noise_T(
+                len(apply_cameras),
+                rot_level=miscal_rot_level,
+                trans_level=miscal_trans_level,
+                noise_file=BIMANUAL_MISCAL_NOISE_FILE,
+            )
+            print(
+                f"[orbital bimanual eval] miscal: rot={miscal_rot_level}, "
+                f"trans={miscal_trans_level}, cameras={tuple(apply_cameras)}",
+                flush=True,
+            )
 
     def create_obs_config(self, image_size, apply_rgb, apply_depth, apply_pc, apply_cameras, **kwargs):
         """ObservationConfig for the wrist cameras only.
@@ -204,6 +235,10 @@ class RLBenchEnv(BimanualRLBenchEnv):
         ]
         extrinsics = torch.stack(exts).unsqueeze(0)   # (1, 4, 4, 4)
         intrinsics = torch.stack(ints).unsqueeze(0)   # (1, 4, 3, 3)
+
+        # --- Miscalibration: corrupt only the extrinsics fed to depth→PCD ---
+        if self._miscal_T is not None:
+            extrinsics = apply_miscalibration(extrinsics, self._miscal_T)
 
         pcd = self._depth2cloud(
             depth.cuda(non_blocking=True).to(torch.bfloat16),

@@ -72,12 +72,24 @@ def per_cam_noise_T(noise_dict, cameras, ncam, dtype=torch.float32):
     return T
 
 
-def load_random_miscal_noise_T(ncam, rot_level=None, trans_level=None, dtype=torch.float32):
+def load_random_miscal_noise_T(
+    ncam, rot_level=None, trans_level=None, dtype=torch.float32, noise_file=None
+):
     """Build (ncam, 4, 4) from pre-sampled random_miscal_noise.json.
 
     rot_level and trans_level are independent — pass either or both.
+
+    Args:
+        noise_file: name of / path to the noise file, relative to the repo root or
+            absolute. Defaults to the three-camera single-arm orbital file; the
+            bimanual orbital setup passes random_miscal_noise_bimanual.json, whose
+            four cameras match its apply_cameras order.
     """
-    noise_path = Path(__file__).resolve().parents[2] / "instructions/random_miscal_noise.json"
+    if noise_file is None:
+        noise_file = "instructions/random_miscal_noise.json"
+    noise_path = Path(noise_file)
+    if not noise_path.is_absolute():
+        noise_path = Path(__file__).resolve().parents[2] / noise_path
     with open(noise_path) as f:
         data = json.load(f)
     cameras = data["cameras"]
