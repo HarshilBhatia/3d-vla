@@ -137,10 +137,40 @@ head reads per-camera image features, so the correction is in principle
 recoverable. The random component is only correctable per-scene, which is what
 `dynamic_rope_from_camtoken` is for.
 
-| arm | job / wandb name | run_log_dir | the one delta |
-|---|---|---|---|
-| R1a baseline | `hb-3dfa-orbital-miscal-base-h200` | `orbital_nhist3_miscal_base` | `experiment=default` (`predict_extrinsics=false`) |
-| R1b deltaM | `hb-3dfa-orbital-miscal-deltam-h200` | `orbital_nhist3_miscal_deltaM` | `experiment=camtoken_deltaM` (`delta_m` 6x6, `predict_extrinsics=true`, `dynamic_rope_from_camtoken=true`) |
+| arm | job id | job / wandb name | run_log_dir | wandb | the one delta |
+|---|---|---|---|---|---|
+| R1a baseline | 126269 | `hb-3dfa-orbital-miscal-base-h200` | `orbital_nhist3_miscal_base` | [aq54hwdi](https://far.wandb.io/far-wandb/3dfa/runs/aq54hwdi) | `experiment=default` (`predict_extrinsics=false`) |
+| R1b deltaM | 126270 | `hb-3dfa-orbital-miscal-deltam-h200` | `orbital_nhist3_miscal_deltaM` | [2ks5zjmt](https://far.wandb.io/far-wandb/3dfa/runs/2ks5zjmt) | `experiment=camtoken_deltaM` (`delta_m` 6x6, `predict_extrinsics=true`, `dynamic_rope_from_camtoken=true`) |
+
+Launched 16 Aug 2026, both training. Verified at launch: identical
+`model_kwargs` except `predict_extrinsics` (False vs True), `nhand: 2`,
+`nhist: 3`, `image_space_sampling: False` in both, the provenance assertion
+passing (`modeling.__file__: /root/sky_workdir/modeling/__init__.py`, i.e. the
+uploaded snapshot rather than an NFS tree), `[miscal] loaded from file:
+level='medium', K=6, ncam=4` on both, and losses descending — base 31.4 -> 17.6
+by step 349, deltaM 31.2 -> 19.9 by step 249.
+
+**Two infra bugs were fixed to get here; both are latent for any future pair of
+concurrent jobs sharing an NFS venv.**
+
+1. *Concurrent venv build.* Both arms submit at the same instant and share
+   `$VENV`. The inherited `[ ! -x $VENV/bin/python ]` guard is not atomic across
+   pods: both saw the venv missing, both ran `uv sync` into the same tree, and the
+   loser died on first import with `FileNotFoundError` against a half-written
+   `transformers/models/herbert/.tmpvjwc6r`. The corruption is silent until
+   import, so it does not look like a build failure. Fixed with `flock` on a lock
+   file beside the venv.
+2. *Non-portable interpreter.* `uv sync` defaults to a uv-managed CPython under
+   `~/.local/share/uv/python`, which is **pod-local**. The venv records that path
+   in `pyvenv.cfg` and symlinks `bin/python` into it, so a second pod mounting the
+   same NFS venv finds a dangling symlink — `$VENV/bin/python` reports "No such
+   file or directory" even though the tree is complete. Each pod then rebuilt,
+   clobbering the venv the other pod was mid-run against, which killed the first
+   arm after it had already started training. Fixed with
+   `UV_PYTHON_INSTALL_DIR=/k8s-nfs/harsvbha/3dfa/uv-python`, putting the
+   interpreter on NFS beside the venv. The guard deliberately tests `bin/python`
+   rather than the directory, since a *resolvable* interpreter is the real
+   precondition.
 
 YAMLs: `scripts/sky/peract2_orbital_miscal_{base,deltam}_h200.yaml`. Their
 non-comment lines differ in exactly four places — job name, `RUN_LOG_DIR`,
