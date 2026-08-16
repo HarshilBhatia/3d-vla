@@ -75,6 +75,12 @@ envs:
   # This key is in _EVAL_RUNTIME_KEYS, so it is never inherited from the
   # checkpoint config — it must be named here.
   ORBITAL_MISCAL_LEVEL: ""
+  # Which file ORBITAL_MISCAL_LEVEL is looked up in. Empty = the pinned training
+  # file, instructions/orbital_miscalibration_noise.json. Set to
+  # instructions/orbital_miscalibration_noise_ood.json to apply a held-out fixed
+  # miscalibration of the same magnitude but independent random draws — the strict
+  # test of learned calibration robustness vs memorization of the training base.
+  MISCAL_FILE: ""
 
 run: |
   set -euo pipefail
@@ -120,6 +126,7 @@ run: |
   [ -n "$MISCAL_ROT" ]   && MISCAL_ARGS+=("miscal_rot_level=$MISCAL_ROT")   || true
   [ -n "$MISCAL_TRANS" ] && MISCAL_ARGS+=("miscal_trans_level=$MISCAL_TRANS") || true
   [ -n "$ORBITAL_MISCAL_LEVEL" ] && MISCAL_ARGS+=("orbital_miscal_noise_level=$ORBITAL_MISCAL_LEVEL") || true
+  [ -n "$MISCAL_FILE" ] && MISCAL_ARGS+=("orbital_miscal_noise_file=$MISCAL_FILE") || true
   rc=0
   xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" \
     python online_evaluation_rlbench/evaluate_policy.py \

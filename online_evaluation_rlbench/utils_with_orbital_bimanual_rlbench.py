@@ -34,6 +34,11 @@ spawned camera group. It composes with the random levels exactly as training doe
 
 This is what a checkpoint trained under `miscal=orbital_fixed_medium_randnoise`
 must be evaluated with — the fixed component is part of its world, not noise.
+`orbital_miscal_noise_file` selects which file that base is read from; the default
+is the pinned training file. Pointing it at a same-schema file drawn from the same
+magnitude configs but independent random draws (e.g.
+instructions/orbital_miscalibration_noise_ood.json) tests whether the checkpoint
+generalizes to a calibration error it never saw, as opposed to memorizing one.
 Note that orbital_miscalibration_noise.json lists three cameras
 ("orbital_left", "orbital_right", "wrist"), so with ncam=4 the fourth camera
 (wrist_right) is identity-padded by `per_cam_noise_T`. Training did the same, so
@@ -44,6 +49,7 @@ import numpy as np
 import torch
 
 from utils.data_preprocessors.miscalibration import (
+    ORBITAL_MISCAL_NOISE_FILE,
     _load_orbital_group_noise,
     apply_miscalibration,
     load_random_miscal_noise_T,
@@ -93,6 +99,7 @@ class RLBenchEnv(BimanualRLBenchEnv):
         spawn_camera_group=None,
         fov_deg=60.0,
         orbital_miscal_noise_level=None,
+        orbital_miscal_noise_file=None,
         miscal_rot_level=None,
         miscal_trans_level=None,
     ):
@@ -142,7 +149,9 @@ class RLBenchEnv(BimanualRLBenchEnv):
         # order matches training: T_applied = T_random @ T_base.
         T_base = None
         if orbital_miscal_noise_level is not None:
-            file_cameras, groups, noise = _load_orbital_group_noise(orbital_miscal_noise_level)
+            file_cameras, groups, noise = _load_orbital_group_noise(
+                orbital_miscal_noise_level, noise_file=orbital_miscal_noise_file
+            )
             if self._spawn_camera_group not in noise:
                 raise ValueError(
                     f"No per-group miscal entry for spawn_camera_group="
@@ -156,6 +165,7 @@ class RLBenchEnv(BimanualRLBenchEnv):
             print(
                 f"[orbital bimanual eval] fixed per-group miscal: "
                 f"level='{orbital_miscal_noise_level}', group={self._spawn_camera_group}, "
+                f"file={orbital_miscal_noise_file or ORBITAL_MISCAL_NOISE_FILE}, "
                 f"file_cameras={file_cameras} (cameras beyond these are identity)",
                 flush=True,
             )

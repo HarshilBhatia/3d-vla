@@ -151,20 +151,32 @@ def _parse_noise_entries(cameras, keys, level_data, noise_path, section):
     return noise
 
 
-def _load_orbital_noise_json():
-    """Load and return the parsed orbital_miscalibration_noise.json data dict."""
-    noise_path = Path(__file__).resolve().parents[2] / "instructions/orbital_miscalibration_noise.json"
+ORBITAL_MISCAL_NOISE_FILE = "instructions/orbital_miscalibration_noise.json"
+
+
+def _load_orbital_noise_json(noise_file=None):
+    """Load and return the parsed orbital miscal noise data dict.
+
+    Args:
+        noise_file: path to the noise JSON, relative to the repo root or absolute.
+            Defaults to the pinned training file, ORBITAL_MISCAL_NOISE_FILE. An
+            alternative file with the same schema (e.g. a held-out miscalibration
+            drawn from the same magnitude configs) selects a different fixed base.
+    """
+    noise_path = Path(noise_file or ORBITAL_MISCAL_NOISE_FILE)
+    if not noise_path.is_absolute():
+        noise_path = Path(__file__).resolve().parents[2] / noise_path
     with open(noise_path) as f:
         return json.load(f), noise_path
 
 
-def _load_orbital_group_noise(level):
+def _load_orbital_group_noise(level, noise_file=None):
     """Load per-group orbital miscal noise.
 
     Returns (cameras, groups, noise) where groups is e.g. ["G1", ..., "G6"] and
     noise is {group_str: {cam_name: {"R_noise": Tensor(3,3), "t_noise": Tensor(3)}}}.
     """
-    data, path = _load_orbital_noise_json()
+    data, path = _load_orbital_noise_json(noise_file)
     cameras = data["cameras"]
     groups  = data["groups"]
     if level not in data["levels"]:

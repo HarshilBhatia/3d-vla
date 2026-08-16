@@ -165,6 +165,12 @@ miscal_max_translation_m: null
 # camera_group (1-based uint8) must be present in the zarr (orbital datasets).
 # Can be combined with miscal_max_angle_deg / miscal_max_translation_m to add random noise on top of the fixed base.
 orbital_miscal_noise_level: null
+# which file the fixed per-group base is read from (bimanual orbital online eval only).
+# null/"" = instructions/orbital_miscalibration_noise.json, the file training pinned.
+# Point at a same-schema file with independent draws (e.g.
+# instructions/orbital_miscalibration_noise_ood.json) to evaluate on a never-seen
+# fixed miscalibration of the same magnitude.
+orbital_miscal_noise_file: null
 # per-task constant miscalibration: one fixed noise matrix per task (same magnitude as per-group, different values).
 # Mutually exclusive with orbital_miscal_noise_level. null | "small" | "medium" | "large"
 # per-group multi-level miscalibration: randomly draw one level per batch sample from the list.

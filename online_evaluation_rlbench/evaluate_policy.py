@@ -24,7 +24,8 @@ _EVAL_RUNTIME_KEYS = frozenset({
     "checkpoint", "data_dir", "eval_data_dir", "output_file",
     "task", "headless", "max_tries", "seed",
     "cameras_file", "task_group_mapping_file", "camera_groups",
-    "orbital_miscal_noise_level", "miscal_rot_level", "miscal_trans_level", "fov_deg",
+    "orbital_miscal_noise_level", "orbital_miscal_noise_file",
+    "miscal_rot_level", "miscal_trans_level", "fov_deg",
     "num_demos", "num_demos_total",
     # The trainer used to drop image_space_sampling from model_kwargs, so a
     # checkpoint's saved value does not reliably describe the sampler it was
@@ -149,6 +150,7 @@ if __name__ == "__main__":
                 spawn_camera_group=args.spawn_camera_group,
                 fov_deg=float(args.fov_deg),
                 orbital_miscal_noise_level=getattr(args, "orbital_miscal_noise_level", None),
+                orbital_miscal_noise_file=getattr(args, "orbital_miscal_noise_file", None) or None,
                 miscal_rot_level=getattr(args, "miscal_rot_level", None),
                 miscal_trans_level=getattr(args, "miscal_trans_level", None),
             )
