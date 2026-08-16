@@ -107,7 +107,148 @@ answers it for free.
 
 ---
 
-## c. Experiment ladder
+## c-0. AMENDMENT (16 Aug 2026) — what was actually launched
+
+The R1/R3 split below is **superseded**. R1 as written trains on clean extrinsics
+and R3 adds train-time miscal as a conditional follow-on gated on R2. The launched
+pair instead puts **both arms in the miscalibrated world** and makes deltaM the
+single variable. Rationale: R1-vs-baseline on clean data is the underpowered
+comparison this document itself flags in (d) — our OOD gap is only -6.9 pts and
+10 rollouts/task gives 0.1 resolution, so a 3-pt shift is noise. Miscalibration
+manufactures the large, measurable degradation, and running it as a *matched pair*
+rather than against the previously-paid-for clean baseline removes the confound
+that the reference numbers came from a different data condition. It also collapses
+the R1 -> R2 -> R3 sequence into one round: two runs launched together answer
+"does deltaM correct miscalibration" directly, rather than answering it in a
+conditional third run.
+
+Both arms train on the orbital PerAct2 zarr with **persistently miscalibrated
+extrinsics**: `miscal=orbital_fixed_medium_randnoise`, i.e. per sample
+`T_applied = T_random @ T_base[camera_group]`, where `T_base` is a fixed per-group
+medium perturbation from `instructions/orbital_miscalibration_noise.json`
+(5.7-9.6 deg, 2.9-5.4 cm by camera) and `T_random` is resampled every batch at
+<= 3 deg / <= 1 cm. This is the grogu `fixmed_rn` recipe.
+
+**Hypothesis.** The baseline can only learn *tolerance* — it must average over a
+viewpoint error it can neither observe nor undo. deltaM has an explicit degree of
+freedom to *correct* it from visual evidence. The fixed component is the sharper
+test: it is a persistent, learnable function of the camera group, and the deltaM
+head reads per-camera image features, so the correction is in principle
+recoverable. The random component is only correctable per-scene, which is what
+`dynamic_rope_from_camtoken` is for.
+
+| arm | job / wandb name | run_log_dir | the one delta |
+|---|---|---|---|
+| R1a baseline | `hb-3dfa-orbital-miscal-base-h200` | `orbital_nhist3_miscal_base` | `experiment=default` (`predict_extrinsics=false`) |
+| R1b deltaM | `hb-3dfa-orbital-miscal-deltam-h200` | `orbital_nhist3_miscal_deltaM` | `experiment=camtoken_deltaM` (`delta_m` 6x6, `predict_extrinsics=true`, `dynamic_rope_from_camtoken=true`) |
+
+YAMLs: `scripts/sky/peract2_orbital_miscal_{base,deltam}_h200.yaml`. Their
+non-comment lines differ in exactly four places — job name, `RUN_LOG_DIR`,
+`EXPERIMENT`, `wandb_run_name` — so any result difference is attributable to
+deltaM. Shared recipe (the proven orbital one, unchanged from job 120769):
+siglip2, `num_history=3`, `batch_size=256` global (64/GPU), `lr=3e-4`,
+`train_iters=100000`, `bimanual=true`, `dataset=OrbitalPeract2`,
+`data=orbital_peract2_nfs`, 16 workers, `image_space_sampling` left false.
+
+### Hardware: H200:4 on k8s/ll-lax
+
+B200s on ll-sea were unavailable. H200 quota on ll-lax is uncontended, and 4 GPUs
+matches the recipe's world_size so `batch_size=256` stays 64/GPU — no grad-accum
+substitute is needed (and this codebase has no accumulation flag, so a 2-GPU
+fallback would have meant 128/GPU; memory would have been fine, at maybe half the
+step rate). Peak memory on the B200 run was under 42 GB/GPU, so an H200's 141 GB
+is not a constraint.
+
+### NFS: ll-lax and ll-sea do NOT share /k8s-nfs
+
+Measured, not assumed. ll-sea mounts a lambda CSI PVC
+(`10.46.110.25:/lambda/k8s-csi/pvc-cac15ce6-...`); ll-lax mounts
+`10.208.161.62:/hpc`. Different filesystems, different contents — nothing existed
+under `/k8s-nfs/harsvbha/3dfa` on ll-lax. Staged across explicitly:
+
+* the orbital zarr (5.7 GB) -> `/k8s-nfs/harsvbha/3dfa/data/orbital_peract2/`
+* the SigLIP2 HF cache (1.5 GB) -> `/k8s-nfs/harsvbha/3dfa/hf-cache/`
+
+The **venv was deliberately not copied**. ll-lax pods have pypi egress and
+`/usr/bin/uv`, so the `setup` block rebuilds it in place from the tracked
+`uv.lock` via the same `uv sync --frozen --no-install-project` contract used on
+ll-sea. That avoids sending 8.3 GB and yields a lockfile-reproducible environment
+rather than a byte copy of one; `--no-install-project` keeps the repo out of
+site-packages so the venv can never shadow the uploaded source. Paths in the
+YAMLs are therefore unchanged from the ll-sea template, because the staged layout
+was reproduced at the same mount point.
+
+### Miscal wiring (exact flags, verified)
+
+`miscal=orbital_fixed_medium_randnoise` is a Hydra group
+(`config/miscal/*.yaml`, composed via `miscal@_global_` in `config/config.yaml`)
+that sets three root keys:
+
+```yaml
+orbital_miscal_noise_level: medium   # fixed per-group base, from the JSON
+miscal_max_angle_deg: 3.0            # random top-up, resampled per batch
+miscal_max_translation_m: 0.01
+```
+
+Forwarded at training time by `utils/trainers/base.py:76-81` into the
+`RLBenchDataPreprocessor` constructor; combined in
+`utils/data_preprocessors/rlbench.py::_get_miscal_noise` as `T_rand @ T_base`
+(lines 207-213), with `T_base` looked up by `camera_group - 1` from a lazily built
+`(K, ncam, 4, 4)` table. `camera_group` reaches the preprocessor from the zarr via
+`datasets/rlbench.py:209`. There is no separate deltaM/miscal key needing a
+`MODEL_KWARG_MAP` entry — the construction guardrail did not fire.
+
+### Smoke test (the only pre-launch gate; R0 was deferred by the user)
+
+3 iterations of the exact R1b config — `experiment=camtoken_deltaM
+miscal=orbital_fixed_medium_randnoise bimanual=true dataset=OrbitalPeract2
+num_history=3` — on 2x B200 at batch 8. **Passed, exit 0, no code changes
+required.** This combination (`delta_m` + `dynamic_rope_from_camtoken` + `nhand=2`
++ `ncam=4` + `nhist=3`) had never executed before; the concerns raised in (d)
+about `traj_seq_len` absorbing `nhand=2` and the per-image-token index arithmetic
+at `ncam=4` are now discharged empirically. The loader logged
+`[miscal] per-group FILE: level='medium' + random top-up max_angle=3.0deg,
+max_t=0.01m` and `[miscal] loaded from file: level='medium', K=6, ncam=4`,
+confirming the table is built at the bimanual camera count.
+
+### Eval protocol for these checkpoints (supersedes R2's config delta)
+
+**The world stays miscalibrated.** Eval must reapply the SAME fixed per-group
+medium base these checkpoints trained under, and sweep the random noise on top. A
+clean-extrinsics eval of either checkpoint measures nothing this experiment asked
+about, and the R1a-vs-R1b comparison is only valid when both are evaluated under
+identical extrinsics. `eval_use_depth2cloud=true` and `ISS=false` as before.
+
+**Blocker found — eval-side plumbing gap, not a config flag.** The bimanual
+orbital harness (`utils_with_orbital_bimanual_rlbench.py`, the one
+`evaluate_policy.py:118` dispatches to for `bimanual + orbital`) accepts only
+`miscal_rot_level` / `miscal_trans_level`, resolved against
+`instructions/random_miscal_noise_bimanual.json`. It does **not** accept
+`orbital_miscal_noise_level` — `evaluate_policy.py:151-152` passes only the two
+random levels on the bimanual branch, while the single-arm branch (:159-161)
+passes all three. So the fixed per-group base **cannot currently be reproduced at
+eval time** for these checkpoints. Two things are needed before R2:
+
+1. Thread `orbital_miscal_noise_level` through the bimanual branch and harness,
+   mirroring the single-arm path.
+2. Regenerate the per-group noise file for 4 cameras. The existing
+   `instructions/orbital_miscalibration_noise.json` lists
+   `["orbital_left", "orbital_right", "wrist"]` — the 3-camera single-arm set.
+   `per_cam_noise_T` (`miscalibration.py:59-72`) pads cameras beyond the file's
+   list with **identity**, silently. Training therefore perturbs cameras 0-2 and
+   leaves camera 3 (`wrist_right`) clean. That is self-consistent within this
+   experiment — both arms see exactly the same thing, so the comparison stands —
+   but it must be reproduced exactly at eval, and it is worth knowing that the
+   4th camera is uncorrupted rather than assuming all four are.
+   `scripts/generate_orbital_miscal_noise.py --cameras orbital_left
+   orbital_right wrist_left wrist_right` would produce the matching 4-camera file,
+   but regenerating it would invalidate these checkpoints' training condition —
+   so pin the current file alongside them, exactly as the norm-stats rule
+   requires.
+
+---
+
+## c. Experiment ladder *(R1/R3 superseded by c-0; R2/R4 still apply)*
 
 Costs: one 100k-iter orbital run = **4x B200 for ~5h20m ≈ 21 B200-hours**
 (job 120769 actual). One eval condition = **13 L40S jobs** (1/task, 10 rollouts).

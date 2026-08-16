@@ -1,0 +1,162 @@
+# R1a — orbital PerAct2 bimanual BASELINE under persistent camera miscalibration.
+# 1 node x 4 H200 on k8s/ll-lax.
+#
+# Program: the deltaM ladder in docs/status/deltaM_plan.md, section (c). This is
+# the control arm; scripts/sky/peract2_orbital_miscal_deltam_h200.yaml is the
+# experiment arm and differs by EXACTLY ONE line (`experiment=camtoken_deltaM`
+# rather than `experiment=default`). Everything else — data, miscal, nhist,
+# batch, lr, iters, worker count — is byte-identical between the two files, which
+# is the whole point: any difference in the result is attributable to deltaM.
+#
+# WHAT IS DIFFERENT FROM THE CLEAN BASELINE (job 120769, 79.2 in-domain / 72.3 OOD):
+# the world is now PERSISTENTLY MISCALIBRATED. `miscal=orbital_fixed_medium_randnoise`
+# applies, per sample:
+#     T_applied = T_random @ T_base[camera_group]
+# where T_base is a FIXED per-camera-group medium perturbation read from
+# instructions/orbital_miscalibration_noise.json (~5.7-9.6 deg, ~2.9-5.4 cm
+# depending on camera), and T_random is freshly sampled every batch with
+# |angle| <= 3 deg and |t| <= 1 cm (utils/data_preprocessors/rlbench.py
+# _get_miscal_noise / _sample_random_miscalibration). The perturbation is applied
+# to the extrinsics handed to depth->PCD, so RGB and depth are untouched and the
+# model sees a corrupted 3D scene. This is the grogu `fixmed_rn` recipe.
+#
+# HYPOTHESIS UNDER TEST (this arm): with no mechanism to correct the perturbation,
+# the baseline can only learn *tolerance* — it must average over a viewpoint error
+# it cannot observe or undo. The deltaM arm gets an explicit degree of freedom to
+# CORRECT both the fixed and the random component from visual evidence.
+#
+# EVAL PROTOCOL FOR THESE CHECKPOINTS (R2 — read this before evaluating):
+# the world stays miscalibrated. Eval MUST reapply the SAME fixed per-group
+# medium miscalibration these checkpoints trained under, and sweep the random
+# noise on top. A clean-extrinsics eval of this checkpoint measures nothing the
+# program asked about. NOTE the plumbing gap documented in the plan doc: the
+# bimanual orbital eval harness
+# (online_evaluation_rlbench/utils_with_orbital_bimanual_rlbench.py) accepts only
+# `miscal_rot_level` / `miscal_trans_level` from
+# instructions/random_miscal_noise_bimanual.json and does NOT accept
+# `orbital_miscal_noise_level`, so the fixed per-group base CANNOT yet be
+# reproduced at eval time. That is an eval-side code change, not a config flag.
+#
+# Code delivery, NFS layout, and the provenance assertion are inherited from
+# peract2_orbital_b200.yaml — see that file's header. Two deltas for ll-lax:
+#
+#   * ll-lax /k8s-nfs IS A DIFFERENT FILESYSTEM from ll-sea's. ll-sea mounts a
+#     lambda CSI PVC (10.46.110.25); ll-lax mounts 10.208.161.62:/hpc. There is
+#     no parity and nothing under /k8s-nfs/harsvbha/3dfa existed on ll-lax, so
+#     the orbital zarr and the SigLIP2 HF cache were staged across explicitly.
+#   * The venv is NOT copied. ll-lax pods have pypi egress and /usr/bin/uv, so
+#     the setup block rebuilds it in place from the tracked uv.lock — the same
+#     `uv sync --frozen --no-install-project` contract as on ll-sea, which keeps
+#     the repo out of site-packages so the venv can never shadow the uploaded
+#     source. That is 8.3 GB not sent over the wire and a lockfile-reproducible
+#     environment rather than a byte copy of one.
+name: hb-3dfa-orbital-miscal-base-h200
+
+resources:
+  infra: k8s/ll-lax
+  accelerators: H200:4
+  disk_size: 512
+  image_id:
+    ll-lax: 913524929094.dkr.ecr.us-east-1.amazonaws.com/covariant-dev:latest_updatabot
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 3
+
+num_nodes: 1
+
+workdir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc
+
+envs:
+  PREEMPTIBLE: "1"
+  VENV: /k8s-nfs/harsvbha/3dfa/venv
+  UV_CACHE_DIR: /k8s-nfs/harsvbha/uv-cache
+  RUN_LOG_DIR: orbital_nhist3_miscal_base
+  BASE_LOG_DIR: /k8s-nfs/harsvbha/3dfa/train_logs
+  # Global batch; the trainer divides by world_size (4) -> 64 per GPU. The B200
+  # run peaked under 42 GB/GPU, so an H200's 141 GB is not a constraint here.
+  BATCH_SIZE: "256"
+  LR: "0.0003"
+  NUM_WORKERS: "16"
+  TRAIN_ITERS: "100000"
+  NUM_HISTORY: "3"
+  # The one knob that separates this file from the deltaM arm.
+  EXPERIMENT: default
+  MISCAL: orbital_fixed_medium_randnoise
+
+setup: |
+  set -euo pipefail
+  umask 000
+  if [ ! -x "$VENV/bin/python" ]; then
+    cd "$HOME/sky_workdir"
+    UV_PROJECT_ENVIRONMENT="$VENV" uv sync --frozen --no-install-project --python 3.11
+  fi
+  "$VENV/bin/python" -c "import torch, zarr, transformers; print(torch.__version__, torch.cuda.is_available())"
+
+run: |
+  set -euo pipefail
+  umask 000
+  REPO="$HOME/sky_workdir"
+  cd "$REPO"
+
+  export PYTHONPATH="$REPO:${PYTHONPATH:-}"
+  export TOKENIZERS_PARALLELISM=false
+  export PYTORCH_ALLOC_CONF=expandable_segments:True
+  export HF_HUB_CACHE=/k8s-nfs/harsvbha/3dfa/hf-cache
+  export HF_HUB_OFFLINE=1
+  export TORCH_HOME="$HOME/.cache/torch"
+  export WANDB_BASE_URL=https://far.wandb.io
+  export WANDB_CACHE_DIR="$HOME/.cache/wandb"
+  export WANDB_CONFIG_DIR="$HOME/.config/wandb"
+  mkdir -p "$TORCH_HOME" "$WANDB_CACHE_DIR" "$WANDB_CONFIG_DIR"
+  chmod 600 "$HOME/.netrc"
+  export WANDB_API_KEY=$("$VENV/bin/python" -c 'import netrc; print(netrc.netrc().authenticators("far.wandb.io")[2])')
+
+  LOG_DIR="$BASE_LOG_DIR/exp/$RUN_LOG_DIR"
+  mkdir -p "$LOG_DIR"
+  CKPT="$LOG_DIR/last.pth"
+
+  echo "Repo: $REPO"
+  echo "Venv: $VENV"
+  echo "Log dir: $LOG_DIR"
+  echo "Resume checkpoint (if present): $CKPT"
+  echo "Global batch: $BATCH_SIZE   lr: $LR   iters: $TRAIN_ITERS   nhist: $NUM_HISTORY"
+  echo "Experiment: $EXPERIMENT   miscal: $MISCAL"
+
+  MODELING=$(cd /tmp && "$VENV/bin/python" -c 'import modeling; print(modeling.__file__)')
+  echo "modeling.__file__: $MODELING"
+  case "$MODELING" in
+    "$REPO"/*) ;;
+    *) echo "FATAL: source is $MODELING, not under the uploaded workdir $REPO" >&2; exit 1 ;;
+  esac
+
+  ulimit -n 65536
+  "$VENV/bin/torchrun" \
+    --nnodes=1 \
+    --nproc_per_node=4 \
+    --master_port=29500 \
+    --max-restarts=3 \
+    main.py \
+    data=orbital_peract2_nfs \
+    experiment="$EXPERIMENT" \
+    miscal="$MISCAL" \
+    bimanual=true \
+    dataset=OrbitalPeract2 \
+    num_history="$NUM_HISTORY" \
+    batch_size="$BATCH_SIZE" \
+    batch_size_val=64 \
+    lr="$LR" \
+    backbone_lr="$LR" \
+    train_iters="$TRAIN_ITERS" \
+    base_log_dir="$BASE_LOG_DIR" \
+    exp_log_dir=exp \
+    run_log_dir="$RUN_LOG_DIR" \
+    checkpoint="$CKPT" \
+    use_wandb=true \
+    wandb_entity=far-wandb \
+    wandb_project=3dfa \
+    wandb_run_name=hb-3dfa-orbital-miscal-base-h200 \
+    num_workers="$NUM_WORKERS" \
+    prefetch_factor=4
