@@ -66,6 +66,15 @@ envs:
   # MISCAL_TRANS=5cm.
   MISCAL_ROT: ""
   MISCAL_TRANS: ""
+  # Fixed per-camera-group miscalibration base from
+  # instructions/orbital_miscalibration_noise.json, composed UNDER the random
+  # levels above (T_random @ T_base) exactly as training composes them. Required
+  # when evaluating a checkpoint trained with miscal=orbital_fixed_medium_*:
+  # that base is part of the checkpoint's world, so omitting it evaluates a
+  # different condition than it trained on. Empty = clean base.
+  # This key is in _EVAL_RUNTIME_KEYS, so it is never inherited from the
+  # checkpoint config — it must be named here.
+  ORBITAL_MISCAL_LEVEL: ""
 
 run: |
   set -euo pipefail
@@ -110,6 +119,7 @@ run: |
   MISCAL_ARGS=()
   [ -n "$MISCAL_ROT" ]   && MISCAL_ARGS+=("miscal_rot_level=$MISCAL_ROT")   || true
   [ -n "$MISCAL_TRANS" ] && MISCAL_ARGS+=("miscal_trans_level=$MISCAL_TRANS") || true
+  [ -n "$ORBITAL_MISCAL_LEVEL" ] && MISCAL_ARGS+=("orbital_miscal_noise_level=$ORBITAL_MISCAL_LEVEL") || true
   rc=0
   xvfb-run -a --server-args="-screen 0 1280x1024x24 +extension GLX +render" \
     python online_evaluation_rlbench/evaluate_policy.py \

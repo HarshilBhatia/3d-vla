@@ -24,14 +24,30 @@ after capture, so RGB and depth stay untouched and the model sees a corrupted 3D
 scene. `miscal_rot_level` / `miscal_trans_level` name levels in
 instructions/random_miscal_noise_bimanual.json, whose four cameras are listed in
 this harness's camera order.
+
+`orbital_miscal_noise_level` additionally applies the FIXED per-camera-group base
+perturbation from instructions/orbital_miscalibration_noise.json, looked up by the
+spawned camera group. It composes with the random levels exactly as training does
+(utils/data_preprocessors/rlbench.py::_get_miscal_noise):
+
+    T_applied = T_random @ T_base[group]
+
+This is what a checkpoint trained under `miscal=orbital_fixed_medium_randnoise`
+must be evaluated with — the fixed component is part of its world, not noise.
+Note that orbital_miscalibration_noise.json lists three cameras
+("orbital_left", "orbital_right", "wrist"), so with ncam=4 the fourth camera
+(wrist_right) is identity-padded by `per_cam_noise_T`. Training did the same, so
+reproducing it here is deliberate.
 """
 
 import numpy as np
 import torch
 
 from utils.data_preprocessors.miscalibration import (
+    _load_orbital_group_noise,
     apply_miscalibration,
     load_random_miscal_noise_T,
+    per_cam_noise_T,
 )
 
 from data.generation.orbital.collection import (
@@ -76,6 +92,7 @@ class RLBenchEnv(BimanualRLBenchEnv):
         cameras_file=None,
         spawn_camera_group=None,
         fov_deg=60.0,
+        orbital_miscal_noise_level=None,
         miscal_rot_level=None,
         miscal_trans_level=None,
     ):
@@ -121,19 +138,48 @@ class RLBenchEnv(BimanualRLBenchEnv):
         self._right_sensor = None
         self._orbital_extrinsics = None
 
-        self._miscal_T = None
+        # Fixed per-group base, then the random top-up on top of it. Composition
+        # order matches training: T_applied = T_random @ T_base.
+        T_base = None
+        if orbital_miscal_noise_level is not None:
+            file_cameras, groups, noise = _load_orbital_group_noise(orbital_miscal_noise_level)
+            if self._spawn_camera_group not in noise:
+                raise ValueError(
+                    f"No per-group miscal entry for spawn_camera_group="
+                    f"'{self._spawn_camera_group}' at level '{orbital_miscal_noise_level}'. "
+                    f"Available groups: {groups}"
+                )
+            ncam = len(apply_cameras)
+            T_base = per_cam_noise_T(
+                noise[self._spawn_camera_group], file_cameras[:ncam], ncam
+            )
+            print(
+                f"[orbital bimanual eval] fixed per-group miscal: "
+                f"level='{orbital_miscal_noise_level}', group={self._spawn_camera_group}, "
+                f"file_cameras={file_cameras} (cameras beyond these are identity)",
+                flush=True,
+            )
+
+        T_rand = None
         if miscal_rot_level is not None or miscal_trans_level is not None:
-            self._miscal_T = load_random_miscal_noise_T(
+            T_rand = load_random_miscal_noise_T(
                 len(apply_cameras),
                 rot_level=miscal_rot_level,
                 trans_level=miscal_trans_level,
                 noise_file=BIMANUAL_MISCAL_NOISE_FILE,
             )
             print(
-                f"[orbital bimanual eval] miscal: rot={miscal_rot_level}, "
+                f"[orbital bimanual eval] random miscal: rot={miscal_rot_level}, "
                 f"trans={miscal_trans_level}, cameras={tuple(apply_cameras)}",
                 flush=True,
             )
+
+        if T_base is None:
+            self._miscal_T = T_rand
+        elif T_rand is None:
+            self._miscal_T = T_base
+        else:
+            self._miscal_T = T_rand @ T_base
 
     def create_obs_config(self, image_size, apply_rgb, apply_depth, apply_pc, apply_cameras, **kwargs):
         """ObservationConfig for the wrist cameras only.
