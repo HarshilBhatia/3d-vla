@@ -198,3 +198,36 @@ Eval (jobs hb-3dfa-orb-eval-*, 15 Aug): 10 rollouts/task/condition, in-domain ca
 | **MEAN** | **0.792** | **0.723** | **-0.069** |
 
 **Conclusion:** 3-cams-per-task training generalizes well to an unseen camera group: -6.9 pts, with 8/13 tasks unchanged. The drop concentrates in put_item_in_drawer and pick_laptop (-0.30 each). pick_plate and straighten_rope are weak in BOTH conditions (0.20) — task/policy limitation, not viewpoint. G7 (never-collected, fully-OOD pose) remains an untested harder condition. Results/videos: s3://far-research-internal/harsvbha/3dfa/eval/results/peract2_orbital_nhist3_b200/{indomain,ood}/.
+
+## Orbital PerAct2 — camera-miscalibration noise sweep, OOD camera (16 Aug 2026)
+
+Jobs `hb-3dfa-orbnoise-<level>-<task>` (52 jobs, L40S:1, sky-us-east-1/-2). Checkpoint `peract2_orbital_nhist3_b200` @ iter 100000, `predict_extrinsics=false`. Same condition as the OOD column above — per-task `eval_group`, 10 rollouts/task, `image_space_sampling=false` — plus paired rot+trans miscalibration at eval time (`miscal_rot_level` + `miscal_trans_level`). The 0 column IS the OOD column above (not rerun: with no levels set the harness leaves extrinsics untouched, and the 5deg+5cm smoke confirmed the noise path only engages when a level is named).
+
+The grogu-era sweep machinery was single-arm only; `d586f71` extends it to the 4-camera bimanual orbital harness. Noise perturbs only the extrinsics fed to depth→PCD (RGB and depth untouched), so the model sees a corrupted 3D scene. Directions are pre-sampled per camera in `instructions/random_miscal_noise_bimanual.json`.
+
+| Task | 0 | 2deg+2cm | 5deg+5cm | 10deg+10cm | 15deg+15cm |
+|---|:---:|:---:|:---:|:---:|:---:|
+| push_box | 1.0 | 0.8 | 0.5 | 1.0 | 0.0 |
+| lift_ball | 0.9 | 1.0 | 0.0 | 0.0 | 0.2 |
+| dual_push_buttons | 0.9 | 0.0 | 0.0 | 0.0 | 0.0 |
+| pick_plate | 0.2 | 0.0 | 0.0 | 0.0 | 0.0 |
+| put_item_in_drawer | 0.5 | 0.0 | 0.0 | 0.0 | 0.0 |
+| put_bottle_in_fridge | 0.9 | 0.5 | 0.2 | 0.0 | 0.0 |
+| handover_item | 1.0 | 0.5 | 0.3 | 0.0 | 0.0 |
+| pick_laptop | 0.3 | 0.0 | 0.0 | 0.0 | 0.0 |
+| straighten_rope | 0.2 | 0.2 | 0.0 | 0.0 | 0.0 |
+| sweep_to_dustpan | 0.6 | 0.0 | 0.0 | 0.0 | 0.0 |
+| lift_tray | 1.0 | 0.9 | 0.3 | 0.0 | 0.0 |
+| handover_item_easy | 1.0 | 0.1 | 0.2 | 0.0 | 0.0 |
+| take_tray_out_of_oven | 0.9 | 0.7 | 0.0 | 0.0 | 0.0 |
+| **MEAN** | **0.723** | **0.362** | **0.115** | **0.077** | **0.015** |
+| retained vs 0 | 100% | 50% | 16% | 11% | 2% |
+| tasks at 0.0 | 0/13 | 6/13 | 8/13 | 12/13 | 12/13 |
+
+**Conclusion:** The curve collapses far earlier than the grogu-era single-arm default 3DFA did. There, `default_3dfa` on turn_tap held 0.91 at 2deg and 0.43 at 5deg before reaching 0.00 at 15deg; here half the performance is gone by **2deg+2cm** and 84% by 5deg+5cm, with 6/13 tasks already at zero at 2deg. Two plausible contributors: bimanual tasks need both arms' 3D estimates to be right simultaneously, so per-arm failures compound, and the OOD camera group already spends the model's viewpoint slack before any noise is added (the single-arm sweep ran at a trained G7 pose). Task strength at 0 noise does not predict robustness — handover_item_easy and dual_push_buttons are both 1.0/0.9 clean yet drop to 0.1/0.0 at 2deg, while push_box holds 0.5 at 5deg.
+
+Two non-monotonic cells: push_box 1.0 at 10deg (vs 0.5 at 5deg) and lift_ball 0.2 at 15deg (vs 0.0 at 5/10deg). Both were verified as genuine runs (correct level in the log, 10/10 episodes) — the noise direction is a single fixed sample per level, so a level can happen to perturb along an axis this task tolerates. At 10 rollouts/task the per-cell noise floor is ±0.15, so read the level means, not individual cells.
+
+This is the **no-deltaM baseline** for the upcoming extrinsics-prediction experiments. The bar the deltaM variants must clear: grogu-era `deltaM_EEF` stayed at 0.77 and `fixmed_rn` at 0.71 at 15deg+15cm on turn_tap, against this checkpoint's 0.015 mean. The steepness here means even a modest deltaM gain will be legible — but note grogu's robust variants were also *trained* with miscal noise, which this baseline was not, so a fair comparison needs a noise-trained bimanual control too.
+
+Results: `s3://far-research-internal/harsvbha/3dfa/eval/results/peract2_orbital_nhist3_b200/noise_{2deg2cm,5deg5cm,10deg10cm,15deg15cm}/`. Re-run one level with: `sky jobs launch -y -d -n hb-3dfa-orbnoise-5deg5cm-<task> --infra k8s/sky-us-east-1 --env PREEMPTIBLE=1 --env TASK=<task> --env SPAWN_GROUP=<eval_group> --env MISCAL_ROT=5deg --env MISCAL_TRANS=5cm --env OUT_S3=.../noise_5deg5cm scripts/sky/peract2_orbital_online_eval.yaml`. sky-us-east-2 had no L40S capacity for the duration — three jobs sat STARTING for 30+ min and were relaunched into east-1; prefer east-1 for L40S eval waves.
