@@ -354,3 +354,118 @@ R1b again pays for deltaM: 0.569 clean vs R1a's 0.692, a **-12.3 pt** gap that m
 * Train-time miscal noise should become the **default** for orbital training given the ~free 4x robustness.
 
 Results: `s3://far-research-internal/harsvbha/3dfa/eval/results/{orbital_miscal_base,orbital_miscal_deltam}/{clean0,noise_0,noise_2deg2cm,noise_5deg5cm,noise_10deg10cm,noise_15deg15cm}/`. Checkpoints: `s3://far-research-internal/harsvbha/3dfa/eval/ckpt/orbital_miscal_{base,deltam}.pth`. Re-run one cell with `--env ORBITAL_MISCAL_LEVEL=medium --env MISCAL_ROT=5deg --env MISCAL_TRANS=5cm` on `scripts/sky/peract2_orbital_online_eval.yaml`.
+
+## R2b — OOD fixed miscalibration: does miscal training generalize or memorize? (16 Aug 2026)
+
+R2 established that train-time miscal buys 4x robustness at 5deg. But every R2 cell
+applied the *same* fixed per-group base the checkpoints trained on
+(`instructions/orbital_miscalibration_noise.json`), so "robustness" was untested
+against the alternative reading: the models simply absorbed one specific calibration
+error into their weights. This round applies a **never-seen fixed miscalibration of
+the same magnitude** and no random noise on top, isolating the fixed-base
+generalization question.
+
+### The held-out miscalibration (`17a440e`)
+
+`instructions/orbital_miscalibration_noise_ood.json` — same generator
+(`scripts/generate_orbital_miscal_noise.py`), same magnitude configs, seed **3187**
+instead of 42. The seed was chosen by searching 4000 candidates for the closest
+match to the training file's aggregate magnitude, so an SR difference cannot be
+dismissed as an easier or harder condition:
+
+| medium level | mean angle | mean \|t\| | angle range | \|t\| range | mean axis separation vs training |
+|---|:---:|:---:|:---:|:---:|:---:|
+| training (seed 42) | 5.95 deg | 5.26 cm | 1.06-9.72 deg | 2.1-7.1 cm | — |
+| **OOD (seed 3187)** | **5.90 deg** | **5.26 cm** | **1.42-9.64 deg** | **3.0-6.7 cm** | **82 deg** |
+
+Magnitudes match to within 1%; the per-camera rotation axes point in genuinely
+different directions (82 deg apart on average). Same three-camera structure, so
+`wrist_right` stays identity-padded at ncam=4 exactly as in training and R2. The
+training file is untouched and still pinned.
+
+`orbital_miscal_noise_file` (env `MISCAL_FILE`) selects the file; the default is
+unchanged, and the harness logs which file it loaded. Added to `_EVAL_RUNTIME_KEYS`
+so it is never inherited from a checkpoint.
+
+**26 jobs** (`hb-3dfa-oodmiscal-{base,dm}-<task>`, L40S:1, all sky-us-east-1): 2 ckpts
+x 13 tasks x OOD base at level medium x 10 rollouts, per-task `eval_group`. Zero
+failures. All 26 logs were verified to carry
+`file=instructions/orbital_miscalibration_noise_ood.json`, the correct group, **no**
+`random miscal:` line, and the right `predict_extrinsics` value read from the
+checkpoint. Smoke gate: base ckpt, `push_box` -> **0.70**, matching its trained-miscal
+cell exactly.
+
+### Results — mean SR over 13 tasks, OOD camera, no random noise
+
+| condition | R1a (no deltaM) | R1b (deltaM) |
+|---|:---:|:---:|
+| clean extrinsics (clean0) | 0.692 | 0.569 |
+| trained fixed miscal (R2 level 0) | 0.623 | 0.508 |
+| **held-out fixed miscal (this round)** | **0.415** | **0.446** |
+| drop vs trained miscal | **-20.8 pts** | **-6.2 pts** |
+| retained vs trained miscal | 67% | 88% |
+
+| Task | R1a ood | R1b ood | R1a trained | R1b trained | R1a clean0 | R1b clean0 |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|
+| push_box | 0.7 | 0.8 | 0.7 | 0.9 | 0.6 | 1.0 |
+| lift_ball | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 |
+| dual_push_buttons | 0.4 | 0.4 | 0.5 | 0.3 | 0.8 | 0.8 |
+| pick_plate | 0.2 | 0.2 | 0.2 | 0.3 | 0.7 | 0.1 |
+| put_item_in_drawer | 0.1 | 0.1 | 0.0 | 0.1 | 0.2 | 0.2 |
+| put_bottle_in_fridge | 0.2 | 0.4 | 0.5 | 0.4 | 0.8 | 0.6 |
+| handover_item | 0.1 | 0.2 | 0.6 | 0.1 | 0.6 | 0.3 |
+| pick_laptop | 0.0 | 0.0 | 1.0 | 0.5 | 0.4 | 0.7 |
+| straighten_rope | 0.1 | 0.0 | 0.1 | 0.0 | 0.4 | 0.1 |
+| sweep_to_dustpan | 1.0 | 0.9 | 1.0 | 1.0 | 1.0 | 0.9 |
+| lift_tray | 0.8 | 1.0 | 0.8 | 0.8 | 1.0 | 0.9 |
+| handover_item_easy | 0.0 | 0.2 | 1.0 | 0.8 | 1.0 | 0.7 |
+| take_tray_out_of_oven | 0.8 | 0.6 | 0.7 | 0.4 | 0.5 | 0.1 |
+| **MEAN** | **0.415** | **0.446** | **0.623** | **0.508** | **0.692** | **0.569** |
+
+### Verdict: partial memorization, and R1b overtakes R1a for the first time
+
+Against the pre-registered signatures, this is closest to **"both drop, but not to
+zero"** — with the twist that the drops are very unequal.
+
+1. **R1a's robustness was substantially in-distribution.** Losing 20.8 pts (0.623 ->
+   0.415, 67% retained) when only the *direction* of a same-magnitude perturbation
+   changes means a real part of what looked like calibration robustness in R2 was
+   the model having absorbed one specific miscalibration. R2's headline 4x-at-5deg
+   should be discounted accordingly: some of it is tolerance, some is fit to a fixed
+   base.
+2. **But it is not pure memorization either.** 0.415 on a never-seen fixed base is
+   still far above the clean-trained baseline's 0.115 at 5deg+5cm — the closest
+   available comparison at similar perturbation magnitude. Train-time miscal
+   transfers *something*; it just transfers less than R2 implied.
+3. **R1b beats R1a here — the first condition where deltaM leads on absolute SR
+   below 15deg.** 0.446 vs 0.415 (+3.1 pts), and far more telling, R1b drops only
+   6.2 pts against R1a's 20.8. deltaM is markedly less dependent on the specific
+   miscalibration it trained under, which is exactly what a correction mechanism
+   should look like.
+4. **This is not enough to revive the deltaM line.** The pre-registered revival
+   condition was "R1a drops hard but R1b holds". R1a dropped hard; R1b did not
+   *hold* — it declined too, and its 0.446 remains below R1a's own trained-miscal
+   0.623 and its clean-extrinsics 0.569. The +3.1 pt lead is ~4 successes across 130
+   rollouts, inside the +/-0.15/cell noise floor, and deltaM still pays the ~12 pt
+   clean-condition tax documented in R2. The honest summary is that **deltaM buys
+   invariance to *which* calibration error, not accuracy under calibration error**,
+   and it pays for that invariance at a rate that leaves it behind on every
+   in-distribution condition.
+5. **The drop is concentrated, as usual.** Seven of 13 tasks are within +/-0.1 of
+   their trained-miscal value for R1a; the -20.8 pt mean is carried almost entirely
+   by three collapses — `pick_laptop` 1.0 -> 0.0, `handover_item_easy` 1.0 -> 0.0,
+   `handover_item` 0.6 -> 0.1. R1b's advantage is that it does not collapse on
+   `handover_item_easy` (0.8 -> 0.2) and was already low on `pick_laptop`. Both
+   `pick_laptop` cells are 0.0, so that task is genuinely broken by the new base for
+   both arms, not a deltaM win. Read the means, not the cells.
+
+**Program impact:** R2's "stop the deltaM line" stands, but its rationale narrows.
+deltaM is dead as an *accuracy* mechanism; it is not dead as a *calibration-invariance*
+mechanism, and that distinction matters if a future setting has calibration error
+that genuinely varies at test time (multi-robot fleets, re-mounted cameras). The
+actionable change to R2's recommendation: train-time miscal should still be the
+orbital default, but with **resampled** fixed bases rather than one pinned base —
+this round shows a single fixed base is partly memorized. That is a cheap
+augmentation change worth more than any deltaM run.
+
+Results: `s3://far-research-internal/harsvbha/3dfa/eval/results/{orbital_miscal_base,orbital_miscal_deltam}/ood_miscal/`. Re-run one cell with `--env ORBITAL_MISCAL_LEVEL=medium --env MISCAL_FILE=instructions/orbital_miscalibration_noise_ood.json` on `scripts/sky/peract2_orbital_online_eval.yaml`.
