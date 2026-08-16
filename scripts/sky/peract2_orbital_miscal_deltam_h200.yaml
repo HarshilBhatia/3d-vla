@@ -67,8 +67,10 @@
 #     `uv sync --frozen --no-install-project` contract as on ll-sea, which keeps
 #     the repo out of site-packages so the venv can never shadow the uploaded
 #     source. That is 8.3 GB not sent over the wire and a lockfile-reproducible
-#     environment rather than a byte copy of one. Because two jobs launch at once
-#     and share that NFS venv, the build is under flock — see the setup block.
+#     environment rather than a byte copy of one. Both the venv and its CPython
+#     interpreter live on NFS (the interpreter must, or the venv is not portable
+#     across pods), and the build is serialized under flock — see the setup block
+#     for the two failure modes that forced both details.
 name: hb-3dfa-orbital-miscal-deltam-h200
 
 resources:
@@ -108,20 +110,32 @@ envs:
 setup: |
   set -euo pipefail
   umask 000
-  # Serialize the NFS venv build across concurrently-submitted jobs. The bare
-  # `[ ! -x $VENV/bin/python ]` guard is not enough: this experiment launches two
-  # jobs at the same moment, both saw the venv missing, and both ran `uv sync`
-  # into the SAME NFS tree. They interleaved package installs and the loser died
-  # with FileNotFoundError on a half-written transformers temp dir
-  # (.../models/herbert/.tmpvjwc6r) — the corruption is silent until first import.
-  # flock makes the check-and-build atomic: the second job blocks, then finds a
-  # complete venv and skips the build. The lock lives beside the venv rather than
-  # in /tmp so it is shared across pods.
-  mkdir -p "$(dirname "$VENV")"
+  # The venv and its interpreter both live on NFS, and the build is serialized.
+  #
+  # Two failures were hit getting here, both worth keeping in mind:
+  #
+  # 1. CONCURRENT BUILD. Both arms of this experiment submit at the same instant
+  #    and share $VENV. A bare `[ ! -x $VENV/bin/python ]` guard is not atomic
+  #    across pods: both saw the venv missing, both ran `uv sync` into the same
+  #    tree, and the loser died on first import with FileNotFoundError against a
+  #    half-written transformers temp dir. flock makes check-and-build atomic.
+  #
+  # 2. NON-PORTABLE INTERPRETER. `uv sync` defaults to a uv-managed CPython under
+  #    ~/.local/share/uv/python, which is POD-LOCAL. The resulting venv records
+  #    that path in pyvenv.cfg and symlinks bin/python into it, so a second pod
+  #    mounting the same NFS venv finds a dangling symlink — `$VENV/bin/python`
+  #    reports "No such file or directory" even though the tree is complete. Each
+  #    pod then rebuilds, clobbering the venv the other pod is running from.
+  #    UV_PYTHON_INSTALL_DIR puts the interpreter on NFS beside the venv, so
+  #    bin/python resolves identically from every pod. This is why the guard tests
+  #    bin/python (the symlink target must resolve), not just the directory.
+  export UV_PYTHON_INSTALL_DIR=/k8s-nfs/harsvbha/3dfa/uv-python
+  mkdir -p "$UV_PYTHON_INSTALL_DIR" "$(dirname "$VENV")"
   exec 9>"$(dirname "$VENV")/.venv-build.lock"
   flock 9
   if [ ! -x "$VENV/bin/python" ]; then
     cd "$HOME/sky_workdir"
+    rm -rf "$VENV"
     UV_PROJECT_ENVIRONMENT="$VENV" uv sync --frozen --no-install-project --python 3.11
   fi
   flock -u 9
