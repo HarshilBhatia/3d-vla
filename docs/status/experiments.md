@@ -231,3 +231,126 @@ Two non-monotonic cells: push_box 1.0 at 10deg (vs 0.5 at 5deg) and lift_ball 0.
 This is the **no-deltaM baseline** for the upcoming extrinsics-prediction experiments. The bar the deltaM variants must clear: grogu-era `deltaM_EEF` stayed at 0.77 and `fixmed_rn` at 0.71 at 15deg+15cm on turn_tap, against this checkpoint's 0.015 mean. The steepness here means even a modest deltaM gain will be legible — but note grogu's robust variants were also *trained* with miscal noise, which this baseline was not, so a fair comparison needs a noise-trained bimanual control too.
 
 Results: `s3://far-research-internal/harsvbha/3dfa/eval/results/peract2_orbital_nhist3_b200/noise_{2deg2cm,5deg5cm,10deg10cm,15deg15cm}/`. Re-run one level with: `sky jobs launch -y -d -n hb-3dfa-orbnoise-5deg5cm-<task> --infra k8s/sky-us-east-1 --env PREEMPTIBLE=1 --env TASK=<task> --env SPAWN_GROUP=<eval_group> --env MISCAL_ROT=5deg --env MISCAL_TRANS=5cm --env OUT_S3=.../noise_5deg5cm scripts/sky/peract2_orbital_online_eval.yaml`. sky-us-east-2 had no L40S capacity for the duration — three jobs sat STARTING for 30+ min and were relaunched into east-1; prefer east-1 for L40S eval waves.
+
+## R2 — deltaM under miscalibration: the matched miscal-trained pair (16 Aug 2026)
+
+The decisive rung of `docs/status/deltaM_plan.md`. Two checkpoints trained as a matched pair on the orbital PerAct2 zarr with **persistently miscalibrated extrinsics** (`miscal=orbital_fixed_medium_randnoise`: fixed per-group medium base from `instructions/orbital_miscalibration_noise.json`, plus a <=3deg/<=1cm random top-up resampled per batch), differing in **exactly one flag**:
+
+| arm | job | ckpt | wandb | the one delta |
+|---|---|---|---|---|
+| R1a baseline | 126269 | `orbital_miscal_base.pth` | [aq54hwdi](https://far.wandb.io/far-wandb/3dfa/runs/aq54hwdi) | `predict_extrinsics=false` |
+| R1b deltaM | 126270 | `orbital_miscal_deltam.pth` | [2ks5zjmt](https://far.wandb.io/far-wandb/3dfa/runs/2ks5zjmt) | `predict_extrinsics=true`, `extrinsics_prediction_mode=delta_m`, `dynamic_rope_from_camtoken=true` |
+
+Both verified at `iter=100000` before staging, with identical `orbital_miscal_noise_level=medium`, `miscal_max_angle_deg=3.0`, `miscal_max_translation_m=0.01`, `num_history=3`, `bimanual=true`, `image_space_sampling=false`, `backbone=siglip2`. The `predict_extrinsics` / `delta_m` flags were confirmed to arrive in each rollout process by reading the `loaded_from_ckpt` dump, not assumed.
+
+**156 eval jobs** (`hb-3dfa-r2-{base,dm}-<level>-<task>`, L40S:1, all sky-us-east-1): 2 ckpts x 13 tasks x (5 noise levels + 1 clean0), 10 rollouts each, per-task `eval_group` (OOD camera) from `instructions/peract2_orbital_task_group_mapping.json`. Zero failures; 10 jobs the submission loop silently dropped were detected by diffing S3 against the task list and relaunched.
+
+### The world stays miscalibrated — eval-side code change (`b9e05b0`)
+
+The bimanual orbital harness supported only the *random* half of the miscal recipe, so these checkpoints' training condition could not be reproduced at eval. `orbital_miscal_noise_level` is now threaded through the bimanual branch of `evaluate_policy.py` and the harness, composed under the random levels in training's order:
+
+    T_applied = T_random @ T_base[spawn_camera_group]
+
+Reproduced exactly, including training's quirk: `orbital_miscalibration_noise.json` lists three cameras, so at `ncam=4` the fourth (`wrist_right`) is identity-padded. Verified numerically — cams 0-2 get 5.7-9.7 deg / 2-6 cm, cam 3 gets identity. Level **0 means fixed base only**, not clean; the `clean0` column below is the no-base condition. `orbital_miscal_noise_level` is in `_EVAL_RUNTIME_KEYS`, so the checkpoint's saved `medium` is never silently inherited — `ORBITAL_MISCAL_LEVEL` must name it.
+
+Smoke gate before fan-out: base ckpt, `push_box`, level 0 with base → **0.70**, and the log confirmed `level='medium', group=G4`. A near-zero here would have meant the base was applied wrong; it was not.
+
+### Three-curve comparison — mean SR over 13 tasks, OOD camera
+
+| curve | 0 | 2deg+2cm | 5deg+5cm | 10deg+10cm | 15deg+15cm |
+|---|:---:|:---:|:---:|:---:|:---:|
+| clean-trained baseline (no deltaM, no train miscal) | 0.723 | 0.362 | 0.115 | 0.077 | 0.015 |
+| **R1a miscal-trained, no deltaM** | **0.623** | **0.654** | **0.485** | **0.254** | **0.077** |
+| **R1b miscal-trained + deltaM** | **0.508** | **0.500** | **0.469** | **0.262** | **0.138** |
+
+| retained vs own level 0 | 0 | 2deg+2cm | 5deg+5cm | 10deg+10cm | 15deg+15cm |
+|---|:---:|:---:|:---:|:---:|:---:|
+| clean-trained | 100% | 50% | 16% | 11% | 2% |
+| R1a | 100% | 105% | 78% | 41% | 12% |
+| R1b | 100% | 98% | 92% | 52% | 27% |
+
+Note the first column is **not** a common condition: the clean-trained 0.723 is clean extrinsics, whereas R1a/R1b's level 0 already carries the fixed medium base. The comparable cell for the clean-trained model under that base does not exist (it was never evaluated with one), so read columns 2-5, where all three curves share identical extrinsics.
+
+**Verdict against the pre-registered signatures: neither. Train-time miscal is what buys robustness; deltaM adds a little at the extreme and costs accuracy everywhere else.**
+
+1. **Training with miscal noise is the whole effect.** At 5deg+5cm the clean-trained model is at 0.115 while both miscal-trained arms are at ~0.47-0.49 — a **4x** gain. At 10deg the gap is 0.077 vs ~0.26. This reproduces grogu's `fixmed_rn` finding at bimanual scale and is by far the largest effect in the table.
+2. **deltaM does not deliver "flat and high".** R1b is *below* R1a at three of five levels (0, 2deg, 5deg) and its level-0 mean is 11.5 pts lower. The pre-registered R1b signature required staying high; it did not.
+3. **deltaM is flatter, from a lower start.** R1b retains 27% at 15deg vs R1a's 12%, and its absolute 15deg mean (0.138) is nearly double R1a's (0.077) — but 0.138 vs 0.077 on 13 tasks x 10 rollouts is ~1 extra success per 13 tasks, inside the ±0.15/cell noise floor. The plan's R2 decision rule (deltaM above baseline by >=10 pts at >=10deg) is met at 15deg by +6.1 pts and at 10deg by +0.8 pts — i.e. **not met**.
+4. **This is the "tolerance, not correction" signature — and it belongs to R1a, not R1b.** The plan predicted the *baseline* would show tolerance and deltaM correction. What happened is that both learned tolerance from the training noise, and deltaM's extra degrees of freedom cost clean-condition accuracy without recovering a correction. Read straight: **on bimanual orbital, deltaM adds essentially nothing beyond the training augmentation it rides along with**, and it is net-negative at the noise levels that matter for real deployment (0-5 deg).
+
+The fixed per-group base was persistent and in principle learnable from camera features — the sharpest possible test of the correction hypothesis, per the plan's own reasoning — and deltaM still did not beat a model that merely averaged over it. That closes the mechanism question the ladder was built to answer.
+
+### Per-task: R1a (miscal-trained, no deltaM)
+
+| Task | 0 | 2deg+2cm | 5deg+5cm | 10deg+10cm | 15deg+15cm |
+|---|:---:|:---:|:---:|:---:|:---:|
+| push_box | 0.7 | 0.6 | 0.4 | 0.7 | 0.3 |
+| lift_ball | 1.0 | 1.0 | 0.9 | 0.7 | 0.2 |
+| dual_push_buttons | 0.5 | 0.6 | 0.1 | 0.0 | 0.0 |
+| pick_plate | 0.2 | 0.3 | 0.3 | 0.0 | 0.0 |
+| put_item_in_drawer | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 |
+| put_bottle_in_fridge | 0.5 | 0.7 | 0.5 | 0.3 | 0.0 |
+| handover_item | 0.6 | 0.7 | 0.4 | 0.0 | 0.0 |
+| pick_laptop | 1.0 | 0.9 | 0.3 | 0.1 | 0.1 |
+| straighten_rope | 0.1 | 0.1 | 0.0 | 0.0 | 0.0 |
+| sweep_to_dustpan | 1.0 | 1.0 | 1.0 | 0.7 | 0.0 |
+| lift_tray | 0.8 | 0.9 | 0.9 | 0.5 | 0.2 |
+| handover_item_easy | 1.0 | 0.9 | 0.9 | 0.2 | 0.2 |
+| take_tray_out_of_oven | 0.7 | 0.8 | 0.6 | 0.1 | 0.0 |
+| **MEAN** | **0.623** | **0.654** | **0.485** | **0.254** | **0.077** |
+
+### Per-task: R1b (miscal-trained + deltaM)
+
+| Task | 0 | 2deg+2cm | 5deg+5cm | 10deg+10cm | 15deg+15cm |
+|---|:---:|:---:|:---:|:---:|:---:|
+| push_box | 0.9 | 0.5 | 0.7 | 0.9 | 0.5 |
+| lift_ball | 1.0 | 1.0 | 1.0 | 0.7 | 0.5 |
+| dual_push_buttons | 0.3 | 0.5 | 0.1 | 0.0 | 0.0 |
+| pick_plate | 0.3 | 0.0 | 0.5 | 0.0 | 0.0 |
+| put_item_in_drawer | 0.1 | 0.2 | 0.0 | 0.0 | 0.0 |
+| put_bottle_in_fridge | 0.4 | 0.3 | 0.5 | 0.0 | 0.0 |
+| handover_item | 0.1 | 0.6 | 0.5 | 0.0 | 0.0 |
+| pick_laptop | 0.5 | 0.5 | 0.2 | 0.0 | 0.0 |
+| straighten_rope | 0.0 | 0.0 | 0.0 | 0.0 | 0.1 |
+| sweep_to_dustpan | 1.0 | 0.8 | 0.9 | 0.9 | 0.0 |
+| lift_tray | 0.8 | 0.9 | 0.9 | 0.9 | 0.0 |
+| handover_item_easy | 0.8 | 0.7 | 0.6 | 0.0 | 0.7 |
+| take_tray_out_of_oven | 0.4 | 0.5 | 0.2 | 0.0 | 0.0 |
+| **MEAN** | **0.508** | **0.500** | **0.469** | **0.262** | **0.138** |
+
+`put_item_in_drawer` and `straighten_rope` are at ~0 for both arms at every level — they were already the weakest tasks on clean extrinsics (0.5 / 0.2 in the clean-trained OOD column), so miscal training did not rescue them and deltaM had nothing to correct. The deltaM gain at 15deg is carried almost entirely by three cells (`handover_item_easy` 0.7, `push_box` 0.5, `lift_ball` 0.5), the same easy-task concentration that made grogu's effect sizes fragile (`docs/status/stuls.md`). Several non-monotonic cells appear in both arms (R1b `push_box` 0.9 at 10deg vs 0.7 at 5deg; `handover_item_easy` 0.7 at 15deg vs 0.0 at 10deg) — a level is one fixed noise direction, so a task can tolerate one axis and not another. Read level means, not cells.
+
+### clean0 secondary — did noise training cost clean-extrinsics performance?
+
+Same checkpoints, no fixed base and no random noise, OOD camera:
+
+| Task | R1a clean0 | R1b clean0 | R1a level 0 (with base) | R1b level 0 (with base) |
+|---|:---:|:---:|:---:|:---:|
+| push_box | 0.6 | 1.0 | 0.7 | 0.9 |
+| lift_ball | 1.0 | 1.0 | 1.0 | 1.0 |
+| dual_push_buttons | 0.8 | 0.8 | 0.5 | 0.3 |
+| pick_plate | 0.7 | 0.1 | 0.2 | 0.3 |
+| put_item_in_drawer | 0.2 | 0.2 | 0.0 | 0.1 |
+| put_bottle_in_fridge | 0.8 | 0.6 | 0.5 | 0.4 |
+| handover_item | 0.6 | 0.3 | 0.6 | 0.1 |
+| pick_laptop | 0.4 | 0.7 | 1.0 | 0.5 |
+| straighten_rope | 0.4 | 0.1 | 0.1 | 0.0 |
+| sweep_to_dustpan | 1.0 | 0.9 | 1.0 | 1.0 |
+| lift_tray | 1.0 | 0.9 | 0.8 | 0.8 |
+| handover_item_easy | 1.0 | 0.7 | 1.0 | 0.8 |
+| take_tray_out_of_oven | 0.5 | 0.1 | 0.7 | 0.4 |
+| **MEAN** | **0.692** | **0.569** | **0.623** | **0.508** |
+
+**Miscal training costs ~3 pts of clean OOD performance, not the ~10 grogu implied.** R1a reaches 0.692 on clean extrinsics against the clean-trained model's 0.723 — within the noise floor. Grogu's `fixmed_rn` was the *weakest* of its three variants on clean novel views; on bimanual the penalty is much smaller, so **train-time miscal is close to free**: 4x robustness at 5deg for ~3 pts clean. That is the actionable result of this round.
+
+R1b again pays for deltaM: 0.569 clean vs R1a's 0.692, a **-12.3 pt** gap that matches its -11.5 at level 0. deltaM's cost is not condition-specific — it is a flat accuracy tax the mechanism levies whether or not there is anything to correct.
+
+### Program status
+
+**Stop the deltaM line.** The plan gated R3 (deltaM + train miscal) on R2 showing deltaM degrade by >15 pts at 15deg — but R3's config *is* R1b, already run and answered. `delta_m_full` and `rt` were already cut. What is left worth doing:
+
+* **R4 (G7 held-out) on R1a, not R1b.** R1a is the winner of this pair on every level except 15deg, and it is the cheaper model. 13 jobs.
+* The `RTExtrinsicsPredictor` signature bug (`base_denoise_actor.py:903-905` passes `fps_*` kwargs it cannot accept) is still live and still a 1-line fix. Worth fixing so the path does not rot, not worth a run.
+* Train-time miscal noise should become the **default** for orbital training given the ~free 4x robustness.
+
+Results: `s3://far-research-internal/harsvbha/3dfa/eval/results/{orbital_miscal_base,orbital_miscal_deltam}/{clean0,noise_0,noise_2deg2cm,noise_5deg5cm,noise_10deg10cm,noise_15deg15cm}/`. Checkpoints: `s3://far-research-internal/harsvbha/3dfa/eval/ckpt/orbital_miscal_{base,deltam}.pth`. Re-run one cell with `--env ORBITAL_MISCAL_LEVEL=medium --env MISCAL_ROT=5deg --env MISCAL_TRANS=5cm` on `scripts/sky/peract2_orbital_online_eval.yaml`.
