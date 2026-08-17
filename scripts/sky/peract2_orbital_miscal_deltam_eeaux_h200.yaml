@@ -1,0 +1,265 @@
+# R1c — orbital PerAct2 bimanual deltaM + EE-AUX HEAD under persistent camera
+# miscalibration. 1 node x 4 H200 on k8s/ll-lax.
+#
+# Program: the deltaM ladder in docs/status/deltaM_plan.md, and the R2/R2b verdict
+# in docs/status/experiments.md. R2 found deltaM (R1b) *below* the miscal-trained
+# baseline (R1a) at 0/2/5 deg and only marginally flatter at 15 deg. But R1b was
+# not a replica of grogu's winning variant: grogu's `deltaM_EEF` also trained an
+# END-EFFECTOR AUXILIARY HEAD off the same camera trunk, and R1b omitted it (the
+# plan doc, section (d): "Grogu's winning `deltaM_EEF` *did* use the EE aux head —
+# it is not in R1's config. That is deliberate (one variable per run), but ... if
+# R1 underperforms, the aux head is the first thing to add"). R1 underperformed.
+# This run adds it — deltaM's best shot before the mechanism is retired.
+#
+# THE ONE DELTA vs R1b (scripts/sky/peract2_orbital_miscal_deltam_h200.yaml):
+# three extra hydra overrides, `predict_ee_aux=true lambda_aux=1.0
+# ee_aux_cam_ids=[0,1]`. Data, miscal, experiment group, nhist, batch, lr, iters,
+# worker count are otherwise byte-identical, so R1c-vs-R1b isolates the aux head
+# and R1c-vs-R1a isolates deltaM+aux jointly.
+#
+# WHY THE AUX HEAD IS THE PLAUSIBLE MISSING PIECE. deltaM is a per-camera 6x6
+# rotation of the RoPE basis predicted from per-image average tokens. Nothing in
+# the flow-matching loss forces those camera features to encode *geometry* — the
+# head can absorb the gradient as an arbitrary reparameterization, which is
+# consistent with R1b's result (extra capacity, no correction). The aux head
+# regresses the first-keypose EE position (mean over both hands, normalized
+# workspace coords) from the SAME camera trunk features that produce deltaM
+# (`TransformerHead._predict_ee_from_per_img_feats` shares `camera_proj` +
+# `camera_trunk` with `_predict_from_cam_feat`). That is a direct geometric
+# supervision signal on the shared trunk: to place the EE from a single camera's
+# pooled features, the trunk must represent where that camera is looking. So the
+# aux loss is the term that makes the camera token learn geometry rather than a
+# free reparameterization, which is why grogu's winner had it.
+#
+# GROGU PROVENANCE OF THE THREE FLAG VALUES — recovered exactly, not guessed, from
+# `scripts/train/G3G4_finetune_deltaM_eef.slurm` at commit 716a3bf (the launch
+# script for the `G3G4_finetune_deltaM_eef_final` checkpoint that produced the
+# `deltaM_EEF` column in docs/status/experiments.md; the file was later deleted
+# from the tree, hence `git show 716a3bf:` to read it):
+#     predict_ee_aux=true    lambda_aux=1.0    "ee_aux_cam_ids=[0,1]"
+# All three carried over verbatim. `lambda_aux=1.0` and `ee_aux_cam_ids=[0,1]`
+# also happen to be the config/config.yaml defaults (:155-156), so this is
+# simultaneously grogu's setting and the shipped default — no tuning invented here.
+#
+# ee_aux_cam_ids=[0,1] IS CORRECT AT ncam=4, and this needed checking. The ids
+# index into per-image average tokens in dataset camera order. Grogu's
+# single-arm `OrbitalWrist` order was ("orbital_left", "orbital_right", "wrist"),
+# so [0,1] meant "the two external orbital cameras, not the wrist". The bimanual
+# `OrbitalPeract2` order is ("orbital_left", "orbital_right", "wrist_left",
+# "wrist_right") (datasets/rlbench.py:320), so [0,1] selects the SAME two
+# external orbital cameras and excludes both wrists. That is the intended
+# semantics — a wrist camera cannot usefully regress EE position, since the EE is
+# at a fixed place in its own frame. The extra bimanual camera lands at index 3
+# and is simply not read by the aux head.
+#
+# SMOKE-TESTED before launch, twice over. R1b established that delta_m +
+# dynamic_rope_from_camtoken + nhand=2 + ncam=4 + nhist=3 runs. The aux head had
+# NEVER run bimanual — grogu's only use was single-arm, 3-cam, and the aux target
+# is `gt_trajectory[:, 0, :, :3].mean(dim=1)`, a mean over the hand axis, so
+# nhand=2 changes the target's meaning (midpoint of the two arms' first keyposes)
+# but not its shape. A 3-iteration run of this exact config (2x H200, batch 8)
+# completed clean with `train/ee_aux_loss` finite and populated; no code changes
+# were required. Note the aux target at nhand=2 is the two-arm midpoint, which is
+# a weaker geometric signal than a single arm's EE — if this run also fails to
+# beat R1a, per-hand aux targets are the next thing to try, not more lambda.
+#
+# WHAT IS DIFFERENT FROM THE CLEAN BASELINE (job 120769, 79.2 in-domain / 72.3 OOD):
+# the world is now PERSISTENTLY MISCALIBRATED. `miscal=orbital_fixed_medium_randnoise`
+# applies, per sample:
+#     T_applied = T_random @ T_base[camera_group]
+# where T_base is a FIXED per-camera-group medium perturbation read from
+# instructions/orbital_miscalibration_noise.json (~5.7-9.6 deg, ~2.9-5.4 cm
+# depending on camera), and T_random is freshly sampled every batch with
+# |angle| <= 3 deg and |t| <= 1 cm (utils/data_preprocessors/rlbench.py
+# _get_miscal_noise / _sample_random_miscalibration). The perturbation is applied
+# to the extrinsics handed to depth->PCD, so RGB and depth are untouched and the
+# model sees a corrupted 3D scene. This is the grogu `fixmed_rn` recipe.
+#
+# HYPOTHESIS UNDER TEST (this arm): with the aux head supervising the shared
+# camera trunk, deltaM learns to CORRECT the perturbation rather than merely
+# tolerating it, and so beats R1a — which R1b, lacking that supervision, did not.
+# The fixed component is the sharper test: it is a persistent, learnable function
+# of the camera group, and the deltaM head reads per-camera image features, so a
+# correction is in principle recoverable. The random component can only be
+# corrected per-scene, which is what the dynamic re-prediction path is for.
+#
+# THE DIAGNOSTIC TO WATCH, independent of task success: `train/ee_aux_loss`
+# (logged by utils/trainers/base.py every train_log_freq steps whenever
+# predict_ee_aux is on). A DESCENDING aux curve is direct evidence the camera
+# token is learning scene geometry — the mechanism R1b's result suggested was
+# absent. A flat aux curve near its initial value means the camera features carry
+# no recoverable EE information, which would explain R1b and close the mechanism
+# question for good. Read this curve before spending 156 eval jobs on the
+# checkpoint.
+#
+# EVAL PROTOCOL FOR THIS CHECKPOINT: the world stays miscalibrated. Eval MUST
+# reapply the SAME fixed per-group medium miscalibration this checkpoint trained
+# under and sweep the random noise on top, exactly as the R2 three-curve
+# comparison did (docs/status/experiments.md), so R1c is directly comparable to
+# the R1a/R1b curves. The eval-side plumbing that earlier YAML flagged as missing
+# now EXISTS — commit b9e05b0 threaded `orbital_miscal_noise_level` through the
+# bimanual branch of evaluate_policy.py and the harness. It is in
+# `_EVAL_RUNTIME_KEYS`, so the checkpoint's saved `medium` is never silently
+# inherited: `ORBITAL_MISCAL_LEVEL` must name it explicitly. `ISS=false` and
+# `eval_use_depth2cloud=true` as before.
+#
+# Code delivery, NFS layout, and the provenance assertion are inherited from
+# peract2_orbital_b200.yaml — see that file's header. Two deltas for ll-lax:
+#
+#   * ll-lax /k8s-nfs IS A DIFFERENT FILESYSTEM from ll-sea's. ll-sea mounts a
+#     lambda CSI PVC (10.46.110.25); ll-lax mounts 10.208.161.62:/hpc. There is
+#     no parity and nothing under /k8s-nfs/harsvbha/3dfa existed on ll-lax, so
+#     the orbital zarr and the SigLIP2 HF cache were staged across explicitly.
+#   * The venv is NOT copied. ll-lax pods have pypi egress and /usr/bin/uv, so
+#     the setup block rebuilds it in place from the tracked uv.lock — the same
+#     `uv sync --frozen --no-install-project` contract as on ll-sea, which keeps
+#     the repo out of site-packages so the venv can never shadow the uploaded
+#     source. That is 8.3 GB not sent over the wire and a lockfile-reproducible
+#     environment rather than a byte copy of one. Both the venv and its CPython
+#     interpreter live on NFS (the interpreter must, or the venv is not portable
+#     across pods), and the build is serialized under flock — see the setup block
+#     for the two failure modes that forced both details.
+name: hb-3dfa-orbital-miscal-deltam-eeaux-h200
+
+resources:
+  infra: k8s/ll-lax
+  accelerators: H200:4
+  disk_size: 512
+  image_id:
+    ll-lax: 913524929094.dkr.ecr.us-east-1.amazonaws.com/covariant-dev:latest_updatabot
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 3
+
+num_nodes: 1
+
+workdir: .
+
+file_mounts:
+  ~/.netrc: ~/.netrc
+
+envs:
+  PREEMPTIBLE: "1"
+  VENV: /k8s-nfs/harsvbha/3dfa/venv
+  UV_CACHE_DIR: /k8s-nfs/harsvbha/uv-cache
+  RUN_LOG_DIR: orbital_nhist3_miscal_deltaM_eeaux
+  BASE_LOG_DIR: /k8s-nfs/harsvbha/3dfa/train_logs
+  # Global batch; the trainer divides by world_size (4) -> 64 per GPU. The B200
+  # run peaked under 42 GB/GPU, so an H200's 141 GB is not a constraint here.
+  BATCH_SIZE: "256"
+  LR: "0.0003"
+  NUM_WORKERS: "16"
+  TRAIN_ITERS: "100000"
+  NUM_HISTORY: "3"
+  EXPERIMENT: camtoken_deltaM
+  MISCAL: orbital_fixed_medium_randnoise
+  # The three knobs that separate this file from R1b. Values are grogu's, from
+  # scripts/train/G3G4_finetune_deltaM_eef.slurm at 716a3bf (see header); they are
+  # also the config/config.yaml defaults for lambda/cam_ids.
+  PREDICT_EE_AUX: "true"
+  LAMBDA_AUX: "1.0"
+  EE_AUX_CAM_IDS: "[0,1]"
+
+setup: |
+  set -euo pipefail
+  umask 000
+  # The venv and its interpreter both live on NFS, and the build is serialized.
+  #
+  # Two failures were hit getting here, both worth keeping in mind:
+  #
+  # 1. CONCURRENT BUILD. Both arms of this experiment submit at the same instant
+  #    and share $VENV. A bare `[ ! -x $VENV/bin/python ]` guard is not atomic
+  #    across pods: both saw the venv missing, both ran `uv sync` into the same
+  #    tree, and the loser died on first import with FileNotFoundError against a
+  #    half-written transformers temp dir. flock makes check-and-build atomic.
+  #
+  # 2. NON-PORTABLE INTERPRETER. `uv sync` defaults to a uv-managed CPython under
+  #    ~/.local/share/uv/python, which is POD-LOCAL. The resulting venv records
+  #    that path in pyvenv.cfg and symlinks bin/python into it, so a second pod
+  #    mounting the same NFS venv finds a dangling symlink — `$VENV/bin/python`
+  #    reports "No such file or directory" even though the tree is complete. Each
+  #    pod then rebuilds, clobbering the venv the other pod is running from.
+  #    UV_PYTHON_INSTALL_DIR puts the interpreter on NFS beside the venv, so
+  #    bin/python resolves identically from every pod. This is why the guard tests
+  #    bin/python (the symlink target must resolve), not just the directory.
+  export UV_PYTHON_INSTALL_DIR=/k8s-nfs/harsvbha/3dfa/uv-python
+  mkdir -p "$UV_PYTHON_INSTALL_DIR" "$(dirname "$VENV")"
+  exec 9>"$(dirname "$VENV")/.venv-build.lock"
+  flock 9
+  if [ ! -x "$VENV/bin/python" ]; then
+    cd "$HOME/sky_workdir"
+    rm -rf "$VENV"
+    UV_PROJECT_ENVIRONMENT="$VENV" uv sync --frozen --no-install-project --python 3.11
+  fi
+  flock -u 9
+  "$VENV/bin/python" -c "import torch, zarr, transformers; print(torch.__version__, torch.cuda.is_available())"
+
+run: |
+  set -euo pipefail
+  umask 000
+  REPO="$HOME/sky_workdir"
+  cd "$REPO"
+
+  export PYTHONPATH="$REPO:${PYTHONPATH:-}"
+  export TOKENIZERS_PARALLELISM=false
+  export PYTORCH_ALLOC_CONF=expandable_segments:True
+  export HF_HUB_CACHE=/k8s-nfs/harsvbha/3dfa/hf-cache
+  export HF_HUB_OFFLINE=1
+  export TORCH_HOME="$HOME/.cache/torch"
+  export WANDB_BASE_URL=https://far.wandb.io
+  export WANDB_CACHE_DIR="$HOME/.cache/wandb"
+  export WANDB_CONFIG_DIR="$HOME/.config/wandb"
+  mkdir -p "$TORCH_HOME" "$WANDB_CACHE_DIR" "$WANDB_CONFIG_DIR"
+  chmod 600 "$HOME/.netrc"
+  export WANDB_API_KEY=$("$VENV/bin/python" -c 'import netrc; print(netrc.netrc().authenticators("far.wandb.io")[2])')
+
+  LOG_DIR="$BASE_LOG_DIR/exp/$RUN_LOG_DIR"
+  mkdir -p "$LOG_DIR"
+  CKPT="$LOG_DIR/last.pth"
+
+  echo "Repo: $REPO"
+  echo "Venv: $VENV"
+  echo "Log dir: $LOG_DIR"
+  echo "Resume checkpoint (if present): $CKPT"
+  echo "Global batch: $BATCH_SIZE   lr: $LR   iters: $TRAIN_ITERS   nhist: $NUM_HISTORY"
+  echo "Experiment: $EXPERIMENT   miscal: $MISCAL"
+  echo "EE aux: predict_ee_aux=$PREDICT_EE_AUX lambda_aux=$LAMBDA_AUX ee_aux_cam_ids=$EE_AUX_CAM_IDS"
+
+  MODELING=$(cd /tmp && "$VENV/bin/python" -c 'import modeling; print(modeling.__file__)')
+  echo "modeling.__file__: $MODELING"
+  case "$MODELING" in
+    "$REPO"/*) ;;
+    *) echo "FATAL: source is $MODELING, not under the uploaded workdir $REPO" >&2; exit 1 ;;
+  esac
+
+  ulimit -n 65536
+  "$VENV/bin/torchrun" \
+    --nnodes=1 \
+    --nproc_per_node=4 \
+    --master_port=29500 \
+    --max-restarts=3 \
+    main.py \
+    data=orbital_peract2_nfs \
+    experiment="$EXPERIMENT" \
+    miscal="$MISCAL" \
+    predict_ee_aux="$PREDICT_EE_AUX" \
+    lambda_aux="$LAMBDA_AUX" \
+    "ee_aux_cam_ids=$EE_AUX_CAM_IDS" \
+    bimanual=true \
+    dataset=OrbitalPeract2 \
+    num_history="$NUM_HISTORY" \
+    batch_size="$BATCH_SIZE" \
+    batch_size_val=64 \
+    lr="$LR" \
+    backbone_lr="$LR" \
+    train_iters="$TRAIN_ITERS" \
+    base_log_dir="$BASE_LOG_DIR" \
+    exp_log_dir=exp \
+    run_log_dir="$RUN_LOG_DIR" \
+    checkpoint="$CKPT" \
+    use_wandb=true \
+    wandb_entity=far-wandb \
+    wandb_project=3dfa \
+    wandb_run_name=hb-3dfa-orbital-miscal-deltam-eeaux-h200 \
+    num_workers="$NUM_WORKERS" \
+    prefetch_factor=4
