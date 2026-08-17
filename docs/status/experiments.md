@@ -469,3 +469,141 @@ this round shows a single fixed base is partly memorized. That is a cheap
 augmentation change worth more than any deltaM run.
 
 Results: `s3://far-research-internal/harsvbha/3dfa/eval/results/{orbital_miscal_base,orbital_miscal_deltam}/ood_miscal/`. Re-run one cell with `--env ORBITAL_MISCAL_LEVEL=medium --env MISCAL_FILE=instructions/orbital_miscalibration_noise_ood.json` on `scripts/sky/peract2_orbital_online_eval.yaml`.
+
+## R2c — deltaM + EE-aux head: the third arm (17 Aug 2026)
+
+R2 found deltaM (R1b) *below* the plain miscal-trained baseline (R1a) on every
+in-distribution condition, and R2b found it flat-but-not-better under a held-out
+base. Both readings left one loose end: grogu's winning `deltaM_EEF` variant also
+trained an **end-effector auxiliary head** off the camera trunk, and R1b did not.
+The aux head is the plausible missing piece — it supervises the same per-camera
+features that produce deltaM with a task the features can only solve if they encode
+metric camera geometry, so deltaM's 6x6 correction has a reason to be geometrically
+meaningful rather than a free reparameterization. R1c tests that.
+
+| arm | job | ckpt | wandb | the delta vs R1b |
+|---|---|---|---|---|
+| R1c deltaM + EE-aux | 127191 | `orbital_miscal_deltam_eeaux.pth` | [9w9w8xwy](https://far.wandb.io/far-wandb/3dfa/runs/9w9w8xwy) | `predict_ee_aux=true`, `lambda_aux=1.0`, `ee_aux_cam_ids=[0,1]` |
+
+Verified at `iter=100000` before staging, with `predict_ee_aux=true`,
+`predict_extrinsics=true`, `extrinsics_prediction_mode=delta_m`,
+`dynamic_rope_from_camtoken=true` and otherwise identical to R1b
+(`orbital_miscal_noise_level=medium`, `miscal_max_angle_deg=3.0`,
+`miscal_max_translation_m=0.01`, `num_history=3`, `bimanual=true`,
+`image_space_sampling=false`, `backbone=siglip2`). As in R2, the flags were
+confirmed to arrive in the rollout process by reading the overlay dump, not assumed.
+
+**91 eval jobs** (`hb-3dfa-r1c-<cond>-<task>`, L40S:1, all sky-us-east-1): 13 tasks
+x (level 0 + 4 noise levels + held-out base + clean0), 10 rollouts each, per-task
+`eval_group` (OOD camera). Smoke gate: `push_box` at level 0 -> **1.00**, log
+confirming `level='medium', group=G4` and the training miscal file. All 91 cells
+landed.
+
+### The aux loss kept descending — it did not saturate
+
+The pre-registered diagnostic was whether `train/ee_aux_loss` kept falling past the
+early plateau at 0.028 (step 900). It did, by more than an order of magnitude:
+
+| step | 49 | 900 | 5k | 20k | 50k | 75k | 100k |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| `train/ee_aux_loss` | 0.0582 | 0.0284 | 0.0141 | 0.0059 | 0.0034 | 0.0027 | **0.0027** |
+
+Minimum 0.00235 at step 96549; final summary value 0.00267. The plateau at 0.028 was
+an early transient, not a ceiling — the curve fell ~10x after it and only flattened
+in the last ~25k steps. **So the aux head genuinely learned to regress EE position
+from camera-trunk features.** The mechanism was trained as intended, which means the
+success-rate result below is a verdict on the mechanism, not on a failed
+optimization.
+
+### condition | R1a | R1b | R1c — mean SR over 13 tasks, OOD camera
+
+| condition | R1a (no deltaM) | R1b (deltaM) | R1c (deltaM + EE-aux) | R1c-R1b | R1c-R1a |
+|---|:---:|:---:|:---:|:---:|:---:|
+| clean extrinsics (clean0) | 0.692 | 0.569 | **0.623** | +0.054 | -0.069 |
+| trained fixed miscal (level 0) | 0.623 | 0.508 | **0.462** | -0.046 | -0.161 |
+| + random 2deg+2cm | 0.654 | 0.500 | **0.431** | -0.069 | -0.223 |
+| + random 5deg+5cm | 0.485 | 0.469 | **0.523** | +0.054 | +0.038 |
+| + random 10deg+10cm | 0.254 | 0.262 | **0.308** | +0.046 | +0.054 |
+| + random 15deg+15cm | 0.077 | 0.138 | **0.262** | +0.124 | +0.185 |
+| held-out fixed miscal | 0.415 | 0.446 | **0.408** | -0.038 | -0.007 |
+
+| aggregate over the 4 shared noise levels | R1a | R1b | R1c |
+|---|:---:|:---:|:---:|
+| mean of 2/5/10/15 deg | 0.367 | 0.342 | **0.381** |
+| mean of the two high levels (10+15) | 0.166 | 0.200 | **0.285** |
+| retained at 15deg vs own level 0 | 12% | 27% | **57%** |
+
+### Per-task: R1c (miscal-trained + deltaM + EE-aux)
+
+| Task | 0 | 2deg+2cm | 5deg+5cm | 10deg+10cm | 15deg+15cm | ood | clean0 |
+|---|:---:|:---:|:---:|:---:|:---:|:---:|:---:|
+| push_box | 1.0 | 1.0 | 1.0 | 1.0 | 0.7 | 1.0 | 1.0 |
+| lift_ball | 0.9 | 0.9 | 0.9 | 0.9 | 0.7 | 0.9 | 0.9 |
+| dual_push_buttons | 0.4 | 0.7 | 0.1 | 0.0 | 0.0 | 0.5 | 0.6 |
+| pick_plate | 0.4 | 0.2 | 0.5 | 0.0 | 0.1 | 0.2 | 0.5 |
+| put_item_in_drawer | 0.0 | 0.0 | 0.0 | 0.1 | 0.0 | 0.1 | 0.2 |
+| put_bottle_in_fridge | 0.2 | 0.2 | 0.2 | 0.0 | 0.0 | 0.2 | 0.4 |
+| handover_item | 0.6 | 0.3 | 0.1 | 0.1 | 0.2 | 0.2 | 0.4 |
+| pick_laptop | 0.9 | 0.8 | 0.8 | 0.1 | 0.2 | 0.3 | 0.5 |
+| straighten_rope | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.0 | 0.3 |
+| sweep_to_dustpan | 0.0 | 0.0 | 1.0 | 0.5 | 1.0 | 0.6 | 1.0 |
+| lift_tray | 0.6 | 0.5 | 1.0 | 1.0 | 0.3 | 0.8 | 1.0 |
+| handover_item_easy | 0.6 | 0.4 | 0.9 | 0.1 | 0.1 | 0.1 | 0.6 |
+| take_tray_out_of_oven | 0.4 | 0.6 | 0.3 | 0.2 | 0.1 | 0.4 | 0.7 |
+| **MEAN** | **0.462** | **0.431** | **0.523** | **0.308** | **0.262** | **0.408** | **0.623** |
+
+`sweep_to_dustpan` is the loudest non-monotonic cell in the whole program: 0.0 at
+level 0 and 2deg but 1.0 at 5deg and 15deg, and 1.0 clean. The level-0 log was
+checked directly — 10 valid demos, correct group G1, correct miscal file, no
+traceback, a genuine 0/10. A level is one fixed noise *direction*, so this is the
+same axis-sensitivity seen in both R2 arms, in its most extreme form. It is a
+reminder that individual cells at n=10 are close to uninformative here; only the
+13-task level means should be read.
+
+### Verdict: the aux head recovers deltaM's tax and extends its high-noise edge, but does not beat the baseline where it counts
+
+Answering the three pre-registered questions directly, judging on level means over
+13 tasks against the ±0.15/cell noise floor:
+
+1. **Does EE-aux widen the deltaM gap (R1c > R1b)? Partly — at high noise, yes;
+   in-distribution, no.** R1c beats R1b at 5deg (+5.4), 10deg (+4.6), 15deg (+12.4)
+   and clean0 (+5.4), but *loses* at level 0 (-4.6), 2deg (-6.9) and the held-out
+   base (-3.8). Only the 15deg gap clears the noise floor. The honest summary is
+   that the aux head **rotates deltaM's tradeoff further toward high-noise
+   robustness** rather than lifting it uniformly.
+2. **Does it recover the clean tax? Roughly half of it.** R1b paid -12.3 pts on
+   clean extrinsics vs R1a (0.569 vs 0.692); R1c is at 0.623, recovering +5.4 of
+   those 12.3 and leaving -6.9 vs R1a — now inside the noise floor. So the aux head
+   does make deltaM cheaper on clean data, consistent with it regularizing the
+   camera trunk toward real geometry. It does not make it free.
+3. **Does it beat R1a anywhere meaningful? Only at 15deg, and R1a's collapse there
+   makes that cheap.** R1c's +18.5 at 15deg (0.262 vs 0.077) and +5.4 at 10deg are
+   the only positive deltas; the first clears the floor, the second does not.
+   Against that, R1c is **-16.1 at level 0 and -22.3 at 2deg** — two clear
+   floor-clearing *losses* on the conditions closest to a real deployment. Averaged
+   over the four shared noise levels the three arms are 0.367 / 0.342 / 0.381, i.e.
+   indistinguishable.
+
+**This closes the deltaM ladder with the same answer R2 gave, better supported.**
+The aux head was the mechanism's best remaining shot, it trained correctly (the loss
+fell 10x, so this is not a null from a broken run), and it still does not produce a
+model that is better than plain train-time miscal augmentation at 0-5 deg. What it
+produces is the flattest curve in the program — 57% retained at 15deg vs R1a's 12% —
+purchased with 16-22 pts at low noise. **deltaM+aux is a robustness/accuracy trade,
+not a Pareto improvement**, and the trade only pays if the deployment genuinely sees
+>10deg calibration error, which is far outside any plausible real miscalibration.
+
+**Program impact:** R2's "stop the deltaM line" now stands on all three arms, and
+R2b's narrowed rationale is confirmed and sharpened: deltaM (with or without the aux
+head) buys *tolerance to large and varying* calibration error at a fixed accuracy
+cost. R2b's recommendation is unchanged and remains the cheap win — make train-time
+miscal the orbital default with **resampled** fixed bases. R4 (G7 held-out) should
+still run on R1a, which is the best arm at every condition below 10deg.
+
+Results: `s3://far-research-internal/harsvbha/3dfa/eval/results/orbital_miscal_deltam_eeaux/{level0,noise_2deg2cm,noise_5deg5cm,noise_10deg10cm,noise_15deg15cm,ood_miscal,clean0}/`. Checkpoint: `s3://far-research-internal/harsvbha/3dfa/eval/ckpt/orbital_miscal_deltam_eeaux.pth`. Fan-out and collection: `scripts/eval/reconcile_r1c.sh` (idempotent — diffs the grid against the sky queue and S3, resubmits only missing cells) and `scripts/eval/collect_r1c.py`.
+
+**Infra note for future waves:** submitting these loops in parallel does *not* work.
+Three concurrent `sky jobs launch` loops overwhelmed the `RestfulAdminPolicy`
+sidecar (`admin-policy:80` connection refused / read timeout) and silently dropped
+66 of the first 91 submissions. Submit serially with retry, then reconcile against
+S3. `reconcile_r1c.sh` does both.
