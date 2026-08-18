@@ -23,7 +23,7 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                  miscal_max_angle_deg=None, miscal_max_translation_m=None,
                  miscal_fixed_angle_deg=None, miscal_fixed_translation_m=None,
                  orbital_miscal_noise_level=None,
-
+                 orbital_miscal_noise_file=None,
                  orbital_miscal_noise_levels=None,
                  cotrain_miscal_group_ids=None,
                  cotrain_miscal_level=None,
@@ -58,7 +58,10 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         self.miscal_fixed_angle_deg = miscal_fixed_angle_deg or 0.0
         self.miscal_fixed_translation_m = miscal_fixed_translation_m or 0.0
         self._orbital_miscal_noise_level = orbital_miscal_noise_level
-
+        # Selects which fixed-base JSON the per-group table is read from. None =
+        # the pinned training file. An alternative file with the same schema
+        # (e.g. the held-out seed-3187 one) yields a never-seen fixed base.
+        self._orbital_miscal_noise_file = orbital_miscal_noise_file
         self._orbital_miscal_noise_levels = list(orbital_miscal_noise_levels) if orbital_miscal_noise_levels else None
         self._cotrain_miscal_group_ids = set(int(g) for g in cotrain_miscal_group_ids) if cotrain_miscal_group_ids else None
         self._cotrain_miscal_level = cotrain_miscal_level
@@ -156,9 +159,15 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         """Lazily load (K, ncam, 4, 4) table indexed by (camera_group - 1)."""
         if self._group_noise_table is not None and self._group_noise_table.shape[1] == ncam:
             return
-        loader = lambda: _load_orbital_group_noise(self._orbital_miscal_noise_level)
+        loader = lambda: _load_orbital_group_noise(
+            self._orbital_miscal_noise_level, noise_file=self._orbital_miscal_noise_file
+        )
         self._group_noise_table, groups, _ = self._build_noise_table(loader, ncam)
-        print(f"[miscal] loaded from file: level='{self._orbital_miscal_noise_level}', K={len(groups)}, ncam={ncam}", flush=True)
+        print(
+            f"[miscal] loaded from file: level='{self._orbital_miscal_noise_level}', "
+            f"file={self._orbital_miscal_noise_file or 'default'}, K={len(groups)}, ncam={ncam}",
+            flush=True,
+        )
 
     def _ensure_group_level_noise_table(self, ncam):
         """Lazily load (K_group_levels, ncam, 4, 4) table with keys like 'G1_small'."""
