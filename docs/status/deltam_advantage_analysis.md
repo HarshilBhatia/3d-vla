@@ -27,6 +27,10 @@ Two independent bodies of evidence:
   samples over 117 episodes) under a controlled 7-point extrinsics-corruption
   grid, plus a direct readout of the predicted delta_M. Script:
   `scripts/eval/offline_deltam_analysis.py`.
+- **Tier 3** — the asymmetric per-camera miscalibration test (section 6), run
+  after the above to check the mechanism Tier 2 proposed. Scripts:
+  `scripts/eval/offline_asym_miscal_analysis.py`,
+  `scripts/eval/analyze_asym_miscal.py`.
 
 **The headline is a split verdict, and the split is the finding.** deltaM alone
 (R1b) does not survive scrutiny: its one strong Tier-1 signal does not
@@ -66,6 +70,14 @@ reframes the mechanism entirely.
    `ee_aux_cam_ids=[0,1]`.** Cameras 2 and 3 stay flat. The aux loss is what
    makes the extrinsics token carry calibration information at all; without it
    the token is a learned reparameterization, not a sensor.
+   ~~The aux loss makes the token sense *its own* camera's miscalibration.~~
+   **Retracted by section 6.** A per-camera targeted probe shows the response is
+   *column*-structured, not diagonal: cams 0/1's tokens move when **any** camera
+   is corrupted — including cam3, and by more than when their own camera is the
+   corrupted one — and the largest response anywhere is 0.75% of the token's own
+   SD. The aux loss changes *which tokens are live*, not what they sense. The
+   "delta_M is nearly a learned constant" half of this point stands and is
+   reinforced.
 5. **The cost is real too, and it is at low corruption.** Closed-loop SR at n2:
    R1b -0.154 CI[-0.238,-0.062] p=0.0137; R1c -0.223 CI[-0.408,-0.054]
    p=0.0381. Integrated over 2-15deg the three arms are close (SR AUC 0.337 /
@@ -80,6 +92,14 @@ supervision is a necessary ingredient — it is what turns the extrinsics token
 from a constant into something that responds to the perturbation.* R1b alone is
 not a result. Every Tier-3 proposal below is therefore an R1c-vs-R1a test with
 R1b carried only as the ablation.
+
+**Narrative implication, revised after section 6.** The "responds to the
+perturbation" clause is too strong — the response exists but is global, tiny, and
+sign-inconsistent. The claim that survives all three tiers is narrower and
+mechanism-agnostic: *the EE-aux loss, not the deltaM parameterization, is what
+produces robustness to unseen calibration error, and it appears to do so by
+reducing reliance on any single camera rather than by estimating calibration.*
+R1c wins in a fourth independent condition; R1b still wins nowhere.
 
 ---
 
@@ -367,18 +387,276 @@ significantly *worse*. And for R1b: nowhere that replicates.
 - **Tier 1(e) (video inspection of R1c-wins/R1a-loses cells) was not done.** The
   offline error analysis subsumed its purpose with far more power, so it was
   dropped rather than run.
+- **The 3e per-camera mechanism claim is retracted** (added after section 6).
+  3e read a per-camera regression of `||delta_M - I||_F` on that camera's injected
+  angle and found cams 0/1 responsive. That regression cannot distinguish
+  "responds to its own camera" from "responds to overall corruption" because in
+  the Tier-2 grid **all cameras were perturbed together**, so every camera's
+  injected angle is collinear with total corruption. The T3-1 design breaks that
+  collinearity by perturbing one camera at a time, and the response turns out to
+  be global. This is a confounded-regressor error in 3e, not a data problem —
+  the numbers in 3e are correct, the causal reading of them was not.
+- **Section 6's effects are millimetre-scale by construction.** Single-camera
+  corruption moves `pos_l2` by 1-5 mm on a 16 mm base, ~10x less than
+  all-camera corruption at the same per-camera magnitude. Three clean views are
+  nearly as good as four. Do not quote section 6 effect sizes as evidence of
+  practical robustness; they are mechanism diagnostics.
 
 ---
 
-## 6. Tier 3 — proposed next evals (NOT launched)
+## 6. Asymmetric miscalibration — T3-1, run
+
+`scripts/eval/offline_asym_miscal_analysis.py` +
+`scripts/eval/analyze_asym_miscal.py`. Corrupt **exactly one** camera and leave
+the other three clean; sweep which camera. Two magnitudes (5deg+5cm,
+10deg+10cm), **3 independent random directions per cell**, all three arms
+evaluated against the identical direction set. 853 val samples x 75 passes
+(3 arms x (4 cams x 2 magnitudes x 3 directions + 1 clean)), ~25 min on one
+H200. Bootstrap CIs resample **episodes** (n=117, `demo_id`) and are paired
+across arms.
+
+Sanity check: the clean pooled `pos_l2` reproduces section 3a exactly (R1a
+0.0145, R1b 0.0160, R1c 0.0139), so this harness and the Tier-2 one agree on the
+shared cell. The tables below quote *per-episode* means, which run ~0.0017 m
+higher than sample-pooled means because long episodes are downweighted; only
+differences are interpreted, and both weightings give the same signs.
+
+### 6a. The three predictions, up front
+
+| prediction | verdict |
+|---|---|
+| (a) R1c degrades less than R1a/R1b when the bad camera is **0 or 1** (aux-supervised) | **HELD** at 10deg: R1c-R1a `pos_l2` **-0.0008 CI[-0.0014,-0.0002]** (cam0), **-0.0017 CI[-0.0023,-0.0011]** (cam1); `pos_acc_001` **+0.046** and **+0.066**, both CIs excluding zero. |
+| (b) all arms degrade similarly when the bad camera is **2** (wrist_left, unsupervised) | **FAILED, and inverted.** R1c degrades *more*: +0.0038 CI[+0.0022,+0.0054] worse than R1a at 10deg; R1b +0.0023 CI[+0.0011,+0.0036] worse. Both deltaM arms are *hurt* by wrist_left corruption relative to the baseline, 0/3 directions won. |
+| (c) cam3 (`wrist_right`, identity-padded in training) is the OOD case | **R1c generalizes, R1b does not.** R1c **-0.0025 CI[-0.0035,-0.0016]** better than R1a at 10deg (3/3 directions); R1b **+0.0023 CI[+0.0014,+0.0032]** *worse* (1/3). |
+
+So the camera x arm interaction is real, but it is **not the diagonal the
+mechanism story predicted**. R1c is more robust on cams 0, 1 **and 3**, and less
+robust on cam 2. Two of three predictions did not come out as stated.
+
+### 6b. Degradation vs own clean (per-episode `pos_l2`, m)
+
+10deg+10cm on one camera, rest clean:
+
+| corrupted cam | R1a | R1b | R1c |
+|---|---|---|---|
+| 0 `orbital_left` | +0.0027 | **+0.0011** | +0.0019 |
+| 1 `orbital_right` | +0.0030 | +0.0019 | **+0.0013** |
+| 2 `wrist_left` | **+0.0021** | +0.0043 | +0.0058 |
+| 3 `wrist_right` | +0.0052 | +0.0075 | **+0.0026** |
+
+5deg+5cm:
+
+| corrupted cam | R1a | R1b | R1c |
+|---|---|---|---|
+| 0 | +0.0003 | **-0.0001** | +0.0004 |
+| 1 | +0.0011 | +0.0011 | **+0.0009** |
+| 2 | **+0.0013** | +0.0028 | +0.0030 |
+| 3 | +0.0014 | +0.0020 | **+0.0007** |
+
+The absolute magnitudes are the first thing to notice: **single-camera
+corruption is cheap.** The worst cell here (+0.0052 m for R1a at cam3) is a
+32% error increase, where corrupting *all four* cameras at the same 10deg costs
+R1a **+0.0210 m** — a 169% increase. That all-camera figure is a separate
+positive control on a 256-sample subset (R1a clean 0.0124 -> allcam-10deg
+0.0334), run to confirm the harness can move the metric at all before trusting
+the small single-camera numbers. On the same subset a **20deg** single-camera
+corruption of cam0 moved R1c's error by **-0.00001 m** (0.01200 -> 0.01199) —
+indistinguishable from zero at 4x the magnitude of the main sweep's larger cell.
+Three clean cameras out of four localize the scene nearly as well as four. That
+caps how much any per-camera correction mechanism could buy here, and it is the
+main reason every effect in this section is millimetre-scale.
+
+`pos_acc_001` is more sensitive and tells the same story with the same signs
+(R1c-R1a at 10deg: cam0 +0.046, cam1 +0.066, cam2 +0.000, cam3 +0.034).
+
+### 6c. Direction-paired replication
+
+Direction spread is large — the per-cell SD across the 3 directions is often
+comparable to the mean degradation itself (e.g. R1b cam3 m10: +0.0068, +0.0141,
+-0.0000). That vindicates sampling multiple directions and means single-direction
+readings are not trustworthy. But every arm saw the *same* directions, so the
+paired contrast is far tighter than the marginals. Sign consistency of
+`R1x - R1a` in `pos_l2` degradation, out of 3 directions (lower = better):
+
+| cam | mag | R1b better | R1c better |
+|---|---|---|---|
+| 0 | 10deg | 3/3 | 3/3 |
+| 1 | 10deg | 2/3 | **3/3** |
+| 2 | 10deg | 0/3 | 0/3 |
+| 3 | 10deg | 1/3 | **3/3** |
+| 3 | 5deg | 0/3 | **3/3** |
+
+R1c's cam0/cam1/cam3 wins and its cam2 loss are 3/3 and 0/3 respectively —
+consistent across directions, not a single-axis artifact. R1b is only consistent
+at cam0.
+
+### 6d. delta_M response matrix — the prediction that failed hardest
+
+Change in `||delta_M - I||_F` vs clean, row = corrupted camera, column = the
+camera whose token is read out, expressed as % of that token's clean sample SD
+(the section-3e scale, where 0.2-3% was the verdict "nearly a learned constant").
+
+**R1c, 10deg+10cm:**
+
+| corrupted cam | tok0 | tok1 | tok2 | tok3 |
+|---|---|---|---|---|
+| 0 `orbital_left` | -0.02% | +0.09% | -0.12% | -0.08% |
+| 1 `orbital_right` | **+0.69%** | **+0.69%** | +0.17% | +0.26% |
+| 2 `wrist_left` | -0.73% | -0.75% | -0.03% | -0.49% |
+| 3 `wrist_right` | **+0.64%** | **+0.53%** | +0.11% | -0.21% |
+
+**R1b, 10deg+10cm:** every entry is within ±0.5% of SD and the largest is on a
+row/column pair with no mechanistic meaning (cam3 corrupted -> tok1, +0.46%).
+
+Three things follow, and they undercut the sensing story rather than confirming
+it:
+
+- **The response is not diagonal — it is column-structured.** When *any* camera
+  is corrupted, the response shows up in **tok0 and tok1** regardless of which
+  camera was actually perturbed. Corrupting cam3 moves tok0 by +0.64% and tok1
+  by +0.53%, while moving tok3 (the actually-corrupted camera's own token) by
+  **-0.21%**. Corrupting cam1 moves tok0 as much as tok1. The aux-supervised
+  tokens are the only ones that move at all, but they move in response to
+  corruption *anywhere*, not corruption of themselves. That is a **global
+  corruption detector living in the supervised tokens**, not per-camera
+  calibration sensing.
+- **The magnitudes remain tiny.** The largest response in the whole matrix is
+  0.75% of the token's own clean sample SD. Section 3e's "delta_M is
+  approximately a learned constant" verdict **stands and is reinforced** by a
+  measurement designed specifically to break it. A per-camera targeted probe was
+  the best available chance to find per-camera structure, and it found ~0.7%.
+- **The sign is not even consistent.** cam1 and cam3 corruption push tok0/tok1
+  *up*; cam2 corruption pushes them *down* by a similar amount. A correction
+  magnitude should not reverse sign with which camera is broken.
+
+### 6e. The wrist asymmetry — a train-distribution effect, not a deltaM effect
+
+cam2 (`wrist_left`, perturbed during training) vs cam3 (`wrist_right`,
+identity-padded and never perturbed), difference in `pos_l2` degradation:
+
+| arm | 5deg | 10deg | cam3 - cam2 @ 10deg [95% CI] |
+|---|---|---|---|
+| R1a | +0.0013 / +0.0014 | +0.0021 / +0.0052 | **+0.0031 [+0.0021,+0.0042]** |
+| R1b | +0.0028 / +0.0020 | +0.0043 / +0.0075 | **+0.0032 [+0.0010,+0.0053]** |
+| R1c | +0.0030 / +0.0007 | +0.0058 / +0.0026 | **-0.0032 [-0.0051,-0.0014]** |
+
+For R1a and R1b, corrupting the never-corrupted wrist hurts **~2.5x more** than
+corrupting the wrist they were trained to see corrupted, at matched magnitude
+(+0.0052 vs +0.0021 for R1a). That is a clean train-distribution generalization
+gap and it is **independent of deltaM** — R1a has no extrinsics head and shows
+the effect just as strongly. It is the cleanest result in this section and the
+one least dependent on any mechanism claim.
+
+R1c **reverses** it: it is the only arm for which the OOD wrist is *easier* than
+the in-distribution one. Combined with 6d, the most consistent reading is that
+the aux loss makes R1c less dependent on any individual wrist view — which shows
+up as robustness to the untrained one and as *fragility* to the trained one,
+where R1a apparently learned a specific compensation R1c did not.
+
+### 6f. Does this strengthen "aux supervision is the engine"?
+
+**It complicates it more than it strengthens it.** The honest summary:
+
+- **What survives.** R1c is the most robust arm on 3 of 4 cameras and the effect
+  replicates across corruption directions. R1b is not consistently better than
+  R1a anywhere. So "R1c is the only arm worth pursuing" — the section-1 headline
+  — holds under a new and independent stressor. This is a fourth condition where
+  R1c wins and R1b does not.
+- **What does not survive.** The specific mechanism proposed in 3e — that the
+  aux loss makes each supervised camera's token sense *that camera's*
+  miscalibration and correct it — is **refuted by its own best test.** The
+  response is column-structured, not diagonal; it fires on tok0/tok1 whichever
+  camera is broken; it reverses sign; and it is <1% of SD. R1c is also more
+  robust on cam3, which no camera-specific-correction story predicts, and *less*
+  robust on cam2, which it predicts should be neutral.
+- **What replaces it.** The aux loss appears to act as a **representational
+  regularizer** that reduces reliance on any single camera, not as a calibration
+  estimator. Everything observed is consistent with that: robustness spread over
+  cams 0/1/3 rather than concentrated on 0/1; a global rather than per-camera
+  delta_M response; better OOD-wrist behavior; and the section-2e cost at low
+  corruption, which is what a regularizer that discards view-specific
+  information would charge.
+- **Does it motivate aux-on-all-cameras?** **Weakened, and it should not be the
+  next launch.** The original argument was "the token only senses on supervised
+  cameras, so supervise all of them." That premise is now gone — the tokens do
+  not sense per-camera at all. R1c already gets its largest gain on cam3, which
+  is *unsupervised*, so extending supervision to cams 2/3 is not obviously where
+  the gain lives. It also has a specific predicted failure: R1c's one loss is on
+  cam2, and the natural reading of 6e is that aux supervision trades away the
+  view-specific compensation R1a uses there. Supervising cam2 might deepen that
+  loss rather than fix it.
+- **What to run instead.** (i) **A second seed** — one seed per arm remains the
+  binding limitation, and the effects in this section are 1-4 mm, well within
+  plausible seed variation. (ii) If the regularizer reading is right, the cheap
+  test is an **aux target that is not extrinsics-shaped at all** (e.g. the same
+  EE-midpoint target from a non-extrinsics head, or plain feature dropout across
+  cameras), which would separate "aux supervision regularizes" from "aux
+  supervision teaches calibration." That is a sharper and cheaper experiment than
+  aux-on-all-cameras.
+
+### 6g. Caveats specific to this section
+
+- **Ceiling effect.** Single-camera corruption barely moves the metric (see 6b),
+  so every contrast here is millimetre-scale on a base error of ~16 mm. The
+  arms are being separated inside a narrow band. Contrast with the all-camera
+  positive control, where the same 10deg costs 10x more.
+- **Open-loop only.** Section 5's warning applies: R1c's open-loop and
+  closed-loop rankings dissociated before. Nothing here says these differences
+  survive rollout.
+- **3 directions per cell**, and the direction SD is comparable to the effect
+  (6c). The paired contrast is what carries the inference; the marginal
+  degradation numbers individually are noisy.
+- **One seed per arm.** Unchanged and still the dominant threat.
+- **The delta_M readout is a scalar norm.** `||delta_M - I||_F` could stay
+  constant while the matrix *rotates* to track the perturbation. This section
+  rules out a magnitude response, not a directional one. A per-camera readout of
+  the matrix's action on the RoPE basis would be the stronger probe and was not
+  done.
+
+Reproduce:
+
+```bash
+CK=/k8s-nfs/harsvbha/3dfa/train_logs/exp
+ulimit -n 65536   # 75 passes; the default 1024 exhausts FDs
+HF_HOME=/k8s-nfs/harsvbha/3dfa/hf-cache HF_HUB_CACHE=/k8s-nfs/harsvbha/3dfa/hf-cache \
+CUDA_VISIBLE_DEVICES=0 /k8s-nfs/harsvbha/3dfa/venv/bin/python \
+  scripts/eval/offline_asym_miscal_analysis.py \
+  checkpoints=$CK/orbital_nhist3_miscal_base/interm_step_100000.pth,$CK/orbital_nhist3_miscal_deltaM/interm_step_100000.pth,$CK/orbital_nhist3_miscal_deltaM_eeaux/interm_step_100000.pth \
+  arm_names=R1a,R1b,R1c \
+  data_path=/k8s-nfs/harsvbha/3dfa/data/orbital_peract2/val.zarr \
+  samples_npz=results/asym_miscal/samples.npz n_directions=3 num_batches=100 \
+  data=orbital_peract2_nfs bimanual=true dataset=OrbitalPeract2 \
+  num_history=3 batch_size_val=64 num_workers=8
+
+python scripts/eval/analyze_asym_miscal.py \
+  samples_npz=results/asym_miscal/samples.npz \
+  out_md=results/asym_miscal/tables.md n_boot=20000
+```
+
+Raw per-sample records, the full table dump, and the run log are staged at
+`s3://far-research-internal/harsvbha/3dfa/eval/results/asym_miscal/`
+(`samples.npz`, `tables.md`, `run.log`). The npz holds every keypose so the
+aggregation can be redone without re-running inference.
+
+---
+
+## 7. Tier 3 — proposed next evals (T3-1 now run, see section 6)
 
 All framed as **R1c vs R1a**, with R1b as the ablation that isolates whether
 the aux loss is necessary — which section 3e says it is. Ranked by expected
 information per GPU-hour.
 
-### T3-1. Asymmetric per-camera miscalibration (recommended first)
+### T3-1. Asymmetric per-camera miscalibration — **RUN, see section 6**
 
 One camera badly wrong (15-20deg), the rest clean. Sweep which camera.
+
+**Outcome:** the camera x arm interaction is real but not the predicted one. R1c
+is more robust on cams 0, 1 **and 3** and *less* robust on cam 2; the delta_M
+response is column-structured (fires on tok0/tok1 whichever camera is broken)
+rather than diagonal, so the per-camera-correction mechanism below is refuted.
+The proposal's "risk it shows nothing" branch is roughly what happened for the
+mechanism claim — and it was informative, as anticipated. The design rationale
+is left below as written for the record.
 
 - **Motivation.** The strongest mechanistic result (3e) is that only the
   aux-supervised cameras 0/1 respond to perturbation. A per-camera-targeted
@@ -442,9 +720,14 @@ right axis is **aux-loss design** (which cameras, what target, `lambda_aux`),
 not more deltaM variants. And before any of it: **a second seed per arm**, since
 one seed per arm is the binding limitation on every number in this document.
 
+Section 6f narrows this further: **aux-on-all-cameras is no longer the indicated
+aux-loss variant**, because the per-camera premise it rested on did not hold. The
+indicated experiments are a second seed, and an aux target that is not
+extrinsics-shaped, to test the regularizer reading directly.
+
 ---
 
-## 7. Reproducing
+## 8. Reproducing
 
 Tier 2, on a 1-GPU devbox with the repo at `/root/3dfa/3d_flowmatch_actor`:
 
