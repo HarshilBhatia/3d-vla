@@ -36,10 +36,17 @@ RN50 + FPN). It is a git dependency and is lazily imported in
 uv sync --frozen --extra clip
 ```
 
-On the cluster this was a **separate venv** (`venv_clip`) rather than an extra
-layered onto the shared `/k8s-nfs/harsvbha/3dfa/venv`, because both arms of an
-experiment pair can `uv sync` the shared path concurrently and a non-atomic guard
-lets one clobber the other. Keep CLIP runs on their own venv path.
+On the cluster this was a **separate venv**,
+`/k8s-nfs/harsvbha/3dfa/venv_clip`, rather than the extra layered onto the shared
+`/k8s-nfs/harsvbha/3dfa/venv`: the shared venv is the interpreter other running jobs
+execute from, so it is not safe to mutate in place. Both venvs pin the same
+`torch 2.9.1+cu128` / `torchvision 0.24.1+cu128`. The CLIP RN50 vision weights are
+pre-staged at `/k8s-nfs/harsvbha/3dfa/clip-cache/RN50.pt`.
+
+Separately, note that both arms of an experiment pair submit at the same instant and
+share `$VENV`, so the setup blocks use a serialized (flock-guarded) build — a bare
+`[ ! -x $VENV/bin/python ]` check is not atomic and lets one arm run against a
+half-built venv.
 
 ### transformers 5.x note
 
