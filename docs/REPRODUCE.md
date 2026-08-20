@@ -105,8 +105,10 @@ and `shards/` (all **78** raw shards — a superset including camera groups no t
 run consumed). `zarr/` alone is enough to reproduce; `shards/` is there so a
 different task→group mapping can be built without recollecting.
 
-Regenerate the zarr from shards with `scripts/../data/processing/convert_to_zarr/`
-helpers; the collection driver is `data/generation/orbital/collection.py`.
+Regenerate the zarr from shards with
+`data/processing/convert_to_zarr/merge_orbital_shards.py` then
+`data/processing/convert_to_zarr/orbital_to_zarr.py`; the collection driver is
+`data/generation/orbital/collection.py`.
 
 Train/eval camera mapping: task *i* trains on groups `[i, i+1, i+2] mod 6`, eval
 group is `i+3` — `instructions/peract2_orbital_task_group_mapping.json`. **G7 was
