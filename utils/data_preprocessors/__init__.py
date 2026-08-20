@@ -8,6 +8,8 @@ def fetch_data_preprocessor(dataset_name):
     dataset_name = dataset_name.lower()
     if 'peractcollected' in dataset_name:
         return partial(RLBenchDataPreprocessor, orig_imsize=128)
+    if 'libero' in dataset_name:
+        return partial(RLBenchDataPreprocessor, orig_imsize=256)
     if 'peract2' in dataset_name:
         return partial(RLBenchDataPreprocessor, orig_imsize=256)
     if 'peract' in dataset_name:

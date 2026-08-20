@@ -1,0 +1,33 @@
+# Managed 3DFA LIBERO training job (2xB200, ll-sea, uv env on /k8s-nfs).
+# Launch:
+#   sky jobs launch scripts/train/sky_libero_train.yaml --infra ll-sea \
+#     --env RUN_NAME=... --env DATA=... [--env EXTRA_ARGS=...] -y -d
+name: 3dfa-libero-train
+
+resources:
+  accelerators: B200:2
+  cpus: 16+
+  memory: 64+
+  # Cluster policy requires an ECR image; this is the stock SkyPilot GPU base.
+  # The actual training env is the uv venv synced on /k8s-nfs in setup.
+  image_id: docker:241533154612.dkr.ecr.us-east-1.amazonaws.com/skypilot-gpu:latest
+
+envs:
+  RUN_NAME: libero_spatial_base_hist3
+  DATA: libero_spatial
+  BATCH_SIZE: "2048"
+  EXTRA_ARGS: ""
+
+setup: |
+  # No uv in the pod: managed-job pods run under an NFS-squashed identity that
+  # cannot write anywhere under /k8s-nfs/harsvbha, so the venv is pre-built on
+  # NFS from a devbox (uv sync --frozen --no-install-project with
+  # UV_PROJECT_ENVIRONMENT=/k8s-nfs/harsvbha/3dfa/venv, then chmod go+rX).
+  /k8s-nfs/harsvbha/3dfa/venv/bin/python -c "import torch; print('venv ok', torch.__version__)"
+
+run: |
+  cd /k8s-nfs/harsvbha/3dfa/repo
+  export WANDB_API_KEY="$(aws s3 cp s3://far-research-internal/harsvbha/_secrets/wandb_key.txt - | tr -d '[:space:]')"
+  VENV=/k8s-nfs/harsvbha/3dfa/venv PORT=27941 \
+    BATCH_SIZE=$BATCH_SIZE RUN_NAME=$RUN_NAME DATA=$DATA \
+    bash scripts/train/train_libero_spatial_devbox.sh $EXTRA_ARGS

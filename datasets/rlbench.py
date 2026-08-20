@@ -282,6 +282,24 @@ class Peract2Dataset(RLBenchDataset):
 
 
 
+class LiberoDataset(RLBenchDataset):
+    """LIBERO dataset (libero_to_zarr.py output; same schema as PeractCollected).
+
+    Tasks come from the instructions json (one entry per suite task), so a
+    single class serves any LIBERO suite.
+    """
+    cameras = ("agentview", "robot0_eye_in_hand")
+    camera_inds = None
+    train_copies = 10
+    camera_inds2d = None
+
+    def _load_instructions(self, instruction_file):
+        with open(instruction_file) as f:
+            instr = json.load(f)
+        self.tasks = list(instr.keys())
+        return instr
+
+
 class OrbitalWristDataset(RLBenchDataset):
     """RLBench dataset with orbital left/right + wrist cameras."""
     tasks = PERACT_TASKS

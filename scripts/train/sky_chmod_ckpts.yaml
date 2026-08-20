@@ -1,0 +1,10 @@
+# One-off: make existing training checkpoints world-readable. Runs as the
+# managed-pod identity that owns them (devboxes cannot chmod these files).
+name: chmod-3dfa-ckpts
+resources:
+  cpus: 2+
+  memory: 4+
+  image_id: docker:241533154612.dkr.ecr.us-east-1.amazonaws.com/skypilot-gpu:latest
+run: |
+  chmod -R go+rX /k8s-nfs/harsvbha/3dfa/repo/train_logs/Libero
+  ls -la /k8s-nfs/harsvbha/3dfa/repo/train_logs/Libero/*/last.pth

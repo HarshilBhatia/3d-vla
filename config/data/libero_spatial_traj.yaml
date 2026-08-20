@@ -1,0 +1,10 @@
+# LIBERO-Spatial with dense interpolated trajectory actions (50 steps per
+# keypose segment) for the keypose_only ablation.
+# Use: python main.py data=libero_spatial_traj keypose_only=false
+train_data_dir: /k8s-nfs/harsvbha/3dfa/data/libero_spatial_traj_zarr/train.zarr
+eval_data_dir: /k8s-nfs/harsvbha/3dfa/data/libero_spatial_traj_zarr/train.zarr
+train_instructions: /k8s-nfs/harsvbha/3dfa/data/libero_spatial_traj_zarr/instructions.json
+val_instructions: /k8s-nfs/harsvbha/3dfa/data/libero_spatial_traj_zarr/instructions.json
+dataset: Libero
+bimanual: false
+keypose_only: false

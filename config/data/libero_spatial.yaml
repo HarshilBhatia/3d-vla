@@ -1,0 +1,8 @@
+# LIBERO-Spatial (libero_to_zarr.py output on /k8s-nfs).
+# Use: python main.py data=libero_spatial
+train_data_dir: /k8s-nfs/harsvbha/3dfa/data/libero_spatial_zarr/train.zarr
+eval_data_dir: /k8s-nfs/harsvbha/3dfa/data/libero_spatial_zarr/train.zarr
+train_instructions: /k8s-nfs/harsvbha/3dfa/data/libero_spatial_zarr/instructions.json
+val_instructions: /k8s-nfs/harsvbha/3dfa/data/libero_spatial_zarr/instructions.json
+dataset: Libero
+bimanual: false
