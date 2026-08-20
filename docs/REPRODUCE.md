@@ -50,8 +50,9 @@ half-built venv.
 
 ### transformers 5.x note
 
-`pyproject.toml` declares `transformers>=4.45` and `uv.lock` resolves it to a **5.x**
-release. SigLIP2 loads fine there, but note two things if you ever re-resolve:
+`pyproject.toml` declares `transformers>=4.45`; `uv.lock` pins
+**`transformers==5.15.0`**, which is what every run in this campaign used. SigLIP2
+loads fine there, but note two things if you ever re-resolve:
 
 * The lockfile is the source of truth for what these results were produced with — a
   bare `uv sync` (no `--frozen`) can move `transformers` and silently change backbone
