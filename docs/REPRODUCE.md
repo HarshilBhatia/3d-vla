@@ -66,8 +66,50 @@ PyRep / RLBench / CoppeliaSim are **deliberately absent** from `pyproject.toml`.
 Online eval runs from an ECR image:
 
 ```
-913524929094.dkr.ecr.us-east-1.amazonaws.com/rfm-h-eval-job:hb-3dfa-peract2-20260811
+241533154612.dkr.ecr.us-east-1.amazonaws.com/rfm-h-eval-job:hb-3dfa-peract2-20260811
+  digest sha256:fa7b2dd3d0e719ec067b5f08f89e748c95e04e12cee5170e17090f8550690b88
 ```
+
+### Eval image rebuild
+
+Two layers, both committed:
+
+```
+nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu20.04
+  └─ docker/online-eval/    -> 3dfa-online-eval:latest   (CoppeliaSim 4.1, /opt/venv,
+  │                                                       unimanual PerAct forks)
+  └─ docker/peract2-eval/   -> 3dfa-peract2:latest       (swaps in the PerAct2 forks)
+```
+
+**Every bimanual eval campaign below ran on the second image**, tagged into ECR as
+above. The base layer's PyRep/RLBench have no `dual_panda` and no
+`rlbench.bimanual_tasks`, so `docker/peract2-eval/` uninstalls them and installs
+the markusgrotz PerAct2 forks instead.
+
+| tree | source | commit |
+|---|---|---|
+| PerAct2 PyRep | github.com/markusgrotz/PyRep | `b8bd1d7a3182adcd570d001649c0849047ebf197` (`main`) |
+| PerAct2 RLBench | github.com/markusgrotz/RLBench | `8af748c51287989294e00c9c670e3330a0e35ed5` (`main`) |
+| base PyRep | github.com/stepjam/PyRep | `8f420be8064b1970aae18a9cfbc978dfb15747ef` |
+| base RLBench | github.com/MohitShridhar/RLBench | `ad991951bc53e4f3b73b803a75cf4b7d55295cf7` |
+
+The PerAct2 trees used for the campaign build are byte-identical to those public
+commits — no local patches, nothing to preserve out-of-band. `PyRep/` and
+`RLBench/` are gitignored in this repo, so the commits above are the only record.
+
+Rebuild instructions, the import-assertion gate, and the per-layer rationale are in
+`docker/peract2-eval/README.md`. **A rebuild is not bit-identical** to the campaign
+image (apt/PyPI indexes move); to reproduce a success rate rather than change the
+environment, pull the ECR copy by digest:
+
+```bash
+AWS_PROFILE=far-compute aws ecr get-login-password --region us-east-1 \
+  | docker login --username AWS --password-stdin 241533154612.dkr.ecr.us-east-1.amazonaws.com
+docker pull 241533154612.dkr.ecr.us-east-1.amazonaws.com/rfm-h-eval-job@sha256:fa7b2dd3d0e719ec067b5f08f89e748c95e04e12cee5170e17090f8550690b88
+```
+
+Pull by digest, not tag — the tag is mutable. Older notes give the registry account
+as `913524929094`; the image resolves under `241533154612`.
 
 ---
 
@@ -124,6 +166,17 @@ s3://far-research-internal/harsvbha/3dfa/eval/peract2_test
 100 seeds per task. Standard PerAct2 evals use 25/variation; orbital evals use
 `NUM_DEMOS_TOTAL=10` (a whole-task budget — `bimanual_dual_push_buttons` has 46
 variations, so a per-variation cap of 10 would mean 460 rollouts).
+
+These are the **exact stored seeds behind every success-rate table in this
+document** — 13 tasks x 100 episodes = 1300 `low_dim_obs.pkl` files, each pinning
+one scene initialization. Reusing them is what makes two runs comparable; letting
+RLBench sample fresh seeds silently changes the benchmark. They also ship as the
+third part of the egress bundle:
+
+```
+<egress>/peract2_test_seeds.tar.zst    173 MB, sha256 0cc5a04d…a7a6f1a4
+tar -I zstd -xf peract2_test_seeds.tar.zst      # -> peract2_test/
+```
 
 ---
 
@@ -478,6 +531,7 @@ AWS_PROFILE=far-compute aws s3 sync \
 ```
 3dfa_egress_<date>/
 ├── MANIFEST.txt                    # members, sizes, sha256 per part, git sha, S3 pointers
+├── peract2_test_seeds.tar.zst      # separate part — the 1300 eval seeds (see §2)
 ├── checkpoints/                    # 16 files (8 runs x best+last), 1.4 GB
 ├── datasets/orbital_peract2/
 │   ├── zarr/                       # 6.0 GB — final 1053 train / 117 val
@@ -494,6 +548,9 @@ cat 3dfa_egress_<date>.tar.zst.part-* | zstd -d | tar -xf -
 ```
 
 Verify part checksums against `MANIFEST.txt` (`sha256sum -c`) before extracting.
+
+`peract2_test_seeds.tar.zst` is **not** one of those parts — it is a standalone
+tarball, extracted on its own (see §2, "Eval test seeds").
 
 ---
 
