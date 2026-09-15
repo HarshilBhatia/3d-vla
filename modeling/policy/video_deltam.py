@@ -21,7 +21,7 @@ class _Block(nn.Module):
 
 
 class VideoDeltaM(nn.Module):
-    """Video-DeltaM sparse attention stack.
+    """Video-DeltaM sparse attention stack with a global causal readout.
 
     The legacy input is one pooled visual token per ``(history time, camera)``.
     The full-image path instead appends a learned per-image token to every
@@ -32,8 +32,12 @@ class VideoDeltaM(nn.Module):
 
     1. visual patch tokens mix only with other cameras at their own timestamp;
     2. each camera attends causally to its own earlier timestamps;
-    There is intentionally no frame-to-future or arbitrary cross-camera,
-    cross-time attention, and no global camera-readout attention.
+    3. the camera-averaged history is read causally into one global context.
+
+    ``camera_readout`` is part of the serialized architecture of the released
+    Video-DeltaM checkpoints.  Keep both its name and its global-token output
+    contract stable: changing either silently invalidates old checkpoints when
+    loaded with ``strict=False``.
     """
 
     def __init__(self, embedding_dim, num_heads, depth, max_history=32, max_cameras=8,
@@ -53,9 +57,15 @@ class VideoDeltaM(nn.Module):
             nn.init.normal_(self.image_token, std=0.02)
         self.same_time = nn.ModuleList([_Block(embedding_dim, num_heads, dropout) for _ in range(depth)])
         self.temporal = nn.ModuleList([_Block(embedding_dim, num_heads, dropout) for _ in range(depth)])
+        # Legacy checkpoint-compatible global history readout.  This consumes
+        # one camera-averaged token per timestamp, causally, and produces the
+        # current history-context token used with the policy camera register.
+        self.camera_readout = nn.ModuleList(
+            [_Block(embedding_dim, num_heads, dropout) for _ in range(depth)]
+        )
 
     def forward(self, frame_tokens):
-        """Return refined per-image frame tokens.
+        """Return the current global causal camera-history context token.
 
         Args:
             frame_tokens: legacy ``(B, K, M, C)`` pooled frame tokens, or,
@@ -136,6 +146,13 @@ class VideoDeltaM(nn.Module):
                 # (B*M, K, C): each camera sees only its own causal temporal path.
                 temporal_frames = frames.transpose(1, 2).reshape(bsz * ncam, history, -1)
                 frames = temporal(temporal_frames, attn_mask=causal_mask).reshape(bsz, ncam, history, -1).transpose(1, 2)
-        # Keep the old downstream interface: the learned final token is the
-        # refined per-image feature used to predict one Delta-M per camera.
-        return frames[..., -1, :] if self.full_image else frames
+        # The legacy readout intentionally uses camera-averaged summaries,
+        # rather than turning the global context into per-camera Delta-M
+        # features.  It is causal over the same oldest->current history axis.
+        if self.full_image:
+            camera_history = frames[..., -1, :].mean(dim=2)
+        else:
+            camera_history = frames.mean(dim=2)
+        for readout in self.camera_readout:
+            camera_history = readout(camera_history, attn_mask=time_mask)
+        return camera_history[:, -1]

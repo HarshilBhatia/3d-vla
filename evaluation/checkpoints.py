@@ -24,6 +24,20 @@ EVALUATION_RUNTIME_KEYS = frozenset({
 })
 
 
+def _non_frozen_checkpoint_incompatibilities(model, incompatible):
+    """Return checkpoint mismatches that could change model behavior.
+
+    Frozen pretrained visual/text modules are deliberately omitted from some
+    rollout checkpoints.  Every other mismatch is an architecture error and
+    must never be hidden by ``strict=False``.
+    """
+    frozen_prefixes = ("encoder.backbone.", "encoder.text_encoder.", "encoder.normalize.")
+    return (
+        [key for key in incompatible.missing_keys if not key.startswith(frozen_prefixes)],
+        [key for key in incompatible.unexpected_keys if not key.startswith(frozen_prefixes)],
+    )
+
+
 def overlay_checkpoint_config(args: Any, checkpoint_config: Mapping[str, Any]) -> dict[str, Any]:
     """Overlay model configuration while preserving evaluation-owned fields.
 
@@ -76,6 +90,12 @@ def load_model_for_evaluation(args: Any):
         key[7:]: value
         for key, value in checkpoint["weight"].items()
     }
-    model.load_state_dict(state, strict=False)
+    incompatible = model.load_state_dict(state, strict=False)
+    missing, unexpected = _non_frozen_checkpoint_incompatibilities(model, incompatible)
+    if missing or unexpected:
+        raise RuntimeError(
+            "checkpoint/model architecture mismatch; refusing an invalid evaluation. "
+            f"Missing trained keys: {missing}; unexpected checkpoint keys: {unexpected}"
+        )
     model.eval()
     return model.cuda()
