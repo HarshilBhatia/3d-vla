@@ -30,7 +30,7 @@ class _Derived:
 # Constructor params whose name differs from the config key, or that are derived
 # from config values. Everything not listed here is forwarded by exact name.
 MODEL_KWARG_MAP = {
-    "nhist": _Derived(("num_history",), lambda c: c["num_history"], "config key is num_history"),
+    "nhist": _Derived(("proprio_num_history",), lambda c: c["proprio_num_history"], "proprio history length"),
     "nhand": _Derived(
         ("bimanual",), lambda c: 2 if c["bimanual"] else 1, "2 hands when bimanual else 1"
     ),

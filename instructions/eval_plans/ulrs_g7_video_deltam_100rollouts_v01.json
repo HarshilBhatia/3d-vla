@@ -1,0 +1,29 @@
+{
+  "schema_version": 1,
+  "campaign_id": "ULRS_G7_video_deltam_100rollouts_v01",
+  "description": "Unknown-Lab Robustness Sweep: Video-DeltaM checkpoints on fully unseen G7 camera viewpoints under clean-origin, fixed external-only random calibration realizations.",
+  "calibration_registry": "instructions/eval_calibrations.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {"id": "video_deltam_best_s084k", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth"},
+    {"id": "video_deltam_s100k", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/interm_step_100000.pth"},
+    {"id": "video_deltam_s130k", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_last100k_resume50k/interm_step_130000.pth"}
+  ],
+  "viewpoints": [
+    {"id": "g7_fully_unknown_lab", "spawn_camera_group": "G7", "regime": "fully_unknown_lab", "cameras_file": "instructions/orbital_cameras_grouped.json"}
+  ],
+  "calibrations": ["calibrated", "ext-r2deg-t2cm-v01", "ext-r5deg-t5cm-v01", "ext-r10deg-t10cm-v01"],
+  "tasks": [
+    "bimanual_push_box", "bimanual_lift_ball", "bimanual_dual_push_buttons",
+    "bimanual_pick_plate", "bimanual_put_item_in_drawer", "bimanual_put_bottle_in_fridge",
+    "bimanual_handover_item", "bimanual_pick_laptop", "bimanual_straighten_rope",
+    "bimanual_sweep_to_dustpan", "bimanual_lift_tray", "bimanual_handover_item_easy",
+    "bimanual_take_tray_out_of_oven"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true,
+    "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 100,
+    "overrides": {"image_space_sampling": false, "eval_proprio_history_order": "past_to_current"}
+  }
+}

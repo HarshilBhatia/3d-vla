@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "campaign_id": "video_deltam_sbrs_best_v01",
+  "description": "Best-checkpoint evaluation for K=5 visual / K=3 proprio Video-DeltaM: six seen-group tasks, 20 rollouts each, under the trained medium fixed external base plus one materialized 3 degree / 1 cm residual realization.",
+  "calibration_registry": "instructions/eval_calibrations_seen_base_residual_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+  "methods": [{"id": "video_deltam_k5v_k3p_best", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth"}],
+  "task_viewpoints": {
+    "bimanual_handover_item_easy": {"id": "g6_seen_train_group", "spawn_camera_group": "G6", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_lift_ball": {"id": "g2_seen_train_group", "spawn_camera_group": "G2", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_push_box": {"id": "g1_seen_train_group", "spawn_camera_group": "G1", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_pick_plate": {"id": "g4_seen_train_group", "spawn_camera_group": "G4", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_pick_laptop": {"id": "g2_seen_train_group", "spawn_camera_group": "G2", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_straighten_rope": {"id": "g3_seen_train_group", "spawn_camera_group": "G3", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"}
+  },
+  "task_calibrations": {
+    "bimanual_handover_item_easy": ["seen-g6-medium-e3deg-t1cm-v01"],
+    "bimanual_lift_ball": ["seen-g2-medium-e3deg-t1cm-v01"],
+    "bimanual_push_box": ["seen-g1-medium-e3deg-t1cm-v01"],
+    "bimanual_pick_plate": ["seen-g4-medium-e3deg-t1cm-v01"],
+    "bimanual_pick_laptop": ["seen-g2-medium-e3deg-t1cm-v01"],
+    "bimanual_straighten_rope": ["seen-g3-medium-e3deg-t1cm-v01"]
+  },
+  "calibrations": ["e3deg-t1cm"],
+  "tasks": ["bimanual_handover_item_easy", "bimanual_lift_ball", "bimanual_push_box", "bimanual_pick_plate", "bimanual_pick_laptop", "bimanual_straighten_rope"],
+  "runtime": {
+    "data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true,
+    "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 20,
+    "overrides": {"image_space_sampling": false, "eval_proprio_history_order": "past_to_current"}
+  }
+}

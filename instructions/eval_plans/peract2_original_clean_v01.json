@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "campaign_id": "peract2_original_clean_v01",
+  "description": "Clean online evaluation on the published PerAct2 test seeds and native front+wrist camera rig.",
+  "calibration_registry": "instructions/eval_calibrations_peract2_standard.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_25rollouts",
+  "methods": [
+    {
+      "id": "denoise2d_s244400",
+      "checkpoint": "eval_logs/peract2_original_clean_v01/checkpoints/denoise2d_s244400.pth"
+    }
+  ],
+  "viewpoints": [
+    {
+      "id": "standard_front_wrist",
+      "regime": "standard_front_wrist"
+    }
+  ],
+  "calibrations": ["calibrated"],
+  "tasks": [
+    "bimanual_push_box", "bimanual_lift_ball", "bimanual_dual_push_buttons",
+    "bimanual_pick_plate", "bimanual_put_item_in_drawer", "bimanual_put_bottle_in_fridge",
+    "bimanual_handover_item", "bimanual_pick_laptop", "bimanual_straighten_rope",
+    "bimanual_sweep_to_dustpan", "bimanual_lift_tray", "bimanual_handover_item_easy",
+    "bimanual_take_tray_out_of_oven"
+  ],
+  "runtime": {
+    "data": "full",
+    "dataset": "Peract2_3dfront_3dwrist",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 25,
+    "overrides": {
+      "experiment": "peract2_standard_2d",
+      "model_type": "denoise2d"
+    }
+  }
+}

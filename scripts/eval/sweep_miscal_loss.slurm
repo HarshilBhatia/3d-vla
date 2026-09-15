@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=miscal_sweep
-#SBATCH --output=logs/%j.out
-#SBATCH --error=logs/%j.err
+#SBATCH --output=/home/harshilb/3dfa_unified/logs/eval/miscal_loss-%j.out
+#SBATCH --error=/home/harshilb/3dfa_unified/logs/eval/miscal_loss-%j.err
 #SBATCH --nodes=1
 #SBATCH --ntasks-per-node=1
 #SBATCH --cpus-per-task=16

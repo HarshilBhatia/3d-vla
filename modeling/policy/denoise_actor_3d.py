@@ -42,9 +42,15 @@ class DenoiseActor(BaseDenoiseActor):
                  traj_scene_rope=True,
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m',
+                 delta_m_camera_ids=None,
                  # RoPE type
                  rope_type='adam',
                  dynamic_rope_from_camtoken=False,
+                 video_deltam=False,
+                 video_deltam_depth=4,
+                 video_deltam_max_history=32,
+                 video_deltam_max_cameras=8,
+                 video_deltam_full_image=False,
                  use_learned_abs_pe=False,
                  # Recursive Set Transformer Encoder
                  use_recursive_set_encoder=False,
@@ -71,8 +77,9 @@ class DenoiseActor(BaseDenoiseActor):
         )
 
 
-        print(f'predict_extrinsics: {predict_extrinsics}')
-        print(f'extrinsics_prediction_mode: {extrinsics_prediction_mode}')
+        mechanism = 'physical_se3' if extrinsics_prediction_mode == 'rt' else extrinsics_prediction_mode
+        print(f'camera correction enabled (legacy predict_extrinsics): {predict_extrinsics}')
+        print(f'camera correction mode (legacy): {mechanism}')
         print(f'rope_type: {rope_type}')
         
         # Vision-language encoder, runs only once
@@ -91,6 +98,7 @@ class DenoiseActor(BaseDenoiseActor):
             finetune_text_encoder=finetune_text_encoder,
             rope_type=rope_type,
             lang_dropout_prob=lang_dropout_prob,
+            video_deltam_full_image=video_deltam_full_image,
         )
 
         # Action decoder, runs at every denoising timestep
@@ -102,8 +110,14 @@ class DenoiseActor(BaseDenoiseActor):
             traj_scene_rope=traj_scene_rope,
             predict_extrinsics=predict_extrinsics,
             extrinsics_prediction_mode=extrinsics_prediction_mode,
+            delta_m_camera_ids=delta_m_camera_ids,
             rope_type=rope_type,
             dynamic_rope_from_camtoken=dynamic_rope_from_camtoken,
+            video_deltam=video_deltam,
+            video_deltam_depth=video_deltam_depth,
+            video_deltam_max_history=video_deltam_max_history,
+            video_deltam_max_cameras=video_deltam_max_cameras,
+            video_deltam_full_image=video_deltam_full_image,
             use_proprio_rope=use_proprio_rope,
             use_learned_abs_pe=use_learned_abs_pe,
             predict_ee_aux=predict_ee_aux,
@@ -164,6 +178,11 @@ class TransformerHead(BaseTransformerHead):
             predict_extrinsics=predict_extrinsics,
             extrinsics_prediction_mode=kwargs.get("extrinsics_prediction_mode", 'delta_m'),
             dynamic_rope_from_camtoken=kwargs.get("dynamic_rope_from_camtoken", False),
+            video_deltam=kwargs.get("video_deltam", False),
+            video_deltam_depth=kwargs.get("video_deltam_depth", 4),
+            video_deltam_max_history=kwargs.get("video_deltam_max_history", 32),
+            video_deltam_max_cameras=kwargs.get("video_deltam_max_cameras", 8),
+            video_deltam_full_image=kwargs.get("video_deltam_full_image", False),
             use_learned_abs_pe=kwargs.get("use_learned_abs_pe", False),
             predict_ee_aux=kwargs.get("predict_ee_aux", False),
             lambda_aux=kwargs.get("lambda_aux", 1.0),

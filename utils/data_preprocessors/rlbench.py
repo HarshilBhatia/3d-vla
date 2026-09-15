@@ -17,7 +17,7 @@ from .miscalibration import (
 
 class RLBenchDataPreprocessor(DataPreprocessor):
 
-    def __init__(self, keypose_only=False, num_history=1,
+    def __init__(self, keypose_only=False, num_history=1, proprio_num_history=None,
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
                  rotate_pcd=False, rotate_angle_deg=0.0, rotate_axis='z',
                  miscal_max_angle_deg=None, miscal_max_translation_m=None,
@@ -28,12 +28,14 @@ class RLBenchDataPreprocessor(DataPreprocessor):
                  cotrain_miscal_group_ids=None,
                  cotrain_miscal_level=None,
                  cotrain_miscal_levels=None,
+                 miscal_camera_ids=None,
                  noise_curriculum=False,
                  noise_curriculum_warmup_frac=1.0,
                  **kwargs):
         super().__init__(
             keypose_only=keypose_only,
             num_history=num_history,
+            proprio_num_history=proprio_num_history,
             custom_imsize=custom_imsize,
             depth2cloud=depth2cloud
         )
@@ -66,6 +68,9 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         self._cotrain_miscal_group_ids = set(int(g) for g in cotrain_miscal_group_ids) if cotrain_miscal_group_ids else None
         self._cotrain_miscal_level = cotrain_miscal_level
         self._cotrain_miscal_levels = list(cotrain_miscal_levels) if cotrain_miscal_levels else None
+        self._miscal_camera_ids = (
+            None if miscal_camera_ids is None else tuple(sorted(set(int(i) for i in miscal_camera_ids)))
+        )
         # Random mode: cotrain_miscal_group_ids + miscal_max_angle_deg (no file-based level needed)
         self._cotrain_random_mode = (
             bool(self._cotrain_miscal_group_ids)
@@ -212,21 +217,35 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             ids = torch.tensor(sorted(self._cotrain_miscal_group_ids), dtype=camera_group.dtype)
             in_miscal = torch.isin(camera_group, ids).to(device=device).view(B, 1, 1, 1)
             eye = torch.eye(4, device=device, dtype=dtype).view(1, 1, 4, 4).expand(B, ncam, 4, 4)
-            return torch.where(in_miscal, T, eye)
+            return self._mask_miscal_cameras(torch.where(in_miscal, T, eye), ncam)
         if self._orbital_miscal_noise_level is not None and camera_group is not None:
             self._ensure_group_noise_table(ncam)
             T_base = self._group_noise_table[camera_group.long() - 1].to(device=device, dtype=dtype)
             if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
                 T_rand = self._sample_random_miscalibration(B, ncam, device, dtype)
-                return T_rand @ T_base
-            return T_base
+                return self._mask_miscal_cameras(T_rand @ T_base, ncam)
+            return self._mask_miscal_cameras(T_base, ncam)
         if self._orbital_miscal_noise_levels is not None and camera_group is not None:
-            return self._lookup_group_level_noise(camera_group, self._orbital_miscal_noise_levels, ncam, device, dtype)
+            return self._mask_miscal_cameras(
+                self._lookup_group_level_noise(camera_group, self._orbital_miscal_noise_levels, ncam, device, dtype), ncam
+            )
 
         if (self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0
                 or self.miscal_fixed_angle_deg > 0 or self.miscal_fixed_translation_m > 0):
-            return self._sample_random_miscalibration(B, ncam, device, dtype)
+            return self._mask_miscal_cameras(self._sample_random_miscalibration(B, ncam, device, dtype), ncam)
         return None
+
+    def _mask_miscal_cameras(self, transforms, ncam):
+        """Keep non-selected cameras geometrically clean (identity transform)."""
+        if self._miscal_camera_ids is None:
+            return transforms
+        invalid = [i for i in self._miscal_camera_ids if i >= ncam]
+        if invalid:
+            raise ValueError(f"miscal_camera_ids={invalid} outside ncam={ncam}")
+        enabled = torch.zeros(ncam, dtype=torch.bool, device=transforms.device)
+        enabled[list(self._miscal_camera_ids)] = True
+        eye = torch.eye(4, dtype=transforms.dtype, device=transforms.device).view(1, 1, 4, 4)
+        return torch.where(enabled.view(1, ncam, 1, 1), transforms, eye)
 
     def _sample_random_miscalibration(self, B, ncam, device, dtype):
         """Sample one random noise extrinsics perturbation per (B, ncam).

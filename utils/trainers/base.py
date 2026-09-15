@@ -1,8 +1,11 @@
 from copy import deepcopy
 import os
 import random
+import subprocess
+import sys
 import tempfile
 import time
+from pathlib import Path
 
 import numpy as np
 import torch
@@ -51,6 +54,7 @@ from ..data_preprocessors import fetch_data_preprocessor
 from ..ema import EMA
 from ..schedulers import fetch_scheduler
 from .utils import compute_metrics, BenchmarkLogger
+from datasets.samplers import DiverseChunkBatchSampler
 
 
 class BaseTrainTester:
@@ -69,11 +73,14 @@ class BaseTrainTester:
         self.preprocessor = fetch_data_preprocessor(self.args.dataset)(
             self.args.keypose_only,
             self.args.num_history,
+            proprio_num_history=getattr(self.args, 'proprio_num_history', self.args.num_history),
             custom_imsize=self.args.custom_img_size,
             depth2cloud=fetch_depth2cloud(self.args.dataset),
             miscal_max_angle_deg=self.args.miscal_max_angle_deg,
             miscal_max_translation_m=self.args.miscal_max_translation_m,
+            miscal_camera_ids=getattr(self.args, 'miscal_camera_ids', None),
             orbital_miscal_noise_level=self.args.orbital_miscal_noise_level,
+            orbital_miscal_noise_file=self.args.orbital_miscal_noise_file,
             orbital_miscal_noise_levels=self.args.orbital_miscal_noise_levels,
             cotrain_miscal_group_ids=self.args.cotrain_miscal_group_ids,
             cotrain_miscal_level=self.args.cotrain_miscal_level,
@@ -114,6 +121,7 @@ class BaseTrainTester:
             mem_limit=self.args.memory_limit,
             chunk_size=self.args.chunk_size,
             num_history=num_history,
+            proprio_num_history=getattr(self.args, 'proprio_num_history', num_history),
             preload=preload,
         )
         val_dataset = self.dataset_cls(
@@ -124,6 +132,7 @@ class BaseTrainTester:
             mem_limit=0.1,
             chunk_size=self.args.chunk_size,
             num_history=num_history,
+            proprio_num_history=getattr(self.args, 'proprio_num_history', num_history),
             preload=preload,
         )
         return train_dataset, val_dataset
@@ -140,7 +149,17 @@ class BaseTrainTester:
         # Samplers and loaders
         g = torch.Generator()
         g.manual_seed(0)
-        train_sampler = DistributedSampler(train_dataset, drop_last=True, shuffle=True)
+        # Video-DeltaM can preserve per-update diversity while retaining a
+        # small episode/time working set in each loader worker.  Disabled by
+        # default to keep all existing experiments bit-for-bit unchanged.
+        cache_batches = getattr(self.args, 'video_deltam_cache_batches', 0)
+        use_diverse_chunk_sampler = cache_batches > 0
+        if use_diverse_chunk_sampler and 'demo_id' not in train_dataset.annos:
+            raise ValueError(
+                'video_deltam_cache_batches requires zarr annotations with demo_id'
+            )
+
+        train_sampler = None
         
         # Divide batch size by world size to keep effective batch size constant
         world_size = dist.get_world_size()
@@ -152,20 +171,55 @@ class BaseTrainTester:
             print(f"Per-GPU batch size: {per_gpu_batch_size}")
         
         prefetch = getattr(self.args, 'prefetch_factor', 4)
-        train_loader = DataLoader(
-            train_dataset,
-            batch_size=per_gpu_batch_size,
-            shuffle=False,
-            num_workers=self.args.num_workers,
-            worker_init_fn=seed_worker,
-            collate_fn=base_collate_fn,
-            pin_memory=True,
-            sampler=train_sampler,
-            drop_last=True,
-            generator=g,
-            prefetch_factor=prefetch,
-            persistent_workers=True,
-        )
+        loader_process_opts = {}
+        if self.args.num_workers > 0:
+            loader_process_opts = {
+                'prefetch_factor': prefetch,
+                'persistent_workers': True,
+            }
+        if use_diverse_chunk_sampler:
+            train_sampler = DiverseChunkBatchSampler(
+                train_dataset,
+                batch_size=per_gpu_batch_size,
+                num_replicas=world_size,
+                rank=dist.get_rank(),
+                drop_last=True,
+                seed=getattr(self.args, 'video_deltam_sampler_seed', 0),
+                cache_batches=cache_batches,
+                cache_span=getattr(self.args, 'video_deltam_cache_span', 8),
+                # A DataLoader with no workers does not dispatch lanes.
+                num_workers=max(1, self.args.num_workers),
+            )
+            if dist.get_rank() == 0:
+                print(
+                    'Using diverse chunk sampler: one sample per demo in each '
+                    f'batch; cache working set lasts {cache_batches} batches.'
+                )
+            train_loader = DataLoader(
+                train_dataset,
+                batch_sampler=train_sampler,
+                num_workers=self.args.num_workers,
+                worker_init_fn=seed_worker,
+                collate_fn=base_collate_fn,
+                pin_memory=True,
+                generator=g,
+                **loader_process_opts,
+            )
+        else:
+            train_sampler = DistributedSampler(train_dataset, drop_last=True, shuffle=True)
+            train_loader = DataLoader(
+                train_dataset,
+                batch_size=per_gpu_batch_size,
+                shuffle=False,
+                num_workers=self.args.num_workers,
+                worker_init_fn=seed_worker,
+                collate_fn=base_collate_fn,
+                pin_memory=True,
+                sampler=train_sampler,
+                drop_last=True,
+                generator=g,
+                **loader_process_opts,
+            )
         # Val loader on all ranks so every rank participates in eval (avoids NCCL timeout).
         # Each rank independently iterates the full val set; only rank 0 logs metrics.
         g_val = torch.Generator()
@@ -179,8 +233,7 @@ class BaseTrainTester:
             pin_memory=True,
             sampler=None,
             drop_last=False,
-            prefetch_factor=prefetch,
-            persistent_workers=True,
+            **loader_process_opts,
             generator=g_val,
         )
         return train_loader, val_loader, train_sampler
@@ -225,10 +278,13 @@ class BaseTrainTester:
                 print(f"  End K: {getattr(self.args, 'rope_schedule_end_k', 0)}")
                 print(f"  Schedule steps: {getattr(self.args, 'rope_schedule_steps', 1)}")
             
-            # Print if predicting extrinsics
+            # delta_M is a RoPE-space correction, whereas the legacy RT mode is
+            # a physical transform. Keep the underlying flag for compatibility.
             if hasattr(_model, 'prediction_head') and hasattr(_model.prediction_head, 'predict_extrinsics') \
                and _model.prediction_head.predict_extrinsics:
-                print(f"\nPredicting camera extrinsics from camera token enabled")
+                mode = getattr(_model.prediction_head, 'extrinsics_prediction_mode', 'delta_m')
+                label = 'physical RT correction' if mode == 'rt' else 'per-camera RoPE correction'
+                print(f"\n{label} enabled")
 
         # Useful for some models to ensure parameters are contiguous
         for name, param in _model.named_parameters():
@@ -466,9 +522,10 @@ class BaseTrainTester:
             if rank == 0:
                 print(f"Benchmark logging enabled → {bench_path} "
                       f"(warmup={bench_warmup} steps, log every {bench_freq} steps)")
-            # torch.profiler runs on rank 0 only, starting after warmup
-            if dist.get_rank() == 0:
-                n = getattr(self.args, 'benchmark_profile_steps', 10)
+            # torch.profiler runs on rank 0 only, starting after warmup.  A
+            # zero value is useful for lightweight loader benchmarks.
+            n = getattr(self.args, 'benchmark_profile_steps', 10)
+            if dist.get_rank() == 0 and n > 0:
                 self._profile_start_step = start_iter + bench_warmup
                 self._profile_n_steps = n
                 profiler_dir = self.args.log_dir / "profiler"
@@ -661,6 +718,15 @@ class BaseTrainTester:
 
     def train_one_step(self, model, optimizer, lr_scheduler, sample, step_id=None):
         """Run a single training step. Returns GPU timing dict when benchmark_logger is set."""
+        benchmark = getattr(self, 'benchmark_logger', None) is not None
+        if benchmark:
+            fwd_start = torch.cuda.Event(enable_timing=True)
+            fwd_end = torch.cuda.Event(enable_timing=True)
+            bwd_start = torch.cuda.Event(enable_timing=True)
+            bwd_end = torch.cuda.Event(enable_timing=True)
+            opt_start = torch.cuda.Event(enable_timing=True)
+            opt_end = torch.cuda.Event(enable_timing=True)
+
         optimizer.zero_grad()
 
         stopgrad_k = self.compute_rope_stopgrad_k(step_id) if step_id is not None else 0
@@ -670,8 +736,14 @@ class BaseTrainTester:
             progress = step_id / max(1, self.args.train_iters - 1)
             self.preprocessor.set_noise_progress(progress)
 
+        if benchmark:
+            fwd_start.record()
         loss = self._model_forward(model, sample, training=True, stopgrad_k=stopgrad_k)
+        if benchmark:
+            fwd_end.record()
 
+        if benchmark:
+            bwd_start.record()
         loss.backward()
 
         # Clip gradients
@@ -681,7 +753,12 @@ class BaseTrainTester:
         grad_norm = torch.nn.utils.clip_grad_norm_(model.parameters(), 10.0)
 
         # Update
+        if benchmark:
+            bwd_end.record()
+            opt_start.record()
         optimizer.step()
+        if benchmark:
+            opt_end.record()
 
         # Step the lr scheduler
         lr_scheduler.step()
@@ -691,7 +768,10 @@ class BaseTrainTester:
         # of ~10+ per step. Loss/grad_norm/extrinsics are averaged over the window.
         if dist.get_rank() == 0 and step_id is not None:
             if not hasattr(self, '_log_buf'):
-                self._log_buf = {'loss': [], 'grad_norm': [], 'extrinsics_learn': [], 'extrinsics_pred': [], 'ee_aux_loss': []}
+                self._log_buf = {
+                    'loss': [], 'grad_norm': [], 'extrinsics_learn': [],
+                    'extrinsics_pred': [], 'view_align': [], 'ee_aux_loss': [],
+                }
                 self._log_freq = getattr(self.args, 'train_log_freq', 50)
 
             self._log_buf['loss'].append(loss.detach())
@@ -711,6 +791,12 @@ class BaseTrainTester:
                     if cam_params.dim() == 2 and cam_params.shape[-1] == 6:
                         # Keep full (B, 6) so flush can compute window-wide mean+std in one shot
                         self._log_buf['extrinsics_pred'].append(cam_params.detach())
+                    elif cam_params.dim() >= 3 and cam_params.shape[-1] == cam_params.shape[-2]:
+                        # delta_M is a representation-space view-alignment
+                        # matrix. Log it separately from the legacy physical-RT
+                        # diagnostics so dashboards do not imply calibration
+                        # recovery.
+                        self._log_buf['view_align'].append(cam_params.detach())
 
             if (step_id + 1) % self._log_freq == 0:
                 # Stack everything first (no sync), then a single .tolist() drains the window.
@@ -756,11 +842,33 @@ class BaseTrainTester:
                     metrics['extrinsics/rotation_std']          = rot_std.item()
                     metrics['extrinsics/translation_std']       = trans_std.item()
 
+                if self._log_buf['view_align']:
+                    matrices = torch.cat(self._log_buf['view_align'], dim=0).float()
+                    identity = torch.eye(
+                        matrices.shape[-1], device=matrices.device, dtype=matrices.dtype
+                    )
+                    deviation = torch.linalg.matrix_norm(matrices - identity, ord='fro', dim=(-2, -1))
+                    metrics['view_align/frob_from_identity_mean'] = deviation.mean().item()
+                    metrics['view_align/frob_from_identity_std'] = deviation.std().item()
+                    if deviation.dim() == 2:
+                        for cam_id, value in enumerate(deviation.mean(dim=0).tolist()):
+                            metrics[f'view_align/frob_from_identity_camera_{cam_id}'] = value
+
                 if getattr(self.args, 'use_wandb', True):
                     wandb.log(metrics, step=step_id)
 
                 for k in self._log_buf:
                     self._log_buf[k].clear()
+
+        if benchmark:
+            # Synchronize once after all events are queued; event elapsed-time
+            # measurements otherwise stay asynchronous and under-report work.
+            torch.cuda.synchronize()
+            return {
+                'fwd_ms': fwd_start.elapsed_time(fwd_end),
+                'bwd_ms': bwd_start.elapsed_time(bwd_end),
+                'opt_ms': opt_start.elapsed_time(opt_end),
+            }
 
         return None
 
@@ -831,7 +939,26 @@ class BaseTrainTester:
         if "config" in model_dict:
             print(f"Pretrained checkpoint config: {model_dict['config']}")
 
-        msn, unxpct = model.load_state_dict(model_dict["weight"], strict=False)
+        # ``strict=False`` still raises on same-name tensors whose shapes differ.
+        # A warm start across a changed proprio-history length should retain every
+        # compatible visual/Video-DeltaM/decoder weight and explicitly leave only
+        # length-dependent proprio modules at their fresh initialization.
+        current = model.state_dict()
+        source = model_dict["weight"]
+        compatible = {
+            key: value for key, value in source.items()
+            if key in current and current[key].shape == value.shape
+        }
+        skipped_shapes = {
+            key: (tuple(value.shape), tuple(current[key].shape))
+            for key, value in source.items()
+            if key in current and current[key].shape != value.shape
+        }
+        msn, unxpct = model.load_state_dict(compatible, strict=False)
+        if skipped_shapes:
+            print("[pretrained] Shape-mismatched keys kept freshly initialized:")
+            for key, (old_shape, new_shape) in skipped_shapes.items():
+                print(f"  {key}: checkpoint={old_shape}, model={new_shape}")
         if msn:
             print(f"[pretrained] Missing keys (will be randomly initialised): {len(msn)}")
             print(msn)
@@ -842,7 +969,12 @@ class BaseTrainTester:
             print("[pretrained] All keys matched.")
 
         if model_dict.get("ema_weight") is not None and ema_model is not None:
-            msn_e, unxpct_e = ema_model.load_state_dict(model_dict["ema_weight"], strict=False)
+            ema_current = ema_model.state_dict()
+            ema_compatible = {
+                key: value for key, value in model_dict["ema_weight"].items()
+                if key in ema_current and ema_current[key].shape == value.shape
+            }
+            msn_e, unxpct_e = ema_model.load_state_dict(ema_compatible, strict=False)
             if msn_e:
                 print(f"[pretrained EMA] Missing keys: {len(msn_e)}")
             if unxpct_e:
@@ -939,6 +1071,50 @@ class BaseTrainTester:
         }
         _atomic_save(state, ckpt_path)
         print(f"Saved periodic checkpoint: {ckpt_path}", flush=True)
+        self._submit_checkpoint_evals(step_id + 1)
+
+    def _submit_checkpoint_evals(self, step: int) -> None:
+        """Submit every configured eval recipe for one newly saved checkpoint.
+
+        Each recipe delegates to the ledger-backed checkpoint_ladder launcher,
+        constrained to this exact step.  This is intentionally asynchronous:
+        training only invokes ``sbatch`` and never waits for evaluation work.
+        """
+        entries = getattr(self.args, "checkpoint_evals", None) or []
+        if isinstance(entries, DictConfig):
+            entries = OmegaConf.to_container(entries, resolve=True)
+        if not entries:
+            return
+        repo_root = Path(__file__).resolve().parents[2]
+        launcher = repo_root / "scripts/eval/checkpoint_ladder.py"
+        for raw_entry in entries:
+            entry = OmegaConf.to_container(raw_entry, resolve=True) if isinstance(raw_entry, DictConfig) else dict(raw_entry)
+            recipe = entry.get("recipe")
+            method_id = entry.get("method_id")
+            if not recipe or not method_id:
+                raise ValueError("Each checkpoint_evals entry requires recipe and method_id")
+            min_step = entry.get("min_step")
+            max_step = entry.get("max_step")
+            if (min_step is not None and step < int(min_step)) or (max_step is not None and step > int(max_step)):
+                continue
+            command = [
+                sys.executable, str(launcher),
+                "--checkpoint-dir", str(self.args.log_dir),
+                "--method-id", str(method_id),
+                "--config", str(recipe),
+                "--min-step", str(step), "--max-step", str(step), "--submit",
+            ]
+            try:
+                result = subprocess.run(command, cwd=repo_root, check=True, text=True, capture_output=True)
+                print(f"[checkpoint eval] step={step}, recipe={recipe}, method={method_id}: {result.stdout.strip()}", flush=True)
+            except subprocess.CalledProcessError as error:
+                # A failed eval submission must never kill or stall training;
+                # the saved checkpoint remains available for manual submission.
+                print(
+                    f"[checkpoint eval] submission failed at step={step}, recipe={recipe}: "
+                    f"{error.stderr.strip() or error.stdout.strip()}",
+                    flush=True,
+                )
 
     def save_checkpoint(self, model, ema_model, optimizer,
                         step_id, new_loss, best_loss):

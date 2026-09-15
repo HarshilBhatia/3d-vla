@@ -13,8 +13,8 @@
 #SBATCH --gres=gpu:4
 #SBATCH --mem=128G
 #SBATCH --time=48:00:00
-#SBATCH --output=logs/train_peract_collected_%j.out
-#SBATCH --error=logs/train_peract_collected_%j.err
+#SBATCH --output=/home/harshilb/3dfa_unified/logs/train/train_peract_collected_%j.out
+#SBATCH --error=/home/harshilb/3dfa_unified/logs/train/train_peract_collected_%j.err
 #SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-[6,9,14],grogu-3-25
 
 set -euo pipefail

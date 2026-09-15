@@ -2,26 +2,32 @@
 
 ## What it does
 
-After capturing real extrinsics (orbital sensors + wrist `obs.misc`), the eval
-perturbs them before passing to the model:
+After capturing true camera-to-world extrinsics (orbital sensors + wrist
+`obs.misc`), eval can perturb the transforms before passing them to depth
+unprojection and the policy:
 
 ```
-E_corrupted[:, cam_idx, :3, :3] = R_noise @ E[:, cam_idx, :3, :3]
-E_corrupted[:, cam_idx, :3,  3] += t_noise
+E_applied = E_sampled @ E_group @ E_true
 ```
 
-RGB and depth are untouched — only the extrinsics fed to the model are wrong.
-This is then used for depth→point cloud, so the model sees a corrupted 3D scene.
+`E_group` is an optional fixed per-camera-group miscalibration and `E_sampled`
+is an optional stochastic perturbation. RGB and depth are untouched—only the
+extrinsics used for depth-to-point-cloud conversion are changed, so the model
+receives a geometrically miscalibrated 3D scene.
 
 ## Camera index mapping
 
-The noise is keyed by the names in `instructions/miscalibration_noise.json`:
+For the paper-facing bimanual orbital setup, the canonical order is:
 
-| cam_idx | orbital name    | noise key in JSON |
-|---------|-----------------|-------------------|
-| 0       | orbital_left    | `front`           |
-| 1       | orbital_right   | `wrist_left`      |
-| 2       | wrist           | `wrist_right`     |
+| cam_idx | camera | role |
+|---------|--------|------|
+| 0 | `orbital_left` | external |
+| 1 | `orbital_right` | external |
+| 2 | `wrist_left` | on-robot |
+| 3 | `wrist_right` | on-robot |
+
+Use `miscal_cameras: [0, 1]` (legacy: `miscal_camera_ids`) for the formulation
+where on-robot cameras remain calibrated.
 
 ## Built-in levels
 

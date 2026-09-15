@@ -1,0 +1,18 @@
+{
+  "campaign": "ULRS_G7_100rollouts_v01",
+  "raw_results_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_100rollouts_v01",
+  "plan": "/home/harshilb/3dfa_unified/instructions/eval_plans/ulrs_g7_100rollouts_v01.json",
+  "report": "/home/harshilb/3dfa_unified/eval/interp/ulrs_g7_100rollouts_v01_results.md",
+  "result_path_template": "{raw_results_root}/{method}/g7_fully_unknown_lab/{calibration_id}/results_{task}.json",
+  "manifest_path_template": "{raw_results_root}/{method}/g7_fully_unknown_lab/{calibration_id}/results_{task}.manifest.json",
+  "methods": ["base_s140k", "base_s160k", "deltam_s140k", "deltam_s160k", "deltam_s180k"],
+  "calibrations": {
+    "calibrated": "clean",
+    "ext-r2deg-t2cm-v01": "2 degrees / 2 cm",
+    "ext-r5deg-t5cm-v01": "5 degrees / 5 cm",
+    "ext-r10deg-t10cm-v01": "10 degrees / 10 cm"
+  },
+  "tasks": ["bimanual_dual_push_buttons", "bimanual_handover_item", "bimanual_handover_item_easy", "bimanual_lift_ball", "bimanual_lift_tray", "bimanual_pick_laptop", "bimanual_pick_plate", "bimanual_push_box", "bimanual_put_bottle_in_fridge", "bimanual_put_item_in_drawer", "bimanual_straighten_rope", "bimanual_sweep_to_dustpan", "bimanual_take_tray_out_of_oven"],
+  "cells": 260,
+  "rollouts_per_task": 100
+}

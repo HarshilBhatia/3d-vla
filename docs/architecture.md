@@ -42,9 +42,9 @@ Output: trajectory (B, T, nhand, 3+4+1)  xyz + quat_xyzw + gripper
 
 ## Non-Obvious Design Details
 
-**3D RoPE + delta_M**: `RotaryPositionEncoding3D` encodes xyz coordinates as RoPE. The `delta_M` mechanism lets a learned 6×6 (or full D×D) matrix perturb the sin/cos bases, allowing the model to adapt to unknown camera positions without explicit calibration.
+**3D RoPE + $\Delta M$**: `RotaryPositionEncoding3D` encodes xyz coordinates as RoPE. A learned 6×6 (or full D×D) orthogonal matrix performs per-camera view alignment by correcting representation-space sin/cos bases. It is not an estimate of a physical extrinsic.
 
-**Camera token**: A learnable `nn.Parameter` appended as the last token in the shared self-attention sequence (`features[:, -1, :]`). It drives the extrinsics predictor when `predict_extrinsics=true`.
+**Global context token**: A learnable `nn.Parameter` appended as the last token in the shared self-attention sequence (`features[:, -1, :]`). It is one global register/context token, not one token per camera. Camera-summary features directly predict $\Delta M_j$; the global token affects them only indirectly through shared attention.
 
 **Rotation representation**: Training converts quaternion → 6D rotation for both target and prediction; loss is computed in 6D space. Output is converted back to quaternion.
 
@@ -54,7 +54,7 @@ Output: trajectory (B, T, nhand, 3+4+1)  xyz + quat_xyzw + gripper
 
 **Workspace normalizer**: On first run (no checkpoint), the trainer scans all training data to compute action min/max for normalization. Saved in the checkpoint and reused on resume.
 
-**`extrinsics_prediction_mode` kwarg bug**: In `denoise_actor_3d.TransformerHead.__init__`, this kwarg goes into `**kwargs` but is NOT forwarded to `super().__init__()`. The base class always gets the default `'delta_m'`. Pre-existing; doesn't affect delta_m experiments.
+**Checkpoint format**: `{"weight": ..., "ema_weight": ..., "optimizer": ..., "iter": int, "best_loss": float}`. Loading is non-strict (`strict=False`) to support architectural changes.
 
 **AMP dtype**: Uses `bfloat16` by default; falls back to `float32` on Quadro RTX 6000 (detected at runtime).
 

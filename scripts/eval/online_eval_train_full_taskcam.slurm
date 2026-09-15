@@ -46,8 +46,8 @@
 #SBATCH --mem=64G
 #SBATCH --time=4:00:00
 #SBATCH --array=0-17
-#SBATCH --output=logs/eval_train_full_taskcam_%A_%a.out
-#SBATCH --error=logs/eval_train_full_taskcam_%A_%a.err
+#SBATCH --output=/home/harshilb/3dfa_unified/logs/eval/eval_train_full_taskcam_%A_%a.out
+#SBATCH --error=/home/harshilb/3dfa_unified/logs/eval/eval_train_full_taskcam_%A_%a.err
 #SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-[6,14],grogu-2-22,grogu-3-5,grogu-3-25
 
 set -euo pipefail

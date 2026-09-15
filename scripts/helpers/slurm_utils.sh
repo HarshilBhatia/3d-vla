@@ -20,8 +20,12 @@ load_cluster() {
     fi
     source "$env_file"
 
-    cd "$CLUSTER_REPO"
-    export PYTHONPATH="$CLUSTER_REPO:${PYTHONPATH:-}"
+    # A submitted worktree may differ from the long-lived checkout recorded
+    # in a cluster profile (e.g. for benchmarking an unmerged loader change).
+    # Keep the profile default for normal jobs, but allow an explicit override.
+    local cluster_repo="${CLUSTER_REPO_OVERRIDE:-$CLUSTER_REPO}"
+    cd "$cluster_repo"
+    export PYTHONPATH="$cluster_repo:${PYTHONPATH:-}"
     export BLOSC_NTHREADS=1
 
     # shellcheck disable=SC1090

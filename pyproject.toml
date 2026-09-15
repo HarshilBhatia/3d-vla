@@ -68,7 +68,7 @@ markers = [
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["config*", "data*", "datasets*", "modeling*", "utils*"]
+include = ["config*", "data*", "datasets*", "evaluation*", "modeling*", "utils*"]
 exclude = ["PyRep*", "RLBench*", "online_evaluation_rlbench*", "scripts*", "logs*", "paper*", "docs*"]
 
 [tool.uv]

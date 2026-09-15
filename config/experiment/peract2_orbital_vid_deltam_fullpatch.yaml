@@ -1,0 +1,41 @@
+# Vid-DeltaM-FullPatch fine-tune: retain compatible Video-DeltaM/decoder
+# weights from the pooled-token run, while the new per-image token starts fresh.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+num_history: 5
+proprio_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+image_space_sampling: false
+keypose_only: true
+denoise_timesteps: 5
+denoise_model: rectified_flow
+# Match the pooled Video-DeltaM fine-tune: global batch 128 across four GPUs.
+batch_size: 128
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 300000
+traj_scene_rope: true
+predict_extrinsics: true
+extrinsics_prediction_mode: delta_m
+delta_m_camera_ids: [0, 1]
+dynamic_rope_from_camtoken: true
+miscal_camera_ids: [0, 1]
+video_deltam: true
+video_deltam_depth: 4
+video_deltam_max_cameras: 4
+video_deltam_full_image: true
+interm_ckpt_freq: 10000
+checkpoint_evals:
+  - recipe: instructions/eval_plans/vid_deltam_fullpatch_checkpoint_ladder_v01.json
+    method_id: vid-deltaM-fullpatch
+    min_step: 50000
+    max_step: 300000

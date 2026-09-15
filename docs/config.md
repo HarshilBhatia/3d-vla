@@ -26,3 +26,7 @@ config/
 | `bimanual` | bool | Two-arm tasks; sets `nhand=2` |
 | `chunk_size` | int, 1 | Consecutive zarr samples per `__getitem__` |
 | `benchmark` / `benchmark_dummy_data` | bool | GPU timing / bypass zarr I/O with random data |
+
+For new paper-facing runs, use the short public keys and the matched
+`paper_external_*` experiment configs. See [terminology.md](terminology.md) for
+their definitions and the legacy-key compatibility mapping.

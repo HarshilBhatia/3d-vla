@@ -21,6 +21,7 @@ class BaseDataset(Dataset):
         actions_only=False,  # return actions without observations
         chunk_size=4,  # chunk size for zarr
         num_history=1,  # number of visual history frames (1 = current frame only)
+        proprio_num_history=None,
         preload=False,  # load entire dataset into RAM at init
     ):
         super().__init__()
@@ -29,6 +30,7 @@ class BaseDataset(Dataset):
         self._actions_only = actions_only
         self.chunk_size = chunk_size
         self.num_history = num_history
+        self.proprio_num_history = num_history if proprio_num_history is None else proprio_num_history
 
         # Load instructions
         self._instructions = self._load_instructions(instructions)
@@ -99,6 +101,37 @@ class BaseDataset(Dataset):
             for i in range(self.chunk_size)
         ])
 
+    def _get_single_proprio_hist(self, zarr_idx):
+        """Return causal proprio history as ``(num_history, nhand, state)``.
+
+        Each Zarr row stores ``[s_(t-2), s_(t-1), s_t]``.  For a longer causal
+        window, assemble the final/current slot from preceding records.
+        Keep the same past-to-current layout and earliest-state left padding as
+        visual history: ``[s_(t-K+1), ..., s_t]``.
+        """
+        demo_curr = int(self.annos['demo_id'][zarr_idx])
+        states = []
+        fallback = None
+        for k in range(self.num_history - 1, -1, -1):  # past → current
+            j = zarr_idx - k
+            if j >= 0 and int(self.annos['demo_id'][j]) == demo_curr:
+                # Per-record final slot is the state at this record's timestamp.
+                state = to_tensor(self.annos['proprioception'][j:j + 1])[0, -1]
+                if fallback is None:
+                    fallback = state
+                states.append(state)
+            else:
+                states.append(None)
+        if fallback is None:
+            fallback = to_tensor(self.annos['proprioception'][zarr_idx:zarr_idx + 1])[0, 0]
+        return torch.stack([state if state is not None else fallback for state in states])
+
+    def _get_proprioception_hist(self, idx):
+        return torch.stack([
+            self._get_single_proprio_hist(idx + i)
+            for i in range(self.chunk_size)
+        ])
+
     def _get_depth(self, idx, key='depth'):
         return self._get_attr_by_idx(idx, key, True)
 
@@ -136,7 +169,9 @@ class BaseDataset(Dataset):
             "instr": self._get_instr(idx),  # [str]
             "rgb": self._get_rgb(idx),  # tensor(n_cam, 3, H, W)
             "depth": self._get_depth(idx),  # tensor(n_cam, H, W)
-            "proprioception": self._get_proprioception(idx),  # tensor(1, 8)
+            "proprioception": self._get_proprioception_hist(idx)
+            if self.num_history > 1 and 'demo_id' in self.annos
+            else self._get_proprioception(idx),
             "action": self._get_action(idx)  # tensor(T, 8)
         }
 

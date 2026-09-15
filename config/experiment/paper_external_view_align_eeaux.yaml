@@ -1,0 +1,12 @@
+# Paper method ablation: view alignment with explicit EE auxiliary supervision.
+view_align_mode: rope_6d
+view_align_cameras: [0, 1]
+layerwise_view_align: true
+ee_aux: true
+ee_aux_weight: 1.0
+ee_aux_cameras: [0, 1]
+
+miscal_cameras: [0, 1]
+group_miscal_level: medium
+sampled_miscal_max_rot_deg: 3.0
+sampled_miscal_max_trans_m: 0.01

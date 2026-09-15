@@ -1,0 +1,29 @@
+# Historical external-camera-only control: both fixed and sampled
+# miscalibration are restricted to orbital/external cameras.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+image_space_sampling: false
+keypose_only: true
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 256
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 100000
+traj_scene_rope: true
+predict_extrinsics: false
+# Geometry, not merely DeltaM, must be restricted to external cameras for this
+# experiment to match its name and the paper formulation.
+miscal_camera_ids: [0, 1]
+dynamic_rope_from_camtoken: false

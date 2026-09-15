@@ -52,7 +52,13 @@ peract_test.zip
 peract2_raw/*
 Peract2_zarr/*
 
-logs/ 
+logs/*
+!logs/train/
+logs/train/*
+!logs/train/.gitkeep
+!logs/eval/
+logs/eval/*
+!logs/eval/.gitkeep
 wandb/
 
 *.rrd

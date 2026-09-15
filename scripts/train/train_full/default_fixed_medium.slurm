@@ -1,5 +1,7 @@
 #!/bin/bash
 #SBATCH --partition=shubhamlong
+#SBATCH --output=/home/harshilb/3dfa_unified/logs/train/default_fixed_medium-%j.out
+#SBATCH --error=/home/harshilb/3dfa_unified/logs/train/default_fixed_medium-%j.err
 # SLURM: --gres=gpu:4 --mem=200G --cpus-per-task=50
 
 echo "Job started at: $(date)"

@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "campaign_id": "seen_base_residual_sweep_v01",
+  "description": "SBRS (Seen-Base Residual Sweep): evaluate a trained camera group under its exact medium fixed base delta, then a fixed residual epsilon. e0 is epsilon=identity, not globally calibrated extrinsics. The residual max e3deg-t1cm matches the training augmentation bound.",
+  "calibration_registry": "instructions/eval_calibrations_seen_base_residual_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {"id": "base", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base/best.pth"},
+    {"id": "view_align", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_deltam_external/best.pth"}
+  ],
+  "task_viewpoints": {
+    "bimanual_handover_item_easy": {"id": "g6_seen_train_group", "spawn_camera_group": "G6", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_lift_ball": {"id": "g2_seen_train_group", "spawn_camera_group": "G2", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_push_box": {"id": "g1_seen_train_group", "spawn_camera_group": "G1", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_pick_plate": {"id": "g4_seen_train_group", "spawn_camera_group": "G4", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_pick_laptop": {"id": "g2_seen_train_group", "spawn_camera_group": "G2", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_straighten_rope": {"id": "g3_seen_train_group", "spawn_camera_group": "G3", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"}
+  },
+  "task_calibrations": {
+    "bimanual_handover_item_easy": ["seen-g6-medium-e0-v01", "seen-g6-medium-e2deg-t2cm-v01", "seen-g6-medium-e5deg-t5cm-v01", "seen-g6-medium-e3deg-t1cm-v01"],
+    "bimanual_lift_ball": ["seen-g2-medium-e0-v01", "seen-g2-medium-e2deg-t2cm-v01", "seen-g2-medium-e5deg-t5cm-v01", "seen-g2-medium-e3deg-t1cm-v01"],
+    "bimanual_push_box": ["seen-g1-medium-e0-v01", "seen-g1-medium-e2deg-t2cm-v01", "seen-g1-medium-e5deg-t5cm-v01", "seen-g1-medium-e3deg-t1cm-v01"],
+    "bimanual_pick_plate": ["seen-g4-medium-e0-v01", "seen-g4-medium-e2deg-t2cm-v01", "seen-g4-medium-e5deg-t5cm-v01", "seen-g4-medium-e3deg-t1cm-v01"],
+    "bimanual_pick_laptop": ["seen-g2-medium-e0-v01", "seen-g2-medium-e2deg-t2cm-v01", "seen-g2-medium-e5deg-t5cm-v01", "seen-g2-medium-e3deg-t1cm-v01"],
+    "bimanual_straighten_rope": ["seen-g3-medium-e0-v01", "seen-g3-medium-e2deg-t2cm-v01", "seen-g3-medium-e5deg-t5cm-v01", "seen-g3-medium-e3deg-t1cm-v01"]
+  },
+  "calibrations": ["e0", "e2deg-t2cm", "e5deg-t5cm", "e3deg-t1cm"],
+  "tasks": ["bimanual_handover_item_easy", "bimanual_lift_ball", "bimanual_push_box", "bimanual_pick_plate", "bimanual_pick_laptop", "bimanual_straighten_rope"],
+  "runtime": {
+    "data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true,
+    "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 100
+  }
+}

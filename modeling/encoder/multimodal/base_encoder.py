@@ -21,7 +21,8 @@ class Encoder(nn.Module):
                  image_space_sampling=False,
                  finetune_backbone=False,
                  finetune_text_encoder=False,
-                 lang_dropout_prob=0.0):
+                 lang_dropout_prob=0.0,
+                 video_deltam_full_image=False):
         super().__init__()
         self.subsampling_factor = fps_subsampling_factor
         self.skip_fps = skip_fps
@@ -30,6 +31,7 @@ class Encoder(nn.Module):
         self._backbone_name = backbone
         self._finetune_backbone = finetune_backbone
         self.lang_dropout_prob = lang_dropout_prob
+        self.video_deltam_full_image = video_deltam_full_image
         # text_backbone defaults to backbone for backward compatibility
         self._text_backbone_name = text_backbone if text_backbone is not None else backbone
 
@@ -88,6 +90,8 @@ class Encoder(nn.Module):
             - rgb3d_feats: (B, Np, F) or (B, nhist, Np, F) when nhist > 1
             - pcd_out: (B, Np, 3) or (B, nhist, Np, 3)
             - fps_scene_feats/pos: always built from the CURRENT (latest) frame
+            - video_frame_feats: pooled token for every (history, camera) frame,
+              or full per-image visual tokens when video_deltam_full_image=True
         """
         vl_enc_fn = {
             'clip': self.encode_clip,
@@ -140,9 +144,22 @@ class Encoder(nn.Module):
 
 
 
-        # Per-image average tokens from current frame
+        # Per-image average tokens from current frame.  Keep the full history
+        # separately for Video-DeltaM; the legacy decoder still consumes only
+        # current-frame FPS tokens.
         per_img_feats = rgb3d_feats_curr.reshape(rgb3d_feats_curr.shape[0], ncam, -1, rgb3d_feats_curr.shape[-1]).mean(dim=2)
         per_img_pos = pcd_curr.reshape(pcd_curr.shape[0], ncam, -1, pcd_curr.shape[-1]).mean(dim=2)
+        if rgb3d_feats.ndim == 4:
+            video_frame_feats = rgb3d_feats.reshape(
+                rgb3d_feats.shape[0], rgb3d_feats.shape[1], ncam, -1, rgb3d_feats.shape[-1]
+            )
+            if not self.video_deltam_full_image:
+                video_frame_feats = video_frame_feats.mean(dim=3)
+        else:
+            video_frame_feats = (
+                rgb3d_feats.reshape(rgb3d_feats.shape[0], 1, ncam, -1, rgb3d_feats.shape[-1])
+                if self.video_deltam_full_image else per_img_feats.unsqueeze(1)
+            )
 
         fps_scene_feats = torch.cat([fps_scene_feats, per_img_feats], dim=1)
         fps_scene_pos = torch.cat([fps_scene_pos, per_img_pos], dim=1)
@@ -153,7 +170,8 @@ class Encoder(nn.Module):
             instr_feats, instr_pos,
             proprio_feats,
             fps_scene_feats, fps_scene_pos,
-            fps_cam_ids
+            fps_cam_ids,
+            video_frame_feats,
         )
 
     def encode_proprio(self, proprio, context_feats, context_pos):

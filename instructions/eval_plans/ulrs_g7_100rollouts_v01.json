@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "campaign_id": "ULRS_G7_100rollouts_v01",
+  "description": "Unknown-Lab Robustness Sweep: fully unseen G7 camera viewpoints under clean-origin, fixed external-only random calibration realizations.",
+  "calibration_registry": "instructions/eval_calibrations.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {"id": "base_s140k", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base_200k/interm_step_140000.pth"},
+    {"id": "base_s160k", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base_200k/interm_step_160000.pth"},
+    {"id": "deltam_s140k", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_deltam_external_200k/interm_step_140000.pth"},
+    {"id": "deltam_s160k", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_deltam_external_200k/interm_step_160000.pth"},
+    {"id": "deltam_s180k", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_deltam_external_200k/interm_step_180000.pth"}
+  ],
+  "viewpoints": [
+    {"id": "g7_fully_unknown_lab", "spawn_camera_group": "G7", "regime": "fully_unknown_lab", "cameras_file": "instructions/orbital_cameras_grouped.json"}
+  ],
+  "calibrations": ["calibrated", "ext-r2deg-t2cm-v01", "ext-r5deg-t5cm-v01", "ext-r10deg-t10cm-v01"],
+  "tasks": [
+    "bimanual_push_box", "bimanual_lift_ball", "bimanual_dual_push_buttons",
+    "bimanual_pick_plate", "bimanual_put_item_in_drawer", "bimanual_put_bottle_in_fridge",
+    "bimanual_handover_item", "bimanual_pick_laptop", "bimanual_straighten_rope",
+    "bimanual_sweep_to_dustpan", "bimanual_lift_tray", "bimanual_handover_item_easy",
+    "bimanual_take_tray_out_of_oven"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true,
+    "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 100
+  }
+}

@@ -110,6 +110,34 @@ def test_rename_map(default_args):
     assert "bimanual" not in kwargs
 
 
+def test_public_paper_config_resolves_to_legacy_runtime_api():
+    """Short paper-facing keys must preserve the legacy model API exactly."""
+    args = get_config(
+        overrides=["experiment=paper_external_view_align_eeaux"],
+        config_name="config",
+        config_path=get_config_path(),
+    )
+    assert args.view_align_mode == "rope_6d"
+    assert args.predict_extrinsics is True
+    assert args.extrinsics_prediction_mode == "delta_m"
+    assert args.view_align_cameras == args.delta_m_camera_ids == [0, 1]
+    assert args.layerwise_view_align is args.dynamic_rope_from_camtoken is True
+    assert args.miscal_cameras == args.miscal_camera_ids == [0, 1]
+    assert args.group_miscal_level == args.orbital_miscal_noise_level == "medium"
+    assert args.sampled_miscal_max_rot_deg == args.miscal_max_angle_deg == 3.0
+    assert args.sampled_miscal_max_trans_m == args.miscal_max_translation_m == 0.01
+    assert args.ee_aux is args.predict_ee_aux is True
+    assert args.ee_aux_weight == args.lambda_aux == 1.0
+    assert args.ee_aux_cameras == args.ee_aux_cam_ids == [0, 1]
+
+
+def test_legacy_config_derives_public_vocabulary(default_args):
+    """Existing configs gain readable public fields without behavior changes."""
+    assert default_args.view_align_mode == "none"
+    assert default_args.layerwise_view_align == default_args.dynamic_rope_from_camtoken
+    assert default_args.causal_cam_history == default_args.video_deltam
+
+
 def test_nhand_derivation_both_ways():
     model_class = fetch_model_class("denoise3d")
     base = dict(num_history=2, relative_action=False, bimanual=False)

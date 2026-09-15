@@ -1,0 +1,32 @@
+{
+  "schema_version": 1,
+  "campaign_id": "video_deltam_task_heldout_g1_g6_v03_history_parity",
+  "description": "Video-DeltaM on each task's held-out G1-G6 external viewpoint, using the K=5 online history path verified bytewise against the training Zarr loader (visual oldest-to-current; proprio current-to-past) and named external-only calibration realizations.",
+  "calibration_registry": "instructions/eval_calibrations.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts",
+  "methods": [
+    {"id": "video_deltam", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_20260910/last.pth"}
+  ],
+  "task_viewpoints": {
+    "bimanual_push_box": {"id": "g4_task_heldout", "spawn_camera_group": "G4", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_lift_ball": {"id": "g5_task_heldout", "spawn_camera_group": "G5", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_dual_push_buttons": {"id": "g6_task_heldout", "spawn_camera_group": "G6", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_pick_plate": {"id": "g1_task_heldout", "spawn_camera_group": "G1", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_put_item_in_drawer": {"id": "g2_task_heldout", "spawn_camera_group": "G2", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_put_bottle_in_fridge": {"id": "g3_task_heldout", "spawn_camera_group": "G3", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_handover_item": {"id": "g4_task_heldout", "spawn_camera_group": "G4", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_pick_laptop": {"id": "g5_task_heldout", "spawn_camera_group": "G5", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_straighten_rope": {"id": "g6_task_heldout", "spawn_camera_group": "G6", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_sweep_to_dustpan": {"id": "g1_task_heldout", "spawn_camera_group": "G1", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_lift_tray": {"id": "g2_task_heldout", "spawn_camera_group": "G2", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_handover_item_easy": {"id": "g3_task_heldout", "spawn_camera_group": "G3", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"},
+    "bimanual_take_tray_out_of_oven": {"id": "g4_task_heldout", "spawn_camera_group": "G4", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"}
+  },
+  "calibrations": ["calibrated", "ext-r2deg-t2cm-v01", "ext-r5deg-t5cm-v01", "ext-r10deg-t10cm-v01"],
+  "tasks": ["bimanual_push_box", "bimanual_lift_ball", "bimanual_dual_push_buttons", "bimanual_pick_plate", "bimanual_put_item_in_drawer", "bimanual_put_bottle_in_fridge", "bimanual_handover_item", "bimanual_pick_laptop", "bimanual_straighten_rope", "bimanual_sweep_to_dustpan", "bimanual_lift_tray", "bimanual_handover_item_easy", "bimanual_take_tray_out_of_oven"],
+  "runtime": {
+    "data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true,
+    "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 50
+  }
+}

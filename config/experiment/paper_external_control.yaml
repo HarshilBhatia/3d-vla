@@ -1,0 +1,8 @@
+# Paper control: calibrated wrist cameras and external-camera-only
+# miscalibration. Applied geometry is eps * delta_group * T.
+view_align_mode: none
+
+miscal_cameras: [0, 1]
+group_miscal_level: medium
+sampled_miscal_max_rot_deg: 3.0
+sampled_miscal_max_trans_m: 0.01

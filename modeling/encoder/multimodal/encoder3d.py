@@ -25,7 +25,8 @@ class Encoder(BaseEncoder):
                  finetune_backbone=False,
                  finetune_text_encoder=False,
                  rope_type='normal',
-                 lang_dropout_prob=0.0):
+                 lang_dropout_prob=0.0,
+                 video_deltam_full_image=False):
         super().__init__(
             backbone=backbone,
             text_backbone=text_backbone,
@@ -40,6 +41,7 @@ class Encoder(BaseEncoder):
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder,
             lang_dropout_prob=lang_dropout_prob,
+            video_deltam_full_image=video_deltam_full_image,
         )
         
         # Postprocess scene features

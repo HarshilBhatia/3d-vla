@@ -1,0 +1,16 @@
+{
+  "schema_version": 1,
+  "campaign_id": "video_deltam_proprio_parity_smoke_v01",
+  "description": "One-rollout smoke test after making online proprio history exactly match the existing Video-DeltaM training loader.",
+  "calibration_registry": "instructions/eval_calibrations.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit",
+  "methods": [{"id": "video_deltam", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_20260910/last.pth"}],
+  "viewpoints": [{"id": "g4_task_heldout", "spawn_camera_group": "G4", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"}],
+  "calibrations": ["calibrated"],
+  "tasks": ["bimanual_push_box"],
+  "runtime": {
+    "data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true,
+    "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 1
+  }
+}

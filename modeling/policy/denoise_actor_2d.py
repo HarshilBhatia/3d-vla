@@ -16,6 +16,8 @@ class DenoiseActor(BaseDenoiseActor):
                  finetune_text_encoder=False,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
+                 skip_fps=False,
+                 image_space_sampling=True,
                  # Encoder and decoder arguments
                  embedding_dim=60,
                  num_attn_heads=9,
@@ -28,6 +30,8 @@ class DenoiseActor(BaseDenoiseActor):
                  # RoPE ΔM (no RoPE in 2d path; for API consistency)
                  use_rope_delta_m=False,
                  rope_lambda_reg=0.0,
+                 traj_scene_rope=True,
+                 predict_extrinsics=False,
                  # Denoising arguments
                  denoise_timesteps=100,
                  denoise_model="ddpm",
@@ -41,8 +45,8 @@ class DenoiseActor(BaseDenoiseActor):
             num_shared_attn_layers=num_shared_attn_layers,
             relative=relative,
             rotation_format=rotation_format,
-            use_rope_delta_m=use_rope_delta_m,
-            rope_lambda_reg=rope_lambda_reg,
+            traj_scene_rope=traj_scene_rope,
+            predict_extrinsics=predict_extrinsics,
             denoise_timesteps=denoise_timesteps,
             denoise_model=denoise_model,
             lv2_batch_size=lv2_batch_size
@@ -56,6 +60,8 @@ class DenoiseActor(BaseDenoiseActor):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
+            skip_fps=skip_fps,
+            image_space_sampling=image_space_sampling,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder
         )
@@ -67,7 +73,8 @@ class DenoiseActor(BaseDenoiseActor):
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
             use_rope_delta_m=use_rope_delta_m,
-            rope_lambda_reg=rope_lambda_reg
+            rope_lambda_reg=rope_lambda_reg,
+            predict_extrinsics=predict_extrinsics
         )
 
     def forward(
@@ -79,7 +86,8 @@ class DenoiseActor(BaseDenoiseActor):
         pcd,
         instruction,
         proprio,
-        run_inference=False
+        run_inference=False,
+        stopgrad_k=0
     ):
         """
         Arguments:
@@ -108,13 +116,15 @@ class DenoiseActor(BaseDenoiseActor):
         if run_inference:
             return self.compute_trajectory(
                 trajectory_mask,
-                rgb3d, rgb2d, pcd, instruction, proprio
+                rgb3d, rgb2d, pcd, instruction, proprio,
+                stopgrad_k=stopgrad_k
             )
 
         # Training, use gt_trajectory to compute loss
         return self.compute_loss(
             gt_trajectory,
-            rgb3d, rgb2d, pcd, instruction, proprio
+            rgb3d, rgb2d, pcd, instruction, proprio,
+            stopgrad_k=stopgrad_k
         )
 
 
@@ -127,17 +137,20 @@ class TransformerHead(BaseTransformerHead):
                  num_shared_attn_layers=4,
                  rotary_pe=False,
                  use_rope_delta_m=False,
-                 rope_lambda_reg=0.0):
+                 rope_lambda_reg=0.0,
+                 predict_extrinsics=False):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
             nhist=nhist,
             rotary_pe=False,
-            use_rope_delta_m=use_rope_delta_m,
-            rope_lambda_reg=rope_lambda_reg
+            traj_scene_rope=True,
+            predict_extrinsics=predict_extrinsics
         )
         # Positional embeddings
+        # Fixed additive sinusoidal image-token PE. rotary_pe=False below means
+        # this path has no RoPE and no XYZ/geometric positional signal.
         self.pos_embed_2d = SinusoidalPosEmb(embedding_dim)
 
     def get_positional_embeddings(
@@ -146,25 +159,25 @@ class TransformerHead(BaseTransformerHead):
         rgb3d_pos, rgb3d_feats, rgb2d_feats, rgb2d_pos,
         timesteps, proprio_feats,
         fps_scene_feats, fps_scene_pos,
-        instr_feats, instr_pos
+        instr_feats, instr_pos,
+        **kwargs
     ):
         _traj_pos = torch.zeros_like(traj_feats)
-        full_scene_pos = self.pos_embed_2d(
-            torch.arange(0, rgb3d_feats.size(1), device=traj_feats.device)
-        )[None].repeat(traj_feats.size(0), 1, 1)
-        _scene_pos = self.pos_embed_2d(
-            torch.arange(0, fps_scene_feats.size(1), device=traj_feats.device)
-        )[None].repeat(traj_feats.size(0), 1, 1)
+        def image_pe(length):
+            return self.pos_embed_2d(
+                torch.arange(length, device=traj_feats.device)
+            )[None].expand(traj_feats.size(0), -1, -1)
+
+        full_scene_pos = image_pe(rgb3d_feats.size(1))
+        _scene_pos = image_pe(fps_scene_feats.size(1))
         
         # Add positional embeddings for register tokens (4) and camera token (1)
         num_additional_tokens = 5  # 4 register + 1 camera
         start_idx = traj_feats.size(1) + fps_scene_feats.size(1)
-        _additional_pos = self.pos_embed_2d(
-            torch.arange(start_idx, start_idx + num_additional_tokens, device=traj_feats.device)
-        )[None].repeat(traj_feats.size(0), 1, 1)
+        _additional_pos = image_pe(start_idx + num_additional_tokens)[:, start_idx:]
         
         _pos = torch.cat([_traj_pos, _scene_pos, _additional_pos], 1)
-        return _traj_pos, full_scene_pos, _pos
+        return _traj_pos, full_scene_pos, _pos, _scene_pos
 
     def get_sa_feature_sequence(
         self,

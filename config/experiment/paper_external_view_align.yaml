@@ -1,0 +1,9 @@
+# Paper method: matched external-camera view alignment via 6D RoPE mixing.
+view_align_mode: rope_6d
+view_align_cameras: [0, 1]
+layerwise_view_align: true
+
+miscal_cameras: [0, 1]
+group_miscal_level: medium
+sampled_miscal_max_rot_deg: 3.0
+sampled_miscal_max_trans_m: 0.01

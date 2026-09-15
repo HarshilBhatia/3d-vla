@@ -1,0 +1,30 @@
+{
+  "schema_version": 1,
+  "protocol_id": "sbrs_checkpoint_ladder_v01",
+  "description": "External-only seen-base checkpoint ladder. Each 10k intermediate checkpoint is evaluated at the trained fixed base (e0) and at the maximum residual used during training (e3deg-t1cm).",
+  "calibration_registry": "instructions/eval_calibrations_seen_base_residual_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+  "base_level": "medium",
+  "realization_version": "v01",
+  "residual_conditions": ["e0", "e3deg-t1cm"],
+  "min_step": 70000,
+  "step_interval": 10000,
+  "tasks": [
+    {"task": "bimanual_lift_ball", "spawn_camera_group": "G2"},
+    {"task": "bimanual_push_box", "spawn_camera_group": "G1"},
+    {"task": "bimanual_handover_item_easy", "spawn_camera_group": "G6"},
+    {"task": "bimanual_pick_laptop", "spawn_camera_group": "G2"},
+    {"task": "bimanual_pick_plate", "spawn_camera_group": "G4"},
+    {"task": "bimanual_straighten_rope", "spawn_camera_group": "G3"}
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 20
+  }
+}

@@ -45,6 +45,7 @@ class RLBenchDataset(BaseDataset):
         actions_only=False,
         chunk_size=4,
         num_history=1,
+        proprio_num_history=None,
         filter_tasks=None,  # List of task names to include, None means all tasks
         preload=False,
     ):
@@ -57,6 +58,7 @@ class RLBenchDataset(BaseDataset):
             actions_only=actions_only,
             chunk_size=chunk_size,
             num_history=num_history,
+            proprio_num_history=proprio_num_history,
             preload=preload,
         )
         
@@ -202,7 +204,9 @@ class RLBenchDataset(BaseDataset):
             "rgb": self._get_attr_hist(idx, 'rgb', True) if use_hist else self._get_rgb(idx),
             "depth": self._get_attr_hist(idx, 'depth', True) if use_hist else self._get_depth(idx),
             "rgb2d": self._get_rgb2d(idx),  # tensor(n_cam2d, 3, H, W)
-            "proprioception": self._get_proprioception(idx),  # tensor(1, 8)
+            # Keep the original stored K=3 proprio window independent of K visual frames.
+            "proprioception": self._get_proprioception(idx) if self.proprio_num_history != self.num_history
+            else (self._get_proprioception_hist(idx) if use_hist else self._get_proprioception(idx)),
             "action": self._get_action(idx),  # tensor(T, 8)
             "extrinsics": self._get_attr_hist(idx, 'extrinsics', True) if use_hist else self._get_extrinsics(idx),
             "intrinsics": self._get_attr_hist(idx, 'intrinsics', True) if use_hist else self._get_intrinsics(idx),
@@ -257,7 +261,7 @@ class PeractDataset(RLBenchDataset):
             "variation": self._get_variation(idx),  # [int]
             "rgb": self._get_attr_hist(idx, 'rgb', True) if use_hist else self._get_rgb(idx),
             "pcd": self._get_attr_hist(idx, 'pcd', True) if use_hist else self._get_attr_by_idx(idx, 'pcd', True),
-            "proprioception": self._get_proprioception(idx),  # tensor(1, 8)
+            "proprioception": self._get_proprioception_hist(idx) if use_hist else self._get_proprioception(idx),
             "action": self._get_action(idx),  # tensor(T, 8)
         }
 
@@ -278,8 +282,6 @@ class Peract2Dataset(RLBenchDataset):
     camera_inds = None
     train_copies = 10
     camera_inds2d = None
-
-
 
 
 class OrbitalWristDataset(RLBenchDataset):
@@ -341,5 +343,3 @@ class OrbitalPeract2NoWristDataset(OrbitalPeract2Dataset):
     #         "proprioception": self._get_proprioception(idx),  # tensor(1, 8)
     #         "action": self._get_action(idx),  # tensor(T, 8)
     #     }
-
-

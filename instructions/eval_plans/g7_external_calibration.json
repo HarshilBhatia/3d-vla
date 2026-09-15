@@ -1,0 +1,21 @@
+{
+  "schema_version": 1,
+  "campaign_id": "g7_external_calibration_v01",
+  "description": "G7 fully-OOD viewpoints with fixed external-camera calibration realizations.",
+  "calibration_registry": "instructions/eval_calibrations.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts",
+  "methods": [
+    {"id": "base", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base/best.pth"},
+    {"id": "view_align", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_deltam_external/best.pth"}
+  ],
+  "viewpoints": [
+    {"id": "g7_fully_ood", "spawn_camera_group": "G7", "regime": "fully_ood", "cameras_file": "instructions/orbital_cameras_grouped.json"}
+  ],
+  "calibrations": ["calibrated", "ext-r2deg-t2cm-v01", "ext-r5deg-t5cm-v01", "ext-r10deg-t10cm-v01"],
+  "tasks": ["bimanual_push_box", "bimanual_lift_ball", "bimanual_dual_push_buttons", "bimanual_pick_plate", "bimanual_put_item_in_drawer", "bimanual_put_bottle_in_fridge", "bimanual_handover_item", "bimanual_pick_laptop", "bimanual_straighten_rope", "bimanual_sweep_to_dustpan", "bimanual_lift_tray", "bimanual_handover_item_easy", "bimanual_take_tray_out_of_oven"],
+  "runtime": {
+    "data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true,
+    "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 50
+  }
+}

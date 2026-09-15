@@ -1,5 +1,5 @@
 """
-Helpers for TransformerHead: extrinsics predictor and run_output_attn for position/rotation heads.
+Helpers for TransformerHead: RoPE/physical-correction prediction and output attention.
 """
 from torch import nn
 
@@ -26,7 +26,11 @@ class RTExtrinsicsPredictor(ExtrinsicsPredictor):
 
 
 class DeltaMExtrinsicsPredictor(ExtrinsicsPredictor):
-    """Predict delta_M (6x6) from camera token. Stores head as non-module ref to avoid circular module graph."""
+    """Predict per-camera delta_M RoPE corrections from pooled camera features.
+
+    The class name is retained because it appears in historical code paths; a
+    delta_M is not an estimate of a physical camera extrinsic.
+    """
 
     def __init__(self, head):
         super().__init__()

@@ -1,0 +1,18 @@
+{
+  "schema_version": 1,
+  "campaign_id": "video_deltam_history_smoke_v01",
+  "description": "One-episode smoke test that validates K=5 visual history in the online Video-DeltaM path.",
+  "calibration_registry": "instructions/eval_calibrations.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts",
+  "methods": [{"id": "video_deltam", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_20260910/last.pth"}],
+  "task_viewpoints": {
+    "bimanual_push_box": {"id": "g4_task_heldout", "spawn_camera_group": "G4", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"}
+  },
+  "calibrations": ["calibrated"],
+  "tasks": ["bimanual_push_box"],
+  "runtime": {
+    "data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true,
+    "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 1
+  }
+}

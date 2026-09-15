@@ -1,0 +1,39 @@
+# PerAct2 bimanual 2D baseline.
+# RGB from orbital_left, orbital_right, wrist_left, wrist_right; no PCD/XYZ.
+# The decoder uses additive sinusoidal image-token PE with rotary_pe=False.
+dataset: OrbitalPeract2
+model_type: denoise2d
+bimanual: true
+backbone: siglip2
+text_backbone: siglip2
+num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+image_space_sampling: true
+skip_fps: false
+traj_scene_rope: true  # enables additive PE path; 2D head hard-codes rotary_pe=False
+predict_extrinsics: false
+dynamic_rope_from_camtoken: false
+use_proprio_rope: false
+position_based_sampling: false
+denoise_timesteps: 5
+denoise_model: rectified_flow
+keypose_only: true
+chunk_size: 1
+batch_size: 256
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+train_iters: 100000
+num_workers: 16
+prefetch_factor: 2
+preload: false
+use_compile: true
+use_ema: false
+orbital_miscal_noise_level: null
+miscal_max_angle_deg: null
+miscal_max_translation_m: null
+run_log_dir: peract2_orbital_2d_clean

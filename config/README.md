@@ -8,6 +8,12 @@ All entry points (main.py, online_evaluation_rlbench/evaluate_policy.py, analyse
 - **rope_mode** – RoPE variant: `none` | `standard` → see `config/rope_mode/`. Sets `traj_scene_rope`, `sa_blocks_use_rope`.
 - **experiment** – run-specific overrides: `default` | `one_task` | `full` | `drope` → see `config/experiment/`.
 
+New paper-facing runs should start from `paper_external_control`,
+`paper_external_view_align`, or `paper_external_view_align_eeaux`. Their short
+keys are normalized to the historical runtime API, so existing checkpoints and
+launch scripts remain compatible. See `docs/terminology.md`.
+
+
 - **run_mode:** Derived from `eval_only`: `eval_only=true` → `run_mode=eval_offline`; else `run_mode=train`.
 - **use_front_camera_frame:** Canonical name (not `front_camera_frame`).
 

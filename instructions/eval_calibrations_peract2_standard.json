@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "camera_order": ["front", "wrist_left", "wrist_right"],
+  "composition": "T_observed = delta @ T_true",
+  "realizations": {
+    "calibrated": {
+      "description": "Native calibrated PerAct2 camera rig: front, wrist_left, wrist_right.",
+      "transforms": {
+        "front": [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]],
+        "wrist_left": [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]],
+        "wrist_right": [[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]]
+      }
+    }
+  }
+}

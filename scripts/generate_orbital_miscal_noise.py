@@ -72,12 +72,18 @@ def _sample_translation(rng, max_m):
     return rng.uniform(-max_m, max_m, size=3).tolist()
 
 
-def _sample_entries(rng, keys, cameras, cfg):
+def _sample_entries(rng, keys, cameras, cfg, identity_cameras=()):
     """Return {key: {cam: {axis_angle_rad, translation_m}}} for each key in keys."""
     result = {}
     for key in keys:
         key_data = {}
         for cam in cameras:
+            if cam in identity_cameras:
+                key_data[cam] = {
+                    "axis_angle_rad": [0.0, 0.0, 0.0],
+                    "translation_m": [0.0, 0.0, 0.0],
+                }
+                continue
             key_data[cam] = {
                 "axis_angle_rad": [
                     round(v, 6) for v in
@@ -92,7 +98,7 @@ def _sample_entries(rng, keys, cameras, cfg):
     return result
 
 
-def generate(seed, cameras, groups, tasks, levels):
+def generate(seed, cameras, groups, tasks, levels, identity_cameras=()):
     rng_group       = np.random.default_rng(seed)
     rng_task_group  = np.random.default_rng(seed + 2000)
     rng_group_level = np.random.default_rng(seed + 1000)
@@ -113,15 +119,15 @@ def generate(seed, cameras, groups, tasks, levels):
     for level_name, cfg in levels.items():
         out["levels"][level_name] = {
             "_comment": cfg["_comment"],
-            **_sample_entries(rng_group, groups, cameras, cfg),
+            **_sample_entries(rng_group, groups, cameras, cfg, identity_cameras),
         }
         out["per_task_group_levels"][level_name] = {
             "_comment": cfg["_comment"] + " (per-task-group variant: one noise per (task, group) pair)",
-            **_sample_entries(rng_task_group, task_group_keys, cameras, cfg),
+            **_sample_entries(rng_task_group, task_group_keys, cameras, cfg, identity_cameras),
         }
         level_keys_for_this_level = [f"{group}_{level_name}" for group in groups]
         out["per_group_levels"].update(
-            _sample_entries(rng_group_level, level_keys_for_this_level, cameras, cfg)
+            _sample_entries(rng_group_level, level_keys_for_this_level, cameras, cfg, identity_cameras)
         )
 
     return out
@@ -177,6 +183,8 @@ def parse_args():
                    help="Task names for per-task noise (default: all 18 PerAct2 tasks)")
     p.add_argument("--cameras", nargs="+", default=CAMERAS,
                    help="Camera names (default: orbital_left orbital_right wrist)")
+    p.add_argument("--identity-cameras", nargs="*", default=(),
+                   help="Listed cameras are written as identity transforms at every level/group")
     p.add_argument("--overwrite", action="store_true",
                    help="Overwrite existing file")
     return p.parse_args()
@@ -190,7 +198,11 @@ def main():
         return
 
     print(f"Generating orbital miscal noise  seed={args.seed}  groups={args.groups}  tasks={args.tasks}  cameras={args.cameras}")
-    data = generate(args.seed, args.cameras, args.groups, args.tasks, LEVELS)
+    unknown_identity = set(args.identity_cameras) - set(args.cameras)
+    if unknown_identity:
+        p.error(f"--identity-cameras not present in --cameras: {sorted(unknown_identity)}")
+    data = generate(args.seed, args.cameras, args.groups, args.tasks, LEVELS,
+                    identity_cameras=set(args.identity_cameras))
 
     os.makedirs(os.path.dirname(os.path.abspath(args.out)), exist_ok=True)
     with open(args.out, "w") as f:

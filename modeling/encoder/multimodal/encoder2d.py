@@ -1,4 +1,6 @@
+import torch
 from torch import nn
+from torch.nn import functional as F
 from torchvision.ops import Conv2dNormActivation
 
 from ..vision.fpn import EfficientFeaturePyramidNetwork
@@ -14,6 +16,8 @@ class Encoder(BaseEncoder):
                  num_attn_heads=9,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
+                 skip_fps=False,
+                 image_space_sampling=True,
                  finetune_backbone=False,
                  finetune_text_encoder=False,
                  rot_dim=3):
@@ -24,6 +28,8 @@ class Encoder(BaseEncoder):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
+            skip_fps=skip_fps,
+            image_space_sampling=image_space_sampling,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder
         )
@@ -35,6 +41,8 @@ class Encoder(BaseEncoder):
                 embedding_dim, output_level="res4"
             )
             self.rgb2d_proj = nn.Conv2d(2048, embedding_dim, 1)
+        elif self._backbone_name == 'siglip2':
+            self.siglip2_proj = nn.Conv2d(self.backbone.hidden_size, embedding_dim, 1)
 
         # Camera ids
         self.camera_ids = nn.Embedding(5, embedding_dim)
@@ -43,7 +51,7 @@ class Encoder(BaseEncoder):
         self.rot_dim = rot_dim
         self.proprio_feat = nn.Linear(3 + rot_dim, embedding_dim)
 
-    def encode_proprio(self, proprio, context_feats, context_pos):
+    def encode_proprio(self, proprio, context_feats, context_pos, stopgrad_k=0):
         """
         Compute proprioception features.
 
@@ -73,9 +81,21 @@ class Encoder(BaseEncoder):
             - pcd: (B, Np, 3)
             - instr_feats: (B, L, F)
         """
+        has_history = rgb3d.ndim == 6
+        instr_base = None
+        if has_history:
+            batch, nhist, ncam = rgb3d.shape[:3]
+            rgb3d = rgb3d.reshape(batch * nhist, ncam, *rgb3d.shape[3:])
+
         # Encode language
         instruction = self.text_encoder(text)
         instr_feats = self.instruction_encoder(instruction)
+        instr_feats = self.maybe_drop_lang(instr_feats)
+        if has_history:
+            instr_base = instr_feats
+            instr_feats = instr_feats.unsqueeze(1).expand(
+                -1, nhist, -1, -1
+            ).reshape(batch * nhist, instr_feats.shape[1], instr_feats.shape[2])
 
         # 3D camera features (not 3D, we just keep the naming convention)
         rgb3d_feats = None
@@ -86,8 +106,12 @@ class Encoder(BaseEncoder):
             rgb3d = rgb3d.reshape(-1, *rgb3d.shape[2:])
             rgb3d = self.normalize(rgb3d)
             rgb3d_feats = self.backbone(rgb3d)
-            # Pass visual features through feature pyramid network
-            rgb3d_feats = self.feature_pyramid(rgb3d_feats)["res4"]
+            if self._backbone_name == 'clip':
+                rgb3d_feats = self.feature_pyramid(rgb3d_feats)["res4"]
+            elif self._backbone_name == 'siglip2':
+                rgb3d_feats = self.siglip2_proj(rgb3d_feats)
+            else:
+                raise ValueError(f"2D encoder does not support backbone={self._backbone_name}")
             # Add camera id embeddings
             _c, _fh, _fw = rgb3d_feats.shape[1], rgb3d_feats.shape[2], rgb3d_feats.shape[3]
             rgb3d_feats = rgb3d_feats.reshape(_bt, num_cameras, _c, _fh, _fw)
@@ -102,4 +126,17 @@ class Encoder(BaseEncoder):
         # 2D camera features
         rgb2d_feats = None
 
-        return rgb3d_feats, rgb2d_feats, None, instr_feats
+        pcd_out = torch.zeros(
+            rgb3d_feats.shape[0], rgb3d_feats.shape[1], 3,
+            device=rgb3d_feats.device, dtype=rgb3d_feats.dtype
+        )
+        if has_history:
+            rgb3d_feats = rgb3d_feats.reshape(batch, nhist, *rgb3d_feats.shape[1:])
+            pcd_out = pcd_out.reshape(batch, nhist, *pcd_out.shape[1:])
+        return rgb3d_feats, rgb2d_feats, pcd_out, instr_base if has_history else instr_feats
+
+    # The base encoder dispatches by backbone name. This implementation is
+    # shared by CLIP and SigLIP2; the visual-backbone branch above handles the
+    # feature-map difference while the rest of the 2D pipeline is identical.
+    def encode_siglip2(self, rgb3d, rgb2d, pcd, text):
+        return self.encode_clip(rgb3d, rgb2d, pcd, text)

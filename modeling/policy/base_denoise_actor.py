@@ -6,6 +6,7 @@ from ..noise_scheduler import fetch_schedulers
 from ..utils.layers import AttentionModule
 from ..utils.position_encodings import SinusoidalPosEmb
 from .head_strategies import make_extrinsics_predictor, run_output_attn
+from .video_deltam import VideoDeltaM
 from ..utils.utils import (
     compute_rotation_matrix_from_ortho6d,
     get_ortho6d_from_rotation_matrix,
@@ -98,7 +99,8 @@ class DenoiseActor(nn.Module):
             instr_feats, instr_pos,
             proprio_feats,
             fps_scene_feats, fps_scene_pos,
-            fps_cam_ids
+            fps_cam_ids,
+            video_frame_feats,
         ) = fixed_inputs
 
         # Get features from normalized (relative) trajectory
@@ -144,6 +146,7 @@ class DenoiseActor(nn.Module):
             fps_cam_ids=fps_cam_ids,
             stopgrad_k=stopgrad_k,
             precomputed_delta_M=precomputed_delta_M,
+            video_frame_feats=video_frame_feats,
         )
 
     def conditional_sample(self, trajectory, device, fixed_inputs, stopgrad_k=0):
@@ -519,7 +522,13 @@ class TransformerHead(nn.Module):
                  traj_scene_rope=True,
                  predict_extrinsics=True,
                  extrinsics_prediction_mode='delta_m',  # 'rt' = R,T (6D) and log; 'delta_m' = 6x6 matrix
+                 delta_m_camera_ids=None,
                  dynamic_rope_from_camtoken=False,
+                 video_deltam=False,
+                 video_deltam_depth=4,
+                 video_deltam_max_history=32,
+                 video_deltam_max_cameras=8,
+                 video_deltam_full_image=False,
                  use_proprio_rope=False,
                  use_learned_abs_pe=False,
                  predict_ee_aux=False,
@@ -531,11 +540,25 @@ class TransformerHead(nn.Module):
         self.extrinsics_prediction_mode = extrinsics_prediction_mode.lower()
         assert self.extrinsics_prediction_mode in ('rt', 'delta_m', 'delta_m_full'), \
             "extrinsics_prediction_mode must be 'rt', 'delta_m', or 'delta_m_full'"
-        print(f" ************** Predicting Extrinsics: {predict_extrinsics} (mode={self.extrinsics_prediction_mode}) **************")
+        mechanism = "physical RT correction" if self.extrinsics_prediction_mode == "rt" else "RoPE correction"
+        print(f" ************** {mechanism}: {predict_extrinsics} (legacy mode={self.extrinsics_prediction_mode}) **************")
 
         self.traj_scene_rope = traj_scene_rope
         self.predict_extrinsics = predict_extrinsics
+        self.delta_m_camera_ids = (
+            None if delta_m_camera_ids is None else tuple(sorted(set(delta_m_camera_ids)))
+        )
+        if self.delta_m_camera_ids is not None and any(i < 0 for i in self.delta_m_camera_ids):
+            raise ValueError(f"delta_m_camera_ids must be non-negative, got {self.delta_m_camera_ids}")
         self.dynamic_rope_from_camtoken = dynamic_rope_from_camtoken
+        self.video_deltam = (
+            VideoDeltaM(
+                embedding_dim, num_attn_heads, video_deltam_depth,
+                max_history=video_deltam_max_history,
+                max_cameras=video_deltam_max_cameras,
+                full_image=video_deltam_full_image,
+            ) if video_deltam else None
+        )
         if use_learned_abs_pe:
             self._rope_mode = "learned_abs"
             assert not predict_extrinsics, \
@@ -582,6 +605,8 @@ class TransformerHead(nn.Module):
 
         # Learnable tokens
         self.register_tokens = nn.Parameter(torch.randn(4, embedding_dim))
+        # One learned global register/context token, not a per-camera alignment
+        # token. Keep this parameter name for checkpoint compatibility.
         self.camera_token = nn.Parameter(torch.randn(1, embedding_dim))
         self.embedding_dim = embedding_dim
 
@@ -712,7 +737,8 @@ class TransformerHead(nn.Module):
             nn.Linear(embedding_dim, 1)
         )
 
-        # 4. Predict extrinsics from cam_token: either R,T (6D), delta_M (6x6), or delta_m_full (D×D)
+        # 4. Predict either physical R,T or a representation-level RoPE
+        # correction. ``camera_predictor`` is retained for checkpoint compatibility.
         if predict_extrinsics:
             self.camera_proj = nn.Linear(embedding_dim, embedding_dim)
             # Shared trunk (Linear+ReLU) — used by both the extrinsics and EE aux heads
@@ -771,7 +797,7 @@ class TransformerHead(nn.Module):
             max_norm = 3.0
             norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
             A = A * (norm.clamp(max=max_norm) / norm)
-            delta_M = torch.linalg.matrix_exp(A)
+            delta_M = self._mask_delta_m_camera_ids(torch.linalg.matrix_exp(A))
             return None, delta_M
         elif self.extrinsics_prediction_mode == 'delta_m_full':
             D = self._delta_m_full_dim
@@ -780,10 +806,27 @@ class TransformerHead(nn.Module):
             max_norm = 3.0
             norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
             A = A * (norm.clamp(max=max_norm) / norm)
-            delta_M = torch.linalg.matrix_exp(A)
+            delta_M = self._mask_delta_m_camera_ids(torch.linalg.matrix_exp(A))
             return None, delta_M
         else:  # rt
             return self.camera_predictor(trunk), None
+
+    def _mask_delta_m_camera_ids(self, delta_M):
+        """Keep DeltaM identity for cameras outside the configured correction set."""
+        if self.delta_m_camera_ids is None or delta_M.ndim != 4:
+            return delta_M
+        ncam = delta_M.shape[1]
+        invalid = [i for i in self.delta_m_camera_ids if i >= ncam]
+        if invalid:
+            raise ValueError(
+                f"delta_m_camera_ids={invalid} outside ncam={ncam}; "
+                "camera order is [orbital_left, orbital_right, wrist_left, wrist_right]"
+            )
+        enabled = torch.zeros(ncam, dtype=torch.bool, device=delta_M.device)
+        enabled[list(self.delta_m_camera_ids)] = True
+        identity = torch.eye(delta_M.shape[-1], dtype=delta_M.dtype, device=delta_M.device)
+        identity = identity.view(1, 1, *identity.shape).expand_as(delta_M)
+        return torch.where(enabled.view(1, ncam, 1, 1), delta_M, identity)
 
     def _predict_rt(self, batch_size, device):
         """Predict axis-angle (3) + translation (3) from cam token. Returns (B, 6)."""
@@ -793,7 +836,7 @@ class TransformerHead(nn.Module):
 
     def _predict_delta_M(self, batch_size, device, fps_scene_feats=None, fps_cam_ids=None):
         """
-        Predict delta_M from per-image average tokens (one per camera).
+        Predict delta_M from pooled per-camera image features (one per camera).
 
         If fps_scene_feats/fps_cam_ids are provided, sources from per-image avg tokens
         (fps_scene_feats[:, M:, :] where M = fps_cam_ids.shape[1]).
@@ -841,7 +884,7 @@ class TransformerHead(nn.Module):
                 rgb3d_feats, rgb3d_pos, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats,
                 fps_scene_feats, fps_scene_pos, fps_cam_ids=None, stopgrad_k=0,
-                precomputed_delta_M=None):
+                precomputed_delta_M=None, video_frame_feats=None):
         """
         Arguments:
             traj_feats: (B, trajectory_length, nhand, F)
@@ -895,6 +938,17 @@ class TransformerHead(nn.Module):
         )
 
         batch_size, device = trajectory.shape[0], trajectory.device
+        if self.video_deltam is not None:
+            if video_frame_feats is None:
+                raise ValueError("video_deltam=True requires per-frame encoder tokens")
+            if fps_cam_ids is None:
+                raise ValueError("video_deltam=True requires camera-indexed FPS tokens")
+            refined_frames = self.video_deltam(video_frame_feats)
+            # The final history slice is the current frame.  Replace only the
+            # trailing per-camera summary tokens; sampled scene points retain
+            # their established spatial-token pathway.
+            ncam = refined_frames.shape[2]
+            fps_scene_feats = torch.cat([fps_scene_feats[:, :-ncam], refined_frames[:, -1]], dim=1)
         if precomputed_delta_M is not None:
             # Upstream RecursiveSetTransformerEncoder already produced delta_M; skip internal prediction
             cam_params_rt, delta_M = None, precomputed_delta_M
@@ -911,7 +965,7 @@ class TransformerHead(nn.Module):
             orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos
             current_cam_feat = self._expand_camera_token(batch_size)
 
-            # Per-image avg token features (evolve each SA layer); shape (B, ncam, C)
+            # Per-camera alignment features (evolve each SA layer); shape (B, ncam, C)
             assert fps_cam_ids is not None, "dynamic_rope_from_camtoken requires fps_cam_ids"
             M = fps_cam_ids.shape[1]
             current_per_img_feats = fps_scene_feats[:, M:, :]

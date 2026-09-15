@@ -11,7 +11,7 @@ from torch.distributed.elastic.multiprocessing.errors import record
 from datasets import fetch_dataset_class
 from modeling.policy import fetch_model_class
 from utils.trainers import fetch_train_tester
-from utils.hydra_utils import get_config, get_config_path
+from utils.hydra_utils import get_config, get_config_path, write_experiment_manifest
 
 
 def redirect_non_main_output(log_dir: Path):
@@ -43,6 +43,11 @@ def main():
     args.log_dir = log_dir
     log_dir.mkdir(exist_ok=True, parents=True)
     args.local_rank = int(os.environ["LOCAL_RANK"])
+
+    # A concise, stable description for paper/result tooling. The full config is
+    # still printed below; this manifest uses the canonical public vocabulary.
+    if int(os.environ.get("RANK", 0)) == 0:
+        write_experiment_manifest(args, log_dir / "experiment_manifest.json")
 
     # Redirect non-rank-0 output to per-rank log files (not /dev/null) so errors are visible
     redirect_non_main_output(log_dir / "rank_logs")

@@ -7,8 +7,8 @@
 #SBATCH --gres=gpu:1
 #SBATCH --mem=64G
 #SBATCH --time=4:00:00
-#SBATCH --output=logs/eval_peract_%j.out
-#SBATCH --error=logs/eval_peract_%j.err
+#SBATCH --output=/home/harshilb/3dfa_unified/logs/eval/eval_peract_%j.out
+#SBATCH --error=/home/harshilb/3dfa_unified/logs/eval/eval_peract_%j.err
 #SBATCH --exclude=grogu-0-[14,19,24,29],grogu-1-[6,14],grogu-3-5
 
 set -euo pipefail

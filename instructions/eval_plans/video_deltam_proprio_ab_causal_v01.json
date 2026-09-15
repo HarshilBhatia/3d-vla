@@ -1,0 +1,11 @@
+{
+  "schema_version": 1,
+  "campaign_id": "video_deltam_proprio_ab_causal_v01",
+  "description": "A/B diagnostic A: causal past-to-current proprio, 10 fixed-seed online rollouts.",
+  "calibration_registry": "instructions/eval_calibrations.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit",
+  "methods": [{"id": "video_deltam", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_20260910/last.pth"}],
+  "viewpoints": [{"id": "g3_task_heldout", "spawn_camera_group": "G3", "regime": "task_heldout_group", "cameras_file": "instructions/orbital_cameras_grouped.json"}],
+  "calibrations": ["calibrated"], "tasks": ["bimanual_handover_item_easy"],
+  "runtime": {"data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true, "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true, "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 10, "overrides": {"eval_proprio_history_order": "past_to_current"}}
+}
