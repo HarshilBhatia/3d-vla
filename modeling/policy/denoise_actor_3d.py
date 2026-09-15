@@ -383,15 +383,13 @@ class TransformerHead(BaseTransformerHead):
     def get_sa_feature_sequence(
         self,
         traj_feats, fps_scene_feats,
-        rgb3d_feats, rgb2d_feats, instr_feats, video_camera=None
+        rgb3d_feats, rgb2d_feats, instr_feats
     ):
         batch_size = traj_feats.shape[0]
         
         # Expand learnable tokens to batch size
         register_tokens = self.register_tokens.unsqueeze(0).expand(batch_size, -1, -1)
         camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
-        if video_camera is not None:
-            camera_token = video_camera
         
         # Concatenate: trajectory, scene, register tokens, camera token
         features = torch.cat([traj_feats, fps_scene_feats, register_tokens, camera_token], 1)

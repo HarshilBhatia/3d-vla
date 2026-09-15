@@ -944,11 +944,14 @@ class TransformerHead(nn.Module):
                 raise ValueError("video_deltam=True requires per-frame encoder tokens")
             if fps_cam_ids is None:
                 raise ValueError("video_deltam=True requires camera-indexed FPS tokens")
-            # Historical Video-DeltaM checkpoints produce one global causal
-            # history context.  It augments the policy's camera register; it
-            # does not overwrite the per-camera Delta-M predictor features.
+            # Bytecode-recovered legacy contract: use both outputs.  The
+            # refined current per-camera summaries feed Delta-M, while the
+            # global history context conditions every trajectory query.
             fixed_camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
-            _, video_camera = self.video_deltam(video_frame_feats, fixed_camera_token)
+            refined_frames, video_camera = self.video_deltam(video_frame_feats, fixed_camera_token)
+            ncam = refined_frames.shape[2]
+            fps_scene_feats = torch.cat([fps_scene_feats[:, :-ncam], refined_frames[:, -1]], dim=1)
+            traj_feats = traj_feats + video_camera
         if precomputed_delta_M is not None:
             # Upstream RecursiveSetTransformerEncoder already produced delta_M; skip internal prediction
             cam_params_rt, delta_M = None, precomputed_delta_M
@@ -964,8 +967,6 @@ class TransformerHead(nn.Module):
             # Originals are kept so RT transforms are always applied from a clean base.
             orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos
             current_cam_feat = self._expand_camera_token(batch_size)
-            if video_camera is not None:
-                current_cam_feat = video_camera.squeeze(1)
 
             # Per-camera alignment features (evolve each SA layer); shape (B, ncam, C)
             assert fps_cam_ids is not None, "dynamic_rope_from_camtoken requires fps_cam_ids"
@@ -992,7 +993,7 @@ class TransformerHead(nn.Module):
             # Build the shared SA sequence (camera_token is last token at index -1)
             features = self.get_sa_feature_sequence(
                 traj_feats, fps_scene_feats,
-                rgb3d_feats, rgb2d_feats, instr_feats, video_camera=video_camera
+                rgb3d_feats, rgb2d_feats, instr_feats
             )
             traj_seq_len = traj_feats.shape[1]
 
@@ -1039,7 +1040,7 @@ class TransformerHead(nn.Module):
             )[-1]
             features = self.get_sa_feature_sequence(
                 traj_feats, fps_scene_feats,
-                rgb3d_feats, rgb2d_feats, instr_feats, video_camera=video_camera
+                rgb3d_feats, rgb2d_feats, instr_feats
             )
             features = self.self_attn(
                 seq1=features,
@@ -1068,7 +1069,7 @@ class TransformerHead(nn.Module):
             )[-1]
             features = self.get_sa_feature_sequence(
                 traj_feats, fps_scene_feats,
-                rgb3d_feats, rgb2d_feats, instr_feats, video_camera=video_camera
+                rgb3d_feats, rgb2d_feats, instr_feats
             )
             features = self.self_attn(
                 seq1=features,
@@ -1104,7 +1105,7 @@ class TransformerHead(nn.Module):
             )[-1]
             features = self.get_sa_feature_sequence(
                 traj_feats, fps_scene_feats,
-                rgb3d_feats, rgb2d_feats, instr_feats, video_camera=video_camera
+                rgb3d_feats, rgb2d_feats, instr_feats
             )
             features = self.traj_scene_attn(
                 seq1=features,
@@ -1160,13 +1161,11 @@ class TransformerHead(nn.Module):
     def get_sa_feature_sequence(
         self,
         traj_feats, fps_scene_feats,
-        rgb3d_feats, rgb2d_feats, instr_feats, video_camera=None
+        rgb3d_feats, rgb2d_feats, instr_feats
     ):
         batch_size = traj_feats.shape[0]
         register_tokens = self.register_tokens.unsqueeze(0).expand(batch_size, -1, -1)
         camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
-        if video_camera is not None:
-            camera_token = video_camera
         return torch.cat([traj_feats, fps_scene_feats, register_tokens, camera_token], 1)
 
     def predict_pos(self, features, pos, time_embs, traj_len):
