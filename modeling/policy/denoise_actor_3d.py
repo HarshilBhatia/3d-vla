@@ -391,7 +391,7 @@ class TransformerHead(BaseTransformerHead):
         register_tokens = self.register_tokens.unsqueeze(0).expand(batch_size, -1, -1)
         camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
         if video_camera is not None:
-            camera_token = camera_token + video_camera.unsqueeze(1)
+            camera_token = video_camera
         
         # Concatenate: trajectory, scene, register tokens, camera token
         features = torch.cat([traj_feats, fps_scene_feats, register_tokens, camera_token], 1)

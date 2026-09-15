@@ -947,7 +947,8 @@ class TransformerHead(nn.Module):
             # Historical Video-DeltaM checkpoints produce one global causal
             # history context.  It augments the policy's camera register; it
             # does not overwrite the per-camera Delta-M predictor features.
-            video_camera = self.video_deltam(video_frame_feats)
+            fixed_camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
+            _, video_camera = self.video_deltam(video_frame_feats, fixed_camera_token)
         if precomputed_delta_M is not None:
             # Upstream RecursiveSetTransformerEncoder already produced delta_M; skip internal prediction
             cam_params_rt, delta_M = None, precomputed_delta_M
@@ -964,7 +965,7 @@ class TransformerHead(nn.Module):
             orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos
             current_cam_feat = self._expand_camera_token(batch_size)
             if video_camera is not None:
-                current_cam_feat = current_cam_feat + video_camera
+                current_cam_feat = video_camera.squeeze(1)
 
             # Per-camera alignment features (evolve each SA layer); shape (B, ncam, C)
             assert fps_cam_ids is not None, "dynamic_rope_from_camtoken requires fps_cam_ids"
@@ -1165,7 +1166,7 @@ class TransformerHead(nn.Module):
         register_tokens = self.register_tokens.unsqueeze(0).expand(batch_size, -1, -1)
         camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
         if video_camera is not None:
-            camera_token = camera_token + video_camera.unsqueeze(1)
+            camera_token = video_camera
         return torch.cat([traj_feats, fps_scene_feats, register_tokens, camera_token], 1)
 
     def predict_pos(self, features, pos, time_embs, traj_len):

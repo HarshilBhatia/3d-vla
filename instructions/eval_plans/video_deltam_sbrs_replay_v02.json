@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "campaign_id": "video_deltam_sbrs_replay_v03_legacy_readout",
-  "description": "Legacy-architecture replay of the six completed Video-DeltaM SBRS-best cells. It preserves the exact checkpoint, task-to-group mapping, and materialized medium-plus-3deg/1cm calibration matrices from video_deltam_sbrs_best_v01; validates restoration of the checkpoint's trained global camera readout.",
+  "campaign_id": "video_deltam_sbrs_replay_v04_exact_legacy_readout",
+  "description": "Exact legacy-architecture replay of the six completed Video-DeltaM SBRS-best cells. It preserves the exact checkpoint, task-to-group mapping, and materialized medium-plus-3deg/1cm calibration matrices from video_deltam_sbrs_best_v01; validates the bytecode-recovered global camera-register readout.",
   "calibration_registry": "instructions/eval_calibrations_seen_base_residual_v01.json",
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit",
   "methods": [

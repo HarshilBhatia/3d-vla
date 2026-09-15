@@ -32,7 +32,7 @@ class VideoDeltaM(nn.Module):
 
     1. visual patch tokens mix only with other cameras at their own timestamp;
     2. each camera attends causally to its own earlier timestamps;
-    3. the camera-averaged history is read causally into one global context.
+    3. the policy camera register reads the complete history-by-camera bank.
 
     ``camera_readout`` is part of the serialized architecture of the released
     Video-DeltaM checkpoints.  Keep both its name and its global-token output
@@ -55,17 +55,16 @@ class VideoDeltaM(nn.Module):
         if full_image:
             self.image_token = nn.Parameter(torch.empty(1, 1, 1, 1, embedding_dim))
             nn.init.normal_(self.image_token, std=0.02)
+            self.image_readout = _Block(embedding_dim, num_heads, dropout)
         self.same_time = nn.ModuleList([_Block(embedding_dim, num_heads, dropout) for _ in range(depth)])
         self.temporal = nn.ModuleList([_Block(embedding_dim, num_heads, dropout) for _ in range(depth)])
-        # Legacy checkpoint-compatible global history readout.  This consumes
-        # one camera-averaged token per timestamp, causally, and produces the
-        # current history-context token used with the policy camera register.
+        # Legacy checkpoint-compatible global camera-register readout.
         self.camera_readout = nn.ModuleList(
             [_Block(embedding_dim, num_heads, dropout) for _ in range(depth)]
         )
 
-    def forward(self, frame_tokens):
-        """Return the current global causal camera-history context token.
+    def forward(self, frame_tokens, fixed_camera_token):
+        """Refine frame tokens and read history into a camera register.
 
         Args:
             frame_tokens: legacy ``(B, K, M, C)`` pooled frame tokens, or,
@@ -81,12 +80,11 @@ class VideoDeltaM(nn.Module):
             bsz, history, ncam, npatch, channels = frame_tokens.shape
             if npatch < 1:
                 raise ValueError("full-image Video-DeltaM requires at least one visual token per image")
-            # (B, K, M, P+1, C): the last token is a learned summary for this
-            # particular image. It is deliberately held out of same-time
-            # cross-camera SA, and enters only temporal SA below.
-            frame_tokens = torch.cat(
-                [frame_tokens, self.image_token.expand(bsz, history, ncam, 1, channels)], dim=3
-            )
+            image_query = self.image_token.expand(bsz, history, ncam, -1, -1)
+            frame_tokens = self.image_readout(
+                image_query.reshape(bsz * history * ncam, 1, channels),
+                frame_tokens.reshape(bsz * history * ncam, npatch, channels),
+            ).reshape(bsz, history, ncam, channels)
         elif frame_tokens.ndim == 4:
             bsz, history, ncam, _ = frame_tokens.shape
         else:
@@ -101,14 +99,8 @@ class VideoDeltaM(nn.Module):
             )
         time_ids = torch.arange(history, device=frame_tokens.device)
         cam_ids = torch.arange(ncam, device=frame_tokens.device)
-        if self.full_image:
-            # Add time/camera identity to every patch and its image token.
-            frames = frame_tokens + self.time_embedding(time_ids)[None, :, None, None] \
-                + self.camera_embedding(cam_ids)[None, None, :, None]
-            tokens_per_image = frames.shape[3]
-        else:
-            frames = frame_tokens + self.time_embedding(time_ids)[None, :, None] + self.camera_embedding(cam_ids)[None, None]
-            tokens_per_image = 1
+        frames = frame_tokens + self.time_embedding(time_ids)[None, :, None] + self.camera_embedding(cam_ids)[None, None]
+        cam = fixed_camera_token
         # True above means a query cannot see a later key. The time axis is
         # oldest -> current, therefore this is strictly causal. In the full
         # image path this is a block mask: every token at t can see every token
@@ -116,43 +108,17 @@ class VideoDeltaM(nn.Module):
         time_mask = torch.triu(
             torch.ones(history, history, dtype=torch.bool, device=frames.device), diagonal=1
         )
-        causal_mask = (
-            time_mask.repeat_interleave(tokens_per_image, dim=0).repeat_interleave(tokens_per_image, dim=1)
-            if self.full_image else time_mask
-        )
-        for same_time, temporal in zip(self.same_time, self.temporal):
-            # At a timestamp, patches from all cameras may mix, but learned
-            # per-image tokens are excluded so they do not lose their camera
-            # identity. No token crosses time in this operation.
-            if self.full_image:
-                patches, image_tokens = frames[..., :-1, :], frames[..., -1:, :]
-                patches = same_time(
-                    patches.reshape(bsz * history, ncam * (tokens_per_image - 1), -1)
-                ).reshape(bsz, history, ncam, tokens_per_image - 1, -1)
-                frames = torch.cat([patches, image_tokens], dim=3)
-                # (B*M, K*(P+1), C): for one camera, each token can attend to
-                # all patches and its per-image token from that camera's
-                # causal image history.
-                temporal_frames = frames.transpose(1, 2).reshape(
-                    bsz * ncam, history * tokens_per_image, -1
-                )
-                frames = temporal(temporal_frames, attn_mask=causal_mask).reshape(
-                    bsz, ncam, history, tokens_per_image, -1
-                ).transpose(1, 2)
-            else:
-                frames = same_time(frames.reshape(bsz * history, ncam, -1)).reshape(
-                    bsz, history, ncam, -1
-                )
-                # (B*M, K, C): each camera sees only its own causal temporal path.
-                temporal_frames = frames.transpose(1, 2).reshape(bsz * ncam, history, -1)
-                frames = temporal(temporal_frames, attn_mask=causal_mask).reshape(bsz, ncam, history, -1).transpose(1, 2)
-        # The legacy readout intentionally uses camera-averaged summaries,
-        # rather than turning the global context into per-camera Delta-M
-        # features.  It is causal over the same oldest->current history axis.
-        if self.full_image:
-            camera_history = frames[..., -1, :].mean(dim=2)
-        else:
-            camera_history = frames.mean(dim=2)
-        for readout in self.camera_readout:
-            camera_history = readout(camera_history, attn_mask=time_mask)
-        return camera_history[:, -1]
+        for same_time, temporal, readout in zip(self.same_time, self.temporal, self.camera_readout):
+            frames = same_time(frames.reshape(bsz * history, ncam, -1)).reshape(
+                bsz, history, ncam, -1
+            )
+            # Each camera sees only its own causal temporal path.
+            temporal_frames = frames.transpose(1, 2).reshape(bsz * ncam, history, -1)
+            frames = temporal(temporal_frames, attn_mask=time_mask).reshape(
+                bsz, ncam, history, -1
+            ).transpose(1, 2)
+            # The learned policy camera register reads all cameras and history
+            # at this depth.  This intentionally has no temporal mask: the
+            # register is emitted only for the current action decision.
+            cam = readout(cam, frames.reshape(bsz, history * ncam, -1))
+        return frames, cam
