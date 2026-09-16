@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "campaign_id": "idlt_task_heldout_group_v01",
+  "campaign_id": "idlt_task_heldout_group_fixed_v02",
   "description": "In-Distribution Lab Transfer: external-camera-only calibration robustness. The selected camera group was seen in training for other tasks, but not this target task.",
   "calibration_registry": "instructions/eval_calibrations_idlt_v01.json",
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
