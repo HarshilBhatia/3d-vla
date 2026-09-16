@@ -26,7 +26,7 @@ batch_size_val: 64
 lr: 0.0003
 backbone_lr: 0.0003
 wd: 0.005
-train_iters: 100000
+train_iters: 200000
 head_positional_encoding: rope3d
 view_align_mode: rope_6d
 view_align_cameras: [0, 1]
@@ -38,3 +38,9 @@ video_deltam_depth: 4
 video_deltam_max_cameras: 4
 video_deltam_full_image: false
 video_deltam_role: predict_delta_m
+interm_ckpt_interval_steps: 10000
+checkpoint_evals:
+  - recipe: instructions/eval_plans/vid_deltam_direct_checkpoint_ladder_v01.json
+    method_id: vid-deltaM-direct
+    min_step: 70000
+    max_step: 200000
