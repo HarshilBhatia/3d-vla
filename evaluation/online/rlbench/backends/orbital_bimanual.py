@@ -347,7 +347,7 @@ class RLBenchEnv(BimanualRLBenchEnv):
             depth.cuda(non_blocking=True).to(torch.bfloat16),
             extrinsics.cuda(non_blocking=True).to(torch.bfloat16),
             intrinsics.cuda(non_blocking=True).to(torch.bfloat16),
-        ).float().cpu()  # (1, 4, 3, H, W)
+        ).float()  # (1, 4, 3, H, W), keep GPU-resident for policy input
 
         gripper = torch.from_numpy(np.concatenate([
             obs.left.gripper_pose, [obs.left.gripper_open],
