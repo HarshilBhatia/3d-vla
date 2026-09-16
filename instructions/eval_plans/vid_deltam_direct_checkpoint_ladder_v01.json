@@ -9,7 +9,7 @@
   "residual_conditions": [
     "e3deg-t1cm"
   ],
-  "min_step": 70000,
+  "min_step": 50000,
   "step_interval": 10000,
   "tasks": [
     {

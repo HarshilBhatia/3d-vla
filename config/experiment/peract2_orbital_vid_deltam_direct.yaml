@@ -42,5 +42,5 @@ interm_ckpt_interval_steps: 10000
 checkpoint_evals:
   - recipe: instructions/eval_plans/vid_deltam_direct_checkpoint_ladder_v01.json
     method_id: vid-deltaM-direct
-    min_step: 70000
+    min_step: 50000
     max_step: 200000
