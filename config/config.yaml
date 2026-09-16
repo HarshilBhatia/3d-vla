@@ -2,7 +2,6 @@
 # Override from CLI: python main.py batch_size=32 eval_only=true
 # Switch dataset type: python main.py dataset=peract  (peract2 | peract | peract2_singlecam | peract_twocam)
 # Switch data config: python main.py data=two  (single | two | full)  <- which tasks/split
-# Switch rope mode: python main.py rope_mode=com  (none | standard | com)
 # Switch experiment: python main.py experiment=comrope_2task  (default | comrope_2task | one_task | full | drope)
 
 
@@ -35,23 +34,6 @@ base_log_dir: train_logs
 exp_log_dir: exp
 run_log_dir: run
 
-# === Benchmarking ===
-benchmark: false              # enable per-rank timing/memory logging to benchmark_rank*.txt
-benchmark_warmup_steps: 0     # steps to discard before recording (GPU/CUDA warmup)
-benchmark_log_freq: 50        # flush interval in steps
-benchmark_dummy_data: false   # skip zarr/NFS entirely; use random in-memory tensors
-benchmark_profile_steps: 10   # number of steps to capture with torch.profiler (rank 0 only)
-
-# === Wandb ===
-use_wandb: true
-# wandb_entity: team/user that owns the run. Must exist on the wandb server the
-# API key points at (WANDB_BASE_URL). null = the API key's default entity.
-wandb_entity: harshilb-carnegie-mellon-university
-wandb_project: orbital_runs
-wandb_run_name: null
-wandb_run_id: null
-wandb_save_checkpoints: false
-wandb_watch_model: false
 
 # === Train / offline eval ===
 # checkpoint: path to .pth for resume or eval_only; null = train from scratch
@@ -59,10 +41,10 @@ checkpoint: null
 # pretrained_checkpoint: load weights only (no optimizer/iter restore) — use for fine-tuning from a pretrained model.
 # New/changed heads start from their random init. Takes priority over checkpoint when both are set.
 pretrained_checkpoint: null
-val_freq: 4000
-last_ckpt_freq: 100
-interm_ckpt_freq: 10000
-keep_last_k: 3
+# Cadences, in optimizer steps (each fires on `(step + 1) % N == 0`).
+val_interval_steps: 4000      # also the wandb.watch gradient-logging interval
+ckpt_interval_steps: 100      # rolling last.pth
+interm_ckpt_interval_steps: 10000  # kept interm_step_<N>.pth, and what checkpoint_evals trigger on
 # Optional checkpoint-triggered online evaluations. Each entry is an independent
 # recipe submission; rank 0 submits it immediately after writing a matching
 # interm_step_<N>.pth. Example:
@@ -113,61 +95,22 @@ text_backbone: null
 finetune_backbone: false
 finetune_text_encoder: false
 fps_subsampling_factor: 5
-skip_fps: false                   # if true, skip FPS subsampling and use all image tokens as scene tokens
-position_based_sampling: false   # if true, density sampling uses 3D XYZ distances instead of feature distances
-image_space_sampling: false     # if true, uniformly sample tokens per-camera in image space instead of density-based sampling.
-                                # false = density/feature-distance FPS, the validated setting behind the 85.1 result.
-use_proprio_rope: false           # if true, trajectory tokens use current gripper XYZ for RoPE instead of their own noisy positions
+# fps (feature-distance density; validated, behind the 85.1 result) | fps_xyz
+# (XYZ distances) | image_space (uniform per-camera) | none (no subsampling)
+scene_sampling: fps
 
 # 2D baseline uses RGB from all four cameras, no point-cloud geometry, no
 # rotary RoPE, and additive sinusoidal positional embeddings over image tokens.
-
-
-
-# === Online eval (evaluate_policy.py) ===
-task: null
-max_tries: 10
-max_steps: 25
-headless: false
-collision_checking: false
-seed: 0
-data_dir: demos
-image_size: "256,256"
-output_file: eval.json
-fp16: false
-prediction_len: 1
-save_trajectory: false
-save_video: false
-num_demos: null
-# num_demos_total: episode budget for the WHOLE task, spread over its variations
-# (bimanual harness only). num_demos caps per variation; this caps the task, so a
-# 46-variation task costs the same as a single-variation one. null = unused.
-num_demos_total: null
-cfg_scale: null
-# Online-evaluation vocabulary. `eval_calibration_id` names the complete
-# effective calibration realization delta used in a test cell.
-eval_protocol: null
-eval_viewpoint_regime: null
-eval_calibration_id: null
-# A registry holds exact, materialized per-camera deltas.  Supplying both this
-# path and eval_calibration_id selects one realization with no eval-time
-# sampling or composition.  Legacy miscal_* eval flags remain supported only
-# to reproduce pre-registry jobs.
-eval_calibration_registry: null
 
 
 # === Model: head ===
 embedding_dim: 120
 num_attn_heads: 6
 num_vis_instr_attn_layers: 3
-num_history: 1
+visual_num_history: 1
 # Proprio remains the original Zarr-provided causal K=3 window; Video-DeltaM
 # visual history may use a different K.
 proprio_num_history: 3
-# Online-only convention for temporal proprio windows.  ``past_to_current``
-# is causal and aligns the final slot with the policy's current-state reads;
-# ``current_to_past`` reproduces the present Video-DeltaM training loader.
-eval_proprio_history_order: past_to_current
 num_shared_attn_layers: 4
 # Sparse causal temporal frontend.  When enabled, Video-DeltaM repeats
 # same-time cross-camera and causal per-camera attention.
@@ -178,16 +121,17 @@ video_deltam_max_cameras: 8
 # Give Video-DeltaM the complete encoder token grid for every historical image.
 # A learned per-image token reads each grid locally before sparse video attention.
 video_deltam_full_image: false
-causal_cam_history: null
-causal_cam_history_depth: null
 relative_action: false
 rotation_format: quat_xyzw
 denoise_timesteps: 5
 denoise_model: rectified_flow
 
 
-traj_scene_rope: true
-use_learned_abs_pe: false  # if true, replaces 3D RoPE with a learned per-index abs PE on traj tokens only
+# Head positional encoding (encoder RoPE is separate and always on):
+#   rope3d (traj tokens use own predicted XYZ) | rope3d_proprio (anchored at the
+#   current gripper) | learned_abs (no RoPE, learned traj PE) | none.
+# Only rope3d* give view alignment a basis; the others need view_align_mode=none.
+head_positional_encoding: rope3d
 
 # Language conditioning dropout for classifier-free guidance training.
 # With prob lang_dropout_prob, replace language tokens with a learned null embedding.
@@ -195,97 +139,34 @@ use_learned_abs_pe: false  # if true, replaces 3D RoPE with a learned per-index 
 lang_dropout_prob: 0.0
 
 
-predict_extrinsics: false  # legacy runtime key; prefer view_align_mode
-extrinsics_prediction_mode: delta_m  # legacy runtime key; prefer view_align_mode
-# null = predict/apply DeltaM for every camera. A list (e.g. [0, 1]) keeps
-# DeltaM identity for all other camera IDs, enabling an external-only ablation.
-delta_m_camera_ids: null
-dynamic_rope_from_camtoken: true  # legacy key; prefer layerwise_view_align
-# Preferred public vocabulary. Null derives its effective value from the legacy
-# runtime key above; a non-null value overrides it. Keep legacy keys for old
-# launch scripts and checkpoint compatibility.
-view_align_mode: null  # none | rope_6d | rope_full | physical_se3
-view_align_cameras: null
-layerwise_view_align: null
-# EE aux prediction head: shared camera_trunk branches into an EE XYZ predictor (requires predict_extrinsics=true)
-predict_ee_aux: false
-lambda_aux: 1.0        # weight of EE aux loss relative to flow loss
-ee_aux_cam_ids: [0, 1] # camera indices (into per_img_feats) to predict EE from
-ee_aux: null
-ee_aux_weight: null
-ee_aux_cameras: null
-# random miscalibration (training + eval): random direction, magnitude sampled uniformly in [0, max].
-miscal_max_angle_deg: null       # legacy key; prefer sampled_miscal_max_rot_deg
-miscal_max_translation_m: null   # legacy key; prefer sampled_miscal_max_trans_m
-# Optional zero-based camera IDs allowed to receive any geometric
-# miscalibration; all other cameras get the identity transform.
-miscal_camera_ids: null          # legacy key; prefer miscal_cameras
+# === View alignment: correcting for camera-extrinsic error ===
+#   none | rope_6d (6x6 mixer on the RoPE sin/cos basis) | rope_full (full width)
+#   | physical_se3 (predict R,t and transform positions). rope_* need a rope3d*
+#   head_positional_encoding.
+view_align_mode: none
+view_align_cameras: null     # null = every camera; [0,1] = external-only ablation
+layerwise_view_align: true   # re-predict per attention block, not once up front
+# EE aux head, branching off the shared camera trunk. Requires view alignment.
+ee_aux: false
+ee_aux_weight: 1.0
+ee_aux_cameras: [0, 1]
+# === Camera extrinsics: two independent axes ===
+# MISCALIBRATION — a persistent per-camera-group error the policy must model.
+#   none | group (group reads a fixed matrix per camera group from a noise file)
+miscal_mode: none
+miscal_group_level: null   # "medium", or a list to draw one level per sample
+miscal_group_file: null    # null = instructions/orbital_miscalibration_noise.json
+# PERTURBATION NOISE — per-sample jitter, no bias, so extrinsics are correct on
+# average. Augmentation, not a calibration error. Composes on top of the above.
+perturbation_noise_rot_deg: null
+perturbation_noise_trans_m: null
+perturbation_noise_fixed_rot_deg: null   # exact magnitude per draw, for sweeps
+perturbation_noise_fixed_trans_m: null
+# Both axes are restricted to these camera groups (1-based) / cameras (0-based).
+miscal_camera_groups: null
 miscal_cameras: null
-group_miscal_level: null
-group_miscal_file: null
-sampled_miscal_max_rot_deg: null
-sampled_miscal_max_trans_m: null
-# per-group constant miscalibration: pre-sample K fixed noise matrices (one per camera group).
-# Requires miscal_max_angle_deg + miscal_max_translation_m to define the sampling range.
-# camera_group (1-based uint8) must be present in the zarr (orbital datasets).
-# file-based per-group noise: null | "small" | "medium" | "large"
-# loads from instructions/orbital_miscalibration_noise.json (generated by scripts/generate_orbital_miscal_noise.py).
-# camera_group (1-based uint8) must be present in the zarr (orbital datasets).
-# Can be combined with miscal_max_angle_deg / miscal_max_translation_m to add random noise on top of the fixed base.
-orbital_miscal_noise_level: null # legacy key; prefer group_miscal_level
-# which file the fixed per-group base is read from (bimanual orbital online eval only).
-# null/"" = instructions/orbital_miscalibration_noise.json, the file training pinned.
-# Point at a same-schema file with independent draws (e.g.
-# instructions/orbital_miscalibration_noise_ood.json) to evaluate on a never-seen
-# fixed miscalibration of the same magnitude.
-orbital_miscal_noise_file: null  # legacy key; prefer group_miscal_file
-# per-task constant miscalibration: one fixed noise matrix per task (same magnitude as per-group, different values).
-# Mutually exclusive with orbital_miscal_noise_level. null | "small" | "medium" | "large"
-# per-group multi-level miscalibration: randomly draw one level per batch sample from the list.
-# Mutually exclusive with the other orbital_miscal options. null | [small, medium, large]
-orbital_miscal_noise_levels: null
-# co-training with mixed miscal groups: some groups receive fixed noise, others see clean extrinsics.
-# cotrain_miscal_group_ids: 1-based list of group IDs that get noise (e.g. [1, 2]); null = disabled.
-# cotrain_miscal_level: noise level for those groups — null | "small" | "medium" | "large".
-# cotrain_miscal_levels: list of levels sampled uniformly per-sample (e.g. [small, medium, large]).
-# Exactly one of cotrain_miscal_level / cotrain_miscal_levels must be set when group_ids is set.
-# Mutually exclusive with the other orbital_miscal options.
-cotrain_miscal_group_ids: null
-cotrain_miscal_level: null
-cotrain_miscal_levels: null
-# noise curriculum: linearly ramp random miscal noise from 0 to max over training
-noise_curriculum: false
-noise_curriculum_warmup_frac: 1.0  # fraction of training steps over which noise ramps to max (1.0 = full training)
-# eval_use_depth2cloud: route peract online eval through depth+extrinsics→PCD (consistent with training).
-# Required for miscalibration eval; also set true for clean train/eval alignment.
-eval_use_depth2cloud: false
-# Orbital camera eval settings (used when dataset=OrbitalWrist)
-cameras_file: null                    # path to orbital_cameras_grouped.json
-task_group_mapping_file: null         # path to task_group_mapping.json (eval uses all trained groups)
-camera_groups: null                   # override which groups to eval, e.g. "G1" or "G1,G2"; null = use all from mapping
-spawn_camera_group: null              # if set, always spawn this group's cameras regardless of demo group, e.g. "G3"
-fov_deg: 60.0                         # FOV in degrees for orbital VisionSensors
-# eval-time miscalibration from a pre-sampled noise file (orbital single-arm and bimanual).
-# Levels are independent: e.g. miscal_rot_level=5deg + miscal_trans_level=5cm.
-miscal_rot_level: null                # null | 1deg..10deg | 15deg | 20deg
-miscal_trans_level: null              # null | 1cm..10cm | 15cm | 20cm
-
-# RoPE: traj_scene_rope comes from config/rope_mode/<name>.yaml
 
 
-
-# === Recursive Set Transformer Encoder ===
-# Upstream feature refinement via per-camera registers + time-pooling + delta_M prediction.
-# When enabled, rgb3d_feats are refined and delta_M is pre-computed before the TransformerHead.
-use_recursive_set_encoder: false
-recursive_set_encoder_num_layers: 2
-recursive_set_encoder_ncam: 3   # must match the number of cameras in the dataset
-
-rope_type: normal
-rope_schedule_type: null
-rope_schedule_start_k: null
-rope_schedule_end_k: null
-rope_schedule_steps: null
 
 
 
@@ -294,5 +175,7 @@ rope_schedule_steps: null
 defaults:
   - _self_
   - data@_global_: single
+  - eval@_global_: default
+  - logging@_global_: default
   - experiment@_global_: default
   - miscal@_global_: none

@@ -1,10 +1,10 @@
-# 3DFA PerAct2 (13 bimanual tasks), CLIP RN50 backbone, num_history=3,
+# 3DFA PerAct2 (13 bimanual tasks), CLIP RN50 backbone, visual_num_history=3,
 # 1 node x 1 B200.
 #
 # Backbone ablation against scripts/sky/peract2_base_nhist3_b200.yaml. That run
 # is byte-identical to this one except backbone=siglip2 (the config default), so
 # the vision encoder is the only variable: batch_size=256, batch_size_val=64,
-# lr=backbone_lr=3e-4, train_iters=350000, num_history=3.
+# lr=backbone_lr=3e-4, train_iters=350000, visual_num_history=3.
 #
 # The head geometry stays at THIS repo's defaults — num_attn_heads=6,
 # fps_subsampling_factor=5 — not upstream's 8/4. upstream_peract2_repro.yaml
@@ -185,7 +185,7 @@ run: |
     bimanual=true \
     dataset=Peract2_3dfront_3dwrist \
     backbone=clip \
-    num_history="$NUM_HISTORY" \
+    visual_num_history="$NUM_HISTORY" \
     batch_size="$BATCH_SIZE" \
     batch_size_val=64 \
     lr="$LR" \

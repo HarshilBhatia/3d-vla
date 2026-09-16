@@ -23,7 +23,7 @@ METHODS = [
     {
         "id": "video_deltam_best_s084k",
         "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth",
-        "overrides": {"image_space_sampling": False, "eval_proprio_history_order": "past_to_current"},
+        "overrides": {"scene_sampling": "fps", "eval_proprio_history_order": "past_to_current"},
     },
 ]
 RUNTIME = {

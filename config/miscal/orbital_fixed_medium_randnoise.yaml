@@ -1,5 +1,6 @@
-# All groups get a fixed per-group medium noise (from file) plus small random noise each batch
-# (T_combined = T_random @ T_base).
-orbital_miscal_noise_level: medium
-miscal_max_angle_deg: 3.0
-miscal_max_translation_m: 0.01
+# Persistent per-group medium calibration error, plus fresh train-time
+# perturbation noise on every sample. The regime R1a/R1b/R1c trained under.
+miscal_mode: group
+miscal_group_level: medium
+perturbation_noise_rot_deg: 3.0
+perturbation_noise_trans_m: 0.01

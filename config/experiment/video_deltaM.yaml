@@ -1,8 +1,7 @@
 # Video-DeltaM: full image-token grids plus learned per-image tokens undergo
 # D sparse attention depths.
-predict_extrinsics: true
-extrinsics_prediction_mode: delta_m
-dynamic_rope_from_camtoken: true
+view_align_mode: rope_6d
+layerwise_view_align: true
 video_deltam: true
 video_deltam_depth: 4
 video_deltam_full_image: true

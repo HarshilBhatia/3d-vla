@@ -5,8 +5,15 @@ All entry points (main.py, online_evaluation_rlbench/evaluate_policy.py, analyse
 **Config groups:**
 - **dataset** – dataset *type* (which class): `peract2` | `peract` | `peract2_singlecam` | `peract_twocam` → see `config/dataset/`.
 - **data** – which *tasks/split*: `single` | `two` | `full` → see `config/data/`. Paths are relative to project root. (Defaults use `@_global_` so these keys are merged at root.)
-- **rope_mode** – RoPE variant: `none` | `standard` → see `config/rope_mode/`. Sets `traj_scene_rope`, `sa_blocks_use_rope`.
 - **experiment** – run-specific overrides: `default` | `one_task` | `full` | `drope` → see `config/experiment/`.
+- **eval** – online-evaluation settings (task, rollout budget, cameras, calibration) → see `config/eval/`. Merged at the root; affects no training or model architecture.
+- **logging** – wandb and per-rank benchmark logging → see `config/logging/`.
+- **miscal** – training-time miscalibration regime: `none` | `orbital_medium` | `cotrain_*` → see `config/miscal/`.
+
+Group order in `defaults` is `data → eval → logging → experiment → miscal`, so an
+experiment config can override eval/logging keys, and an explicitly selected miscal
+group wins over everything. `miscal/none.yaml` is deliberately empty: re-nulling keys
+there would silently clobber miscal values set by an experiment config.
 
 New paper-facing runs should start from `paper_external_control`,
 `paper_external_view_align`, or `paper_external_view_align_eeaux`. Their short

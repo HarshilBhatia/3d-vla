@@ -16,8 +16,7 @@ class Encoder(BaseEncoder):
                  num_attn_heads=9,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
-                 skip_fps=False,
-                 image_space_sampling=True,
+                 scene_sampling='image_space',
                  finetune_backbone=False,
                  finetune_text_encoder=False,
                  rot_dim=3):
@@ -28,8 +27,7 @@ class Encoder(BaseEncoder):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
-            skip_fps=skip_fps,
-            image_space_sampling=image_space_sampling,
+            scene_sampling=scene_sampling,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder
         )
@@ -51,7 +49,7 @@ class Encoder(BaseEncoder):
         self.rot_dim = rot_dim
         self.proprio_feat = nn.Linear(3 + rot_dim, embedding_dim)
 
-    def encode_proprio(self, proprio, context_feats, context_pos, stopgrad_k=0):
+    def encode_proprio(self, proprio, context_feats, context_pos):
         """
         Compute proprioception features.
 

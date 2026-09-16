@@ -1,0 +1,45 @@
+# Vid-DeltaM-Pooled: Video-DeltaM over one MEAN-POOLED token per (history step,
+# camera). Sibling of peract2_orbital_vid_deltam_fullpatch, which instead feeds
+# the full patch grid of every historical image.
+#
+# This arm previously had no config of its own -- it borrowed
+# peract2_orbital_new_external_only_miscal_deltam_external and bolted the video
+# architecture on through shell overrides, which made it the only arm whose
+# architecture was not readable from a single file. Everything below is that
+# borrowed config plus the overrides the launcher used to apply.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+# Visual history K=5 for Video-DeltaM; proprio keeps the zarr's causal K=3.
+visual_num_history: 5
+proprio_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: true
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 128
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 100000
+head_positional_encoding: rope3d
+view_align_mode: rope_6d
+view_align_cameras: [0, 1]
+layerwise_view_align: true
+# Keep wrist/on-robot camera geometry calibrated; view-align masking alone does
+# not constrain the training-time perturbation.
+miscal_cameras: [0, 1]
+# Video-DeltaM, pooled: one mean-pooled token per (history step, camera).
+# video_deltam_full_image stays false -- that is the fullpatch arm.
+video_deltam: true
+video_deltam_depth: 4
+video_deltam_max_cameras: 4
+video_deltam_full_image: false

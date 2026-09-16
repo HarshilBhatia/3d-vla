@@ -16,6 +16,24 @@ from ..utils.utils import (
 )
 
 
+# Public name -> (internal rope mode, traj tokens anchored at current gripper).
+# Encoder RoPE is separate and always on.
+# Public name -> (whether to predict, which mechanism).
+VIEW_ALIGN_MODES = {
+    "none":         (False, "delta_m"),
+    "rope_6d":      (True, "delta_m"),
+    "rope_full":    (True, "delta_m_full"),
+    "physical_se3": (True, "rt"),
+}
+
+HEAD_POSITIONAL_ENCODINGS = {
+    "rope3d":         ("standard", False),
+    "rope3d_proprio": ("standard", True),
+    "learned_abs":    ("learned_abs", False),
+    "none":           ("none", False),
+}
+
+
 class DenoiseActor(nn.Module):
 
     def __init__(self,
@@ -33,10 +51,20 @@ class DenoiseActor(nn.Module):
                  denoise_model="ddpm",
                  # Training arguments
                  lv2_batch_size=1,
-                 traj_scene_rope=True,
-                 predict_extrinsics=True,
-                 extrinsics_prediction_mode='delta_m'):
+                 head_positional_encoding='rope3d',
+                 view_align_mode='none'):
         super().__init__()
+        if view_align_mode not in VIEW_ALIGN_MODES:
+            raise ValueError(f"view_align_mode must be one of {sorted(VIEW_ALIGN_MODES)}, got {view_align_mode!r}")
+        predict_extrinsics, extrinsics_prediction_mode = VIEW_ALIGN_MODES[view_align_mode]
+        # View alignment mixes/transforms a 3D RoPE basis, so it needs one.
+        if predict_extrinsics and HEAD_POSITIONAL_ENCODINGS.get(
+                head_positional_encoding, (None, None))[0] != "standard":
+            raise ValueError(
+                f"head_positional_encoding={head_positional_encoding!r} disables 3D RoPE in "
+                f"the head, leaving view_align_mode={view_align_mode!r} nothing to correct; "
+                "set view_align_mode=none or use a rope3d* encoding."
+            )
         # Arguments to be accessed by the main class
         self._rotation_format = rotation_format
         self._relative = relative
@@ -58,7 +86,13 @@ class DenoiseActor(nn.Module):
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
             rot_dim=3 if rotation_format == 'euler' else 6,
-            traj_scene_rope=traj_scene_rope,
+            # Subclasses replace this head. Both values are pinned to the old
+            # defaults: the module set built here consumes RNG draws, so changing
+            # it shifts from-scratch weight init.
+            head_positional_encoding=(
+                'none' if head_positional_encoding == 'none' else 'rope3d'
+            ),
+            view_align_mode='rope_6d',
         )
 
         # Noise/denoise schedulers and hyperparameters
@@ -80,17 +114,16 @@ class DenoiseActor(nn.Module):
             )
         self.nrm_dim = int(self.workspace_normalizer.size(-1))
 
-    def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=0):
+    def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio):
         fixed_inputs = self.encoder(
             rgb3d, rgb2d, pcd, instruction,
             proprio.flatten(1, 2),
-            stopgrad_k=stopgrad_k
         )
         # Query trajectory (for relative trajectory prediction)
         query_trajectory = proprio[:, -1:]
         return (query_trajectory,) + fixed_inputs
 
-    def policy_forward_pass(self, trajectory, timestep, fixed_inputs, stopgrad_k=0):
+    def policy_forward_pass(self, trajectory, timestep, fixed_inputs):
         # Parse inputs
         (
             query_trajectory,
@@ -116,16 +149,11 @@ class DenoiseActor(nn.Module):
                 + torch.cumsum(traj_xyz, dim=1)
             )
 
-        # Optionally refine rgb3d features and pre-compute delta_M upstream
+        # Hook for an upstream module to own delta_M and bypass the head's
+        # predictor. Nothing sets it today.
         precomputed_delta_M = None
-        if hasattr(self, 'recursive_set_encoder'):
-            # RecursiveSetEncoder accepts (B, nhist, ncam*P, F) or (B, ncam*P, F)
-            # and collapses to (B, ncam*P, F); use current frame pcd for rgb3d_pos
-            pcd_curr = pcd[:, -1] if pcd.ndim == 4 else pcd
-            rgb3d_feats, precomputed_delta_M = self.recursive_set_encoder(rgb3d_feats, pcd)
-            pcd = pcd_curr
-        elif rgb3d_feats.ndim == 4:
-            # nhist > 1 without recursive encoder: use current (latest) frame
+        if rgb3d_feats.ndim == 4:
+            # Visual history > 1: the decoder consumes the current (latest) frame.
             rgb3d_feats = rgb3d_feats[:, -1]
             pcd = pcd[:, -1]
 
@@ -144,12 +172,11 @@ class DenoiseActor(nn.Module):
             fps_scene_feats=fps_scene_feats,
             fps_scene_pos=fps_scene_pos,
             fps_cam_ids=fps_cam_ids,
-            stopgrad_k=stopgrad_k,
             precomputed_delta_M=precomputed_delta_M,
             video_frame_feats=video_frame_feats,
         )
 
-    def conditional_sample(self, trajectory, device, fixed_inputs, stopgrad_k=0):
+    def conditional_sample(self, trajectory, device, fixed_inputs):
         # Set schedulers
         self.position_scheduler.set_timesteps(self.n_steps, device=device)
         self.rotation_scheduler.set_timesteps(self.n_steps, device=device)
@@ -161,7 +188,6 @@ class DenoiseActor(nn.Module):
                 trajectory,
                 t * torch.ones(len(trajectory), device=device, dtype=torch.long),
                 fixed_inputs,
-                stopgrad_k=stopgrad_k
             )
             out = traj_preds[-1]  # keep only last layer's output
             pos = self.position_scheduler.step(
@@ -177,7 +203,7 @@ class DenoiseActor(nn.Module):
         return torch.cat((trajectory, out[..., -1:]), -1)
 
     def conditional_sample_cfg(self, trajectory, device, cond_fixed_inputs, uncond_fixed_inputs,
-                               cfg_scale, stopgrad_k=0):
+                               cfg_scale):
         self.position_scheduler.set_timesteps(self.n_steps, device=device)
         self.rotation_scheduler.set_timesteps(self.n_steps, device=device)
 
@@ -185,12 +211,12 @@ class DenoiseActor(nn.Module):
         for t_ind, t in enumerate(timesteps):
             t_batch = t * torch.ones(len(trajectory), device=device, dtype=torch.long)
 
-            out_uncond = self.policy_forward_pass(trajectory, t_batch, uncond_fixed_inputs, stopgrad_k=stopgrad_k)[0][-1]
+            out_uncond = self.policy_forward_pass(trajectory, t_batch, uncond_fixed_inputs)[0][-1]
 
             if cfg_scale == 0:
                 out = out_uncond
             else:
-                out_cond = self.policy_forward_pass(trajectory, t_batch, cond_fixed_inputs, stopgrad_k=stopgrad_k)[0][-1]
+                out_cond = self.policy_forward_pass(trajectory, t_batch, cond_fixed_inputs)[0][-1]
 
                 diff = (out_cond - out_uncond).norm(dim=-1).mean().item()
                 print(f"[CFG t={t_ind}] cfg_scale={cfg_scale}  |out_cond - out_uncond|={diff:.4f}", flush=True)
@@ -206,14 +232,14 @@ class DenoiseActor(nn.Module):
 
     def compute_trajectory_cfg(self, trajectory_mask,
                                rgb3d, rgb2d, pcd, instruction, proprio,
-                               cfg_scale=2.0, stopgrad_k=0):
+                               cfg_scale=2.0):
                                
-        uncond_fixed_inputs = self.encode_inputs(rgb3d, rgb2d, pcd, None, proprio, stopgrad_k=stopgrad_k)
+        uncond_fixed_inputs = self.encode_inputs(rgb3d, rgb2d, pcd, None, proprio)
 
         if cfg_scale == 0:
             cond_fixed_inputs = uncond_fixed_inputs  # cond pass is skipped in the loop
         else:
-            cond_fixed_inputs = self.encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=stopgrad_k)
+            cond_fixed_inputs = self.encode_inputs(rgb3d, rgb2d, pcd, instruction, proprio)
 
             # Verify cond and uncond scene features actually differ (catches any lang leak)
             fps_diff   = (cond_fixed_inputs[8] - uncond_fixed_inputs[8]).norm(dim=-1).mean().item()
@@ -233,7 +259,6 @@ class DenoiseActor(nn.Module):
             cond_fixed_inputs=cond_fixed_inputs,
             uncond_fixed_inputs=uncond_fixed_inputs,
             cfg_scale=cfg_scale,
-            stopgrad_k=stopgrad_k
         )
 
         _, traj_len, nhand, _ = trajectory.shape
@@ -244,12 +269,10 @@ class DenoiseActor(nn.Module):
         return trajectory
 
     def compute_trajectory(self, trajectory_mask,
-                           rgb3d, rgb2d, pcd, instruction, proprio,
-                           stopgrad_k=0):
+                           rgb3d, rgb2d, pcd, instruction, proprio):
         # Encode observations, states, instructions
         fixed_inputs = self.encode_inputs(
             rgb3d, rgb2d, pcd, instruction, proprio,
-            stopgrad_k=stopgrad_k
         )
 
         # Sample from learned model starting from noise
@@ -262,7 +285,6 @@ class DenoiseActor(nn.Module):
             trajectory,
             device=trajectory_mask.device,
             fixed_inputs=fixed_inputs,
-            stopgrad_k=stopgrad_k
         )
 
         # Back to quaternion
@@ -278,12 +300,10 @@ class DenoiseActor(nn.Module):
         return trajectory
 
     def compute_loss(self, gt_trajectory,
-                     rgb3d, rgb2d, pcd, instruction, proprio,
-                     stopgrad_k=0):
+                     rgb3d, rgb2d, pcd, instruction, proprio):
         # Encode observations, states, instructions
         fixed_inputs = self.encode_inputs(
             rgb3d, rgb2d, pcd, instruction, proprio,
-            stopgrad_k=stopgrad_k
         )
 
         # Process gt_trajectory
@@ -334,7 +354,6 @@ class DenoiseActor(nn.Module):
             pred, ee_stacked = self.policy_forward_pass(
                 noisy_trajectory,
                 timesteps, fixed_inputs,
-                stopgrad_k=stopgrad_k
             )
 
             # Compute flow-matching loss
@@ -447,7 +466,6 @@ class DenoiseActor(nn.Module):
         instruction,
         proprio,
         run_inference=False,
-        stopgrad_k=0,
         cfg_scale=None,
     ):
         """
@@ -459,7 +477,6 @@ class DenoiseActor(nn.Module):
             pcd: (B, num_3d_cameras, 3, H, W) in world coordinates
             instruction: tokenized text instruction
             proprio: (B, nhist, nhand, 3+4+X)
-            stopgrad_k: number of bins to zero out in backward (for RoPE stopgrad)
             cfg_scale: if set, use classifier-free guidance with this scale (inference only)
 
         Note:
@@ -478,32 +495,37 @@ class DenoiseActor(nn.Module):
                     trajectory_mask,
                     rgb3d, rgb2d, pcd, instruction, proprio,
                     cfg_scale=cfg_scale,
-                    stopgrad_k=stopgrad_k
                 )
             return self.compute_trajectory(
                 trajectory_mask,
                 rgb3d, rgb2d, pcd, instruction, proprio,
-                stopgrad_k=stopgrad_k
             )
 
         # Training, use gt_trajectory to compute loss
         return self.compute_loss(
             gt_trajectory,
             rgb3d, rgb2d, pcd, instruction, proprio,
-            stopgrad_k=stopgrad_k
         )
 
 
 class TransformerHead(nn.Module):
     """
-    Action decoder head (trajectory + rotation + openness). RoPE usage:
+    Action decoder head (trajectory + rotation + openness). RoPE usage is set by
+    the single ``head_positional_encoding`` knob (see HEAD_POSITIONAL_ENCODINGS):
 
-    - traj_scene_rope=True: shared self-attn uses standard RoPE; cross_attn and
-      position/rotation output heads get RoPE positions.
-    - traj_scene_rope=False: RoPE is disabled everywhere in this head:
+    - 'rope3d' / 'rope3d_proprio': shared self-attn uses standard RoPE; cross_attn and
+      position/rotation output heads get RoPE positions. 'rope3d_proprio' additionally
+      anchors every trajectory token at the current gripper XYZ.
+    - 'learned_abs' / 'none': RoPE is disabled everywhere in this head:
       cross_attn (rotary_pe=False), traj_self_attn / scene_self_attn / traj_scene_attn
       (all rotary_pe=False), and position_self_attn / rotation_self_attn (rope_mode='none').
-    - Encoder (vision-language) RoPE is independent and controlled by rope_type / encoder config.
+      'learned_abs' adds a learned per-index PE table on trajectory tokens.
+    - Encoder (vision-language) RoPE is independent and controlled by the encoder config.
+
+    delta_M contract: predicted from the per-camera summary tokens (not camera_token),
+    applied to scene/FPS tokens only -- traj tokens keep raw positions. Those same
+    tokens are also SA members and the EE-aux input, which is why ee_aux requires
+    view alignment. layerwise_view_align re-predicts per block with shared weights.
 
     RoPE usage map (all places RoPE can be applied):
     - Encoder (encoder3d): relative_pe_layer (RotaryPositionEncoding3D) + gripper_context_head(rotary_pe=True).
@@ -519,38 +541,36 @@ class TransformerHead(nn.Module):
                  nhist=3,
                  rotary_pe=True,
                  rot_dim=6,
-                 traj_scene_rope=True,
-                 predict_extrinsics=True,
-                 extrinsics_prediction_mode='delta_m',  # 'rt' = R,T (6D) and log; 'delta_m' = 6x6 matrix
-                 delta_m_camera_ids=None,
-                 dynamic_rope_from_camtoken=False,
+                 head_positional_encoding='rope3d',
+                 view_align_mode='none',
+                 view_align_cameras=None,
+                 layerwise_view_align=False,
                  video_deltam=False,
                  video_deltam_depth=4,
                  video_deltam_max_history=32,
                  video_deltam_max_cameras=8,
                  video_deltam_full_image=False,
-                 use_proprio_rope=False,
-                 use_learned_abs_pe=False,
-                 predict_ee_aux=False,
-                 lambda_aux=1.0,
-                 ee_aux_cam_ids=(0, 1)):
+                 ee_aux=False,
+                 ee_aux_weight=1.0,
+                 ee_aux_cameras=(0, 1)):
         super().__init__()
 
-        self.use_proprio_rope = use_proprio_rope
-        self.extrinsics_prediction_mode = extrinsics_prediction_mode.lower()
-        assert self.extrinsics_prediction_mode in ('rt', 'delta_m', 'delta_m_full'), \
-            "extrinsics_prediction_mode must be 'rt', 'delta_m', or 'delta_m_full'"
-        mechanism = "physical RT correction" if self.extrinsics_prediction_mode == "rt" else "RoPE correction"
-        print(f" ************** {mechanism}: {predict_extrinsics} (legacy mode={self.extrinsics_prediction_mode}) **************")
+        if view_align_mode not in VIEW_ALIGN_MODES:
+            raise ValueError(f"view_align_mode must be one of {sorted(VIEW_ALIGN_MODES)}, got {view_align_mode!r}")
+        self.view_align_mode = view_align_mode
+        # Derived so the rest of the head keeps its existing vocabulary.
+        predict_extrinsics, self.extrinsics_prediction_mode = VIEW_ALIGN_MODES[view_align_mode]
+        delta_m_camera_ids = view_align_cameras
+        predict_ee_aux, lambda_aux, ee_aux_cam_ids = ee_aux, ee_aux_weight, ee_aux_cameras
+        print(f" ************** view alignment: {view_align_mode} **************")
 
-        self.traj_scene_rope = traj_scene_rope
         self.predict_extrinsics = predict_extrinsics
         self.delta_m_camera_ids = (
             None if delta_m_camera_ids is None else tuple(sorted(set(delta_m_camera_ids)))
         )
         if self.delta_m_camera_ids is not None and any(i < 0 for i in self.delta_m_camera_ids):
             raise ValueError(f"delta_m_camera_ids must be non-negative, got {self.delta_m_camera_ids}")
-        self.dynamic_rope_from_camtoken = dynamic_rope_from_camtoken
+        self.layerwise_view_align = layerwise_view_align
         self.video_deltam = (
             VideoDeltaM(
                 embedding_dim, num_attn_heads, video_deltam_depth,
@@ -559,27 +579,22 @@ class TransformerHead(nn.Module):
                 full_image=video_deltam_full_image,
             ) if video_deltam else None
         )
-        if use_learned_abs_pe:
-            self._rope_mode = "learned_abs"
-            assert not predict_extrinsics, \
-                "use_learned_abs_pe=True: predict_extrinsics transforms 3D positions — disable it"
-            assert not use_proprio_rope, \
-                "use_learned_abs_pe=True: use_proprio_rope injects 3D gripper position — disable it"
-            assert not dynamic_rope_from_camtoken, \
-                "use_learned_abs_pe=True: dynamic_rope_from_camtoken re-computes RoPE from 3D positions — disable it"
-        elif not traj_scene_rope:
-            self._rope_mode = "none"
-        else:
-            self._rope_mode = "standard"
+        if head_positional_encoding not in HEAD_POSITIONAL_ENCODINGS:
+            raise ValueError(
+                f"head_positional_encoding must be one of "
+                f"{sorted(HEAD_POSITIONAL_ENCODINGS)}, got {head_positional_encoding!r}"
+            )
+        self.head_positional_encoding = head_positional_encoding
+        self._rope_mode, self.use_proprio_rope = HEAD_POSITIONAL_ENCODINGS[head_positional_encoding]
 
-        # When traj_scene_rope=False, RoPE is disabled in this TransformerHead in:
+        # In the 'none' and 'learned_abs' modes RoPE is disabled in this TransformerHead in:
         #   - cross_attn (traj-to-scene), shared self-attn branch, position/rotation output heads.
-        # Encoder RoPE (encoder3d) is unchanged and controlled by rope_type / encoder config only.
+        # Encoder RoPE (encoder3d) is unchanged and controlled by the encoder config only.
 
         # Learned absolute positional encoding for trajectory tokens only.
         # Uses a learnable parameter table of shape (1, max_traj_tokens, embedding_dim),
         # sliced to the actual traj_len * nhand at forward time.
-        if use_learned_abs_pe:
+        if self._rope_mode == "learned_abs":
             self.traj_abs_pe = nn.Parameter(torch.zeros(1, 32, embedding_dim))
             nn.init.trunc_normal_(self.traj_abs_pe, std=0.02)
             print('Using learned absolute positional encoding for traj tokens (abs_pe)')
@@ -623,7 +638,7 @@ class TransformerHead(nn.Module):
             is_self=False
         )
 
-        # Estimate attends to context (no subsampling). RoPE off when traj_scene_rope=False or learned_abs.
+        # Estimate attends to context (no subsampling). RoPE off unless _rope_mode == "standard".
         self.cross_attn = AttentionModule(
             num_layers=2,
             d_model=embedding_dim,
@@ -638,11 +653,8 @@ class TransformerHead(nn.Module):
 
         # Shared attention layers
 
-        if self.traj_scene_rope or use_learned_abs_pe:
-            if use_learned_abs_pe:
-                print('Using learned absolute positional encoding (no RoPE)')
-            else:
-                print(f'Using traj_scene_rope = True (standard RoPE)')
+        if self._rope_mode != "none":
+            print(f'Head positional encoding: {head_positional_encoding}')
             self.self_attn = AttentionModule(
                     num_layers=num_shared_attn_layers,
                     d_model=embedding_dim,
@@ -655,8 +667,8 @@ class TransformerHead(nn.Module):
                     is_self=True
                 )
         else:
-            # traj_scene_rope=False: no RoPE in traj/scene/traj_scene self-attn or cross_attn
-            print('Using traj_scene_rope = False (no RoPE)')
+            # head_positional_encoding='none': no RoPE in traj/scene/traj_scene self-attn or cross_attn
+            print('Head positional encoding: none (no RoPE)')
             self.traj_self_attn = AttentionModule(
                 num_layers=num_shared_attn_layers // 2,
                 d_model=embedding_dim,
@@ -838,7 +850,7 @@ class TransformerHead(nn.Module):
         """
         Predict delta_M from pooled per-camera image features (one per camera).
 
-        If fps_scene_feats/fps_cam_ids are provided, sources from per-image avg tokens
+        If fps_scene_feats/fps_cam_ids are provided, sources from the camera summaries
         (fps_scene_feats[:, M:, :] where M = fps_cam_ids.shape[1]).
         Returns delta_M: (B, ncam, 6, 6) — one orthogonal matrix per camera.
 
@@ -846,22 +858,22 @@ class TransformerHead(nn.Module):
         """
         if fps_scene_feats is not None and fps_cam_ids is not None:
             M = fps_cam_ids.shape[1]
-            per_img_feats = fps_scene_feats[:, M:, :]  # (B, ncam, C)
-            _, delta_M = self._predict_from_cam_feat(per_img_feats)  # (B, ncam, 6, 6)
+            camera_summaries = fps_scene_feats[:, M:, :]  # (B, ncam, C)
+            _, delta_M = self._predict_from_cam_feat(camera_summaries)  # (B, ncam, 6, 6)
         else:
             cam_feat = self._expand_camera_token(batch_size)
             _, delta_M = self._predict_from_cam_feat(cam_feat)  # (B, 6, 6)
         return delta_M
 
-    def _predict_ee_from_per_img_feats(self, per_img_feats):
-        """Predict EE XYZ for external cameras from per-image avg features.
+    def _predict_ee_from_camera_summaries(self, camera_summaries):
+        """Predict EE XYZ for external cameras from their summary tokens.
 
         Args:
-            per_img_feats: (B, ncam, C)
+            camera_summaries: (B, ncam, C)
         Returns:
             (B, n_ext_cams, 3) predicted EE XYZ in normalized workspace coords
         """
-        cam_feats = per_img_feats[:, self.ee_aux_cam_ids, :]  # (B, n_ext_cams, C)
+        cam_feats = camera_summaries[:, self.ee_aux_cam_ids, :]  # (B, n_ext_cams, C)
         h = self.camera_proj(cam_feats)
         trunk = self.camera_trunk(h)
         return self.ee_predictor(trunk)
@@ -870,7 +882,7 @@ class TransformerHead(nn.Module):
         """Expand (1, C) camera_token to (B, C)."""
         return self.camera_token.unsqueeze(0).expand(batch_size, -1, -1).squeeze(1)
 
-    def _recompute_rope(self, cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
+    def _recompute_rope(self, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos,
                         bases=None):
         """Base-class stub; overridden in the 3D head."""
         return None, None, None, None
@@ -883,7 +895,7 @@ class TransformerHead(nn.Module):
     def forward(self, traj_feats, trajectory, timesteps,
                 rgb3d_feats, rgb3d_pos, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats,
-                fps_scene_feats, fps_scene_pos, fps_cam_ids=None, stopgrad_k=0,
+                fps_scene_feats, fps_scene_pos, fps_cam_ids=None,
                 precomputed_delta_M=None, video_frame_feats=None):
         """
         Arguments:
@@ -899,7 +911,6 @@ class TransformerHead(nn.Module):
             proprio_feats: (B, nhist*nhand, F)
             fps_scene_feats: (B, M, F), M < N
             fps_scene_pos: (B, M, 3)
-            stopgrad_k: number of bins to zero out in backward (for RoPE stopgrad)
 
         Returns:
             list of (B, trajectory_length, nhand, 3+6+X)
@@ -953,7 +964,7 @@ class TransformerHead(nn.Module):
             fps_scene_feats = torch.cat([fps_scene_feats[:, :-ncam], refined_frames[:, -1]], dim=1)
             traj_feats = traj_feats + video_camera
         if precomputed_delta_M is not None:
-            # Upstream RecursiveSetTransformerEncoder already produced delta_M; skip internal prediction
+            # An upstream module already produced delta_M; skip the head's predictor.
             cam_params_rt, delta_M = None, precomputed_delta_M
             self._last_predicted_cam_params = precomputed_delta_M.detach()
         else:
@@ -961,30 +972,31 @@ class TransformerHead(nn.Module):
                 batch_size, device, fps_scene_feats=fps_scene_feats, fps_cam_ids=fps_cam_ids
             )
 
-        if self.dynamic_rope_from_camtoken and self._rope_mode == "standard" and self.predict_extrinsics \
+        if self.layerwise_view_align and self._rope_mode == "standard" and self.predict_extrinsics \
                 and precomputed_delta_M is None:
-            # Dynamic RoPE path: re-predict delta_M / (R,T) after every CA and SA block.
-            # Originals are kept so RT transforms are always applied from a clean base.
+            # Re-predict delta_M before every block. The camera summaries live in
+            # the SA sequence, so each SA block sees a refined delta_M. Originals
+            # are kept so RT transforms always start from a clean base.
             orig_rgb3d_pos, orig_fps_scene_pos = rgb3d_pos, fps_scene_pos
-            current_cam_feat = self._expand_camera_token(batch_size)
 
             # Per-camera alignment features (evolve each SA layer); shape (B, ncam, C)
-            assert fps_cam_ids is not None, "dynamic_rope_from_camtoken requires fps_cam_ids"
+            assert fps_cam_ids is not None, "layerwise_view_align requires fps_cam_ids"
             M = fps_cam_ids.shape[1]
-            current_per_img_feats = fps_scene_feats[:, M:, :]
+            current_camera_summaries = fps_scene_feats[:, M:, :]
 
             # Pre-compute sin/cos bases once; reuse across all blocks (delta_M mode only)
             precomputed_bases = (
-                self._precompute_rope_bases(traj_xyz, rgb3d_pos, fps_scene_pos, stopgrad_k)
+                self._precompute_rope_bases(traj_xyz, rgb3d_pos, fps_scene_pos)
                 if self.extrinsics_prediction_mode in ('delta_m', 'delta_m_full') else None
             )
 
-            # Cross-attention: per-layer RoPE recompute (per-image feats are static pre-SA)
+            # Camera summaries are static until SA updates them, so every CA
+            # layer would get the same delta_M: predict once.
+            rel_traj_pos, rel_scene_pos, rel_pos, _ = self._recompute_rope(
+                traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos,
+                bases=precomputed_bases, fps_cam_ids=fps_cam_ids,
+                camera_summaries=current_camera_summaries)
             for i in range(self.cross_attn.num_layers):
-                rel_traj_pos, rel_scene_pos, rel_pos, _ = self._recompute_rope(
-                    current_cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
-                    bases=precomputed_bases, fps_cam_ids=fps_cam_ids,
-                    per_img_feats=current_per_img_feats)
                 traj_feats = self.cross_attn.attn_layers[i](
                     traj_feats, rgb3d_feats,
                     seq1_pos=rel_traj_pos, seq2_pos=rel_scene_pos, ada_sgnl=time_embs)
@@ -997,23 +1009,22 @@ class TransformerHead(nn.Module):
             )
             traj_seq_len = traj_feats.shape[1]
 
-            # Self-attention: per-layer RoPE recompute + update cam_feat and per-image feats
+            # SA updates the camera summaries in place, so delta_M refines per layer.
             for i in range(self.self_attn.num_layers):
                 rel_traj_pos, rel_scene_pos, rel_pos, _ = self._recompute_rope(
-                    current_cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
+                    traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos,
                     bases=precomputed_bases, fps_cam_ids=fps_cam_ids,
-                    per_img_feats=current_per_img_feats)
+                    camera_summaries=current_camera_summaries)
                 sa_pos = rel_pos
                 features = self.self_attn.attn_layers[i](
                     features, features,
                     seq1_pos=sa_pos, seq2_pos=sa_pos, ada_sgnl=time_embs)
                 features = self.self_attn.ffw_layers[i](features, time_embs)
-                current_cam_feat = features[:, -1, :]  # camera token is last in SA sequence
                 ncam = fps_scene_feats.shape[1] - M
-                current_per_img_feats = features[:, traj_seq_len + M:traj_seq_len + M + ncam, :]
+                current_camera_summaries = features[:, traj_seq_len + M:traj_seq_len + M + ncam, :]
                 if self.predict_ee_aux:
                     _ee_layer_preds.append(
-                        self._predict_ee_from_per_img_feats(current_per_img_feats)
+                        self._predict_ee_from_camera_summaries(current_camera_summaries)
                     )
 
             rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1])
@@ -1026,7 +1037,6 @@ class TransformerHead(nn.Module):
                 timesteps, proprio_feats,
                 fps_scene_feats, fps_scene_pos,
                 instr_feats, instr_pos,
-                stopgrad_k=stopgrad_k,
                 delta_M=delta_M,
                 cam_params_rt=cam_params_rt,
                 fps_cam_ids=fps_cam_ids,
@@ -1053,8 +1063,8 @@ class TransformerHead(nn.Module):
                 traj_seq_len = traj_feats.shape[1]
                 M = fps_cam_ids.shape[1]
                 ncam = fps_scene_feats.shape[1] - M
-                final_per_img_feats = features[:, traj_seq_len + M:traj_seq_len + M + ncam, :]
-                _ee_layer_preds.append(self._predict_ee_from_per_img_feats(final_per_img_feats))
+                final_camera_summaries = features[:, traj_seq_len + M:traj_seq_len + M + ncam, :]
+                _ee_layer_preds.append(self._predict_ee_from_camera_summaries(final_camera_summaries))
             rotation = self.predict_rot(features, rel_pos, time_embs, traj_feats.shape[1])
             position, position_features = self.predict_pos(features, rel_pos, time_embs, traj_feats.shape[1])
         elif self._rope_mode == "learned_abs":
@@ -1152,7 +1162,6 @@ class TransformerHead(nn.Module):
         timesteps, proprio_feats,
         fps_scene_feats, fps_scene_pos,
         instr_feats, instr_pos,
-        stopgrad_k=0,
         delta_M=None,
         cam_params_rt=None,
     ):

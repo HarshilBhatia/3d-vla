@@ -145,27 +145,27 @@ class Actioner:
         )
 
 
-def _append_causal_visual_history(history, current, num_history):
+def _append_causal_visual_history(history, current, visual_num_history):
     """Append one observation and return a causal, oldest→current visual window.
 
     Training builds Video-DeltaM windows from adjacent records and repeats the
     first valid frame at an episode boundary.  Online rollouts must use the
     same convention rather than silently feeding the K=5 model a single frame.
     ``current`` has shape ``(B, ncam, C, H, W)`` and the return has shape
-    ``(B, num_history, ncam, C, H, W)`` for histories longer than one.
+    ``(B, visual_num_history, ncam, C, H, W)`` for histories longer than one.
     """
     history = current.unsqueeze(1) if history is None else torch.cat(
         (history, current.unsqueeze(1)), dim=1
     )
     # A bounded ring buffer prevents unbounded rollout memory growth.
-    history = history[:, -num_history:]
-    missing = num_history - history.shape[1]
+    history = history[:, -visual_num_history:]
+    missing = visual_num_history - history.shape[1]
     if missing:
         history = torch.cat((history[:, :1].expand(-1, missing, *history.shape[2:]), history), dim=1)
     return history
 
 
-def _causal_proprio_window(history, num_history):
+def _causal_proprio_window(history, visual_num_history):
     """Reproduce the dataset's Video-DeltaM proprio convention exactly.
 
     ``datasets/base.py:_get_single_proprio_hist`` returns the state at the
@@ -175,8 +175,8 @@ def _causal_proprio_window(history, num_history):
     frame.  Keep the distinction here so online evaluation feeds an existing
     checkpoint precisely the layout it was trained with.
     """
-    window = torch.flip(history[:, -num_history:], dims=(1,))
-    missing = num_history - window.shape[1]
+    window = torch.flip(history[:, -visual_num_history:], dims=(1,))
+    missing = visual_num_history - window.shape[1]
     if missing:
         window = torch.cat(
             (window, window[:, :1].expand(-1, missing, *window.shape[2:])),
@@ -185,13 +185,13 @@ def _causal_proprio_window(history, num_history):
     return window
 
 
-def _proprio_window(history, num_history, order):
+def _proprio_window(history, visual_num_history, order):
     """Return either the checkpoint-faithful or causal temporal convention."""
     if order == "current_to_past":
-        return _causal_proprio_window(history, num_history)
+        return _causal_proprio_window(history, visual_num_history)
     if order == "past_to_current":
-        window = history[:, -num_history:]
-        missing = num_history - window.shape[1]
+        window = history[:, -visual_num_history:]
+        missing = visual_num_history - window.shape[1]
         if missing:
             window = torch.cat(
                 (window[:, :1].expand(-1, missing, *window.shape[2:]), window),
@@ -310,7 +310,7 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=1,
-        num_history=1,
+        visual_num_history=1,
         proprio_num_history=None,
         proprio_history_order="past_to_current",
         save_trajectory=False,
@@ -359,7 +359,7 @@ class RLBenchEnv:
         # Keep older checkpoints backward compatible by using visual K when
         # no independent proprio length is supplied.
         if proprio_num_history is None:
-            proprio_num_history = num_history
+            proprio_num_history = visual_num_history
 
         var_success_rates = {}
         var_num_valid_demos = {}
@@ -378,7 +378,7 @@ class RLBenchEnv:
                     actioner=actioner,
                     max_tries=max_tries,
                     prediction_len=prediction_len,
-                    num_history=num_history,
+                    visual_num_history=visual_num_history,
                     proprio_num_history=proprio_num_history,
                     proprio_history_order=proprio_history_order,
                     save_video=save_video,
@@ -411,7 +411,7 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=50,
-        num_history=1,
+        visual_num_history=1,
         proprio_num_history=None,
         proprio_history_order="past_to_current",
         save_video=False,
@@ -470,15 +470,15 @@ class RLBenchEnv:
                 # returned windows are oldest→current, exactly matching the
                 # training loader's `_get_single_frame_hist` convention.
                 rgbs_input = _append_causal_visual_history(
-                    rgb_history, rgb_current, num_history
+                    rgb_history, rgb_current, visual_num_history
                 )
                 pcds_input = _append_causal_visual_history(
-                    pcd_history, pcd_current, num_history
+                    pcd_history, pcd_current, visual_num_history
                 )
                 rgb_history = rgbs_input
                 pcd_history = pcds_input
                 # Preserve the pre-Video-DeltaM input layout for old models.
-                if num_history == 1:
+                if visual_num_history == 1:
                     rgbs_input = rgbs_input[:, 0]
                     pcds_input = pcds_input[:, 0]
                 gripper = gripper.cuda(non_blocking=True)
@@ -489,7 +489,7 @@ class RLBenchEnv:
                 # just because Video-DeltaM consumes five visual frames.
                 gripper_input = _proprio_window(
                     grippers,
-                    num_history if proprio_num_history is None else proprio_num_history,
+                    visual_num_history if proprio_num_history is None else proprio_num_history,
                     proprio_history_order,
                 )
 

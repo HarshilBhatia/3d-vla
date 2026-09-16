@@ -123,7 +123,7 @@ run: |
   # passed explicitly. Values are transcribed from upstream's own
   # online_evaluation_rlbench/eval_peract2.sh (the released PerAct2 recipe):
   # embedding_dim=120, num_attn_heads=8, num_vis_instr_attn_layers=3,
-  # num_history=3, num_shared_attn_layers=4, fps_subsampling_factor=4,
+  # visual_num_history=3, num_shared_attn_layers=4, fps_subsampling_factor=4,
   # denoise_timesteps=5, rectified_flow, quat_xyzw, dataset
   # Peract2_3dfront_3dwrist (cameras: front, wrist_left, wrist_right),
   # image_size 256,256. max_tries is 1 here (not upstream's 2) to match the
@@ -152,7 +152,7 @@ run: |
       --embedding_dim 120 \
       --num_attn_heads 8 \
       --num_vis_instr_attn_layers 3 \
-      --num_history 3 \
+      --visual_num_history 3 \
       --num_shared_attn_layers 4 \
       --relative_action false \
       --rotation_format quat_xyzw \

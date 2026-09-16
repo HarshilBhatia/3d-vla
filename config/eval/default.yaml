@@ -1,0 +1,56 @@
+# Online-evaluation settings (evaluate_policy.py). Merged at the config root.
+# Nothing here affects training or model architecture.
+
+# === Online eval (evaluate_policy.py) ===
+task: null
+max_tries: 10
+max_steps: 25
+headless: false
+collision_checking: false
+seed: 0
+data_dir: demos
+image_size: "256,256"
+output_file: eval.json
+fp16: false
+prediction_len: 1
+save_trajectory: false
+save_video: false
+num_demos: null
+# num_demos_total: episode budget for the WHOLE task, spread over its variations
+# (bimanual harness only). num_demos caps per variation; this caps the task, so a
+# 46-variation task costs the same as a single-variation one. null = unused.
+num_demos_total: null
+cfg_scale: null
+# Online-evaluation vocabulary. `eval_calibration_id` names the complete
+# effective calibration realization delta used in a test cell.
+eval_protocol: null
+eval_viewpoint_regime: null
+eval_calibration_id: null
+# A registry holds exact, materialized per-camera deltas.  Supplying both this
+# path and eval_calibration_id selects one realization with no eval-time
+# sampling or composition.  Legacy miscal_* eval flags remain supported only
+# to reproduce pre-registry jobs.
+eval_calibration_registry: null
+# Online-only convention for temporal proprio windows.  ``past_to_current``
+# is causal and aligns the final slot with the policy's current-state reads;
+# ``current_to_past`` reproduces the present Video-DeltaM training loader.
+eval_proprio_history_order: past_to_current
+# eval_use_depth2cloud: route peract online eval through depth+extrinsics→PCD (consistent with training).
+# Required for miscalibration eval; also set true for clean train/eval alignment.
+eval_use_depth2cloud: false
+# Orbital camera eval settings (used when dataset=OrbitalWrist)
+cameras_file: null                    # path to orbital_cameras_grouped.json
+task_group_mapping_file: null         # path to task_group_mapping.json (eval uses all trained groups)
+camera_groups: null                   # override which groups to eval, e.g. "G1" or "G1,G2"; null = use all from mapping
+spawn_camera_group: null              # if set, always spawn this group's cameras regardless of demo group, e.g. "G3"
+fov_deg: 60.0                         # FOV in degrees for orbital VisionSensors
+# eval-time miscalibration from a pre-sampled noise file (orbital single-arm and bimanual).
+# Levels are independent: e.g. eval_miscal_rot_level=5deg + eval_miscal_trans_level=5cm.
+eval_miscal_rot_level: null                # null | 1deg..10deg | 15deg | 20deg
+eval_miscal_trans_level: null              # null | 1cm..10cm | 15cm | 20cm
+
+# Eval-time camera miscalibration, applied by the online backends at rollout.
+# Separate axis from the training-time miscal_* keys: these say what the world
+# looks like during evaluation, not what the policy trained under.
+orbital_miscal_noise_level: null   # fixed per-camera-group base, by level name
+orbital_miscal_noise_file: null    # which same-schema JSON that base is read from

@@ -44,7 +44,7 @@ class RLBenchDataset(BaseDataset):
         mem_limit=8,
         actions_only=False,
         chunk_size=4,
-        num_history=1,
+        visual_num_history=1,
         proprio_num_history=None,
         filter_tasks=None,  # List of task names to include, None means all tasks
         preload=False,
@@ -57,7 +57,7 @@ class RLBenchDataset(BaseDataset):
             mem_limit=mem_limit,
             actions_only=actions_only,
             chunk_size=chunk_size,
-            num_history=num_history,
+            visual_num_history=visual_num_history,
             proprio_num_history=proprio_num_history,
             preload=preload,
         )
@@ -196,7 +196,7 @@ class RLBenchDataset(BaseDataset):
 
         if self._actions_only:
             return {"action": self._get_action(idx)}
-        use_hist = self.num_history > 1 and 'demo_id' in self.annos
+        use_hist = self.visual_num_history > 1 and 'demo_id' in self.annos
         return {
             "task": self._get_task(idx),  # [str]
             "instr": self._get_instr(idx),  # [str]
@@ -205,7 +205,7 @@ class RLBenchDataset(BaseDataset):
             "depth": self._get_attr_hist(idx, 'depth', True) if use_hist else self._get_depth(idx),
             "rgb2d": self._get_rgb2d(idx),  # tensor(n_cam2d, 3, H, W)
             # Keep the original stored K=3 proprio window independent of K visual frames.
-            "proprioception": self._get_proprioception(idx) if self.proprio_num_history != self.num_history
+            "proprioception": self._get_proprioception(idx) if self.proprio_num_history != self.visual_num_history
             else (self._get_proprioception_hist(idx) if use_hist else self._get_proprioception(idx)),
             "action": self._get_action(idx),  # tensor(T, 8)
             "extrinsics": self._get_attr_hist(idx, 'extrinsics', True) if use_hist else self._get_extrinsics(idx),
@@ -254,7 +254,7 @@ class PeractDataset(RLBenchDataset):
         idx = idx * self.chunk_size
         if self._actions_only:
             return {"action": self._get_action(idx)}
-        use_hist = self.num_history > 1 and 'demo_id' in self.annos
+        use_hist = self.visual_num_history > 1 and 'demo_id' in self.annos
         return {
             "task": self._get_task(idx),  # [str]
             "instr": self._get_instr(idx),  # [str]
@@ -334,7 +334,7 @@ class OrbitalPeract2NoWristDataset(OrbitalPeract2Dataset):
     #     idx = idx * self.chunk_size
     #     if self._actions_only:
     #         return {"action": self._get_action(idx)}
-    #     use_hist = self.num_history > 1 and 'demo_id' in self.annos
+    #     use_hist = self.visual_num_history > 1 and 'demo_id' in self.annos
     #     return {
     #         "task": self._get_task(idx),  # [str]
     #         "instr": self._get_instr(idx),  # [str]

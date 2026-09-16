@@ -32,7 +32,7 @@ export XDG_RUNTIME_DIR=/run/user/27491
 #     "data_dir=/grogu/user/harshilb/orbital_rollouts_mini/"\
 #     "camera_groups=G1" 
     
-    # num_history=3 \
+    # visual_num_history=3 \
     # use_recursive_set_encoder=true \
     # recursive_set_encoder_ncam=3 \
     # embedding_dim=192           

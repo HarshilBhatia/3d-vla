@@ -19,6 +19,6 @@ Use existing scripts in `scripts/eval/` as templates — don't invent values.
 
 **Rules:**
 1. **Only override what differs from `config/config.yaml` defaults.** Read the defaults first; if a value matches, omit it. Exception: always include `bimanual` explicitly — it changes the model architecture and must be unambiguous.
-2. **Don't hardcode model architecture args** (e.g. `fps_subsampling_factor`, `num_vis_instr_attn_layers`, `sa_blocks_use_rope`). These must match the checkpoint — let the caller pass them via `"$@"` if needed.
+2. **Don't hardcode model architecture args** (e.g. `fps_subsampling_factor`, `num_vis_instr_attn_layers`, `head_positional_encoding`). These must match the checkpoint — let the caller pass them via `"$@"` if needed.
 3. **Pass `"$@"` at the end** so the caller can override task, checkpoint, output_file, and any arch args.
 4. **Ask before assuming** checkpoint path, data dir, and task list — don't infer from other scripts.

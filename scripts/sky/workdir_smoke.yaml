@@ -84,7 +84,7 @@ run: |
     batch_size=32 \
     batch_size_val=32 \
     train_iters=30 \
-    val_freq=1000000 \
+    val_interval_steps=1000000 \
     base_log_dir="$BASE_LOG_DIR" \
     exp_log_dir=exp \
     run_log_dir="$RUN_LOG_DIR" \

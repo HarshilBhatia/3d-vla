@@ -2,8 +2,8 @@
 
 The scripts differ along three axes; everything else lives here:
   (a) extra model.__call__ kwargs (e.g. ``cfg_scale``)
-  (b) extra preprocessor kwargs (e.g. ``orbital_miscal_noise_level``,
-      ``cotrain_miscal_group_ids``)
+  (b) extra preprocessor kwargs (e.g. ``miscal_mode``,
+      ``miscal_group_level``)
   (c) bucketing of metrics (none, by ``sample["camera_group"]``, or by a
       zarr-side field injected via a Dataset wrapper)
 
@@ -137,7 +137,7 @@ def load_model(args, ckpt_path, arch_overrides=None):
 
     ``arch_overrides`` is an optional ``{str: value}`` dict applied *after* the
     checkpoint config — use it to disable features at eval time, e.g.
-    ``{"predict_extrinsics": False, "dynamic_rope_from_camtoken": False}``.
+    ``{"view_align_mode": "none", "layerwise_view_align": False}``.
     """
     print(f"\nLoading checkpoint: {ckpt_path}", flush=True)
     ckpt = torch.load(ckpt_path, map_location="cpu", weights_only=False)
@@ -186,7 +186,7 @@ def make_preprocessor(args, **extra_kwargs):
     """
     return fetch_data_preprocessor(args.dataset)(
         args.keypose_only,
-        args.num_history,
+        args.visual_num_history,
         custom_imsize=getattr(args, "custom_img_size", None),
         depth2cloud=fetch_depth2cloud(args.dataset),
         **extra_kwargs,
@@ -216,7 +216,7 @@ def make_loader(args, data_path, chunk_size=None, dataset_wrapper=None):
         relative_action=args.relative_action,
         mem_limit=0.1,
         chunk_size=cs,
-        num_history=args.num_history,
+        visual_num_history=args.visual_num_history,
     )
     ds = dataset_wrapper(base_ds, data_path) if dataset_wrapper is not None else base_ds
 

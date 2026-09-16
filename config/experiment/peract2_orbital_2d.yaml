@@ -6,19 +6,16 @@ model_type: denoise2d
 bimanual: true
 backbone: siglip2
 text_backbone: siglip2
-num_history: 3
+visual_num_history: 3
 embedding_dim: 120
 num_attn_heads: 6
 num_vis_instr_attn_layers: 3
 num_shared_attn_layers: 4
 fps_subsampling_factor: 5
-image_space_sampling: true
-skip_fps: false
-traj_scene_rope: true  # enables additive PE path; 2D head hard-codes rotary_pe=False
-predict_extrinsics: false
-dynamic_rope_from_camtoken: false
-use_proprio_rope: false
-position_based_sampling: false
+scene_sampling: image_space
+head_positional_encoding: rope3d  # enables additive PE path; 2D head hard-codes rotary_pe=False
+view_align_mode: none
+layerwise_view_align: false
 denoise_timesteps: 5
 denoise_model: rectified_flow
 keypose_only: true
@@ -33,7 +30,4 @@ prefetch_factor: 2
 preload: false
 use_compile: true
 use_ema: false
-orbital_miscal_noise_level: null
-miscal_max_angle_deg: null
-miscal_max_translation_m: null
 run_log_dir: peract2_orbital_2d_clean

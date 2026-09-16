@@ -74,19 +74,19 @@ class BaseTrainTester:
 
         self.preprocessor = fetch_data_preprocessor(self.args.dataset)(
             self.args.keypose_only,
-            self.args.num_history,
-            proprio_num_history=getattr(self.args, 'proprio_num_history', self.args.num_history),
+            self.args.visual_num_history,
+            proprio_num_history=getattr(self.args, 'proprio_num_history', self.args.visual_num_history),
             custom_imsize=self.args.custom_img_size,
             depth2cloud=fetch_depth2cloud(self.args.dataset),
-            miscal_max_angle_deg=self.args.miscal_max_angle_deg,
-            miscal_max_translation_m=self.args.miscal_max_translation_m,
-            miscal_camera_ids=getattr(self.args, 'miscal_camera_ids', None),
-            orbital_miscal_noise_level=self.args.orbital_miscal_noise_level,
-            orbital_miscal_noise_file=self.args.orbital_miscal_noise_file,
-            orbital_miscal_noise_levels=self.args.orbital_miscal_noise_levels,
-            cotrain_miscal_group_ids=self.args.cotrain_miscal_group_ids,
-            cotrain_miscal_level=self.args.cotrain_miscal_level,
-            cotrain_miscal_levels=self.args.cotrain_miscal_levels,
+            miscal_mode=self.args.miscal_mode,
+            perturbation_noise_rot_deg=self.args.perturbation_noise_rot_deg,
+            perturbation_noise_trans_m=self.args.perturbation_noise_trans_m,
+            perturbation_noise_fixed_rot_deg=self.args.perturbation_noise_fixed_rot_deg,
+            perturbation_noise_fixed_trans_m=self.args.perturbation_noise_fixed_trans_m,
+            miscal_group_level=self.args.miscal_group_level,
+            miscal_group_file=self.args.miscal_group_file,
+            miscal_camera_groups=self.args.miscal_camera_groups,
+            miscal_cameras=self.args.miscal_cameras,
         )
 
         gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else ""
@@ -113,7 +113,7 @@ class BaseTrainTester:
     def get_datasets(self):
         """Initialize datasets."""
         # Initialize datasets with arguments
-        num_history = getattr(self.args, 'num_history', 1)
+        visual_num_history = getattr(self.args, 'visual_num_history', 1)
         preload = getattr(self.args, 'preload', False)
         print(self.args.train_data_dir)
         train_dataset = self.dataset_cls(
@@ -122,8 +122,8 @@ class BaseTrainTester:
             relative_action=self.args.relative_action,
             mem_limit=self.args.memory_limit,
             chunk_size=self.args.chunk_size,
-            num_history=num_history,
-            proprio_num_history=getattr(self.args, 'proprio_num_history', num_history),
+            visual_num_history=visual_num_history,
+            proprio_num_history=getattr(self.args, 'proprio_num_history', visual_num_history),
             preload=preload,
         )
         val_dataset = self.dataset_cls(
@@ -133,8 +133,8 @@ class BaseTrainTester:
             relative_action=self.args.relative_action,
             mem_limit=0.1,
             chunk_size=self.args.chunk_size,
-            num_history=num_history,
-            proprio_num_history=getattr(self.args, 'proprio_num_history', num_history),
+            visual_num_history=visual_num_history,
+            proprio_num_history=getattr(self.args, 'proprio_num_history', visual_num_history),
             preload=preload,
         )
         return train_dataset, val_dataset
@@ -266,27 +266,12 @@ class BaseTrainTester:
         # Print basic modules' parameters
         if dist.get_rank() == 0:
             count_parameters(_model)
-            if hasattr(_model, 'recursive_set_encoder'):
-                rse = _model.recursive_set_encoder
-                n = sum(p.numel() for p in rse.parameters())
-                print(f"  RecursiveSetTransformerEncoder: {n/1e6:.2f}M params "
-                      f"({rse.num_layers} blocks, ncam={rse.ncam})")
-
-            # Print RoPE stopgrad schedule if enabled
-            if hasattr(self.args, 'rope_type') and self.args.rope_type == 'stopgrad':
-                print(f"\nRoPE stopgrad schedule enabled:")
-                print(f"  Schedule type: {getattr(self.args, 'rope_schedule_type', 'linear')}")
-                print(f"  Start K: {getattr(self.args, 'rope_schedule_start_k', 0)}")
-                print(f"  End K: {getattr(self.args, 'rope_schedule_end_k', 0)}")
-                print(f"  Schedule steps: {getattr(self.args, 'rope_schedule_steps', 1)}")
-
             # delta_M is a RoPE-space correction, whereas the legacy RT mode is
             # a physical transform. Keep the underlying flag for compatibility.
-            if hasattr(_model, 'prediction_head') and hasattr(_model.prediction_head, 'predict_extrinsics') \
-               and _model.prediction_head.predict_extrinsics:
-                mode = getattr(_model.prediction_head, 'extrinsics_prediction_mode', 'delta_m')
-                label = 'physical RT correction' if mode == 'rt' else 'per-camera RoPE correction'
-                print(f"\n{label} enabled")
+            mode = getattr(getattr(_model, 'prediction_head', None), 'view_align_mode', 'none')
+            if mode != 'none':
+                label = 'physical SE(3) correction' if mode == 'physical_se3' else 'per-camera RoPE correction'
+                print(f"\n{label} enabled (view_align_mode={mode})")
 
         # Useful for some models to ensure parameters are contiguous
         for name, param in _model.named_parameters():
@@ -463,7 +448,9 @@ class BaseTrainTester:
         # Watch model with wandb
         if dist.get_rank() == 0 and self.run_mode == "train":
             if getattr(self.args, 'wandb_watch_model', False):
-                wandb.watch(model, log='all', log_freq=self.args.val_freq)
+                # Reuses the validation cadence deliberately: gradient histograms are
+                # expensive and only interesting at the same points we validate.
+                wandb.watch(model, log='all', log_freq=self.args.val_interval_steps)
 
         # Initialize EMA copy
         ema_model = deepcopy(model)
@@ -626,14 +613,14 @@ class BaseTrainTester:
 
                     self._profiler = None  # don't profile again
 
-            if (step_id + 1) % self.args.last_ckpt_freq == 0 and dist.get_rank() == 0:
+            if (step_id + 1) % self.args.ckpt_interval_steps == 0 and dist.get_rank() == 0:
                 self._save_rolling_checkpoint(model, ema_model, optimizer, step_id, best_loss)
 
-            interm_freq = getattr(self.args, "interm_ckpt_freq", None)
+            interm_freq = getattr(self.args, "interm_ckpt_interval_steps", None)
             if interm_freq and (step_id + 1) % interm_freq == 0 and dist.get_rank() == 0:
                 self._save_interm_checkpoint(model, ema_model, step_id, best_loss)
 
-            if (step_id + 1) % self.args.val_freq == 0:
+            if (step_id + 1) % self.args.val_interval_steps == 0:
                 model.eval()
                 if dist.get_rank() == 0:
                     print("Train evaluation.......")
@@ -664,7 +651,7 @@ class BaseTrainTester:
     def prepare_batch(self, sample, augment=False):
         pass  # implement in children
 
-    def _model_forward(self, model, sample, training=True, stopgrad_k=0, augment=None):
+    def _model_forward(self, model, sample, training=True, augment=None):
         # `augment` defaults to `training` but can be forced off so the validation
         # pass can score the training loss on un-augmented observations.
         if augment is None:
@@ -681,7 +668,6 @@ class BaseTrainTester:
                 out = model(
                     action, action_mask, rgbs, rgb2d, pcds, instr, prop,
                     run_inference=not training,
-                    stopgrad_k=stopgrad_k
                 )
         return out  # loss if training, else action
 
@@ -693,30 +679,6 @@ class BaseTrainTester:
         `run_inference=False` to get a comparable scalar.
         """
         return self._model_forward(model, sample, training=True, augment=False)
-
-    def compute_rope_stopgrad_k(self, step_id):
-        """Compute the number of bins to zero out in RoPE backward based on schedule."""
-        if not hasattr(self.args, 'rope_type') or self.args.rope_type != 'stopgrad':
-            return 0
-
-        schedule_type = getattr(self.args, 'rope_schedule_type', 'linear')
-        # start_k = getattr(self.args, 'rope_schedule_start_k', 0)
-        start_k = self.args.embedding_dim // 3 - 1 # hardcode
-        end_k = 0
-
-        schedule_steps = getattr(self.args, 'rope_schedule_steps', 1)
-
-        progress = min(1.0, step_id / max(1, schedule_steps))
-
-        if schedule_type == 'linear':
-            k_float = start_k + (end_k - start_k) * progress
-        elif schedule_type == 'cosine':
-            import math
-            k_float = end_k + (start_k - end_k) * 0.5 * (1 + math.cos(math.pi * progress))
-        else:
-            k_float = start_k
-
-        return int(k_float)
 
     def train_one_step(self, model, optimizer, lr_scheduler, sample, step_id=None):
         """Run a single training step. Returns GPU timing dict when benchmark_logger is set."""
@@ -731,16 +693,10 @@ class BaseTrainTester:
 
         optimizer.zero_grad()
 
-        stopgrad_k = self.compute_rope_stopgrad_k(step_id) if step_id is not None else 0
-
-        if step_id is not None and hasattr(self, 'preprocessor') \
-                and hasattr(self.preprocessor, 'set_noise_progress'):
-            progress = step_id / max(1, self.args.train_iters - 1)
-            self.preprocessor.set_noise_progress(progress)
 
         if benchmark:
             fwd_start.record()
-        loss = self._model_forward(model, sample, training=True, stopgrad_k=stopgrad_k)
+        loss = self._model_forward(model, sample, training=True)
         if benchmark:
             fwd_end.record()
 
@@ -810,8 +766,6 @@ class BaseTrainTester:
                     'train/grad_norm':     grad_norm_mean.item(),
                     'train/learning_rate': optimizer.param_groups[0]['lr'],
                 }
-                if hasattr(self.args, 'rope_type') and self.args.rope_type == 'stopgrad':
-                    metrics['train/rope_stopgrad_k'] = stopgrad_k
 
                 if self._log_buf['ee_aux_loss']:
                     metrics['train/ee_aux_loss'] = torch.stack(self._log_buf['ee_aux_loss']).mean().item()

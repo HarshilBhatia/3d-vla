@@ -20,7 +20,7 @@ chunk_size=1
 memory_limit=8 
 
 # Training/testing arguments
-val_freq=4000
+val_interval_steps=4000
 eval_only=True # this toggles eval and train
 lr=1e-4
 backbone_lr=1e-6  # doesn't matter when we don't finetune
@@ -49,7 +49,7 @@ fps_subsampling_factor=4
 C=120
 num_attn_heads=8
 num_vis_instr_attn_layers=3
-num_history=3
+visual_num_history=3
 
 num_shared_attn_layers=4
 relative_action=false
@@ -58,11 +58,8 @@ denoise_timesteps=5
 denoise_model=rectified_flow
 
 
-predict_extrinsics=True
-traj_scene_rope=true
-rope_type=stopgrad
-rope_schedule_type=linear
-rope_schedule_steps=$train_iters
+view_align_mode=rope_6d
+head_positional_encoding=rope3d
 
 
 # checkpoint='/home/harshilb/3d_flowmatch_actor/train_logs/Peract2/1task-cam_token_extrinsics-traj_scene_ropetrue-front-cam-true/best.pth'
@@ -104,7 +101,7 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM\
     --exp_log_dir $main_dir \
     --run_log_dir ${run_log_dir} \
     --checkpoint $checkpoint \
-    --val_freq $val_freq \
+    --val_interval_steps $val_interval_steps \
     --eval_only $eval_only \
     --lr $lr \
     --backbone_lr $backbone_lr \
@@ -125,7 +122,7 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM\
     --embedding_dim $C \
     --num_attn_heads $num_attn_heads \
     --num_vis_instr_attn_layers $num_vis_instr_attn_layers \
-    --num_history $num_history \
+    --visual_num_history $visual_num_history \
     --num_shared_attn_layers $num_shared_attn_layers \
     --workspace_normalizer_buffer $workspace_normalizer_buffer \
     --relative_action $relative_action \
@@ -135,8 +132,5 @@ torchrun --nproc_per_node $ngpus --master_port $RANDOM\
     --use_wandb false \
     --wandb_project 3d_flowmatch_actor \
     --wandb_run_name $run_log_dir \
-    --traj_scene_rope $traj_scene_rope \
-    --predict_extrinsics $predict_extrinsics \
-    --rope_type $rope_type \
-    --rope_schedule_type $rope_schedule_type \
-    --rope_schedule_steps $rope_schedule_steps
+    --head_positional_encoding $head_positional_encoding \
+    --view_align_mode $view_align_mode

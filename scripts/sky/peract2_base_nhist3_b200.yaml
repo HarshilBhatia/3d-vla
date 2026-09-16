@@ -1,17 +1,17 @@
-# 3DFA PerAct2 (13 bimanual tasks) with num_history=3, 1 node x 1 B200.
+# 3DFA PerAct2 (13 bimanual tasks) with visual_num_history=3, 1 node x 1 B200.
 #
-# Ablation against scripts/sky/peract2_base_b200.yaml (num_history=1, 4 GPUs).
+# Ablation against scripts/sky/peract2_base_b200.yaml (visual_num_history=1, 4 GPUs).
 # Every other knob matches that run so the proprio-history delta is the only
 # difference: batch_size=256, lr=backbone_lr=3e-4, train_iters=350000.
 #
-# What num_history=3 actually changes on this dataset: the PerAct2 zarr stores
+# What visual_num_history=3 actually changes on this dataset: the PerAct2 zarr stores
 # proprioception as (N, 3, 2, 8) — three gripper timesteps per sample, per hand —
-# and RLBenchDataPreprocessor.process_proprio slices [:, :num_history]. So
+# and RLBenchDataPreprocessor.process_proprio slices [:, :visual_num_history]. So
 # nhist=1 feeds the model 1 of the 3 stored timesteps and nhist=3 feeds all
 # three, with curr_gripper_embed sized nhist accordingly. Visual history is NOT
 # affected: the dataset's rgb/depth/extrinsics history path is gated on a
 # 'demo_id' array that this zarr does not have, so images stay single-frame at
-# any nhist. num_history=3 here is a proprio-history ablation only.
+# any nhist. visual_num_history=3 here is a proprio-history ablation only.
 #
 # Code delivery: `workdir: .` uploads this checkout (including uncommitted work)
 # to ~/sky_workdir on the pod, and the job runs from there. That snapshot is taken
@@ -149,7 +149,7 @@ run: |
     experiment=default \
     bimanual=true \
     dataset=Peract2_3dfront_3dwrist \
-    num_history="$NUM_HISTORY" \
+    visual_num_history="$NUM_HISTORY" \
     batch_size="$BATCH_SIZE" \
     batch_size_val=64 \
     lr="$LR" \

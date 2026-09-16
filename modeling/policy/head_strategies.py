@@ -20,7 +20,10 @@ class RTExtrinsicsPredictor(ExtrinsicsPredictor):
         super().__init__()
         object.__setattr__(self, "_head", head)  # do not register as submodule (would create cycle)
 
-    def forward(self, batch_size, device):
+    def forward(self, batch_size, device, fps_scene_feats=None, fps_cam_ids=None):
+        # R,T comes from the camera token alone, so the per-camera scene features
+        # are accepted and ignored. They are still in the signature because the
+        # single call site passes them for every predictor.
         rt = self._head._predict_rt(batch_size, device)
         return rt, None, rt.detach()
 

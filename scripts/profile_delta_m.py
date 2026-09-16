@@ -64,10 +64,10 @@ def time_and_mem(fn, n_warmup, n_runs, timer, device, max_seconds=5.0):
 
 # ---- deltaM 6x6 prediction ----
 
-def predict_delta_m_6x6(cam_proj, cam_pred, per_img_feats):
+def predict_delta_m_6x6(cam_proj, cam_pred, camera_summaries):
     """Mirrors _predict_from_cam_feat (delta_m mode)."""
-    h = cam_proj(per_img_feats)
-    A_skew = cam_pred(h).reshape(*per_img_feats.shape[:-1], 6, 6)
+    h = cam_proj(camera_summaries)
+    A_skew = cam_pred(h).reshape(*camera_summaries.shape[:-1], 6, 6)
     A = A_skew - A_skew.transpose(-1, -2)
     norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
     A = A * (norm.clamp(max=3.0) / norm)
@@ -76,10 +76,10 @@ def predict_delta_m_6x6(cam_proj, cam_pred, per_img_feats):
 
 # ---- deltaM_full DxD prediction ----
 
-def predict_delta_m_full(cam_proj, cam_pred, per_img_feats, D):
+def predict_delta_m_full(cam_proj, cam_pred, camera_summaries, D):
     """Mirrors _predict_from_cam_feat (delta_m_full mode)."""
-    h = cam_proj(per_img_feats)
-    A_skew = cam_pred(h).reshape(*per_img_feats.shape[:-1], D, D)
+    h = cam_proj(camera_summaries)
+    A_skew = cam_pred(h).reshape(*camera_summaries.shape[:-1], D, D)
     A = A_skew - A_skew.transpose(-1, -2)
     norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
     A = A * (norm.clamp(max=3.0) / norm)
@@ -144,7 +144,7 @@ def main():
     cam_pred_full = nn.Sequential(nn.Linear(C, C), nn.ReLU(), nn.Linear(C, D * D)).to(device)
 
     # ---- Inputs ----
-    per_img_feats = torch.randn(B, ncam, C, device=device)
+    camera_summaries = torch.randn(B, ncam, C, device=device)
     base_dense = torch.randn(B, N_dense, d_bin, 6, device=device)
     base_fps = torch.randn(B, N_fps, d_bin, 6, device=device)
     base_dense_flat = base_dense.reshape(B, N_dense, -1)  # (B, N_dense, D)
@@ -186,8 +186,8 @@ def main():
 
     # ---- Full prediction (proj + MLP + exp) ----
     row("Prediction (proj + MLP + exp)",
-        lambda: predict_delta_m_6x6(cam_proj, cam_pred_6x6, per_img_feats),
-        lambda: predict_delta_m_full(cam_proj, cam_pred_full, per_img_feats, D))
+        lambda: predict_delta_m_6x6(cam_proj, cam_pred_6x6, camera_summaries),
+        lambda: predict_delta_m_full(cam_proj, cam_pred_full, camera_summaries, D))
 
     # ---- Expand (B,ncam,_,_) -> (B,N_dense,_,_) ----
     dM_6x6 = torch.randn(B, ncam, 6, 6, device=device)
@@ -219,19 +219,19 @@ def main():
 
     # ---- Full pipeline per call ----
     def full_6x6():
-        dM = predict_delta_m_6x6(cam_proj, cam_pred_6x6, per_img_feats)
+        dM = predict_delta_m_6x6(cam_proj, cam_pred_6x6, camera_summaries)
         apply_rope_6x6(base_dense, dM[:, cam_ids_dense, :, :])
         dM_f = torch.cat([dM[:, cam_ids_fps, :, :], dM], dim=1)
         apply_rope_6x6(base_fps, dM_f)
 
     def full_DxD():
-        dM = predict_delta_m_full(cam_proj, cam_pred_full, per_img_feats, D)
+        dM = predict_delta_m_full(cam_proj, cam_pred_full, camera_summaries, D)
         apply_rope_DxD(base_dense_flat, dM[:, cam_ids_dense, :, :])
         dM_f = torch.cat([dM[:, cam_ids_fps, :, :], dM], dim=1)
         apply_rope_DxD(base_fps_flat, dM_f)
 
     def full_DxD_grouped():
-        dM = predict_delta_m_full(cam_proj, cam_pred_full, per_img_feats, D)
+        dM = predict_delta_m_full(cam_proj, cam_pred_full, camera_summaries, D)
         apply_rope_DxD_grouped(base_dense_flat, dM, ncam)
         # fps sparse part still needs per-token expand (mixed cam ids); dense is the expensive one
         dM_f = torch.cat([dM[:, cam_ids_fps, :, :], dM], dim=1)
@@ -241,7 +241,7 @@ def main():
     t6, tD = row("Full pipeline  (current)", full_6x6, full_DxD)
     _,  tDg = row("Full pipeline  (grouped dense, no expand)", full_6x6, full_DxD_grouped)
 
-    n_layers = 6   # 2 CA + 4 SA (default dynamic_rope_from_camtoken config)
+    n_layers = 6   # 2 CA + 4 SA (default layerwise_view_align config)
     n_steps = 5    # denoise_timesteps=5
     print(f"\n  Estimated inference ({n_layers} layers × {n_steps} steps = {n_layers*n_steps} calls):")
     print(f"    6x6             : {t6  * n_layers * n_steps:7.1f} ms  ({t6  * n_layers * n_steps / 1000:.3f} s)")

@@ -156,8 +156,8 @@ run_eval() {
     fi
     if [[ "$EVAL_MODE" == sampled || "$EVAL_MODE" == group_sampled ]]; then
         EVAL_ARGS+=(
-            miscal_rot_level="$ROT"
-            miscal_trans_level="$TRANS"
+            eval_miscal_rot_level="$ROT"
+            eval_miscal_trans_level="$TRANS"
         )
     fi
     # --writable prevents Apptainer from mounting the host NVIDIA libraries in

@@ -12,8 +12,8 @@
 # This run adds it — deltaM's best shot before the mechanism is retired.
 #
 # THE ONE DELTA vs R1b (scripts/sky/peract2_orbital_miscal_deltam_h200.yaml):
-# three extra hydra overrides, `predict_ee_aux=true lambda_aux=1.0
-# ee_aux_cam_ids=[0,1]`. Data, miscal, experiment group, nhist, batch, lr, iters,
+# three extra hydra overrides, `ee_aux=true ee_aux_weight=1.0
+# ee_aux_cameras=[0,1]`. Data, miscal, experiment group, nhist, batch, lr, iters,
 # worker count are otherwise byte-identical, so R1c-vs-R1b isolates the aux head
 # and R1c-vs-R1a isolates deltaM+aux jointly.
 #
@@ -36,12 +36,12 @@
 # script for the `G3G4_finetune_deltaM_eef_final` checkpoint that produced the
 # `deltaM_EEF` column in docs/status/experiments.md; the file was later deleted
 # from the tree, hence `git show 716a3bf:` to read it):
-#     predict_ee_aux=true    lambda_aux=1.0    "ee_aux_cam_ids=[0,1]"
-# All three carried over verbatim. `lambda_aux=1.0` and `ee_aux_cam_ids=[0,1]`
+#     ee_aux=true    ee_aux_weight=1.0    "ee_aux_cameras=[0,1]"
+# All three carried over verbatim. `ee_aux_weight=1.0` and `ee_aux_cameras=[0,1]`
 # also happen to be the config/config.yaml defaults (:155-156), so this is
 # simultaneously grogu's setting and the shipped default — no tuning invented here.
 #
-# ee_aux_cam_ids=[0,1] IS CORRECT AT ncam=4, and this needed checking. The ids
+# ee_aux_cameras=[0,1] IS CORRECT AT ncam=4, and this needed checking. The ids
 # index into per-image average tokens in dataset camera order. Grogu's
 # single-arm `OrbitalWrist` order was ("orbital_left", "orbital_right", "wrist"),
 # so [0,1] meant "the two external orbital cameras, not the wrist". The bimanual
@@ -53,7 +53,7 @@
 # and is simply not read by the aux head.
 #
 # SMOKE-TESTED before launch, twice over. R1b established that delta_m +
-# dynamic_rope_from_camtoken + nhand=2 + ncam=4 + nhist=3 runs. The aux head had
+# layerwise_view_align + nhand=2 + ncam=4 + nhist=3 runs. The aux head had
 # NEVER run bimanual — grogu's only use was single-arm, 3-cam, and the aux target
 # is `gt_trajectory[:, 0, :, :3].mean(dim=1)`, a mean over the hand axis, so
 # nhand=2 changes the target's meaning (midpoint of the two arms' first keyposes)
@@ -85,7 +85,7 @@
 #
 # THE DIAGNOSTIC TO WATCH, independent of task success: `train/ee_aux_loss`
 # (logged by utils/trainers/base.py every train_log_freq steps whenever
-# predict_ee_aux is on). A DESCENDING aux curve is direct evidence the camera
+# ee_aux is on). A DESCENDING aux curve is direct evidence the camera
 # token is learning scene geometry — the mechanism R1b's result suggested was
 # absent. A flat aux curve near its initial value means the camera features carry
 # no recoverable EE information, which would explain R1b and close the mechanism
@@ -100,7 +100,7 @@
 # now EXISTS — commit b9e05b0 threaded `orbital_miscal_noise_level` through the
 # bimanual branch of evaluate_policy.py and the harness. It is in
 # `_EVAL_RUNTIME_KEYS`, so the checkpoint's saved `medium` is never silently
-# inherited: `ORBITAL_MISCAL_LEVEL` must name it explicitly. `ISS=false` and
+# inherited: `ORBITAL_MISCAL_LEVEL` must name it explicitly. `scene_sampling=fps` and
 # `eval_use_depth2cloud=true` as before.
 #
 # Code delivery, NFS layout, and the provenance assertion are inherited from
@@ -223,7 +223,7 @@ run: |
   echo "Resume checkpoint (if present): $CKPT"
   echo "Global batch: $BATCH_SIZE   lr: $LR   iters: $TRAIN_ITERS   nhist: $NUM_HISTORY"
   echo "Experiment: $EXPERIMENT   miscal: $MISCAL"
-  echo "EE aux: predict_ee_aux=$PREDICT_EE_AUX lambda_aux=$LAMBDA_AUX ee_aux_cam_ids=$EE_AUX_CAM_IDS"
+  echo "EE aux: ee_aux=$PREDICT_EE_AUX ee_aux_weight=$LAMBDA_AUX ee_aux_cameras=$EE_AUX_CAM_IDS"
 
   MODELING=$(cd /tmp && "$VENV/bin/python" -c 'import modeling; print(modeling.__file__)')
   echo "modeling.__file__: $MODELING"
@@ -242,12 +242,12 @@ run: |
     data=orbital_peract2_nfs \
     experiment="$EXPERIMENT" \
     miscal="$MISCAL" \
-    predict_ee_aux="$PREDICT_EE_AUX" \
-    lambda_aux="$LAMBDA_AUX" \
-    "ee_aux_cam_ids=$EE_AUX_CAM_IDS" \
+    ee_aux="$PREDICT_EE_AUX" \
+    ee_aux_weight="$LAMBDA_AUX" \
+    "ee_aux_cameras=$EE_AUX_CAM_IDS" \
     bimanual=true \
     dataset=OrbitalPeract2 \
-    num_history="$NUM_HISTORY" \
+    visual_num_history="$NUM_HISTORY" \
     batch_size="$BATCH_SIZE" \
     batch_size_val=64 \
     lr="$LR" \

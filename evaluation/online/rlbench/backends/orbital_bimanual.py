@@ -21,7 +21,7 @@ PERACT2_PROFILE: the two orbital cameras first, then the wrists.
 Camera miscalibration is optional and enters exactly where it does in the
 single-arm orbital harness: the extrinsics handed to depth->PCD are perturbed
 after capture, so RGB and depth stay untouched and the model sees a corrupted 3D
-scene. `miscal_rot_level` / `miscal_trans_level` name levels in
+scene. `eval_miscal_rot_level` / `eval_miscal_trans_level` name levels in
 instructions/random_miscal_noise_bimanual.json, whose four cameras are listed in
 this harness's camera order.
 
@@ -101,8 +101,8 @@ class RLBenchEnv(BimanualRLBenchEnv):
         fov_deg=60.0,
         orbital_miscal_noise_level=None,
         orbital_miscal_noise_file=None,
-        miscal_rot_level=None,
-        miscal_trans_level=None,
+        eval_miscal_rot_level=None,
+        eval_miscal_trans_level=None,
         miscal_camera_indices=None,
         calibration_registry=None,
         calibration_id=None,
@@ -123,7 +123,7 @@ class RLBenchEnv(BimanualRLBenchEnv):
         if calibration_registry is not None and any(
             value is not None for value in (
                 orbital_miscal_noise_level, orbital_miscal_noise_file,
-                miscal_rot_level, miscal_trans_level, miscal_camera_indices,
+                eval_miscal_rot_level, eval_miscal_trans_level, miscal_camera_indices,
             )
         ):
             raise ValueError(
@@ -208,16 +208,16 @@ class RLBenchEnv(BimanualRLBenchEnv):
             )
 
         T_rand = None
-        if miscal_rot_level is not None or miscal_trans_level is not None:
+        if eval_miscal_rot_level is not None or eval_miscal_trans_level is not None:
             T_rand = load_random_miscal_noise_T(
                 len(apply_cameras),
-                rot_level=miscal_rot_level,
-                trans_level=miscal_trans_level,
+                rot_level=eval_miscal_rot_level,
+                trans_level=eval_miscal_trans_level,
                 noise_file=BIMANUAL_MISCAL_NOISE_FILE,
             )
             print(
-                f"[orbital bimanual eval] random miscal: rot={miscal_rot_level}, "
-                f"trans={miscal_trans_level}, cameras={tuple(apply_cameras)}",
+                f"[orbital bimanual eval] random miscal: rot={eval_miscal_rot_level}, "
+                f"trans={eval_miscal_trans_level}, cameras={tuple(apply_cameras)}",
                 flush=True,
             )
 

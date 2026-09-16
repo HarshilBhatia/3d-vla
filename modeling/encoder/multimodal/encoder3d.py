@@ -19,12 +19,9 @@ class Encoder(BaseEncoder):
                  num_attn_heads=9,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
-                 skip_fps=False,
-                 position_based_sampling=False,
-                 image_space_sampling=False,
+                 scene_sampling='fps',
                  finetune_backbone=False,
                  finetune_text_encoder=False,
-                 rope_type='normal',
                  lang_dropout_prob=0.0,
                  video_deltam_full_image=False):
         super().__init__(
@@ -35,9 +32,7 @@ class Encoder(BaseEncoder):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
-            skip_fps=skip_fps,
-            position_based_sampling=position_based_sampling,
-            image_space_sampling=image_space_sampling,
+            scene_sampling=scene_sampling,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder,
             lang_dropout_prob=lang_dropout_prob,
@@ -59,7 +54,7 @@ class Encoder(BaseEncoder):
             self.dino_proj = nn.Conv2d(self.backbone.hidden_size, embedding_dim, kernel_size=1)
 
         # 3D relative positional embeddings
-        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim, rope_type=rope_type)
+        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
 
         # Proprioception learnable encoding if 3D is used
         self.curr_gripper_embed = nn.Embedding(nhist, embedding_dim)
@@ -73,7 +68,7 @@ class Encoder(BaseEncoder):
         self.camera_ids = nn.Embedding(2, embedding_dim)
         self.pos_embed_2d = SinusoidalPosEmb(embedding_dim)
 
-    def encode_proprio(self, proprio, context_feats, context_pos, stopgrad_k=0):
+    def encode_proprio(self, proprio, context_feats, context_pos):
         """
         Compute proprioception features.
 
@@ -81,7 +76,6 @@ class Encoder(BaseEncoder):
             - proprio: (B, nhist, 3+)
             - context_feats: (B, npt, C)
             - context_pos: (B, npt, 3)
-            - stopgrad_k: number of bins to zero out in backward (for RoPE stopgrad)
 
         Returns:
             - gripper_feats: (B, nhist, F)
@@ -92,8 +86,8 @@ class Encoder(BaseEncoder):
         )
 
         # Rotary positional encoding
-        proprio_pos = self.relative_pe_layer(proprio[..., :3], stopgrad_k=stopgrad_k)
-        context_pos = self.relative_pe_layer(context_pos, allow_grad=False, stopgrad_k=stopgrad_k) # this is to encode the proprio, don't need to backprop here.
+        proprio_pos = self.relative_pe_layer(proprio[..., :3])
+        context_pos = self.relative_pe_layer(context_pos, allow_grad=False) # this is to encode the proprio, don't need to backprop here.
 
         # Attention to scene tokens
         proprio_feats = self.gripper_context_head(

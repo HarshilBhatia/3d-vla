@@ -256,7 +256,7 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=1,
-        num_history=1,
+        visual_num_history=1,
         save_trajectory=False,
         save_video=False,
         output_file=None,
@@ -297,7 +297,7 @@ class RLBenchEnv:
                     actioner=actioner,
                     max_tries=max_tries,
                     prediction_len=prediction_len,
-                    num_history=num_history,
+                    visual_num_history=visual_num_history,
                     save_trajectory=save_trajectory,
                     save_video=save_video,
                     output_file=output_file,
@@ -328,7 +328,7 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=1,
-        num_history=1,
+        visual_num_history=1,
         save_trajectory=False,
         save_video=False,
         output_file=None,
@@ -380,8 +380,8 @@ class RLBenchEnv:
                 gripper = gripper.cuda(non_blocking=True)
                 grippers = torch.cat([grippers, gripper.unsqueeze(1)], 1)
 
-                gripper_input = grippers[:, -num_history:]
-                npad = num_history - gripper_input.shape[1]
+                gripper_input = grippers[:, -visual_num_history:]
+                npad = visual_num_history - gripper_input.shape[1]
                 gripper_input = F.pad(
                     gripper_input, (0, 0, npad, 0), mode='replicate'
                 )

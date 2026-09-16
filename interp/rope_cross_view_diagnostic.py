@@ -18,12 +18,12 @@ Example (one GPU)::
       data_path=/grogu/user/harshilb/multi_cam/val.zarr \
       output_csv=results/rope_cross_view.csv \
       num_batches=100 pairs_per_camera=256 \
-      miscal_fixed_angle_deg=3 miscal_fixed_translation_m=0.01 \
-      'miscal_camera_ids=[0,1]'
+      perturbation_noise_fixed_rot_deg=3 perturbation_noise_fixed_trans_m=0.01 \
+      'miscal_cameras=[0,1]'
 
 The perturbation is sampled once per batch item and is applied only to cameras
-listed by ``miscal_camera_ids``.  It is not composed with a file-based fixed
-bias: pass ``orbital_miscal_noise_level=null`` for this one-noise protocol.
+listed by ``miscal_cameras``.  It is not composed with a file-based fixed
+bias: leave ``miscal_mode=none`` for this one-noise protocol.
 """
 import csv
 import sys
@@ -228,9 +228,8 @@ def main():
     args = load_args(hydra_argv)
     args.data_path = custom["data_path"]
     # Explicitly enforce the single sampled-noise evaluation protocol.
-    args.orbital_miscal_noise_level = None
-    args.orbital_miscal_noise_levels = None
-    args.cotrain_miscal_group_ids = None
+    args.miscal_group_level = None
+    args.miscal_camera_groups = None
     preprocessor = make_preprocessor(args)
     loader = make_loader(args, args.data_path, split="val")
     tokenizer = make_tokenizer(args)

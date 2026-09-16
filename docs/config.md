@@ -1,11 +1,14 @@
 # Config System (Hydra)
 
-Base config: `config/config.yaml`. Overrides are `key=value` (no `--`). Three config groups merge at the global level: `data`, `rope_mode`, `experiment`.
+Base config: `config/config.yaml`. Overrides are `key=value` (no `--`). Config groups merge at the global level, in this order: `data`, `eval`, `logging`, `experiment`, `miscal`.
 
 ```
 config/
 ├── config.yaml                    # all defaults
 ├── data/{single,two,full,orbital,peract_collected}.yaml
+├── eval/default.yaml              # online-eval only; no training/model effect
+├── logging/default.yaml           # wandb + benchmark
+├── miscal/{none,orbital_medium,cotrain_*}.yaml
 └── experiment/
     ├── default.yaml               # predict_extrinsics=false
     ├── camtoken_deltaM.yaml       # predict_extrinsics=true, delta_m mode
@@ -19,8 +22,8 @@ config/
 |---|---|---|
 | `extrinsics_prediction_mode` | `delta_m` \| `delta_m_full` \| `rt` | How camera token predicts RoPE perturbation |
 | `dynamic_rope_from_camtoken` | bool, false | Recompute delta_M after every attn block |
-| `traj_scene_rope` | bool | 3D RoPE in cross-attn |
-| `sa_blocks_use_rope` | bool | 3D RoPE in self-attn |
+| `scene_sampling` | `fps` (default) \| `fps_xyz` \| `image_space` \| `none` | Single knob for scene-token subsampling. Replaces `skip_fps`/`image_space_sampling`/`position_based_sampling`, which had silent precedence |
+| `head_positional_encoding` | `rope3d` (default) \| `rope3d_proprio` \| `learned_abs` \| `none` | Single knob for all positional encoding in the policy head. Encoder RoPE is separate and always on. Only `rope3d*` give view alignment a basis to correct, so the other two require `view_align_mode=none` |
 | `use_front_camera_frame` | bool | Rotate point cloud to front-camera frame |
 | `lv2_batch_size` | int, 1 | Re-use same obs encoding with N noise samples |
 | `bimanual` | bool | Two-arm tasks; sets `nhand=2` |

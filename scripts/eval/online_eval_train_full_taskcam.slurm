@@ -99,7 +99,7 @@ NOISE_ARGS=()
 if [ "$NOISE_IDX" -eq 0 ]; then
     NOISE_ARGS+=(orbital_miscal_noise_level=medium)
 else
-    NOISE_ARGS+=(++miscal_rot_level=5deg ++miscal_trans_level=5cm)
+    NOISE_ARGS+=(++eval_miscal_rot_level=5deg ++eval_miscal_trans_level=5cm)
 fi
 
 apptainer exec \

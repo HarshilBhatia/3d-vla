@@ -20,9 +20,9 @@ Noise types:
     T_only  — translation noise only (angle_deg=0, trans_m swept)
     RT      — both R and T noise (angle_deg and trans_m swept jointly)
 
-NOTE: Miscalibration noise is only applied when num_history > 1 and the zarr
+NOTE: Miscalibration noise is only applied when visual_num_history > 1 and the zarr
 contains a 'demo_id' field (history-aware path). The default config has
-num_history=3, so this works out of the box for standard Peract2 zarrs.
+visual_num_history=3, so this works out of the box for standard Peract2 zarrs.
 """
 import csv
 import re
@@ -126,11 +126,11 @@ def load_model(args):
 def make_preprocessor(args, angle_deg, trans_m):
     return RLBenchDataPreprocessor(
         keypose_only=args.keypose_only,
-        num_history=args.num_history,
+        visual_num_history=args.visual_num_history,
         custom_imsize=getattr(args, "custom_img_size", None),
         depth2cloud=fetch_depth2cloud(args.dataset),
-        miscal_max_angle_deg=float(angle_deg),
-        miscal_max_translation_m=float(trans_m),
+        perturbation_noise_rot_deg=float(angle_deg),
+        perturbation_noise_trans_m=float(trans_m),
     )
 
 
@@ -217,7 +217,7 @@ def main():
         relative_action=args.relative_action,
         mem_limit=0.1,
         chunk_size=args.chunk_size,
-        num_history=args.num_history,
+        visual_num_history=args.visual_num_history,
     )
 
     nw = args.num_workers

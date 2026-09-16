@@ -20,7 +20,7 @@ Three questions it answers, per checkpoint x condition x task:
    independently of whether the downstream correction succeeds.
 
 Per-arm breakdown is reported throughout: the bimanual EE-aux target is a
-midpoint over ``ee_aux_cam_ids``, so R1c's error should be more symmetric across
+midpoint over ``ee_aux_cameras``, so R1c's error should be more symmetric across
 the two arms than R1b's if the aux head is doing what it is supposed to.
 
 Usage (one H200, ~20 min/checkpoint for the 7-condition grid)::
@@ -75,30 +75,35 @@ OOD_NOISE_FILE = "instructions/orbital_miscalibration_noise_ood.json"
 # nXX rows add the random magnitude on top, as `T_rand @ T_base`.
 CONDITIONS = {
     "clean": {},
-    "base": {"orbital_miscal_noise_level": "medium"},
+    "base": {"miscal_mode": "group", "miscal_group_level": "medium"},
     "ood_base": {
-        "orbital_miscal_noise_level": "medium",
-        "orbital_miscal_noise_file": OOD_NOISE_FILE,
+        "miscal_mode": "group",
+        "miscal_group_level": "medium",
+        "miscal_group_file": OOD_NOISE_FILE,
     },
     "n2": {
-        "orbital_miscal_noise_level": "medium",
-        "miscal_max_angle_deg": 2.0,
-        "miscal_max_translation_m": 0.02,
+        "miscal_mode": "group",
+        "miscal_group_level": "medium",
+        "perturbation_noise_rot_deg": 2.0,
+        "perturbation_noise_trans_m": 0.02,
     },
     "n5": {
-        "orbital_miscal_noise_level": "medium",
-        "miscal_max_angle_deg": 5.0,
-        "miscal_max_translation_m": 0.05,
+        "miscal_mode": "group",
+        "miscal_group_level": "medium",
+        "perturbation_noise_rot_deg": 5.0,
+        "perturbation_noise_trans_m": 0.05,
     },
     "n10": {
-        "orbital_miscal_noise_level": "medium",
-        "miscal_max_angle_deg": 10.0,
-        "miscal_max_translation_m": 0.10,
+        "miscal_mode": "group",
+        "miscal_group_level": "medium",
+        "perturbation_noise_rot_deg": 10.0,
+        "perturbation_noise_trans_m": 0.10,
     },
     "n15": {
-        "orbital_miscal_noise_level": "medium",
-        "miscal_max_angle_deg": 15.0,
-        "miscal_max_translation_m": 0.15,
+        "miscal_mode": "group",
+        "miscal_group_level": "medium",
+        "perturbation_noise_rot_deg": 15.0,
+        "perturbation_noise_trans_m": 0.15,
     },
 }
 
@@ -196,7 +201,7 @@ def _injected_angle_deg(T_noise):
 class _DeltaMRecorder:
     """Capture every delta_M the head predicts, and the noise actually injected.
 
-    ``dynamic_rope_from_camtoken`` re-predicts delta_M after every cross-attn and
+    ``layerwise_view_align`` re-predicts delta_M after every cross-attn and
     self-attn block, and the whole head runs once per denoising step, so
     ``_last_predicted_cam_params`` retains only the final prediction. Wrapping
     ``_predict_from_cam_feat`` — the single site where delta_M is born — records
@@ -426,9 +431,9 @@ def main():
         nhand = 2 if getattr(args_copy, "bimanual", False) else 1
         name = Path(ckpt_path).stem
         print(
-            f"\n=== {name} (step {step})  predict_extrinsics="
-            f"{getattr(args_copy, 'predict_extrinsics', False)}  "
-            f"predict_ee_aux={getattr(args_copy, 'predict_ee_aux', False)}  nhand={nhand}"
+            f"\n=== {name} (step {step})  view_align_mode="
+            f"{getattr(args_copy, 'view_align_mode', 'none')}  "
+            f"ee_aux={getattr(args_copy, 'ee_aux', False)}  nhand={nhand}"
         )
 
         for cond in cond_names:

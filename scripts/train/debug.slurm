@@ -40,4 +40,4 @@ torchrun --nproc_per_node $ngpus --master_port $MASTER_PORT \
     eval_data_dir=$eval_data_dir \
     checkpoint=$checkpoint \
     batch_size=64 \
-    "orbital_miscal_noise_levels=[medium]"
+    "miscal_mode=group" "miscal_group_level=[medium]"

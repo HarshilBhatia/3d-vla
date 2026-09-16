@@ -159,8 +159,8 @@ class RLBenchEnv:
         task_group_mapping_file=None,
         fov_deg=60.0,
         orbital_miscal_noise_level=None,
-        miscal_rot_level=None,
-        miscal_trans_level=None,
+        eval_miscal_rot_level=None,
+        eval_miscal_trans_level=None,
         camera_groups=None,
         spawn_camera_group=None,
     ):
@@ -193,17 +193,17 @@ class RLBenchEnv:
             self._orbital_noise_cameras = cams
             print(f"[orbital eval] miscal: level='{orbital_miscal_noise_level}', groups={list(noise.keys())}", flush=True)
 
-        self._miscal_rot_level = miscal_rot_level
-        self._miscal_trans_level = miscal_trans_level
-        if miscal_rot_level is not None or miscal_trans_level is not None:
+        self._eval_miscal_rot_level = eval_miscal_rot_level
+        self._eval_miscal_trans_level = eval_miscal_trans_level
+        if eval_miscal_rot_level is not None or eval_miscal_trans_level is not None:
             self._miscal_T = load_random_miscal_noise_T(
                 ncam=len(apply_cameras),
-                rot_level=miscal_rot_level,
-                trans_level=miscal_trans_level,
+                rot_level=eval_miscal_rot_level,
+                trans_level=eval_miscal_trans_level,
             )
             print(
                 f"[orbital eval] random miscal from file: "
-                f"rot={miscal_rot_level}, trans={miscal_trans_level}",
+                f"rot={eval_miscal_rot_level}, trans={eval_miscal_trans_level}",
                 flush=True,
             )
         h, w = image_size if isinstance(image_size, (tuple, list)) else (image_size, image_size)
@@ -419,7 +419,7 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=1,
-        num_history=1,
+        visual_num_history=1,
         save_trajectory=False,
         save_video=False,
         output_file=None,
@@ -523,7 +523,7 @@ class RLBenchEnv:
                     actioner=actioner,
                     max_tries=max_tries,
                     prediction_len=prediction_len,
-                    num_history=num_history,
+                    visual_num_history=visual_num_history,
                     pre_loaded_demos=pre_loaded,
                     save_trajectory=save_trajectory,
                     save_video=save_video,
@@ -556,7 +556,7 @@ class RLBenchEnv:
         actioner,
         max_tries=1,
         prediction_len=1,
-        num_history=1,
+        visual_num_history=1,
         pre_loaded_demos=None,
         save_trajectory=False,
         save_video=False,
@@ -614,8 +614,8 @@ class RLBenchEnv:
                 gripper = gripper.cuda(non_blocking=True)
                 grippers = torch.cat([grippers, gripper.unsqueeze(1)], 1)
 
-                gripper_input = grippers[:, -num_history:]
-                npad = num_history - gripper_input.shape[1]
+                gripper_input = grippers[:, -visual_num_history:]
+                npad = visual_num_history - gripper_input.shape[1]
                 gripper_input = F.pad(
                     gripper_input, (0, 0, npad, 0), mode="replicate"
                 )

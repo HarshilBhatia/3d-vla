@@ -3,6 +3,7 @@
 view_align_mode: none
 
 miscal_cameras: [0, 1]
-group_miscal_level: medium
-sampled_miscal_max_rot_deg: 3.0
-sampled_miscal_max_trans_m: 0.01
+miscal_mode: group
+miscal_group_level: medium
+perturbation_noise_rot_deg: 3.0
+perturbation_noise_trans_m: 0.01

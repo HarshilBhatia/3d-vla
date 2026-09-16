@@ -242,7 +242,7 @@ def main():
         instructions=str(args.instructions),
         chunk_size=1,
         copies=1,
-        num_history=1,
+        visual_num_history=1,
     )
     depth2cloud = fetch_depth2cloud(args.dataset)
     cameras = dataset_class.cameras

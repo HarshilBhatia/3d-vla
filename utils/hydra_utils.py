@@ -17,59 +17,63 @@ from hydra.core.global_hydra import GlobalHydra
 # Canonical public config vocabulary. The model/runtime API deliberately keeps
 # its historical names because they occur in old configs and checkpoint state.
 # Normalize here, before any trainer or model is constructed.
-_VIEW_ALIGN_TO_LEGACY = {
-    "none": (False, "delta_m"),
-    "rope_6d": (True, "delta_m"),
-    "rope_full": (True, "delta_m_full"),
-    "physical_se3": (True, "rt"),
-}
-_LEGACY_TO_VIEW_ALIGN = {
-    (False, "delta_m"): "none",
-    (False, "delta_m_full"): "none",
-    (False, "rt"): "none",
-    (True, "delta_m"): "rope_6d",
-    (True, "delta_m_full"): "rope_full",
-    (True, "rt"): "physical_se3",
-}
-
-
 def _normalize_public_vocabulary(out: dict) -> None:
-    """Resolve short public keys and legacy runtime keys bidirectionally.
+    """No-op retained as the hook for future config-key normalisation.
 
-    A non-null public value wins. Null public values are populated from the
-    legacy setting, which makes old configs self-describing in logs/manifests.
-    No model parameter or legacy key is renamed, preserving checkpoint and CLI
-    compatibility.
+    The legacy/public alias layer is gone: every setting now has exactly one
+    name. Configs saved inside older checkpoints are translated forward by
+    :mod:`utils.config_migrations` instead, which keeps the mapping in one place
+    and versioned rather than resolving two spellings at read time.
     """
-    mode = out.get("view_align_mode")
-    if mode is not None:
-        if mode not in _VIEW_ALIGN_TO_LEGACY:
-            allowed = ", ".join(_VIEW_ALIGN_TO_LEGACY)
-            raise ValueError(f"view_align_mode must be one of {allowed}, got {mode!r}")
-        out["predict_extrinsics"], out["extrinsics_prediction_mode"] = _VIEW_ALIGN_TO_LEGACY[mode]
-    else:
-        legacy = (out.get("predict_extrinsics", False), out.get("extrinsics_prediction_mode", "delta_m"))
-        out["view_align_mode"] = _LEGACY_TO_VIEW_ALIGN.get(legacy, "none")
 
-    aliases = {
-        "view_align_cameras": "delta_m_camera_ids",
-        "layerwise_view_align": "dynamic_rope_from_camtoken",
-        "miscal_cameras": "miscal_camera_ids",
-        "group_miscal_level": "orbital_miscal_noise_level",
-        "group_miscal_file": "orbital_miscal_noise_file",
-        "sampled_miscal_max_rot_deg": "miscal_max_angle_deg",
-        "sampled_miscal_max_trans_m": "miscal_max_translation_m",
-        "ee_aux": "predict_ee_aux",
-        "ee_aux_weight": "lambda_aux",
-        "ee_aux_cameras": "ee_aux_cam_ids",
-        "causal_cam_history": "video_deltam",
-        "causal_cam_history_depth": "video_deltam_depth",
-    }
-    for public, legacy in aliases.items():
-        if out.get(public) is not None:
-            out[legacy] = out[public]
+
+def get_config_path() -> Path:
+    """Return the project config directory (absolute). Use from any entry point so config path is consistent."""
+    return Path(__file__).resolve().parent.parent / "config"
+
+
+# Paths that get resolved relative to project root (absolute). exp_log_dir and run_log_dir
+# are kept as relative so log_dir = base_log_dir / exp_log_dir / run_log_dir works.
+_PATH_KEYS = frozenset({
+    "train_data_dir", "eval_data_dir", "train_instructions", "val_instructions",
+    "base_log_dir",
+    "checkpoint",
+    "data_dir", "output_file",
+})
+
+
+def _resolve_relative_paths(args: SimpleNamespace, base: Path) -> None:
+    for k in _PATH_KEYS:
+        v = getattr(args, k, None)
+        if v is not None and v != "" and isinstance(v, Path) and not v.is_absolute():
+            setattr(args, k, (base / v).resolve())
+
+
+def _cfg_to_args(cfg, base_dir: Path = None) -> SimpleNamespace:
+    from omegaconf import OmegaConf
+    raw = OmegaConf.to_container(cfg, resolve=True)
+    out = {}
+    for k, v in raw.items():
+        if k in _PATH_KEYS and v is not None and v != "":
+            out[k] = Path(v) if not isinstance(v, Path) else v
         else:
-            out[public] = out.get(legacy)
+            out[k] = v
+    _normalize_public_vocabulary(out)
+    args = SimpleNamespace(**out)
+    if base_dir is not None:
+        _resolve_relative_paths(args, base_dir)
+    return args
+
+
+def normalize_public_vocabulary_args(args) -> None:
+    """No-op retained as the hook for post-overlay config normalisation.
+
+    The legacy/public alias layer is gone: every setting has exactly one name.
+    Configs saved inside older checkpoints are translated forward by
+    :mod:`utils.config_migrations` instead, so the mapping lives in one
+    versioned place rather than being re-resolved on every read.
+    """
+
 
 def get_config_path() -> Path:
     """Return the project config directory (absolute). Use from any entry point so config path is consistent."""
@@ -119,7 +123,6 @@ def normalize_public_vocabulary_args(args: SimpleNamespace) -> None:
     for key in (
         "view_align_mode", "view_align_cameras", "layerwise_view_align",
         "ee_aux", "ee_aux_weight", "ee_aux_cameras",
-        "causal_cam_history", "causal_cam_history_depth",
     ):
         values[key] = None
     _normalize_public_vocabulary(values)
@@ -177,11 +180,17 @@ def write_experiment_manifest(args: SimpleNamespace, path: Path) -> None:
             "layerwise_refinement": args.layerwise_view_align,
         },
         "miscalibration": {
+            "mode": args.miscal_mode,
             "camera_ids": args.miscal_cameras,
-            "group_level": args.group_miscal_level,
-            "group_file": str(args.group_miscal_file) if args.group_miscal_file else None,
-            "sampled_max_rotation_deg": args.sampled_miscal_max_rot_deg,
-            "sampled_max_translation_m": args.sampled_miscal_max_trans_m,
+            "camera_groups": args.miscal_camera_groups,
+            "group_level": args.miscal_group_level,
+            "group_file": str(args.miscal_group_file) if args.miscal_group_file else None,
+        },
+        "perturbation_noise": {
+            "rotation_deg": args.perturbation_noise_rot_deg,
+            "translation_m": args.perturbation_noise_trans_m,
+            "fixed_rotation_deg": args.perturbation_noise_fixed_rot_deg,
+            "fixed_translation_m": args.perturbation_noise_fixed_trans_m,
             "composition": "T_applied = T_sampled @ T_group @ T_true",
         },
         "ee_aux": {
@@ -190,14 +199,9 @@ def write_experiment_manifest(args: SimpleNamespace, path: Path) -> None:
             "camera_ids": args.ee_aux_cameras,
         },
         "causal_camera_history": {
-            "enabled": args.causal_cam_history,
-            "depth": args.causal_cam_history_depth,
-        },
-        "legacy_runtime": {
-            "predict_extrinsics": args.predict_extrinsics,
-            "extrinsics_prediction_mode": args.extrinsics_prediction_mode,
-            "delta_m_camera_ids": args.delta_m_camera_ids,
-            "dynamic_rope_from_camtoken": args.dynamic_rope_from_camtoken,
+            "enabled": args.video_deltam,
+            "depth": args.video_deltam_depth,
+            "full_image": args.video_deltam_full_image,
         },
     }
     path.write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
@@ -231,13 +235,13 @@ def write_eval_manifest(args: SimpleNamespace, path: Path) -> None:
             "view_align_cameras": args.view_align_cameras,
             "layerwise_view_align": args.layerwise_view_align,
             "ee_aux": args.ee_aux,
-            "causal_cam_history": args.causal_cam_history,
+            "video_deltam": args.video_deltam,
         },
         "effective_runtime": {
-            "num_history": args.num_history,
+            "visual_num_history": args.visual_num_history,
             "proprio_num_history": args.proprio_num_history,
             "eval_proprio_history_order": args.eval_proprio_history_order,
-            "image_space_sampling": args.image_space_sampling,
+            "scene_sampling": args.scene_sampling,
             "prediction_len": args.prediction_len,
             "max_steps": args.max_steps,
             "max_tries": args.max_tries,

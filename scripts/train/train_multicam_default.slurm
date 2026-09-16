@@ -35,8 +35,9 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MAS
     train_data_dir=$train_data_dir \
     eval_data_dir=$eval_data_dir \
     batch_size=256 \
-    orbital_miscal_noise_level=medium \
-    miscal_max_angle_deg=3.0 \
-    miscal_max_translation_m=0.01 \
+    miscal_mode=group \
+    miscal_group_level=medium \
+    perturbation_noise_rot_deg=3.0 \
+    perturbation_noise_trans_m=0.01 \
     ${checkpoint:+checkpoint=$checkpoint} \
     "$@"

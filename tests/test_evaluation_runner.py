@@ -26,8 +26,8 @@ def test_materialized_calibration_disables_legacy_composition():
         eval_calibration_id="external_5deg_5cm",
         orbital_miscal_noise_level="medium",
         orbital_miscal_noise_file="noise.json",
-        miscal_rot_level=5,
-        miscal_trans_level=5,
+        eval_miscal_rot_level=5,
+        eval_miscal_trans_level=5,
         miscal_camera_indices=[0, 1],
     )
 
@@ -36,7 +36,7 @@ def test_materialized_calibration_disables_legacy_composition():
     assert kwargs["calibration_registry"] == "registry.json"
     assert kwargs["calibration_id"] == "external_5deg_5cm"
     assert kwargs["orbital_miscal_noise_level"] is None
-    assert kwargs["miscal_rot_level"] is None
+    assert kwargs["eval_miscal_rot_level"] is None
 
 
 def test_partial_materialized_calibration_is_rejected():

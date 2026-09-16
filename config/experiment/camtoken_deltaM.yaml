@@ -2,6 +2,5 @@
 # Run: python main.py experiment=camtoken_deltaM
 
 
-predict_extrinsics: true
-extrinsics_prediction_mode: delta_m
-dynamic_rope_from_camtoken: true
+view_align_mode: rope_6d
+layerwise_view_align: true

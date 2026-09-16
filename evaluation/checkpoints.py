@@ -13,10 +13,10 @@ EVALUATION_RUNTIME_KEYS = frozenset({
     "task", "headless", "max_tries", "seed",
     "cameras_file", "task_group_mapping_file", "camera_groups",
     "orbital_miscal_noise_level", "orbital_miscal_noise_file",
-    "miscal_rot_level", "miscal_trans_level", "fov_deg",
+    "eval_miscal_rot_level", "eval_miscal_trans_level", "fov_deg",
     "miscal_camera_indices", "eval_protocol", "eval_viewpoint_regime",
     "eval_calibration_id", "eval_calibration_registry", "num_demos",
-    "num_demos_total", "image_space_sampling", "spawn_camera_group",
+    "num_demos_total", "scene_sampling", "spawn_camera_group",
     "val_instructions", "log_dir", "base_log_dir", "save_video",
     "save_trajectory", "eval_use_depth2cloud", "image_size",
     "collision_checking", "cfg_scale", "prediction_len", "max_steps",
@@ -62,6 +62,7 @@ def load_model_for_evaluation(args: Any):
 
     from modeling.policy import fetch_model_class
     from modeling.policy.construction import assert_model_kwargs_complete, build_model_kwargs
+    from utils.config_migrations import migrate_config
     from utils.hydra_utils import normalize_public_vocabulary_args
 
     print("Loading model from", args.checkpoint, flush=True)
@@ -69,6 +70,7 @@ def load_model_for_evaluation(args: Any):
     checkpoint_config = checkpoint.get("config", {})
     if not checkpoint_config:
         raise ValueError("model missing config")
+    checkpoint_config = migrate_config(checkpoint_config)
 
     loaded = overlay_checkpoint_config(args, checkpoint_config)
     normalize_public_vocabulary_args(args)

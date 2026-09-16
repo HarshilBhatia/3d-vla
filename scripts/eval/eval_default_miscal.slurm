@@ -49,7 +49,7 @@ if [[ -z "$NOISE" ]]; then
     NOISE_ARGS=()
 else
     TAG="${DATA_TAG}_${NOISE}_G1G2"
-    NOISE_ARGS=( "cotrain_miscal_group_ids=[1,2]" "cotrain_miscal_level=${NOISE}" )
+    NOISE_ARGS=( "miscal_mode=group" "miscal_group_level=${NOISE}" "miscal_camera_groups=[1,2]" )
 fi
 
 OUTPUT_CSV="results/per_camera_group_v2/${RUN_NAME}/${TAG}_last.csv"

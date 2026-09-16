@@ -252,7 +252,7 @@ identical extrinsics. `eval_use_depth2cloud=true` and `ISS=false` as before.
 **Blocker found — eval-side plumbing gap, not a config flag.** The bimanual
 orbital harness (`utils_with_orbital_bimanual_rlbench.py`, the one
 `evaluate_policy.py:118` dispatches to for `bimanual + orbital`) accepts only
-`miscal_rot_level` / `miscal_trans_level`, resolved against
+`eval_miscal_rot_level` / `eval_miscal_trans_level`, resolved against
 `instructions/random_miscal_noise_bimanual.json`. It does **not** accept
 `orbital_miscal_noise_level` — `evaluate_policy.py:151-152` passes only the two
 random levels on the bimanual branch, while the single-arm branch (:159-161)
@@ -317,7 +317,7 @@ carry most of the gap, so most of any win must appear there. Ignore
 **Hypothesis:** deltaM's real value is miscal robustness (grogu's largest effect),
 not clean-novel-view generalization.
 **Config delta:** none — the *same R1 checkpoint*, evaluated with
-`miscal_rot_level`/`miscal_trans_level` at 0/2/5/10/15 deg+cm on OOD cams,
+`eval_miscal_rot_level`/`eval_miscal_trans_level` at 0/2/5/10/15 deg+cm on OOD cams,
 `eval_use_depth2cloud=true`. Mirrors the concurrent baseline sweep exactly.
 **Compared against:** the concurrent sweep's no-deltaM curve.
 **Decision rule:** deltaM's curve stays above baseline's at ≥ 10 deg by ≥ 10 pts

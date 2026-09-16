@@ -3,6 +3,6 @@
 
 
 
-predict_extrinsics: false
+view_align_mode: none
 
-traj_scene_rope: false
+head_positional_encoding: none

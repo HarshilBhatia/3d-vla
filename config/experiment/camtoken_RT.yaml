@@ -2,6 +2,5 @@
 # Run: python main.py experiment=default
 
 
-predict_extrinsics: true
-extrinsics_prediction_mode: rt
+view_align_mode: physical_se3
 

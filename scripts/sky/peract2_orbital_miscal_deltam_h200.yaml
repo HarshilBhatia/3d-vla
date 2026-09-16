@@ -8,14 +8,14 @@
 # lr, iters, worker count — is byte-identical between the two files, which is the
 # whole point: any difference in the result is attributable to deltaM.
 #
-# `experiment=camtoken_deltaM` sets predict_extrinsics=true,
-# extrinsics_prediction_mode=delta_m (the 6x6 per-camera RoPE mix, which grogu
-# showed beats the full D x D variant), and dynamic_rope_from_camtoken=true (the
+# `experiment=camtoken_deltaM` sets view_align_mode=rope_6d,
+#  (the 6x6 per-camera RoPE mix, which grogu
+# showed beats the full D x D variant), and layerwise_view_align=true (the
 # matrix is re-predicted and the RoPE codes rebuilt after every cross-attn and
 # self-attn block).
 #
 # SMOKE-TESTED before launch. The deltaM path had zero recent forward coverage
-# and this exact combination — delta_m + dynamic_rope_from_camtoken + nhand=2 +
+# and this exact combination — delta_m + layerwise_view_align + nhand=2 +
 # ncam=4 + nhist=3 — had never executed. A 3-iteration run of this precise
 # config (2x B200, batch 8) completed clean, and the miscal loader reported
 # `level='medium', K=6, ncam=4`, confirming the per-group table is built at the
@@ -30,7 +30,7 @@
 # instructions/orbital_miscalibration_noise.json (~5.7-9.6 deg, ~2.9-5.4 cm
 # depending on camera), and T_random is freshly sampled every batch with
 # |angle| <= 3 deg and |t| <= 1 cm (utils/data_preprocessors/rlbench.py
-# _get_miscal_noise / _sample_random_miscalibration). The perturbation is applied
+# _get_miscal_noise / _sample_random_perturbation). The perturbation is applied
 # to the extrinsics handed to depth->PCD, so RGB and depth are untouched and the
 # model sees a corrupted 3D scene. This is the grogu `fixmed_rn` recipe.
 #
@@ -50,7 +50,7 @@
 # program asked about. NOTE the plumbing gap documented in the plan doc: the
 # bimanual orbital eval harness
 # (online_evaluation_rlbench/utils_with_orbital_bimanual_rlbench.py) accepts only
-# `miscal_rot_level` / `miscal_trans_level` from
+# `eval_miscal_rot_level` / `eval_miscal_trans_level` from
 # instructions/random_miscal_noise_bimanual.json and does NOT accept
 # `orbital_miscal_noise_level`, so the fixed per-group base CANNOT yet be
 # reproduced at eval time. That is an eval-side code change, not a config flag.
@@ -190,7 +190,7 @@ run: |
     miscal="$MISCAL" \
     bimanual=true \
     dataset=OrbitalPeract2 \
-    num_history="$NUM_HISTORY" \
+    visual_num_history="$NUM_HISTORY" \
     batch_size="$BATCH_SIZE" \
     batch_size_val=64 \
     lr="$LR" \

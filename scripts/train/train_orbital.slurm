@@ -35,6 +35,6 @@ WANDB_API_KEY=$WANDB_API_KEY torchrun --nproc_per_node $ngpus --master_port $MAS
     train_data_dir=$train_data_dir \
     eval_data_dir=$eval_data_dir \
     batch_size=512 \
-    image_space_sampling=false \
+    scene_sampling=fps \
     ${checkpoint:+checkpoint=$checkpoint} \
     "$@"

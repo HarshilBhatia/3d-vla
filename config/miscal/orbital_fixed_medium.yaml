@@ -1,2 +1,3 @@
-# All groups get a fixed per-group medium noise (from file). No additional random noise.
-orbital_miscal_noise_level: medium
+# One fixed medium calibration error per camera group, from the pinned file.
+miscal_mode: group
+miscal_group_level: medium

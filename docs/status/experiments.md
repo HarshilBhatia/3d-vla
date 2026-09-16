@@ -48,7 +48,7 @@ Checkpoints: `train_logs/full_dataset/<run>/last.pth`. dataset=OrbitalWrist, dat
 ## Online Eval — turn_tap Miscalibration Noise Sweep (24 May 2026)
 
 Jobs 3905563 / 3905588. Script: `scripts/eval/online_eval_full_dataset_miscal_sweep.slurm`.  
-Same setup as full eval above (G7, GT demos) but with paired rot+trans noise applied at eval time (`miscal_rot_level` + `miscal_trans_level`). 0deg row is from the full eval above. `*` = partial result.  
+Same setup as full eval above (G7, GT demos) but with paired rot+trans noise applied at eval time (`eval_miscal_rot_level` + `eval_miscal_trans_level`). 0deg row is from the full eval above. `*` = partial result.  
 **Status:** `fixmed_rn` and `deltaM_EEF` fully complete. `default_3dfa` noise 2/5/10/15deg paused mid-run (progress saved); noise 20deg complete. Resume with `sbatch --array=0-3 scripts/eval/online_eval_full_dataset_miscal_sweep.slurm`.
 
 rephrase as calibrated / no-miscal 3DFA*. 
@@ -201,7 +201,7 @@ Eval (jobs hb-3dfa-orb-eval-*, 15 Aug): 10 rollouts/task/condition, in-domain ca
 
 ## Orbital PerAct2 — camera-miscalibration noise sweep, OOD camera (16 Aug 2026)
 
-Jobs `hb-3dfa-orbnoise-<level>-<task>` (52 jobs, L40S:1, sky-us-east-1/-2). Checkpoint `peract2_orbital_nhist3_b200` @ iter 100000, `predict_extrinsics=false`. Same condition as the OOD column above — per-task `eval_group`, 10 rollouts/task, `image_space_sampling=false` — plus paired rot+trans miscalibration at eval time (`miscal_rot_level` + `miscal_trans_level`). The 0 column IS the OOD column above (not rerun: with no levels set the harness leaves extrinsics untouched, and the 5deg+5cm smoke confirmed the noise path only engages when a level is named).
+Jobs `hb-3dfa-orbnoise-<level>-<task>` (52 jobs, L40S:1, sky-us-east-1/-2). Checkpoint `peract2_orbital_nhist3_b200` @ iter 100000, `predict_extrinsics=false`. Same condition as the OOD column above — per-task `eval_group`, 10 rollouts/task, `image_space_sampling=false` — plus paired rot+trans miscalibration at eval time (`eval_miscal_rot_level` + `eval_miscal_trans_level`). The 0 column IS the OOD column above (not rerun: with no levels set the harness leaves extrinsics untouched, and the 5deg+5cm smoke confirmed the noise path only engages when a level is named).
 
 The grogu-era sweep machinery was single-arm only; `d586f71` extends it to the 4-camera bimanual orbital harness. Noise perturbs only the extrinsics fed to depth→PCD (RGB and depth untouched), so the model sees a corrupted 3D scene. Directions are pre-sampled per camera in `instructions/random_miscal_noise_bimanual.json`.
 

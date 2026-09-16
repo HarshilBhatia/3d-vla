@@ -16,8 +16,7 @@ class DenoiseActor(BaseDenoiseActor):
                  finetune_text_encoder=False,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
-                 skip_fps=False,
-                 image_space_sampling=True,
+                 scene_sampling='image_space',
                  # Encoder and decoder arguments
                  embedding_dim=60,
                  num_attn_heads=9,
@@ -30,8 +29,8 @@ class DenoiseActor(BaseDenoiseActor):
                  # RoPE ΔM (no RoPE in 2d path; for API consistency)
                  use_rope_delta_m=False,
                  rope_lambda_reg=0.0,
-                 traj_scene_rope=True,
-                 predict_extrinsics=False,
+                 head_positional_encoding='rope3d',
+                 view_align_mode='none',
                  # Denoising arguments
                  denoise_timesteps=100,
                  denoise_model="ddpm",
@@ -45,8 +44,8 @@ class DenoiseActor(BaseDenoiseActor):
             num_shared_attn_layers=num_shared_attn_layers,
             relative=relative,
             rotation_format=rotation_format,
-            traj_scene_rope=traj_scene_rope,
-            predict_extrinsics=predict_extrinsics,
+            head_positional_encoding=head_positional_encoding,
+            view_align_mode=view_align_mode,
             denoise_timesteps=denoise_timesteps,
             denoise_model=denoise_model,
             lv2_batch_size=lv2_batch_size
@@ -60,8 +59,7 @@ class DenoiseActor(BaseDenoiseActor):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
-            skip_fps=skip_fps,
-            image_space_sampling=image_space_sampling,
+            scene_sampling=scene_sampling,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder
         )
@@ -74,7 +72,7 @@ class DenoiseActor(BaseDenoiseActor):
             num_shared_attn_layers=num_shared_attn_layers,
             use_rope_delta_m=use_rope_delta_m,
             rope_lambda_reg=rope_lambda_reg,
-            predict_extrinsics=predict_extrinsics
+            view_align_mode=view_align_mode,
         )
 
     def forward(
@@ -87,7 +85,6 @@ class DenoiseActor(BaseDenoiseActor):
         instruction,
         proprio,
         run_inference=False,
-        stopgrad_k=0
     ):
         """
         Arguments:
@@ -117,14 +114,12 @@ class DenoiseActor(BaseDenoiseActor):
             return self.compute_trajectory(
                 trajectory_mask,
                 rgb3d, rgb2d, pcd, instruction, proprio,
-                stopgrad_k=stopgrad_k
             )
 
         # Training, use gt_trajectory to compute loss
         return self.compute_loss(
             gt_trajectory,
             rgb3d, rgb2d, pcd, instruction, proprio,
-            stopgrad_k=stopgrad_k
         )
 
 
@@ -138,15 +133,15 @@ class TransformerHead(BaseTransformerHead):
                  rotary_pe=False,
                  use_rope_delta_m=False,
                  rope_lambda_reg=0.0,
-                 predict_extrinsics=False):
+                 view_align_mode='none'):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
             nhist=nhist,
             rotary_pe=False,
-            traj_scene_rope=True,
-            predict_extrinsics=predict_extrinsics
+            head_positional_encoding='rope3d',
+            view_align_mode=view_align_mode,
         )
         # Positional embeddings
         # Fixed additive sinusoidal image-token PE. rotary_pe=False below means

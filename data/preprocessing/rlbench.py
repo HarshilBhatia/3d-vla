@@ -15,118 +15,79 @@ from .miscalibration import (
 )
 
 
+# A PERSISTENT per-camera-group calibration error. Orthogonal to perturbation
+# noise, which is per-sample jitter with no bias.
+MISCAL_MODES = ("none", "group")
+
+
 class RLBenchDataPreprocessor(DataPreprocessor):
 
-    def __init__(self, keypose_only=False, num_history=1, proprio_num_history=None,
+    def __init__(self, keypose_only=False, visual_num_history=1, proprio_num_history=None,
                  orig_imsize=256, custom_imsize=None, depth2cloud=None,
                  rotate_pcd=False, rotate_angle_deg=0.0, rotate_axis='z',
-                 miscal_max_angle_deg=None, miscal_max_translation_m=None,
-                 miscal_fixed_angle_deg=None, miscal_fixed_translation_m=None,
-                 orbital_miscal_noise_level=None,
-                 orbital_miscal_noise_file=None,
-                 orbital_miscal_noise_levels=None,
-                 cotrain_miscal_group_ids=None,
-                 cotrain_miscal_level=None,
-                 cotrain_miscal_levels=None,
-                 miscal_camera_ids=None,
-                 noise_curriculum=False,
-                 noise_curriculum_warmup_frac=1.0,
+                 miscal_mode='none',
+                 perturbation_noise_rot_deg=None, perturbation_noise_trans_m=None,
+                 perturbation_noise_fixed_rot_deg=None, perturbation_noise_fixed_trans_m=None,
+                 miscal_group_level=None,
+                 miscal_group_file=None,
+                 miscal_camera_groups=None,
+                 miscal_cameras=None,
                  **kwargs):
         super().__init__(
             keypose_only=keypose_only,
-            num_history=num_history,
+            visual_num_history=visual_num_history,
             proprio_num_history=proprio_num_history,
             custom_imsize=custom_imsize,
             depth2cloud=depth2cloud
         )
-        active = sum([
-            orbital_miscal_noise_level is not None,
-            bool(orbital_miscal_noise_levels),
-            bool(cotrain_miscal_group_ids),
-        ])
-        if active > 1:
-            raise ValueError(
-                "orbital_miscal_noise_level, orbital_miscal_noise_levels, and "
-                "cotrain_miscal_group_ids are mutually exclusive; set only one."
-            )
+        if miscal_mode not in MISCAL_MODES:
+            raise ValueError(f"miscal_mode must be one of {sorted(MISCAL_MODES)}, got {miscal_mode!r}")
+        self.miscal_mode = miscal_mode
         self.rotate_pcd = rotate_pcd
         self.rotate_angle_deg = rotate_angle_deg
         self.rotate_axis = rotate_axis
-        self.miscal_max_angle_deg = miscal_max_angle_deg or 0.0
-        self.miscal_max_translation_m = miscal_max_translation_m or 0.0
-        # Fixed-magnitude variant: when >0, override the "max" sampler so each
-        # perturbation has *exactly* this rotation angle / translation length
-        # (random direction). Useful for plotting metric vs. noise magnitude.
-        self.miscal_fixed_angle_deg = miscal_fixed_angle_deg or 0.0
-        self.miscal_fixed_translation_m = miscal_fixed_translation_m or 0.0
-        self._orbital_miscal_noise_level = orbital_miscal_noise_level
-        # Selects which fixed-base JSON the per-group table is read from. None =
-        # the pinned training file. An alternative file with the same schema
-        # (e.g. the held-out seed-3187 one) yields a never-seen fixed base.
-        self._orbital_miscal_noise_file = orbital_miscal_noise_file
-        self._orbital_miscal_noise_levels = list(orbital_miscal_noise_levels) if orbital_miscal_noise_levels else None
-        self._cotrain_miscal_group_ids = set(int(g) for g in cotrain_miscal_group_ids) if cotrain_miscal_group_ids else None
-        self._cotrain_miscal_level = cotrain_miscal_level
-        self._cotrain_miscal_levels = list(cotrain_miscal_levels) if cotrain_miscal_levels else None
-        self._miscal_camera_ids = (
-            None if miscal_camera_ids is None else tuple(sorted(set(int(i) for i in miscal_camera_ids)))
-        )
-        # Random mode: cotrain_miscal_group_ids + miscal_max_angle_deg (no file-based level needed)
-        self._cotrain_random_mode = (
-            bool(self._cotrain_miscal_group_ids)
-            and (miscal_max_angle_deg or 0.0) > 0
-            and cotrain_miscal_level is None
-            and not cotrain_miscal_levels
-        )
-        if self._cotrain_miscal_group_ids is not None and not self._cotrain_random_mode \
-                and (cotrain_miscal_level is None) == (self._cotrain_miscal_levels is None):
-            raise ValueError(
-                "cotrain_miscal_group_ids requires exactly one of cotrain_miscal_level "
-                "(single level) or cotrain_miscal_levels (list, sampled per-sample), "
-                "or set miscal_max_angle_deg>0 for per-group random noise."
-            )
-        self._group_noise_table        = None  # (K_groups,            ncam, 4, 4) CPU float32, lazy-init
-        self._group_level_noise_table  = None  # (K_group_levels,      ncam, 4, 4) CPU float32, lazy-init
-        self._group_level_key_to_row   = None  # {"G1_small": int, ...}
 
-        self._cotrain_group_noise_table = None  # (K_groups, ncam, 4, 4) for cotrain_miscal_level, lazy-init
+        # Per-sample jitter, no persistent bias: extrinsics stay correct on
+        # average. Composes on top of miscalibration when both are active.
+        self.perturbation_noise_rot_deg = perturbation_noise_rot_deg or 0.0
+        self.perturbation_noise_trans_m = perturbation_noise_trans_m or 0.0
+        # Every draw is exactly this magnitude (random direction), for sweeps.
+        self.perturbation_noise_fixed_rot_deg = perturbation_noise_fixed_rot_deg or 0.0
+        self.perturbation_noise_fixed_trans_m = perturbation_noise_fixed_trans_m or 0.0
+        self._has_perturbation = bool(
+            self.perturbation_noise_rot_deg or self.perturbation_noise_trans_m
+            or self.perturbation_noise_fixed_rot_deg or self.perturbation_noise_fixed_trans_m
+        )
+
+        # Scalar level -> levels[<level>]; list -> per_group_levels, one draw/sample.
+        self._group_level = miscal_group_level
+        self._group_levels = (
+            list(miscal_group_level) if isinstance(miscal_group_level, (list, tuple)) else None
+        )
+        if self._group_levels is not None:
+            self._group_level = None
+        # None = the pinned training file; a same-schema alternative gives a
+        # never-seen base at the same magnitude.
+        self._group_file = miscal_group_file
+        # None = every group; otherwise all other groups stay clean.
+        self._camera_groups = (
+            None if miscal_camera_groups is None
+            else set(int(g) for g in miscal_camera_groups)
+        )
+        self._miscal_cameras = (
+            None if miscal_cameras is None else tuple(sorted(set(int(i) for i in miscal_cameras)))
+        )
+
+        if miscal_mode == 'group' and miscal_group_level is None:
+            raise ValueError("miscal_mode='group' requires miscal_group_level (a level name or a list of them)")
+        if miscal_mode == 'none' and miscal_group_level is not None:
+            raise ValueError("miscal_group_level is set but miscal_mode='none'; set miscal_mode='group' to use it")
+
+        self._group_noise_table       = None  # (K_groups,       ncam, 4, 4) lazy-init
+        self._group_level_noise_table = None  # (K_group_levels, ncam, 4, 4) lazy-init
+        self._group_level_key_to_row  = None  # {"G1_small": int, ...}
         self._miscal_logged = False
-        self.noise_curriculum = noise_curriculum
-        self.noise_curriculum_warmup_frac = max(float(noise_curriculum_warmup_frac), 1e-6)
-        self._noise_progress = 0.0  # updated by trainer; 0 = no noise, 1 = full noise
-        if noise_curriculum:
-            print(f"[miscal] noise curriculum ENABLED: linear ramp over {noise_curriculum_warmup_frac:.1%} of training", flush=True)
-        if orbital_miscal_noise_level is not None:
-            extra = ""
-            if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
-                extra = f" + random top-up max_angle={miscal_max_angle_deg}deg, max_t={miscal_max_translation_m}m"
-            print(f"[miscal] per-group FILE: level='{orbital_miscal_noise_level}'{extra}", flush=True)
-
-        elif self._orbital_miscal_noise_levels:
-            print(f"[miscal] per-group MULTI-LEVEL (random): levels={self._orbital_miscal_noise_levels}", flush=True)
-        elif self._cotrain_miscal_group_ids is not None:
-            if self._cotrain_random_mode:
-                level_str = f"RANDOM max_angle={miscal_max_angle_deg}deg, max_t={miscal_max_translation_m}m"
-            elif self._cotrain_miscal_levels is not None:
-                level_str = f"levels={self._cotrain_miscal_levels} (sampled per-sample)"
-            else:
-                level_str = f"level='{cotrain_miscal_level}'"
-            print(
-                f"[miscal] co-train MIXED: groups {sorted(self._cotrain_miscal_group_ids)} get "
-                f"{level_str}, all others clean",
-                flush=True,
-            )
-        elif self.miscal_fixed_angle_deg > 0 or self.miscal_fixed_translation_m > 0:
-            print(
-                f"[miscal] fixed-magnitude ENABLED: "
-                f"angle={self.miscal_fixed_angle_deg}deg, "
-                f"translation={self.miscal_fixed_translation_m}m",
-                flush=True,
-            )
-        elif self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
-            print(f"[miscal] random ENABLED: max_angle={self.miscal_max_angle_deg}deg, max_translation={self.miscal_max_translation_m}m", flush=True)
-        else:
-            print("[miscal] disabled", flush=True)
+        print(f"[miscal] {self._describe()}", flush=True)
         self.aug = K.AugmentationSequential(
             K.RandomAffine(
                 degrees=0,
@@ -142,9 +103,29 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             )
         ).cuda()
 
-    def set_noise_progress(self, p: float):
-        """Set curriculum progress (0.0 = start, 1.0 = full noise). Called by trainer each step."""
-        self._noise_progress = float(p)
+    def _describe(self):
+        """One line naming the active regimes, for the startup log."""
+        parts = []
+        if self.miscal_mode == 'group':
+            level = self._group_levels if self._group_levels is not None else self._group_level
+            parts.append(f"miscalibration: per-group fixed, level={level!r}, "
+                         f"file={self._group_file or 'default'}")
+        if self._has_perturbation:
+            if self.perturbation_noise_fixed_rot_deg or self.perturbation_noise_fixed_trans_m:
+                mag = (f"fixed rot={self.perturbation_noise_fixed_rot_deg}deg, "
+                       f"trans={self.perturbation_noise_fixed_trans_m}m")
+            else:
+                mag = (f"rot=+-{self.perturbation_noise_rot_deg}deg, "
+                       f"trans=+-{self.perturbation_noise_trans_m}m")
+            parts.append(f"perturbation noise: {mag}")
+        if not parts:
+            return "disabled"
+        desc = "; ".join(parts)
+        if self._camera_groups is not None:
+            desc += f"; only camera groups {sorted(self._camera_groups)} (others clean)"
+        if self._miscal_cameras is not None:
+            desc += f"; only cameras {list(self._miscal_cameras)}"
+        return desc
 
     def _build_noise_table(self, loader_fn, ncam):
         """Build a (K, ncam, 4, 4) noise table from a loader function.
@@ -164,13 +145,11 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         """Lazily load (K, ncam, 4, 4) table indexed by (camera_group - 1)."""
         if self._group_noise_table is not None and self._group_noise_table.shape[1] == ncam:
             return
-        loader = lambda: _load_orbital_group_noise(
-            self._orbital_miscal_noise_level, noise_file=self._orbital_miscal_noise_file
-        )
+        loader = lambda: _load_orbital_group_noise(self._group_level, noise_file=self._group_file)
         self._group_noise_table, groups, _ = self._build_noise_table(loader, ncam)
         print(
-            f"[miscal] loaded from file: level='{self._orbital_miscal_noise_level}', "
-            f"file={self._orbital_miscal_noise_file or 'default'}, K={len(groups)}, ncam={ncam}",
+            f"[miscal] loaded from file: level='{self._group_level}', "
+            f"file={self._group_file or 'default'}, K={len(groups)}, ncam={ncam}",
             flush=True,
         )
 
@@ -178,17 +157,9 @@ class RLBenchDataPreprocessor(DataPreprocessor):
         """Lazily load (K_group_levels, ncam, 4, 4) table with keys like 'G1_small'."""
         if self._group_level_noise_table is not None and self._group_level_noise_table.shape[1] == ncam:
             return
-        self._group_level_noise_table, keys, self._group_level_key_to_row = self._build_noise_table(_load_orbital_group_level_noise, ncam)
+        self._group_level_noise_table, keys, self._group_level_key_to_row = \
+            self._build_noise_table(_load_orbital_group_level_noise, ncam)
         print(f"[miscal] per-group-level loaded: K={len(keys)}, ncam={ncam}", flush=True)
-
-    def _ensure_cotrain_group_noise_table(self, ncam):
-        """Lazily load (K_groups, ncam, 4, 4) table for co-training mixed-miscal mode."""
-        if self._cotrain_group_noise_table is not None and self._cotrain_group_noise_table.shape[1] == ncam:
-            return
-        loader = lambda: _load_orbital_group_noise(self._cotrain_miscal_level)
-        self._cotrain_group_noise_table, groups, _ = self._build_noise_table(loader, ncam)
-        print(f"[miscal] cotrain group noise loaded: level='{self._cotrain_miscal_level}', K={len(groups)}, ncam={ncam}", flush=True)
-
 
     def _lookup_group_level_noise(self, camera_group, levels, ncam, device, dtype):
         """Shared helper: randomly pick a level per sample, look up (B, ncam, 4, 4) from the group-level table."""
@@ -200,75 +171,70 @@ class RLBenchDataPreprocessor(DataPreprocessor):
 
     def _get_miscal_noise(self, B, ncam, device, dtype, camera_group=None, task=None):
         """Return (B, ncam, 4, 4) noise transform, or None if miscal is disabled."""
-        # Flatten to (B,) — dataset yields camera_group as (1,) or (1,1); collation
+        if self.miscal_mode == 'none' and not self._has_perturbation:
+            return None
+        # Flatten to (B,) -- dataset yields camera_group as (1,) or (1,1); collation
         # via torch.cat produces (B,) or (B,1). Squeeze to ensure 1-D indexing.
         if camera_group is not None:
             camera_group = camera_group.reshape(B)
-        if self._cotrain_miscal_group_ids is not None and camera_group is not None:
-            if self._cotrain_miscal_levels is not None:
-                T = self._lookup_group_level_noise(camera_group, self._cotrain_miscal_levels, ncam, device, dtype)
-            elif self._cotrain_miscal_level is not None:
-                self._ensure_cotrain_group_noise_table(ncam)
-                T = self._cotrain_group_noise_table[camera_group.long() - 1].to(device=device, dtype=dtype)
-            else:
-                # Random mode: freshly-sampled noise per batch, masked to miscal groups only
-                T = self._sample_random_miscalibration(B, ncam, device, dtype)
-            # Samples whose group is not in the miscal set get identity (clean extrinsics).
-            ids = torch.tensor(sorted(self._cotrain_miscal_group_ids), dtype=camera_group.dtype)
-            in_miscal = torch.isin(camera_group, ids).to(device=device).view(B, 1, 1, 1)
-            eye = torch.eye(4, device=device, dtype=dtype).view(1, 1, 4, 4).expand(B, ncam, 4, 4)
-            return self._mask_miscal_cameras(torch.where(in_miscal, T, eye), ncam)
-        if self._orbital_miscal_noise_level is not None and camera_group is not None:
-            self._ensure_group_noise_table(ncam)
-            T_base = self._group_noise_table[camera_group.long() - 1].to(device=device, dtype=dtype)
-            if self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0:
-                T_rand = self._sample_random_miscalibration(B, ncam, device, dtype)
-                return self._mask_miscal_cameras(T_rand @ T_base, ncam)
-            return self._mask_miscal_cameras(T_base, ncam)
-        if self._orbital_miscal_noise_levels is not None and camera_group is not None:
-            return self._mask_miscal_cameras(
-                self._lookup_group_level_noise(camera_group, self._orbital_miscal_noise_levels, ncam, device, dtype), ncam
-            )
 
-        if (self.miscal_max_angle_deg > 0 or self.miscal_max_translation_m > 0
-                or self.miscal_fixed_angle_deg > 0 or self.miscal_fixed_translation_m > 0):
-            return self._mask_miscal_cameras(self._sample_random_miscalibration(B, ncam, device, dtype), ncam)
-        return None
+        T = None
+        if self.miscal_mode == 'group':
+            if camera_group is None:
+                raise ValueError("miscal_mode='group' needs camera_group; the zarr has none")
+            if self._group_levels is not None:
+                T = self._lookup_group_level_noise(camera_group, self._group_levels, ncam, device, dtype)
+            else:
+                self._ensure_group_noise_table(ncam)
+                T = self._group_noise_table[camera_group.long() - 1].to(device=device, dtype=dtype)
+
+        if self._has_perturbation:
+            P = self._sample_random_perturbation(B, ncam, device, dtype)
+            T = P if T is None else P @ T
+
+        return self._mask_miscal_cameras(self._mask_camera_groups(T, camera_group, B, ncam, device, dtype), ncam)
+
+    def _mask_camera_groups(self, transforms, camera_group, B, ncam, device, dtype):
+        """Samples whose camera group is not selected keep clean extrinsics."""
+        if self._camera_groups is None:
+            return transforms
+        if camera_group is None:
+            raise ValueError("miscal_camera_groups is set but the zarr has no camera_group")
+        ids = torch.tensor(sorted(self._camera_groups), dtype=camera_group.dtype)
+        selected = torch.isin(camera_group, ids).to(device=device).view(B, 1, 1, 1)
+        eye = torch.eye(4, device=device, dtype=dtype).view(1, 1, 4, 4).expand(B, ncam, 4, 4)
+        return torch.where(selected, transforms, eye)
 
     def _mask_miscal_cameras(self, transforms, ncam):
         """Keep non-selected cameras geometrically clean (identity transform)."""
-        if self._miscal_camera_ids is None:
+        if self._miscal_cameras is None:
             return transforms
-        invalid = [i for i in self._miscal_camera_ids if i >= ncam]
+        invalid = [i for i in self._miscal_cameras if i >= ncam]
         if invalid:
-            raise ValueError(f"miscal_camera_ids={invalid} outside ncam={ncam}")
+            raise ValueError(f"miscal_cameras={invalid} outside ncam={ncam}")
         enabled = torch.zeros(ncam, dtype=torch.bool, device=transforms.device)
-        enabled[list(self._miscal_camera_ids)] = True
+        enabled[list(self._miscal_cameras)] = True
         eye = torch.eye(4, dtype=transforms.dtype, device=transforms.device).view(1, 1, 4, 4)
         return torch.where(enabled.view(1, ncam, 1, 1), transforms, eye)
 
-    def _sample_random_miscalibration(self, B, ncam, device, dtype):
-        """Sample one random noise extrinsics perturbation per (B, ncam).
+    def _sample_random_perturbation(self, B, ncam, device, dtype):
+        """Sample one random extrinsics perturbation per (B, ncam).
 
         Returns (B, ncam, 4, 4) transforms to left-multiply onto extrinsics.
-        Sampled once per batch item so all nhist snapshots get the same noise.
+        Drawn once per batch item so all nhist snapshots share the same jitter.
         """
-        # Curriculum scale: linearly ramp from 0 to 1 over warmup_frac of training
-        curriculum_scale = (
-            min(1.0, self._noise_progress / self.noise_curriculum_warmup_frac)
-            if self.noise_curriculum else 1.0
-        )
-
+        max_rot_deg = self.perturbation_noise_rot_deg
+        max_trans_m = self.perturbation_noise_trans_m
         # Random rotation via axis-angle: axis uniform on S². Angle is either
         # uniform in [-max, +max] (random "noise budget" mode) or exactly the
         # fixed magnitude (deterministic-magnitude mode for sweeps).
         axes = torch.randn(B, ncam, 3, device=device)
         axes = axes / (axes.norm(dim=-1, keepdim=True) + 1e-8)
-        if self.miscal_fixed_angle_deg > 0:
-            rad = self.miscal_fixed_angle_deg * math.pi / 180.0 * curriculum_scale
+        if self.perturbation_noise_fixed_rot_deg > 0:
+            rad = self.perturbation_noise_fixed_rot_deg * math.pi / 180.0
             angles = torch.full((B, ncam), rad, device=device)
         else:
-            max_rad = self.miscal_max_angle_deg * math.pi / 180.0 * curriculum_scale
+            max_rad = max_rot_deg * math.pi / 180.0
             angles = (torch.rand(B, ncam, device=device) * 2 - 1) * max_rad  # (B, ncam)
 
         # Rodrigues: R = I + sin(θ)K + (1-cos(θ))K²
@@ -286,12 +252,12 @@ class RLBenchDataPreprocessor(DataPreprocessor):
 
         # Random translation: either uniform-in-cube up to ±max per axis, or a
         # uniform unit direction times a fixed length (sweep mode).
-        if self.miscal_fixed_translation_m > 0:
+        if self.perturbation_noise_fixed_trans_m > 0:
             t_dir = torch.randn(B, ncam, 3, device=device)
             t_dir = t_dir / (t_dir.norm(dim=-1, keepdim=True) + 1e-8)
-            t = t_dir * (self.miscal_fixed_translation_m * curriculum_scale)
+            t = t_dir * self.perturbation_noise_fixed_trans_m
         else:
-            t = (torch.rand(B, ncam, 3, device=device) * 2 - 1) * (self.miscal_max_translation_m * curriculum_scale)
+            t = (torch.rand(B, ncam, 3, device=device) * 2 - 1) * max_trans_m
 
         # Assemble 4×4
         T = torch.eye(4, device=device, dtype=dtype).view(1, 1, 4, 4).expand(B, ncam, 4, 4).clone()

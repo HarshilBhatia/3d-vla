@@ -5,9 +5,8 @@ from ..encoder.multimodal.encoder3d import Encoder
 from ..utils.position_encodings import RotaryPositionEncoding3D
 from utils.pytorch3d_transforms import axis_angle_to_matrix
 
-from .base_denoise_actor import DenoiseActor as BaseDenoiseActor
+from .base_denoise_actor import VIEW_ALIGN_MODES, DenoiseActor as BaseDenoiseActor
 from .base_denoise_actor import TransformerHead as BaseTransformerHead
-from .recursive_set_encoder import RecursiveSetTransformerEncoder
 
 
 class DenoiseActor(BaseDenoiseActor):
@@ -20,10 +19,7 @@ class DenoiseActor(BaseDenoiseActor):
                  finetune_text_encoder=False,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
-                 skip_fps=False,
-                 position_based_sampling=False,
-                 image_space_sampling=False,
-                 use_proprio_rope=False,
+                 scene_sampling='fps',
                  lang_dropout_prob=0.0,
                  # Encoder and decoder arguments
                  embedding_dim=60,
@@ -39,27 +35,20 @@ class DenoiseActor(BaseDenoiseActor):
                  denoise_model="ddpm",
                  # Training arguments
                  lv2_batch_size=1,
-                 traj_scene_rope=True,
-                 predict_extrinsics=True,
-                 extrinsics_prediction_mode='delta_m',
-                 delta_m_camera_ids=None,
+                 head_positional_encoding='rope3d',
+                 view_align_mode='none',
+                 view_align_cameras=None,
                  # RoPE type
-                 rope_type='adam',
-                 dynamic_rope_from_camtoken=False,
+                 layerwise_view_align=False,
                  video_deltam=False,
                  video_deltam_depth=4,
                  video_deltam_max_history=32,
                  video_deltam_max_cameras=8,
                  video_deltam_full_image=False,
-                 use_learned_abs_pe=False,
-                 # Recursive Set Transformer Encoder
-                 use_recursive_set_encoder=False,
-                 recursive_set_encoder_num_layers=2,
-                 recursive_set_encoder_ncam=3,
                  # EE aux head
-                 predict_ee_aux=False,
-                 lambda_aux=1.0,
-                 ee_aux_cam_ids=(0, 1)):
+                 ee_aux=False,
+                 ee_aux_weight=1.0,
+                 ee_aux_cameras=(0, 1)):
         super().__init__(
             embedding_dim=embedding_dim,
             num_attn_heads=num_attn_heads,
@@ -71,16 +60,11 @@ class DenoiseActor(BaseDenoiseActor):
             denoise_timesteps=denoise_timesteps,
             denoise_model=denoise_model,
             lv2_batch_size=lv2_batch_size,
-            traj_scene_rope=traj_scene_rope,
-            predict_extrinsics=predict_extrinsics,
-            extrinsics_prediction_mode=extrinsics_prediction_mode,
+            head_positional_encoding=head_positional_encoding,
+            view_align_mode=view_align_mode,
         )
 
 
-        mechanism = 'physical_se3' if extrinsics_prediction_mode == 'rt' else extrinsics_prediction_mode
-        print(f'camera correction enabled (legacy predict_extrinsics): {predict_extrinsics}')
-        print(f'camera correction mode (legacy): {mechanism}')
-        print(f'rope_type: {rope_type}')
         
         # Vision-language encoder, runs only once
         self.encoder = Encoder(
@@ -91,12 +75,9 @@ class DenoiseActor(BaseDenoiseActor):
             num_attn_heads=num_attn_heads,
             num_vis_instr_attn_layers=num_vis_instr_attn_layers,
             fps_subsampling_factor=fps_subsampling_factor,
-            skip_fps=skip_fps,
-            position_based_sampling=position_based_sampling,
-            image_space_sampling=image_space_sampling,
+            scene_sampling=scene_sampling,
             finetune_backbone=finetune_backbone,
             finetune_text_encoder=finetune_text_encoder,
-            rope_type=rope_type,
             lang_dropout_prob=lang_dropout_prob,
             video_deltam_full_image=video_deltam_full_image,
         )
@@ -107,34 +88,20 @@ class DenoiseActor(BaseDenoiseActor):
             nhist=nhist * nhand,
             num_attn_heads=num_attn_heads,
             num_shared_attn_layers=num_shared_attn_layers,
-            traj_scene_rope=traj_scene_rope,
-            predict_extrinsics=predict_extrinsics,
-            extrinsics_prediction_mode=extrinsics_prediction_mode,
-            delta_m_camera_ids=delta_m_camera_ids,
-            rope_type=rope_type,
-            dynamic_rope_from_camtoken=dynamic_rope_from_camtoken,
+            head_positional_encoding=head_positional_encoding,
+            view_align_mode=view_align_mode,
+            view_align_cameras=view_align_cameras,
+            layerwise_view_align=layerwise_view_align,
             video_deltam=video_deltam,
             video_deltam_depth=video_deltam_depth,
             video_deltam_max_history=video_deltam_max_history,
             video_deltam_max_cameras=video_deltam_max_cameras,
             video_deltam_full_image=video_deltam_full_image,
-            use_proprio_rope=use_proprio_rope,
-            use_learned_abs_pe=use_learned_abs_pe,
-            predict_ee_aux=predict_ee_aux,
-            lambda_aux=lambda_aux,
-            ee_aux_cam_ids=ee_aux_cam_ids,
+            ee_aux=ee_aux,
+            ee_aux_weight=ee_aux_weight,
+            ee_aux_cameras=ee_aux_cameras,
         )
         
-        # Recursive Set Transformer Encoder (optional upstream feature refinement)
-        if use_recursive_set_encoder:
-            self.recursive_set_encoder = RecursiveSetTransformerEncoder(
-                embedding_dim=embedding_dim,
-                ncam=recursive_set_encoder_ncam,
-                num_layers=recursive_set_encoder_num_layers,
-                num_attn_heads=num_attn_heads,
-                rope_type=rope_type,
-            )
-
 
 
 def _transform_pcd_with_extrinsics(pcd, cam_params):
@@ -164,9 +131,8 @@ class TransformerHead(BaseTransformerHead):
                  nhist=3,
                  num_shared_attn_layers=4,
                  rotary_pe=True,
-                 traj_scene_rope=True,
-                 predict_extrinsics=True,
-                 rope_type='normal',
+                 head_positional_encoding='rope3d',
+                 view_align_mode='none',
                  **kwargs):
         super().__init__(
             embedding_dim=embedding_dim,
@@ -174,25 +140,24 @@ class TransformerHead(BaseTransformerHead):
             nhist=nhist,
             num_shared_attn_layers=num_shared_attn_layers,
             rotary_pe=rotary_pe,
-            traj_scene_rope=traj_scene_rope,
-            predict_extrinsics=predict_extrinsics,
-            extrinsics_prediction_mode=kwargs.get("extrinsics_prediction_mode", 'delta_m'),
-            dynamic_rope_from_camtoken=kwargs.get("dynamic_rope_from_camtoken", False),
+            head_positional_encoding=head_positional_encoding,
+            view_align_mode=view_align_mode,
+            view_align_cameras=kwargs.get("view_align_cameras", None),
+            layerwise_view_align=kwargs.get("layerwise_view_align", False),
             video_deltam=kwargs.get("video_deltam", False),
             video_deltam_depth=kwargs.get("video_deltam_depth", 4),
             video_deltam_max_history=kwargs.get("video_deltam_max_history", 32),
             video_deltam_max_cameras=kwargs.get("video_deltam_max_cameras", 8),
             video_deltam_full_image=kwargs.get("video_deltam_full_image", False),
-            use_learned_abs_pe=kwargs.get("use_learned_abs_pe", False),
-            predict_ee_aux=kwargs.get("predict_ee_aux", False),
-            lambda_aux=kwargs.get("lambda_aux", 1.0),
-            ee_aux_cam_ids=kwargs.get("ee_aux_cam_ids", (0, 1)),
+            ee_aux=kwargs.get("ee_aux", False),
+            ee_aux_weight=kwargs.get("ee_aux_weight", 1.0),
+            ee_aux_cameras=kwargs.get("ee_aux_cameras", (0, 1)),
         )
 
-        self.predict_extrinsics = predict_extrinsics
+        self.predict_extrinsics = VIEW_ALIGN_MODES[view_align_mode][0]
 
         # Relative positional embeddings
-        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim, rope_type=rope_type)
+        self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
 
 
     def get_positional_embeddings(
@@ -202,7 +167,6 @@ class TransformerHead(BaseTransformerHead):
         timesteps, proprio_feats,
         fps_scene_feats, fps_scene_pos,
         instr_feats, instr_pos,
-        stopgrad_k=0,
         delta_M=None,
         cam_params_rt=None,
         fps_cam_ids=None,
@@ -239,11 +203,10 @@ class TransformerHead(BaseTransformerHead):
                 delta_M_rgb3d = delta_M  # (B, ncam, D, D)
                 grouped_ncam = ncam
 
-        rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
+        rel_traj_pos = self.relative_pe_layer(traj_xyz)
         rel_scene_pos = self.relative_pe_layer(
             rgb3d_pos,
             allow_grad=allow_grad,
-            stopgrad_k=stopgrad_k,
             delta_M=delta_M_rgb3d,
             ncam=grouped_ncam,
         )
@@ -251,7 +214,6 @@ class TransformerHead(BaseTransformerHead):
         rel_fps_pos = self.relative_pe_layer(
             fps_scene_pos,
             allow_grad=allow_grad,
-            stopgrad_k=stopgrad_k,
             delta_M=delta_M_fps,
         )
         
@@ -264,15 +226,15 @@ class TransformerHead(BaseTransformerHead):
         rel_pos = torch.cat([rel_traj_pos, rel_fps_pos, zero_pos], 1)
         return rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos
 
-    def _precompute_rope_bases(self, traj_xyz, rgb3d_pos, fps_scene_pos, stopgrad_k):
+    def _precompute_rope_bases(self, traj_xyz, rgb3d_pos, fps_scene_pos):
         """Pre-compute sin/cos bases for traj, scene, and fps positions (delta_M mode only).
 
         Returns (traj_base, scene_base, fps_base), each [B, N, d//6, 6], detached.
         Called once before the per-block loop; bases are reused with different delta_M each block.
         """
-        traj_base = self.relative_pe_layer._compute_sincos_base(traj_xyz, stopgrad_k)
-        scene_base = self.relative_pe_layer._compute_sincos_base(rgb3d_pos, stopgrad_k)
-        fps_base = self.relative_pe_layer._compute_sincos_base(fps_scene_pos, stopgrad_k)
+        traj_base = self.relative_pe_layer._compute_sincos_base(traj_xyz)
+        scene_base = self.relative_pe_layer._compute_sincos_base(rgb3d_pos)
+        fps_base = self.relative_pe_layer._compute_sincos_base(fps_scene_pos)
         return traj_base, scene_base, fps_base
 
     def _apply_delta_M_rope(self, traj_base, scene_base, fps_base, delta_M, delta_M_fps=None,
@@ -299,30 +261,28 @@ class TransformerHead(BaseTransformerHead):
 
         return rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos
 
-    def _recompute_rope(self, cam_feat, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos, stopgrad_k,
-                        bases=None, fps_cam_ids=None, per_img_feats=None):
+    def _recompute_rope(self, traj_xyz, orig_rgb3d_pos, orig_fps_scene_pos,
+                        bases=None, fps_cam_ids=None, camera_summaries=None):
         """
         Predict delta_M or (R,T) and recompute 3D RoPE embeddings.
 
         Args:
-            cam_feat: (B, C) — unused in delta_M mode; kept for RT mode
             traj_xyz: (B, T, 3)
             orig_rgb3d_pos: (B, N, 3)
             orig_fps_scene_pos: (B, M+ncam, 3)
-            stopgrad_k: int
             bases: optional (traj_base, scene_base, fps_base) from _precompute_rope_bases
             fps_cam_ids: (B, M) — required; camera index per fps token
-            per_img_feats: (B, ncam, C) — required; current per-image avg token features
+            camera_summaries: (B, ncam, C) — required; one mean token per camera
 
         Returns:
             (rel_traj_pos, rel_scene_pos, rel_pos, rel_fps_pos)
         """
         allow_grad = self.training and self.predict_extrinsics
 
-        assert fps_cam_ids is not None and per_img_feats is not None, \
-            "_recompute_rope requires fps_cam_ids and per_img_feats"
+        assert fps_cam_ids is not None and camera_summaries is not None, \
+            "_recompute_rope requires fps_cam_ids and camera_summaries"
 
-        cam_params_rt, delta_M = self._predict_from_cam_feat(per_img_feats)  # (B, ncam, 6/D, 6/D)
+        cam_params_rt, delta_M = self._predict_from_cam_feat(camera_summaries)  # (B, ncam, 6/D, 6/D)
 
         if cam_params_rt is not None:
             rgb3d_pos = _transform_pcd_with_extrinsics(orig_rgb3d_pos, cam_params_rt)
@@ -361,12 +321,12 @@ class TransformerHead(BaseTransformerHead):
                 traj_base, scene_base, fps_base, delta_M_rgb3d, delta_M_fps,
                 ncam=grouped_ncam)
         else:
-            rel_traj_pos = self.relative_pe_layer(traj_xyz, stopgrad_k=stopgrad_k)
+            rel_traj_pos = self.relative_pe_layer(traj_xyz)
             rel_scene_pos = self.relative_pe_layer(
-                rgb3d_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M_rgb3d,
+                rgb3d_pos, allow_grad=allow_grad, delta_M=delta_M_rgb3d,
                 ncam=grouped_ncam)
             rel_fps_pos = self.relative_pe_layer(
-                fps_scene_pos, allow_grad=allow_grad, stopgrad_k=stopgrad_k, delta_M=delta_M_fps)
+                fps_scene_pos, allow_grad=allow_grad, delta_M=delta_M_fps)
 
             batch_size = traj_xyz.shape[0]
             zero_pos = torch.zeros(

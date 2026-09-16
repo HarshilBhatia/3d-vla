@@ -6,6 +6,15 @@ from ..vision import fetch_visual_encoders
 from ..text import fetch_text_encoders
 
 
+# Public name -> (skip_fps, image_space_sampling, position_based_sampling).
+SCENE_SAMPLING = {
+    "fps":         (False, False, False),
+    "fps_xyz":     (False, False, True),
+    "image_space": (False, True, False),
+    "none":        (True, False, False),
+}
+
+
 class Encoder(nn.Module):
 
     def __init__(self,
@@ -16,18 +25,20 @@ class Encoder(nn.Module):
                  num_attn_heads=9,
                  num_vis_instr_attn_layers=2,
                  fps_subsampling_factor=5,
-                 skip_fps=False,
-                 position_based_sampling=False,
-                 image_space_sampling=False,
+                 scene_sampling='fps',
                  finetune_backbone=False,
                  finetune_text_encoder=False,
                  lang_dropout_prob=0.0,
                  video_deltam_full_image=False):
         super().__init__()
         self.subsampling_factor = fps_subsampling_factor
-        self.skip_fps = skip_fps
-        self.position_based_sampling = position_based_sampling
-        self.image_space_sampling = image_space_sampling
+        if scene_sampling not in SCENE_SAMPLING:
+            raise ValueError(
+                f"scene_sampling must be one of {sorted(SCENE_SAMPLING)}, got {scene_sampling!r}"
+            )
+        self.scene_sampling = scene_sampling
+        (self.skip_fps, self.image_space_sampling,
+         self.position_based_sampling) = SCENE_SAMPLING[scene_sampling]
         self._backbone_name = backbone
         self._finetune_backbone = finetune_backbone
         self.lang_dropout_prob = lang_dropout_prob
@@ -77,7 +88,7 @@ class Encoder(nn.Module):
             self.backbone.eval()
         return self
 
-    def forward(self, rgb3d, rgb2d, pcd, instruction, proprio, stopgrad_k=0):
+    def forward(self, rgb3d, rgb2d, pcd, instruction, proprio):
         """
         Encode different modalities, independent of denoising step.
 
@@ -104,7 +115,7 @@ class Encoder(nn.Module):
         )
         rgb2d_pos = None
 
-        # When nhist > 1, FPS and per-image tokens use only the latest frame
+        # When nhist > 1, FPS and camera-summary tokens use only the latest frame
         if rgb3d_feats.ndim == 4:  # (B, nhist, ncam*P, F)
             rgb3d_feats_curr = rgb3d_feats[:, -1]  # (B, ncam*P, F)
             pcd_curr = pcd_out[:, -1]              # (B, ncam*P, 3)
@@ -117,7 +128,7 @@ class Encoder(nn.Module):
 
         # Encode proprioception using current frame's scene context
         proprio_feats = self.encode_proprio(
-            proprio, rgb3d_feats_curr, pcd_curr, stopgrad_k=stopgrad_k
+            proprio, rgb3d_feats_curr, pcd_curr
         )
 
         # Build (B, Np) camera-index tensor from current frame
@@ -147,8 +158,9 @@ class Encoder(nn.Module):
         # Per-image average tokens from current frame.  Keep the full history
         # separately for Video-DeltaM; the legacy decoder still consumes only
         # current-frame FPS tokens.
-        per_img_feats = rgb3d_feats_curr.reshape(rgb3d_feats_curr.shape[0], ncam, -1, rgb3d_feats_curr.shape[-1]).mean(dim=2)
-        per_img_pos = pcd_curr.reshape(pcd_curr.shape[0], ncam, -1, pcd_curr.shape[-1]).mean(dim=2)
+        # One token per camera: the mean of that camera's patches, current frame.
+        camera_summaries = rgb3d_feats_curr.reshape(rgb3d_feats_curr.shape[0], ncam, -1, rgb3d_feats_curr.shape[-1]).mean(dim=2)
+        camera_summary_pos = pcd_curr.reshape(pcd_curr.shape[0], ncam, -1, pcd_curr.shape[-1]).mean(dim=2)
         if rgb3d_feats.ndim == 4:
             video_frame_feats = rgb3d_feats.reshape(
                 rgb3d_feats.shape[0], rgb3d_feats.shape[1], ncam, -1, rgb3d_feats.shape[-1]
@@ -158,11 +170,11 @@ class Encoder(nn.Module):
         else:
             video_frame_feats = (
                 rgb3d_feats.reshape(rgb3d_feats.shape[0], 1, ncam, -1, rgb3d_feats.shape[-1])
-                if self.video_deltam_full_image else per_img_feats.unsqueeze(1)
+                if self.video_deltam_full_image else camera_summaries.unsqueeze(1)
             )
 
-        fps_scene_feats = torch.cat([fps_scene_feats, per_img_feats], dim=1)
-        fps_scene_pos = torch.cat([fps_scene_pos, per_img_pos], dim=1)
+        fps_scene_feats = torch.cat([fps_scene_feats, camera_summaries], dim=1)
+        fps_scene_pos = torch.cat([fps_scene_pos, camera_summary_pos], dim=1)
 
         return (
             rgb3d_feats, pcd_out,

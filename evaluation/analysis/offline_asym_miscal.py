@@ -2,7 +2,7 @@
 
 Tier-3 proposal T3-1 from ``docs/status/deltam_advantage_analysis.md``. The Tier-2
 result there is that ``||delta_M - I||_F`` only responds to injected corruption on
-cameras 0 and 1, which are exactly ``ee_aux_cam_ids``. That predicts a
+cameras 0 and 1, which are exactly ``ee_aux_cameras``. That predicts a
 **camera x arm interaction**: corrupt one camera at a time and R1c (deltaM +
 EE-aux) should hold up better than R1a/R1b when the corrupted camera is one it
 supervises, and no better when it is not.
@@ -34,7 +34,7 @@ Usage (one H200)::
         samples_npz=results/asym_miscal/samples.npz \\
         n_directions=3 num_batches=100 \\
         data=orbital_peract2_nfs bimanual=true dataset=OrbitalPeract2 \\
-        num_history=3 batch_size_val=64 num_workers=8
+        visual_num_history=3 batch_size_val=64 num_workers=8
 
 ``arm_names`` is optional but recommended: every checkpoint in this experiment is
 named ``interm_step_100000.pth``, so the file stem does not identify the arm.
@@ -331,10 +331,10 @@ def main():
         if nhand != 2:
             raise ValueError("This analysis is bimanual-only; pass bimanual=true")
         print(
-            f"\n=== {arm} ({Path(ckpt_path).name}, step {step})  predict_extrinsics="
-            f"{getattr(args_copy, 'predict_extrinsics', False)}  "
-            f"predict_ee_aux={getattr(args_copy, 'predict_ee_aux', False)}  "
-            f"ee_aux_cam_ids={getattr(args_copy, 'ee_aux_cam_ids', None)}",
+            f"\n=== {arm} ({Path(ckpt_path).name}, step {step})  view_align_mode="
+            f"{getattr(args_copy, 'view_align_mode', 'none')}  "
+            f"ee_aux={getattr(args_copy, 'ee_aux', False)}  "
+            f"ee_aux_cameras={getattr(args_copy, 'ee_aux_cameras', None)}",
             flush=True,
         )
 

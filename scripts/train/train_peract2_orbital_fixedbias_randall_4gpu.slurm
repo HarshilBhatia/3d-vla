@@ -31,15 +31,10 @@ case "$ARM" in
     DEFAULT_RUN_LOG_DIR=peract2_orbital_new_external_only_miscal_deltam_external
     ;;
   video_deltam_external)
-    EXPERIMENT=peract2_orbital_new_external_only_miscal_deltam_external
+    EXPERIMENT=peract2_orbital_vid_deltam_pooled
     DEFAULT_RUN_LOG_DIR=peract2_orbital_video_deltam_external_warmstart_k5v_k3p
-    EXTRA_MODEL_OVERRIDES=(
-      video_deltam=true
-      video_deltam_depth=4
-      video_deltam_max_cameras=4
-      num_history=5
-      proprio_num_history=3
-    )
+    # The experiment owns the pooled Video-DeltaM architecture, so this arm
+    # cannot drift from the fullpatch sibling through shell overrides.
     ;;
   video_deltam_fullpatch)
     EXPERIMENT=peract2_orbital_vid_deltam_fullpatch
@@ -92,11 +87,12 @@ torchrun --nproc_per_node="$NGPUS" --master_port="$MASTER_PORT" main.py \
     exp_log_dir=PerAct2 \
     run_log_dir="$RUN_LOG_DIR" \
     train_iters="$TRAIN_ITERS" \
-    orbital_miscal_noise_level=medium \
-    orbital_miscal_noise_file="$FIXED_NOISE_FILE" \
-    miscal_max_angle_deg=3.0 \
-    miscal_max_translation_m=0.01 \
-    'miscal_camera_ids=[0,1]' \
+    miscal_mode=group \
+    miscal_group_level=medium \
+    miscal_group_file="$FIXED_NOISE_FILE" \
+    perturbation_noise_rot_deg=3.0 \
+    perturbation_noise_trans_m=0.01 \
+    'miscal_cameras=[0,1]' \
     video_deltam_cache_batches=4 \
     video_deltam_cache_span=8 \
     batch_size="$BATCH_SIZE" \
