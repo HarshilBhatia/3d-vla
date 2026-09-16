@@ -100,9 +100,11 @@ class Encoder(nn.Module):
         Returns:
             - rgb3d_feats: (B, Np, F) or (B, nhist, Np, F) when nhist > 1
             - pcd_out: (B, Np, 3) or (B, nhist, Np, 3)
-            - fps_scene_feats/pos: always built from the CURRENT (latest) frame
+            - fps_scene_feats/pos: FPS points only, from the CURRENT frame; the
+              caller appends the camera summaries after Video-DeltaM refines them
             - video_frame_feats: pooled token for every (history, camera) frame,
               or full per-image visual tokens when video_deltam_full_image=True
+            - camera_summaries/pos: one mean token per camera, current frame
         """
         vl_enc_fn = {
             'clip': self.encode_clip,
@@ -155,27 +157,25 @@ class Encoder(nn.Module):
 
 
 
-        # Per-image average tokens from current frame.  Keep the full history
-        # separately for Video-DeltaM; the legacy decoder still consumes only
-        # current-frame FPS tokens.
+        # Visual tokens grouped per (history step, camera): (B, K, ncam, P, F),
+        # mean-pooled over P unless the full-patch path needs the whole grid.
+        history = rgb3d_feats.shape[1] if rgb3d_feats.ndim == 4 else 1
+        video_frame_feats = rgb3d_feats.reshape(
+            rgb3d_feats.shape[0], history, ncam, -1, rgb3d_feats.shape[-1]
+        )
+        if not self.video_deltam_full_image:
+            video_frame_feats = video_frame_feats.mean(dim=3)
+
         # One token per camera: the mean of that camera's patches, current frame.
-        camera_summaries = rgb3d_feats_curr.reshape(rgb3d_feats_curr.shape[0], ncam, -1, rgb3d_feats_curr.shape[-1]).mean(dim=2)
+        # In the pooled path that is exactly video_frame_feats[:, -1].
+        camera_summaries = (
+            video_frame_feats[:, -1].mean(dim=2) if self.video_deltam_full_image
+            else video_frame_feats[:, -1]
+        )
         camera_summary_pos = pcd_curr.reshape(pcd_curr.shape[0], ncam, -1, pcd_curr.shape[-1]).mean(dim=2)
-        if rgb3d_feats.ndim == 4:
-            video_frame_feats = rgb3d_feats.reshape(
-                rgb3d_feats.shape[0], rgb3d_feats.shape[1], ncam, -1, rgb3d_feats.shape[-1]
-            )
-            if not self.video_deltam_full_image:
-                video_frame_feats = video_frame_feats.mean(dim=3)
-        else:
-            video_frame_feats = (
-                rgb3d_feats.reshape(rgb3d_feats.shape[0], 1, ncam, -1, rgb3d_feats.shape[-1])
-                if self.video_deltam_full_image else camera_summaries.unsqueeze(1)
-            )
 
-        fps_scene_feats = torch.cat([fps_scene_feats, camera_summaries], dim=1)
-        fps_scene_pos = torch.cat([fps_scene_pos, camera_summary_pos], dim=1)
-
+        # The camera summaries are appended to the scene tokens by the caller,
+        # which first gives Video-DeltaM the chance to refine them.
         return (
             rgb3d_feats, pcd_out,
             rgb2d_feats, rgb2d_pos,
@@ -184,6 +184,7 @@ class Encoder(nn.Module):
             fps_scene_feats, fps_scene_pos,
             fps_cam_ids,
             video_frame_feats,
+            camera_summaries, camera_summary_pos,
         )
 
     def encode_proprio(self, proprio, context_feats, context_pos):

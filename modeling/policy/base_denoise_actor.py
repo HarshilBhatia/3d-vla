@@ -115,13 +115,31 @@ class DenoiseActor(nn.Module):
         self.nrm_dim = int(self.workspace_normalizer.size(-1))
 
     def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio):
-        fixed_inputs = self.encoder(
-            rgb3d, rgb2d, pcd, instruction,
-            proprio.flatten(1, 2),
+        (rgb3d_feats, pcd_out, rgb2d_feats, rgb2d_pos, instr_feats, instr_pos,
+         proprio_feats, fps_scene_feats, fps_scene_pos, fps_cam_ids,
+         video_frame_feats, camera_summaries, camera_summary_pos) = self.encoder(
+            rgb3d, rgb2d, pcd, instruction, proprio.flatten(1, 2),
         )
+
+        # Video-DeltaM runs here, not in the head: its inputs do not change
+        # across denoising steps, so the head would recompute it n_steps times.
+        video_camera = None
+        head = self.prediction_head
+        if getattr(head, 'video_deltam', None) is not None:
+            if fps_cam_ids is None:
+                raise ValueError("video_deltam=True requires camera-indexed FPS tokens")
+            fixed_camera_token = head.camera_token.unsqueeze(0).expand(rgb3d.shape[0], -1, -1)
+            refined_frames, video_camera = head.video_deltam(video_frame_feats, fixed_camera_token)
+            camera_summaries = refined_frames[:, -1]
+
+        fps_scene_feats = torch.cat([fps_scene_feats, camera_summaries], dim=1)
+        fps_scene_pos = torch.cat([fps_scene_pos, camera_summary_pos], dim=1)
+
         # Query trajectory (for relative trajectory prediction)
         query_trajectory = proprio[:, -1:]
-        return (query_trajectory,) + fixed_inputs
+        return (query_trajectory, rgb3d_feats, pcd_out, rgb2d_feats, rgb2d_pos,
+                instr_feats, instr_pos, proprio_feats, fps_scene_feats,
+                fps_scene_pos, fps_cam_ids, video_camera)
 
     def policy_forward_pass(self, trajectory, timestep, fixed_inputs):
         # Parse inputs
@@ -133,7 +151,7 @@ class DenoiseActor(nn.Module):
             proprio_feats,
             fps_scene_feats, fps_scene_pos,
             fps_cam_ids,
-            video_frame_feats,
+            video_camera,
         ) = fixed_inputs
 
         # Get features from normalized (relative) trajectory
@@ -173,7 +191,7 @@ class DenoiseActor(nn.Module):
             fps_scene_pos=fps_scene_pos,
             fps_cam_ids=fps_cam_ids,
             precomputed_delta_M=precomputed_delta_M,
-            video_frame_feats=video_frame_feats,
+            video_camera=video_camera,
         )
 
     def conditional_sample(self, trajectory, device, fixed_inputs):
@@ -896,7 +914,7 @@ class TransformerHead(nn.Module):
                 rgb3d_feats, rgb3d_pos, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats,
                 fps_scene_feats, fps_scene_pos, fps_cam_ids=None,
-                precomputed_delta_M=None, video_frame_feats=None):
+                precomputed_delta_M=None, video_camera=None):
         """
         Arguments:
             traj_feats: (B, trajectory_length, nhand, F)
@@ -949,19 +967,9 @@ class TransformerHead(nn.Module):
         )
 
         batch_size, device = trajectory.shape[0], trajectory.device
-        video_camera = None
-        if self.video_deltam is not None:
-            if video_frame_feats is None:
-                raise ValueError("video_deltam=True requires per-frame encoder tokens")
-            if fps_cam_ids is None:
-                raise ValueError("video_deltam=True requires camera-indexed FPS tokens")
-            # Bytecode-recovered legacy contract: use both outputs.  The
-            # refined current per-camera summaries feed Delta-M, while the
-            # global history context conditions every trajectory query.
-            fixed_camera_token = self.camera_token.unsqueeze(0).expand(batch_size, -1, -1)
-            refined_frames, video_camera = self.video_deltam(video_frame_feats, fixed_camera_token)
-            ncam = refined_frames.shape[2]
-            fps_scene_feats = torch.cat([fps_scene_feats[:, :-ncam], refined_frames[:, -1]], dim=1)
+        # Video-DeltaM already ran in encode_inputs; the camera summaries it
+        # refined are in fps_scene_feats and its history register arrives here.
+        if video_camera is not None:
             traj_feats = traj_feats + video_camera
         if precomputed_delta_M is not None:
             # An upstream module already produced delta_M; skip the head's predictor.
