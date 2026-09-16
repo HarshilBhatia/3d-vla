@@ -1,0 +1,13 @@
+{
+  "schema_version": 1,
+  "campaign_id": "video_deltam_pick_laptop_iter_v03_legacy_camera_mask",
+  "description": "Single-task Video-DeltaM replay with legacy checkpoint camera-mask compatibility.",
+  "calibration_registry": "instructions/eval_calibrations_seen_base_residual_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit",
+  "methods": [{"id": "video_deltam_k5v_k3p_best", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth"}],
+  "task_viewpoints": {"bimanual_pick_laptop": {"id": "g2_seen_train_group", "spawn_camera_group": "G2", "regime": "seen_train_group", "cameras_file": "instructions/orbital_cameras_grouped.json"}},
+  "task_calibrations": {"bimanual_pick_laptop": ["seen-g2-medium-e3deg-t1cm-v01"]},
+  "calibrations": ["e3deg-t1cm"],
+  "tasks": ["bimanual_pick_laptop"],
+  "runtime": {"data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true, "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true, "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 20, "overrides": {"visual_num_history": 5, "proprio_num_history": 3, "eval_proprio_history_order": "past_to_current"}}
+}

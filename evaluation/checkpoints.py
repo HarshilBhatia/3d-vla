@@ -21,6 +21,10 @@ EVALUATION_RUNTIME_KEYS = frozenset({
     "save_trajectory", "eval_use_depth2cloud", "image_size",
     "collision_checking", "cfg_scale", "prediction_len", "max_steps",
     "eval_proprio_history_order",
+    # Dataset/rollout input shape controls; these do not change model
+    # architecture (proprio_num_history remains checkpoint-owned because it
+    # determines decoder dimensions).
+    "visual_num_history",
 })
 
 
@@ -70,10 +74,27 @@ def load_model_for_evaluation(args: Any):
     checkpoint_config = checkpoint.get("config", {})
     if not checkpoint_config:
         raise ValueError("model missing config")
+    # Before the public config refactor, denoise_actor_3d.Transformer's
+    # constructor did not forward ``delta_m_camera_ids`` to the head.  The
+    # released Video-DeltaM checkpoint therefore actually corrected every
+    # camera, despite saving [0, 1].  Preserve that behavior when loading an
+    # old-schema checkpoint; new-schema checkpoints intentionally honor the
+    # camera restriction.
+    legacy_unwired_delta_m_cameras = (
+        "dynamic_rope_from_camtoken" in checkpoint_config
+        and "delta_m_camera_ids" in checkpoint_config
+    )
     checkpoint_config = migrate_config(checkpoint_config)
 
     loaded = overlay_checkpoint_config(args, checkpoint_config)
     normalize_public_vocabulary_args(args)
+    if legacy_unwired_delta_m_cameras and getattr(args, "view_align_mode", "none") != "none":
+        args.view_align_cameras = None
+        print(
+            "[checkpoint compat] preserving legacy Video-DeltaM behavior: "
+            "delta_M correction was applied to all cameras by the old head",
+            flush=True,
+        )
     print("Arguments loaded from checkpoint:")
     for key, value in sorted(loaded.items()):
         print(f"  {key}: {value}")
@@ -94,6 +115,30 @@ def load_model_for_evaluation(args: Any):
     }
     incompatible = model.load_state_dict(state, strict=False)
     missing, unexpected = _non_frozen_checkpoint_incompatibilities(model, incompatible)
+    # Full-patch checkpoints produced before the Video-DeltaM readout refactor
+    # contain the learned image token and sparse attention weights, but not the
+    # subsequently-added image_readout/camera_readout modules.  Their original
+    # forward path is still available explicitly; enable it only for this exact
+    # key pattern rather than weakening checkpoint validation globally.
+    legacy_prefixes = (
+        "prediction_head.video_deltam.image_readout.",
+        "prediction_head.video_deltam.camera_readout.",
+    )
+    if (
+        getattr(args, "video_deltam_full_image", False)
+        and missing
+        and not unexpected
+        and all(key.startswith(legacy_prefixes) for key in missing)
+        and hasattr(model.prediction_head.video_deltam, "enable_legacy_checkpoint_compat")
+    ):
+        model.prediction_head.video_deltam.enable_legacy_checkpoint_compat()
+        print(
+            "[checkpoint compat] using pre-readout full-image Video-DeltaM "
+            "forward path; missing readout weights are intentionally absent from "
+            "this checkpoint",
+            flush=True,
+        )
+        missing = []
     if missing or unexpected:
         raise RuntimeError(
             "checkpoint/model architecture mismatch; refusing an invalid evaluation. "
