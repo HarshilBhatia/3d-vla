@@ -121,6 +121,13 @@ video_deltam_max_cameras: 8
 # Give Video-DeltaM the complete encoder token grid for every historical image.
 # A learned per-image token reads each grid locally before sparse video attention.
 video_deltam_full_image: false
+# What the Video-DeltaM stack is for:
+#   refine          — it hands the decoder history-refined camera summaries and a
+#                     global history register; the head still predicts delta_M
+#   predict_delta_m — delta_M is its ONLY output, reused across the whole decoder.
+#                     Scene tokens and trajectory queries are left untouched and
+#                     the head predicts nothing.
+video_deltam_role: refine
 relative_action: false
 rotation_format: quat_xyzw
 denoise_timesteps: 5

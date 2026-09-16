@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, video_deltam_external, or video_deltam_fullpatch}"
+ARM="${ARM:?Set ARM=base, deltam_external, video_deltam_external, video_deltam_direct, or video_deltam_fullpatch}"
 EXTRA_MODEL_OVERRIDES=()
 case "$ARM" in
   base)
@@ -36,6 +36,10 @@ case "$ARM" in
     # The experiment owns the pooled Video-DeltaM architecture, so this arm
     # cannot drift from the fullpatch sibling through shell overrides.
     ;;
+  video_deltam_direct)
+    EXPERIMENT=peract2_orbital_vid_deltam_direct
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_direct
+    ;;
   video_deltam_fullpatch)
     EXPERIMENT=peract2_orbital_vid_deltam_fullpatch
     DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_fullpatch_finetune_300k
@@ -44,7 +48,7 @@ case "$ARM" in
     # Video-DeltaM summaries.
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, video_deltam_external, or video_deltam_fullpatch" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, video_deltam_external, video_deltam_direct, or video_deltam_fullpatch" >&2
     exit 2
     ;;
 esac

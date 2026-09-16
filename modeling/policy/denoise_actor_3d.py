@@ -45,6 +45,7 @@ class DenoiseActor(BaseDenoiseActor):
                  video_deltam_max_history=32,
                  video_deltam_max_cameras=8,
                  video_deltam_full_image=False,
+                 video_deltam_role='refine',
                  # EE aux head
                  ee_aux=False,
                  ee_aux_weight=1.0,
@@ -97,6 +98,7 @@ class DenoiseActor(BaseDenoiseActor):
             video_deltam_max_history=video_deltam_max_history,
             video_deltam_max_cameras=video_deltam_max_cameras,
             video_deltam_full_image=video_deltam_full_image,
+            video_deltam_role=video_deltam_role,
             ee_aux=ee_aux,
             ee_aux_weight=ee_aux_weight,
             ee_aux_cameras=ee_aux_cameras,
@@ -149,6 +151,7 @@ class TransformerHead(BaseTransformerHead):
             video_deltam_max_history=kwargs.get("video_deltam_max_history", 32),
             video_deltam_max_cameras=kwargs.get("video_deltam_max_cameras", 8),
             video_deltam_full_image=kwargs.get("video_deltam_full_image", False),
+            video_deltam_role=kwargs.get("video_deltam_role", "refine"),
             ee_aux=kwargs.get("ee_aux", False),
             ee_aux_weight=kwargs.get("ee_aux_weight", 1.0),
             ee_aux_cameras=kwargs.get("ee_aux_cameras", (0, 1)),

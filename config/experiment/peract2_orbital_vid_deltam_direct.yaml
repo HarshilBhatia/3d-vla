@@ -1,0 +1,40 @@
+# Vid-DeltaM-Direct: Video-DeltaM's only job is to predict delta_M, one per
+# camera, from the history-refined camera summary of the current frame.
+#
+# Against peract2_orbital_vid_deltam_pooled (the control) exactly one thing
+# differs: where delta_M comes from. Here the stack owns it and the decoder is
+# otherwise identical to the no-video baseline -- no spliced scene tokens, no
+# history register on the trajectory queries, no prediction in the head.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+visual_num_history: 5
+proprio_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: true
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 128
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 100000
+head_positional_encoding: rope3d
+view_align_mode: rope_6d
+view_align_cameras: [0, 1]
+# The stack predicts delta_M once, so there is nothing to refine per layer.
+layerwise_view_align: false
+miscal_cameras: [0, 1]
+video_deltam: true
+video_deltam_depth: 4
+video_deltam_max_cameras: 4
+video_deltam_full_image: false
+video_deltam_role: predict_delta_m

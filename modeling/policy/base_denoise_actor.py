@@ -123,14 +123,22 @@ class DenoiseActor(nn.Module):
 
         # Video-DeltaM runs here, not in the head: its inputs do not change
         # across denoising steps, so the head would recompute it n_steps times.
-        video_camera = None
+        video_camera, precomputed_delta_M = None, None
         head = self.prediction_head
         if getattr(head, 'video_deltam', None) is not None:
             if fps_cam_ids is None:
                 raise ValueError("video_deltam=True requires camera-indexed FPS tokens")
             fixed_camera_token = head.camera_token.unsqueeze(0).expand(rgb3d.shape[0], -1, -1)
-            refined_frames, video_camera = head.video_deltam(video_frame_feats, fixed_camera_token)
-            camera_summaries = refined_frames[:, -1]
+            refined_frames, video_camera, delta_M = head.video_deltam(
+                video_frame_feats, fixed_camera_token
+            )
+            if delta_M is None:
+                # 'refine' role: the stack hands the decoder better scene tokens.
+                camera_summaries = refined_frames[:, -1]
+            else:
+                # 'predict_delta_m' role: delta_M is the stack's only output, so
+                # the scene tokens and trajectory queries are left untouched.
+                precomputed_delta_M = head._mask_delta_m_camera_ids(delta_M)
 
         fps_scene_feats = torch.cat([fps_scene_feats, camera_summaries], dim=1)
         fps_scene_pos = torch.cat([fps_scene_pos, camera_summary_pos], dim=1)
@@ -139,7 +147,7 @@ class DenoiseActor(nn.Module):
         query_trajectory = proprio[:, -1:]
         return (query_trajectory, rgb3d_feats, pcd_out, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats, fps_scene_feats,
-                fps_scene_pos, fps_cam_ids, video_camera)
+                fps_scene_pos, fps_cam_ids, video_camera, precomputed_delta_M)
 
     def policy_forward_pass(self, trajectory, timestep, fixed_inputs):
         # Parse inputs
@@ -151,7 +159,7 @@ class DenoiseActor(nn.Module):
             proprio_feats,
             fps_scene_feats, fps_scene_pos,
             fps_cam_ids,
-            video_camera,
+            video_camera, precomputed_delta_M,
         ) = fixed_inputs
 
         # Get features from normalized (relative) trajectory
@@ -167,9 +175,6 @@ class DenoiseActor(nn.Module):
                 + torch.cumsum(traj_xyz, dim=1)
             )
 
-        # Hook for an upstream module to own delta_M and bypass the head's
-        # predictor. Nothing sets it today.
-        precomputed_delta_M = None
         if rgb3d_feats.ndim == 4:
             # Visual history > 1: the decoder consumes the current (latest) frame.
             rgb3d_feats = rgb3d_feats[:, -1]
@@ -568,6 +573,7 @@ class TransformerHead(nn.Module):
                  video_deltam_max_history=32,
                  video_deltam_max_cameras=8,
                  video_deltam_full_image=False,
+                 video_deltam_role='refine',
                  ee_aux=False,
                  ee_aux_weight=1.0,
                  ee_aux_cameras=(0, 1)):
@@ -589,14 +595,23 @@ class TransformerHead(nn.Module):
         if self.delta_m_camera_ids is not None and any(i < 0 for i in self.delta_m_camera_ids):
             raise ValueError(f"delta_m_camera_ids must be non-negative, got {self.delta_m_camera_ids}")
         self.layerwise_view_align = layerwise_view_align
+        if video_deltam_role not in ('refine', 'predict_delta_m'):
+            raise ValueError(
+                "video_deltam_role must be 'refine' or 'predict_delta_m', "
+                f"got {video_deltam_role!r}"
+            )
+        self.video_deltam_role = video_deltam_role
         self.video_deltam = (
             VideoDeltaM(
                 embedding_dim, num_attn_heads, video_deltam_depth,
                 max_history=video_deltam_max_history,
                 max_cameras=video_deltam_max_cameras,
                 full_image=video_deltam_full_image,
+                predict_delta_m=(video_deltam_role == 'predict_delta_m'),
             ) if video_deltam else None
         )
+        if video_deltam_role == 'predict_delta_m' and not video_deltam:
+            raise ValueError("video_deltam_role='predict_delta_m' requires video_deltam=True")
         if head_positional_encoding not in HEAD_POSITIONAL_ENCODINGS:
             raise ValueError(
                 f"head_positional_encoding must be one of "
@@ -769,13 +784,17 @@ class TransformerHead(nn.Module):
 
         # 4. Predict either physical R,T or a representation-level RoPE
         # correction. ``camera_predictor`` is retained for checkpoint compatibility.
-        if predict_extrinsics:
+        # When the video stack owns delta_M the head predicts nothing; the shared
+        # trunk is still built if the EE-aux head needs it.
+        head_owns_delta_m = predict_extrinsics and video_deltam_role != 'predict_delta_m'
+        if head_owns_delta_m or ee_aux:
             self.camera_proj = nn.Linear(embedding_dim, embedding_dim)
             # Shared trunk (Linear+ReLU) — used by both the extrinsics and EE aux heads
             self.camera_trunk = nn.Sequential(
                 nn.Linear(embedding_dim, embedding_dim),
                 nn.ReLU()
             )
+        if head_owns_delta_m:
             if self.extrinsics_prediction_mode == 'rt':
                 self.camera_predictor = nn.Linear(embedding_dim, 6)  # axis_angle (3) + translation (3)
                 # Init so output ≈ 0 -> axis_angle=0, t=0 = identity transform at start
@@ -805,7 +824,7 @@ class TransformerHead(nn.Module):
             nn.init.zeros_(self.ee_predictor.bias)
 
         self.extrinsics_predictor = make_extrinsics_predictor(
-            self, predict_extrinsics, self.extrinsics_prediction_mode
+            self, head_owns_delta_m, self.extrinsics_prediction_mode
         )
 
     def _predict_from_cam_feat(self, cam_feat):

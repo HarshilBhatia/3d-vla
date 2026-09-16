@@ -41,7 +41,7 @@ class VideoDeltaM(nn.Module):
     """
 
     def __init__(self, embedding_dim, num_heads, depth, max_history=32, max_cameras=8,
-                 dropout=0.1, full_image=False):
+                 dropout=0.1, full_image=False, predict_delta_m=False):
         super().__init__()
         if depth < 1:
             raise ValueError("video_deltam_depth must be at least one")
@@ -58,10 +58,31 @@ class VideoDeltaM(nn.Module):
             self.image_readout = _Block(embedding_dim, num_heads, dropout)
         self.same_time = nn.ModuleList([_Block(embedding_dim, num_heads, dropout) for _ in range(depth)])
         self.temporal = nn.ModuleList([_Block(embedding_dim, num_heads, dropout) for _ in range(depth)])
-        # Legacy checkpoint-compatible global camera-register readout.
-        self.camera_readout = nn.ModuleList(
-            [_Block(embedding_dim, num_heads, dropout) for _ in range(depth)]
-        )
+        # When this stack owns delta_M it has no other output, so the global
+        # register readout is not built at all.
+        self.predict_delta_m = predict_delta_m
+        if predict_delta_m:
+            self.delta_m_head = nn.Sequential(
+                nn.Linear(embedding_dim, embedding_dim), nn.ReLU(),
+                nn.Linear(embedding_dim, 36),
+            )
+            # Zero-init: delta_M = exp(0) = I, so the arm starts from no correction.
+            nn.init.zeros_(self.delta_m_head[-1].weight)
+            nn.init.zeros_(self.delta_m_head[-1].bias)
+        else:
+            # Legacy checkpoint-compatible global camera-register readout.
+            self.camera_readout = nn.ModuleList(
+                [_Block(embedding_dim, num_heads, dropout) for _ in range(depth)]
+            )
+
+    def _delta_m_from(self, camera_summaries):
+        """(B, ncam, C) -> (B, ncam, 6, 6) orthogonal, same parameterisation as
+        the head's predictor: skew-symmetrise, clamp Frobenius norm, exponentiate."""
+        A_skew = self.delta_m_head(camera_summaries).reshape(*camera_summaries.shape[:-1], 6, 6)
+        A = A_skew - A_skew.transpose(-1, -2)
+        norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
+        A = A * (norm.clamp(max=3.0) / norm)
+        return torch.linalg.matrix_exp(A)
 
     def forward(self, frame_tokens, fixed_camera_token):
         """Refine frame tokens and read history into a camera register.
@@ -108,7 +129,8 @@ class VideoDeltaM(nn.Module):
         time_mask = torch.triu(
             torch.ones(history, history, dtype=torch.bool, device=frames.device), diagonal=1
         )
-        for same_time, temporal, readout in zip(self.same_time, self.temporal, self.camera_readout):
+        readouts = [None] * len(self.same_time) if self.predict_delta_m else self.camera_readout
+        for same_time, temporal, readout in zip(self.same_time, self.temporal, readouts):
             frames = same_time(frames.reshape(bsz * history, ncam, -1)).reshape(
                 bsz, history, ncam, -1
             )
@@ -117,8 +139,13 @@ class VideoDeltaM(nn.Module):
             frames = temporal(temporal_frames, attn_mask=time_mask).reshape(
                 bsz, ncam, history, -1
             ).transpose(1, 2)
-            # The learned policy camera register reads all cameras and history
-            # at this depth.  This intentionally has no temporal mask: the
-            # register is emitted only for the current action decision.
-            cam = readout(cam, frames.reshape(bsz, history * ncam, -1))
-        return frames, cam
+            if readout is not None:
+                # The learned policy camera register reads all cameras and history
+                # at this depth.  This intentionally has no temporal mask: the
+                # register is emitted only for the current action decision.
+                cam = readout(cam, frames.reshape(bsz, history * ncam, -1))
+        if self.predict_delta_m:
+            # Sole output: one orthogonal correction per camera, from the
+            # history-refined summary of the current frame.
+            return frames, None, self._delta_m_from(frames[:, -1])
+        return frames, cam, None
