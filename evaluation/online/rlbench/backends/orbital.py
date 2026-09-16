@@ -35,13 +35,13 @@ from data.generation.orbital.collection import (
     make_obs_config,
 )
 from data.generation.orbital.scene import OrbitalEnvironment
-from utils.data_preprocessors.miscalibration import (
+from data.preprocessing.miscalibration import (
     per_cam_noise_T,
     apply_miscalibration,
     load_random_miscal_noise_T,
     _load_orbital_group_noise,
 )
-from utils.depth2cloud.rlbench import RLBenchDepth2Cloud
+from data.geometry.rlbench import RLBenchDepth2Cloud
 
 from rlbench.action_modes.action_mode import MoveArmThenGripper
 from rlbench.action_modes.gripper_action_modes import Discrete

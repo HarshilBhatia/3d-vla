@@ -19,7 +19,7 @@ import rerun as rr
 import torch
 
 from datasets import fetch_dataset_class
-from utils.depth2cloud import fetch_depth2cloud
+from data.geometry import fetch_depth2cloud
 
 
 def quaternion_to_rotation_matrix(q):

@@ -64,11 +64,12 @@ dev = [
 testpaths = ["tests"]
 markers = [
     "slow: instantiates real backbones (downloads weights, needs network)",
+    "migration_parity: manual GPU checkpoint-contract test; skipped unless THREEDFA_MIGRATION_PARITY_CASE is set",
 ]
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["config*", "data*", "datasets*", "evaluation*", "modeling*", "utils*"]
+include = ["common*", "config*", "data*", "datasets*", "evaluation*", "modeling*", "training*", "utils*"]
 exclude = ["PyRep*", "RLBench*", "online_evaluation_rlbench*", "scripts*", "logs*", "paper*", "docs*"]
 
 [tool.uv]

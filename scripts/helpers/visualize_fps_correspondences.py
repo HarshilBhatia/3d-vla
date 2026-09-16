@@ -28,7 +28,7 @@ import torch.nn.functional as F
 from datasets import fetch_dataset_class
 from modeling.encoder.multimodal.base_encoder import density_based_sampler
 from modeling.encoder.multimodal.encoder3d import Encoder
-from utils.depth2cloud import fetch_depth2cloud
+from data.geometry import fetch_depth2cloud
 
 
 def uniform_image_sampler(ncam, fh, fw, fps_factor):

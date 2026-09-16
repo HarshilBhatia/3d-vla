@@ -19,7 +19,7 @@ import torch.distributed as dist
 
 from datasets import fetch_dataset_class
 from modeling.policy import fetch_model_class
-from utils.trainers import fetch_train_tester
+from training import fetch_train_tester
 from utils.hydra_utils import get_config, get_config_path
 
 

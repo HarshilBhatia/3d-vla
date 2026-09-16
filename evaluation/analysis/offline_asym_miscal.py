@@ -68,7 +68,7 @@ from evaluation.analysis.offline_deltam import (
     _per_arm_view,
     _quat_geodesic_deg,
 )
-from utils.trainers.base import relative_to_absolute
+from data.batch import relative_to_absolute
 
 # (label, rotation deg, translation m). Both magnitudes are well above the ~3deg
 # random top-up the checkpoints saw in training, and 10deg is past the point where

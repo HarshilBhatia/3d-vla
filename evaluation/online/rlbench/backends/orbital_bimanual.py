@@ -48,7 +48,7 @@ reproducing it here is deliberate.
 import numpy as np
 import torch
 
-from utils.data_preprocessors.miscalibration import (
+from data.preprocessing.miscalibration import (
     ORBITAL_MISCAL_NOISE_FILE,
     _load_orbital_group_noise,
     apply_miscalibration,
@@ -62,7 +62,7 @@ from data.generation.orbital.collection import (
     capture_orbital_extrinsics,
 )
 from data.generation.orbital.scene import OrbitalEnvironment
-from utils.depth2cloud.rlbench import RLBenchDepth2Cloud
+from data.geometry.rlbench import RLBenchDepth2Cloud
 from evaluation.calibration import calibration_transform_table
 
 from rlbench.observation_config import ObservationConfig, CameraConfig

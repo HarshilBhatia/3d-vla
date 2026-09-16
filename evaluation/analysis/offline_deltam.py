@@ -65,7 +65,7 @@ from evaluation.analysis.utils import (
     pick_amp_dtype,
     write_csv_rows,
 )
-from utils.trainers.base import relative_to_absolute
+from data.batch import relative_to_absolute
 
 TRAIN_NOISE_FILE = "instructions/orbital_miscalibration_noise.json"
 OOD_NOISE_FILE = "instructions/orbital_miscalibration_noise_ood.json"

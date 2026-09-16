@@ -14,7 +14,7 @@ from modeling.encoder.text import fetch_tokenizers
 from modeling.policy import fetch_model_class
 from utils.ema import EMA
 from utils.hydra_utils import get_config, get_config_path
-from utils.trainers import fetch_train_tester
+from training import fetch_train_tester
 
 
 def suppress_output_on_non_main():

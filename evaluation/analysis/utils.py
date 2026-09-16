@@ -35,11 +35,11 @@ from datasets import fetch_dataset_class
 from modeling.encoder.text import fetch_tokenizers
 from modeling.policy import fetch_model_class
 from modeling.policy.construction import build_model_kwargs
-from utils.data_preprocessors import fetch_data_preprocessor
-from utils.depth2cloud import fetch_depth2cloud
+from data.batch import base_collate_fn, relative_to_absolute
+from data.preprocessing import fetch_data_preprocessor
+from data.geometry import fetch_depth2cloud
 from utils.hydra_utils import get_config, get_config_path
-from utils.trainers.base import base_collate_fn, relative_to_absolute
-from utils.trainers.utils import compute_metrics
+from common.metrics import compute_metrics
 
 
 METRIC_KEYS = [
