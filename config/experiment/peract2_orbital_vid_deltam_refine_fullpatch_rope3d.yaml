@@ -1,4 +1,4 @@
-# Vid-DeltaM-Direct, full-patch, 3D RoPE on history patches from their miscalibrated xyz.
+# Vid-DeltaM-Refine, full-patch, 3D RoPE on history patches from their miscalibrated xyz.
 dataset: OrbitalPeract2
 model_type: denoise3d
 bimanual: true
@@ -24,8 +24,7 @@ train_iters: 200000
 head_positional_encoding: rope3d
 view_align_mode: rope_6d
 view_align_cameras: [0, 1]
-# The stack predicts delta_M once, so there is nothing to refine per layer.
-layerwise_view_align: false
+layerwise_view_align: true
 miscal_mode: group
 miscal_group_level: medium
 miscal_group_file: instructions/orbital_miscalibration_noise_bimanual_external_only.json
@@ -37,10 +36,9 @@ video_deltam_depth: 4
 video_deltam_max_cameras: 4
 video_deltam_full_image: true
 video_deltam_patch_rope3d: true
-video_deltam_role: predict_delta_m
 interm_ckpt_interval_steps: 10000
 checkpoint_evals:
-  - recipe: instructions/eval_plans/vid_deltam_direct_fullpatch_rope3d_checkpoint_ladder_v01.json
-    method_id: vid-deltaM-direct-fullpatch-rope3d
+  - recipe: instructions/eval_plans/vid_deltam_refine_fullpatch_rope3d_checkpoint_ladder_v01.json
+    method_id: vid-deltaM-refine-fullpatch-rope3d
     min_step: 50000
     max_step: 200000

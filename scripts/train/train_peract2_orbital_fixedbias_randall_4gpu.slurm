@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, or video_deltam_fullpatch}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, or video_deltam_fullpatch}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -55,6 +55,11 @@ case "$ARM" in
     DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_direct_fullpatch_rope3d
     # Experiment owns full_image + patch_rope3d; do not set them by shell override.
     ;;
+  video_deltam_refine_rope3d)
+    EXPERIMENT=peract2_orbital_vid_deltam_refine_fullpatch_rope3d
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_refine_fullpatch_rope3d
+    # Experiment owns full_image + patch_rope3d; never set them by shell override.
+    ;;
   video_deltam_fullpatch)
     EXPERIMENT=peract2_orbital_vid_deltam_fullpatch
     DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_fullpatch_finetune_300k
@@ -63,7 +68,7 @@ case "$ARM" in
     # Video-DeltaM summaries.
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, or video_deltam_fullpatch" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, or video_deltam_fullpatch" >&2
     exit 2
     ;;
 esac

@@ -1,0 +1,48 @@
+# Vid-DeltaM-Refine full-patch + patch RoPE. 4 GPUs as 2 nodes x 2; A6000, not rtx6000 (4.25x slower).
+partition: all
+nodes: 2
+gpus_per_node: 2
+cpus_per_task: 16
+mem_per_cpu: 10G
+walltime: "1-00:00:00"
+
+constraints:
+  - A6000
+
+pend_timeout_seconds: 900
+max_requeues_per_constraint: 3
+
+# base.py writes last.pth to its own log_dir; ckpt_dir tracks that filesystem.
+ckpt_dir: /home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_vid_deltam_refine_fullpatch_rope3d
+ckpt_interval_seconds: 600
+signal_lead_seconds: 120
+
+max_node_load: 0.75
+min_busbw: 3.5
+min_free_gb: 20.0
+allow_heterogeneous: false
+
+# ntasks-per-node=1 is hardcoded in submit.py, so torchrun fans out the 2 local ranks.
+train_cmd: >-
+  bash -lc 'source /home/harshilb/miniconda3/etc/profile.d/conda.sh
+  && conda activate 3dfa
+  && cd /home/harshilb/3dfa_unified
+  && export PYTHONPATH=/home/harshilb/3dfa_unified:$PYTHONPATH BLOSC_NTHREADS=1
+  && exec torchrun --nnodes=2 --nproc_per_node=2 --node_rank=$RANK
+  --master_addr=$MASTER_ADDR --master_port=$MASTER_PORT main.py
+  data=orbital_peract2_nfs
+  experiment=peract2_orbital_vid_deltam_refine_fullpatch_rope3d
+  train_data_dir=/grogu/datasets/hbhatia/3dfa_egress_extracted/3dfa_egress_20260820/datasets/orbital_peract2/zarr/train.zarr
+  eval_data_dir=/grogu/datasets/hbhatia/3dfa_egress_extracted/3dfa_egress_20260820/datasets/orbital_peract2/zarr/val.zarr
+  exp_log_dir=PerAct2 run_log_dir=peract2_orbital_vid_deltam_refine_fullpatch_rope3d
+  video_deltam_cache_batches=4 video_deltam_cache_span=8
+  num_workers=6 prefetch_factor=2
+  pretrained_checkpoint=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_video_deltam_external_20260910/last.pth
+  checkpoint=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_vid_deltam_refine_fullpatch_rope3d/last.pth'
+
+log_dir: logs/multinode
+runlog: logs/multinode/runs.jsonl
+env:
+  PYTHONUNBUFFERED: "1"
+  # preflight.py runs under bare `python`; PATH must reach the conda env.
+  PATH: "/home/harshilb/miniconda3/envs/3dfa/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
