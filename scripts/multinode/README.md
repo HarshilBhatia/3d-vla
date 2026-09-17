@@ -62,6 +62,37 @@ python scripts/multinode/submit.py myrun.yaml               # submit and supervi
 python scripts/multinode/runlog.py summary                  # what actually happened
 ```
 
+## Planning a placement
+
+`plan.py` answers "what should I request right now, and what will I get?" from
+live cluster state, then writes a config `submit.py` can consume.
+
+```
+python scripts/multinode/plan.py --gpus 4 --per-gpu-batch 8
+python scripts/multinode/plan.py --gpus 4 --emit config/my_run.yaml \
+    --train-cmd "bash -lc '...checkpoint=<log_dir>/last.pth'"
+```
+
+It exists because counting free GPUs is not enough. A request sized sensibly
+by GPU count sat with a **two-day** start estimate: the node had 6 free GPUs
+and 53 GB of 503 GB free host memory. Meanwhile every node with plenty of free
+RAM and >=4 GPUs was a 2080Ti, which this model cannot run on at all. So the
+planner considers GPUs, CPUs, memory, GPU model and recorded-bad nodes
+together, and prints the specific blocker per node when nothing fits.
+
+Placement is ranked by **throughput per wall-clock**: a configuration that can
+start now beats a faster one that cannot, because queue time is dead time. It
+picks the GPU model and how to spread the ranks, but takes `--per-gpu-batch`
+from you — batch sets the global batch, which changes the experiment, so it is
+not the scheduler's to choose.
+
+Predictions come from the measured tables at the top of the file
+(`RANK_THROUGHPUT_B8`, `INTRA_NODE_EFF`, `INTER_NODE_EFF`, `BATCH_SCALE`), not
+from a model of the hardware. Two deliberate refusals: `rtx2080ti` is reported
+as unusable rather than slow, and `H200` / `6000Blackwell` / `A6000Ada` are
+skipped as never-benchmarked rather than guessed at. Re-measure with
+`bench/scaling.py` if the model or data pipeline changes.
+
 ## Tests
 
 ```bash
