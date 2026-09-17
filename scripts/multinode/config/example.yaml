@@ -1,0 +1,65 @@
+# Multi-node resilience layer — example config.
+# Nothing here is hardcoded in job.sbatch; submit.py turns all of it into
+# #SBATCH flags and exported env.
+
+# ── where ─────────────────────────────────────────────────────────────────────
+partition: shubhamlong        # `all` is tier 1 and preemptible by every lab
+nodes: 3
+gpus_per_node: 1
+cpus_per_task: 8
+mem_per_cpu: 8G
+walltime: "2-00:00:00"        # validated against the partition MaxTime at submit
+
+# ── constraint fallback, in order of preference ───────────────────────────────
+# Ordered by measured per-step cost first, then pool size. Measured on grogu
+# 2026-09-16, 1 GPU, batch 8, identical config, 40-step warmup discarded:
+#
+#   A6000      111 ms/step   1.00x   6-7 nodes in `all`
+#   A5000      139 ms/step   1.25x   6-7 nodes  <- largest usable pool
+#   rtx3090    151 ms/step   1.36x   only 2 nodes, so unusable for N>=3
+#   rtx6000    473 ms/step   4.25x   Turing: no tf32/bf16, 91% of the step in fwd
+#   rtx2080ti  DOES NOT RUN          Turing sm_75: ptxas fails under
+#                                    torch.compile + bf16
+#
+# Both Turing cards are excluded deliberately. rtx2080ti crashes outright, and
+# rtx6000 costs 4.25x per step -- which no amount of preemption-safety repays,
+# even though grogu-3-25/3-30 (2080ti) are the only nodes in `all` that no lab
+# partition can evict you from.
+#
+# Pools of size 1 (H200, 6000Blackwell, A6000Ada) cannot serve nodes > 1 and
+# are dropped automatically by submit.py, with a message.
+# Re-derive pool sizes before trusting them:
+#   python scripts/multinode/runlog.py pools -p all --nodes 3
+constraints:
+  - A6000
+  - A5000
+
+# Seconds to tolerate PENDING before cancelling and trying the next constraint.
+pend_timeout_seconds: 900
+# After this many preemptions on one constraint, rotate pools instead of
+# letting Slurm requeue into the same one forever.
+max_requeues_per_constraint: 3
+
+# ── checkpointing ─────────────────────────────────────────────────────────────
+# Must be on NFS. /tmp is node-local on grogu and would be lost on requeue.
+ckpt_dir: /home/harshilb/ckpt/mn-example
+ckpt_interval_seconds: 600
+signal_lead_seconds: 120      # matches GraceTime; raising it does not help preemption
+
+# ── preflight thresholds ──────────────────────────────────────────────────────
+# ~7.3 GB/s busbw is normal for a 2-rank allreduce on this fabric; ~1.3 GB/s
+# means NCCL fell back to sockets. 4.0 sits well clear of both.
+min_busbw: 4.0
+min_free_gb: 50.0
+allow_heterogeneous: false    # abort on a mixed-GPU allocation
+
+# ── the training command ──────────────────────────────────────────────────────
+# Receives --ckpt-dir and --ckpt-interval appended. Must honour those two and
+# nothing else; that is the whole contract.
+train_cmd: "python scripts/multinode/tests/toy_train.py --steps 2000 --device cuda --log /home/harshilb/ckpt/mn-example/loss.jsonl"
+
+log_dir: logs/multinode
+runlog: logs/multinode/runs.jsonl
+
+env:
+  PYTHONUNBUFFERED: "1"

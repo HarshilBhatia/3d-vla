@@ -22,6 +22,12 @@ import wandb
 from omegaconf import OmegaConf, DictConfig
 
 
+# How often to poll for preemption. Each poll is one 4-byte all_reduce, so this
+# trades a negligible amount of hot-loop time for reaction latency that is
+# still two orders of magnitude inside the 120 s grace window.
+_PREEMPT_CHECK_EVERY = 10
+
+
 def _atomic_save(obj, path):
     """Write to a temp file then rename so a killed job never leaves a partial checkpoint."""
     path = str(path)
@@ -53,6 +59,16 @@ from data.geometry import fetch_depth2cloud
 from data.preprocessing import fetch_data_preprocessor
 from utils.ema import EMA
 from utils.schedulers import fetch_scheduler
+# The resilience layer is deliberately model-agnostic and imports nothing from
+# this repo, so the dependency only ever points this way.
+from scripts.multinode.resilience import (
+    PreemptionGuard,
+    SkipAheadSampler,
+    capture_rng,
+    gather_rng,
+    restore_rng,
+    seed_everything,
+)
 from data.batch import actions_collate_fn, base_collate_fn, relative_to_absolute
 from common.metrics import compute_metrics
 from .utils import BenchmarkLogger
@@ -197,6 +213,11 @@ class BaseTrainTester:
                     'Using diverse chunk sampler: one sample per demo in each '
                     f'batch; cache working set lasts {cache_batches} batches.'
                 )
+            # Wrapping preserves the inner order exactly: a fresh run is
+            # bit-for-bit unchanged (skip=0), while a resume discards only the
+            # prefix it already saw. Discarding happens at the sampler, so the
+            # skipped batches cost index arithmetic, not data loading.
+            train_sampler = SkipAheadSampler(train_sampler, mode="batch")
             train_loader = DataLoader(
                 train_dataset,
                 batch_sampler=train_sampler,
@@ -208,7 +229,10 @@ class BaseTrainTester:
                 **loader_process_opts,
             )
         else:
-            train_sampler = DistributedSampler(train_dataset, drop_last=True, shuffle=True)
+            train_sampler = SkipAheadSampler(
+                DistributedSampler(train_dataset, drop_last=True, shuffle=True),
+                mode="index", batch_size=per_gpu_batch_size,
+            )
             train_loader = DataLoader(
                 train_dataset,
                 batch_size=per_gpu_batch_size,
@@ -371,9 +395,30 @@ class BaseTrainTester:
         )
         return optimizer
 
+    def _seed(self):
+        """Seed every RNG stream from (args.seed, rank), if a seed was given.
+
+        Off by default: no run to date has been seeded -- torch.manual_seed is
+        never called, so two identical submissions already produce different
+        weights. Making it unconditional would change experiments in flight, so
+        it is opt-in. With a seed set, a run becomes reproducible and a resume
+        becomes verifiable by comparing weights against an uninterrupted run.
+        """
+        seed = getattr(self.args, "seed", None)
+        if seed is None:
+            return
+        seed_everything(int(seed), dist.get_rank())
+        if dist.get_rank() == 0:
+            print(f"Seeded all RNG streams from seed={seed} "
+                  f"(per-rank offset applied)", flush=True)
+
     def main(self):
         """Run main training/testing pipeline."""
         rank = dist.get_rank()
+
+        # Before the loaders and the model, so dataset shuffling and weight
+        # init are both covered.
+        self._seed()
 
         print(f"[Rank {rank}] Building data loaders...", flush=True)
         train_loader, val_loader, train_sampler = self.get_loaders()
@@ -497,6 +542,16 @@ class BaseTrainTester:
         samples_per_epoch = len(train_loader)
         epoch = start_iter // samples_per_epoch + 1
         train_sampler.set_epoch(epoch)  # ensures new batches are sampled
+        # ...and to the right point *inside* that epoch. Setting only the epoch
+        # restarts at batch 0, so a resumed run re-consumed the first
+        # start_iter % samples_per_epoch batches and diverged from the data
+        # order it would have seen uninterrupted.
+        batch_in_epoch = start_iter % samples_per_epoch
+        if batch_in_epoch:
+            train_sampler.set_skip(batch_in_epoch)
+            if dist.get_rank() == 0:
+                print(f"Resuming mid-epoch: skipping {batch_in_epoch} batch(es) "
+                      f"of epoch {epoch} ({samples_per_epoch} batches/epoch)")
 
         # Initialize per-rank benchmark logger (enabled via benchmark=true in config/CLI)
         bench_warmup = getattr(self.args, 'benchmark_warmup_steps', 0)
@@ -525,6 +580,12 @@ class BaseTrainTester:
                 )
                 print(f"Torch profiler will capture {n} steps starting at step {self._profile_start_step}")
                 print(f"Trace will be written to {profiler_dir} (view via `tensorboard --logdir {self.args.log_dir}` with the torch-tb-profiler plugin)")
+
+        # Preemption: grogu signals a preempted job and kills it GraceTime
+        # (120 s) later. The checkpoint here is trainable-params only (~17 MB)
+        # and writes in well under a second, so that window is ample -- but it
+        # is only usable if we actually listen for the signal.
+        preempt = PreemptionGuard()
 
         # Training loop
         model.train()
@@ -613,8 +674,33 @@ class BaseTrainTester:
 
                     self._profiler = None  # don't profile again
 
-            if (step_id + 1) % self.args.ckpt_interval_steps == 0 and dist.get_rank() == 0:
-                self._save_rolling_checkpoint(model, ema_model, optimizer, step_id, best_loss)
+            # A preempted job should spend its grace window saving, not dying.
+            # The flag is agreed across ranks first: signal delivery is not
+            # simultaneous, and a one-sided save would deadlock on the gather.
+            # Checked on a fixed cadence rather than every step so the extra
+            # collective stays off the hot path; 10 steps is a few seconds of
+            # latency against a 120 s grace window.
+            stopping = False
+            if (step_id + 1) % _PREEMPT_CHECK_EVERY == 0:
+                stopping = self._agree(preempt.check())
+
+            if stopping or (step_id + 1) % self.args.ckpt_interval_steps == 0:
+                # gather_rng is collective, so every rank must reach it.
+                rng_all = gather_rng(capture_rng(), dist.get_world_size())
+                if dist.get_rank() == 0:
+                    self._save_rolling_checkpoint(
+                        model, ema_model, optimizer, step_id, best_loss,
+                        rng_all=rng_all, epoch=epoch,
+                        batch_in_epoch=(step_id + 1) % samples_per_epoch,
+                        samples_per_epoch=samples_per_epoch,
+                    )
+            if stopping:
+                if dist.get_rank() == 0:
+                    preempt.confirm()
+                    print(f"Preempted at step {step_id + 1}; checkpoint written, "
+                          f"exiting for requeue", flush=True)
+                dist.barrier(device_ids=[torch.cuda.current_device()])
+                break
 
             interm_freq = getattr(self.args, "interm_ckpt_interval_steps", None)
             if interm_freq and (step_id + 1) % interm_freq == 0 and dist.get_rank() == 0:
@@ -982,6 +1068,26 @@ class BaseTrainTester:
         start_iter = model_dict.get("iter", 0)
         best_loss = model_dict.get("best_loss", None)
 
+        # Restore the RNG streams, so flow-matching noise and dropout continue
+        # the original sequence. Checkpoints written before this existed simply
+        # have no "rng" key and fall back to the old behaviour.
+        rng_all = model_dict.get("rng")
+        if rng_all is None:
+            if dist.get_rank() == 0:
+                print("=> checkpoint carries no RNG state (written by an older "
+                      "revision); resuming with fresh RNG — the loss curve will "
+                      "not match the original run exactly")
+        elif model_dict.get("world_size") != dist.get_world_size():
+            if dist.get_rank() == 0:
+                print(f"=> checkpoint was written at world_size="
+                      f"{model_dict.get('world_size')} but this run is "
+                      f"{dist.get_world_size()}; per-rank RNG cannot be restored, "
+                      f"resuming with fresh RNG")
+        else:
+            restore_rng(rng_all[dist.get_rank()])
+            if dist.get_rank() == 0:
+                print(f"=> restored RNG state for {len(rng_all)} rank(s)")
+
         print("=> loaded successfully '{}' (step {})".format(
             self.args.checkpoint, model_dict.get("iter", 0)
         ))
@@ -989,7 +1095,25 @@ class BaseTrainTester:
         torch.cuda.empty_cache()
         return start_iter, best_loss
 
-    def _save_rolling_checkpoint(self, model, ema_model, optimizer, step_id, best_loss):
+    @staticmethod
+    def _agree(local: bool) -> bool:
+        """True if *any* rank says True.
+
+        Used for the preemption flag. Slurm does not deliver the signal to every
+        rank at the same instant, so without agreeing first some ranks would
+        enter the RNG gather and others would not, and the job would hang
+        instead of checkpointing.
+        """
+        if dist.get_world_size() == 1:
+            return local
+        flag = torch.tensor([1 if local else 0], dtype=torch.int32,
+                            device=torch.cuda.current_device())
+        dist.all_reduce(flag, op=dist.ReduceOp.MAX)
+        return bool(flag.item())
+
+    def _save_rolling_checkpoint(self, model, ema_model, optimizer, step_id, best_loss,
+                                 rng_all=None, epoch=None, batch_in_epoch=None,
+                                 samples_per_epoch=None):
         """Save rolling checkpoint to last.pth only (no per-step files, no frozen backbone)."""
         state = {
             "weight": self._trainable_state_dict(model),
@@ -999,6 +1123,17 @@ class BaseTrainTester:
             "best_loss": best_loss,
             "config": _args_to_dict(self.args),
         }
+        # Resume state. Without the RNG block a resumed run restores weights and
+        # data order correctly and still draws different flow-matching noise and
+        # dropout masks, so its loss curve silently departs from the
+        # uninterrupted one. Recorded per rank because RNG state is per rank.
+        if rng_all is not None:
+            state["rng"] = rng_all
+            state["world_size"] = dist.get_world_size()
+        if epoch is not None:
+            state["epoch"] = epoch
+            state["batch_in_epoch"] = batch_in_epoch
+            state["samples_per_epoch"] = samples_per_epoch
         _atomic_save(state, self.args.log_dir / "last.pth")
 
     def _trainable_state_dict(self, model):

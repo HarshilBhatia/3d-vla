@@ -28,6 +28,11 @@ preload: false              # load full dataset into RAM at init (ignores memory
 video_deltam_cache_batches: 0
 video_deltam_cache_span: 8  # logical target timesteps kept near each cache anchor
 video_deltam_sampler_seed: 0
+# Global RNG seed. null (the default) leaves every stream unseeded, which is
+# how every run to date behaved -- so two identical submissions produce
+# different weights and neither is reproducible. Set an integer to make a run
+# repeatable and to make resume correctness testable.
+seed: null
 
 # === Logging ===
 base_log_dir: train_logs
