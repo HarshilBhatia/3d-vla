@@ -81,10 +81,11 @@ RUN_LOG_DIR="${RUN_LOG_DIR:-$DEFAULT_RUN_LOG_DIR}"
 PRETRAINED_CHECKPOINT="${PRETRAINED_CHECKPOINT:-$REPO_ROOT/train_logs/PerAct2/peract2_orbital_video_deltam_external_20260910/last.pth}"
 # Resume restores model, EMA, optimizer, scheduler position, and iteration.
 # Unlike PRETRAINED_CHECKPOINT, it is a true continuation rather than a
-# weights-only initialization.  Set TRAIN_ITERS to the desired *total* step
-# count (e.g. 200000 when resuming a step-100000 checkpoint).
+# weights-only initialization. On resume the config's train_iters is the *total*.
 RESUME_CHECKPOINT="${RESUME_CHECKPOINT:-}"
-TRAIN_ITERS="${TRAIN_ITERS:-100000}"
+# Empty by default: the experiment config is the record of how long a run is.
+TRAIN_ITERS="${TRAIN_ITERS:-}"
+TRAIN_ITERS_ARGS=(); [[ -n "$TRAIN_ITERS" ]] && TRAIN_ITERS_ARGS=("train_iters=$TRAIN_ITERS")
 BATCH_SIZE="${BATCH_SIZE:-128}"
 NGPUS="${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}"
 MASTER_PORT=$((27500 + RANDOM % 1000))
@@ -118,7 +119,7 @@ torchrun --nproc_per_node="$NGPUS" --master_port="$MASTER_PORT" main.py \
     eval_data_dir="$EVAL_DATA_DIR" \
     exp_log_dir=PerAct2 \
     run_log_dir="$RUN_LOG_DIR" \
-    train_iters="$TRAIN_ITERS" \
+    "${TRAIN_ITERS_ARGS[@]}" \
     "${MISCAL_OVERRIDES[@]}" \
     video_deltam_cache_batches=4 \
     video_deltam_cache_span=8 \
