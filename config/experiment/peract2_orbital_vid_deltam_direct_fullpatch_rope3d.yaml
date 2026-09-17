@@ -1,0 +1,47 @@
+# Vid-DeltaM-Direct, full-patch, with 3D RoPE on the history patches.
+#
+# Against peract2_orbital_vid_deltam_direct (pooled, no geometry) two things
+# differ: the stack sees every patch rather than one pooled token per image, and
+# its queries/keys are rotated by each patch's miscalibrated world xyz. That xyz
+# is the only channel through which calibration error reaches the stack at all.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+visual_num_history: 5
+proprio_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: true
+denoise_timesteps: 5
+denoise_model: rectified_flow
+# Full-patch is far heavier than pooled; 64 is what the full-patch run uses.
+batch_size: 64
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 200000
+head_positional_encoding: rope3d
+view_align_mode: rope_6d
+view_align_cameras: [0, 1]
+# The stack predicts delta_M once, so there is nothing to refine per layer.
+layerwise_view_align: false
+miscal_cameras: [0, 1]
+video_deltam: true
+video_deltam_depth: 4
+video_deltam_max_cameras: 4
+video_deltam_full_image: true
+video_deltam_patch_rope3d: true
+video_deltam_role: predict_delta_m
+interm_ckpt_interval_steps: 10000
+checkpoint_evals:
+  - recipe: instructions/eval_plans/vid_deltam_direct_fullpatch_rope3d_checkpoint_ladder_v01.json
+    method_id: vid-deltaM-direct-fullpatch-rope3d
+    min_step: 50000
+    max_step: 200000

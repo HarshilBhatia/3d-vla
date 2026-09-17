@@ -126,7 +126,7 @@ video_deltam_max_cameras: 8
 # Give Video-DeltaM the complete encoder token grid for every historical image.
 # A learned per-image token reads each grid locally before sparse video attention.
 video_deltam_full_image: false
-# 3D RoPE on history patches from their (miscalibrated) xyz. Needs full_image; new params.
+# 3D RoPE on history patches from their (miscalibrated) xyz. Needs full_image; adds no params.
 video_deltam_patch_rope3d: false
 # What the Video-DeltaM stack is for:
 #   refine          — it hands the decoder history-refined camera summaries and a

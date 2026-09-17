@@ -13,6 +13,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - [Config](docs/config.md) — Hydra config system and important flags
 - [Data](docs/data.md) — zarr format, dataset classes, preprocessing, data generation
 
+## Experiments
+
+**Every new experiment gets its own `config/experiment/*.yaml`.** Never launch a
+run by piling CLI overrides onto an existing experiment config — the config file
+is the record of what was run. Add a matching `ARM` to the launcher script.
+
 ## Comments
 
 **One line maximum.** Never write multi-line comments or docstrings. Rationale,
