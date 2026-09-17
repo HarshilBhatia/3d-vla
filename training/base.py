@@ -1,5 +1,7 @@
 from copy import deepcopy
 import os
+import queue
+import threading
 import random
 import subprocess
 import sys
@@ -44,6 +46,60 @@ def _atomic_save(obj, path):
         raise
 
 
+def _cpu_snapshot(obj):
+    """Deep-copy tensors to CPU so a background writer never races the training loop."""
+    if torch.is_tensor(obj):
+        return obj.detach().to("cpu", copy=True)
+    if isinstance(obj, dict):
+        return {k: _cpu_snapshot(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return type(obj)(_cpu_snapshot(v) for v in obj)
+    return obj
+
+
+class _AsyncSaver:
+    """Serialise checkpoints on a worker thread so the GPU never waits on NFS."""
+
+    def __init__(self, maxsize=4):
+        self._q = queue.Queue(maxsize=maxsize)
+        self._error = None
+        self._thread = threading.Thread(target=self._run, name="ckpt-writer", daemon=True)
+        self._thread.start()
+
+    def _run(self):
+        while True:
+            item = self._q.get()
+            try:
+                if item is None:
+                    return
+                obj, path = item
+                _atomic_save(obj, path)
+            except BaseException as exc:
+                self._error = exc
+            finally:
+                self._q.task_done()
+
+    def save(self, obj, path):
+        """Queue a write. The caller must already have moved tensors to CPU."""
+        self._raise_pending()
+        self._q.put((obj, path))
+
+    def flush(self):
+        """Block until every queued write has landed. Use before exiting."""
+        self._q.join()
+        self._raise_pending()
+
+    def close(self):
+        self.flush()
+        self._q.put(None)
+        self._thread.join(timeout=60)
+
+    def _raise_pending(self):
+        if self._error is not None:
+            err, self._error = self._error, None
+            raise err
+
+
 def _args_to_dict(args):
     if isinstance(args, DictConfig):
         return OmegaConf.to_container(args, resolve=True)
@@ -85,6 +141,7 @@ class BaseTrainTester:
         self.model_cls = model_cls
         # Single semantic for train vs offline eval (Option B: derived from eval_only; can migrate to --mode later)
         self.run_mode = "eval_offline" if getattr(args, "eval_only", False) else "train"
+        self._saver = _AsyncSaver()
 
         self.benchmark_logger = None
 
@@ -614,10 +671,11 @@ class BaseTrainTester:
                 print(f"[Rank {dist.get_rank()}] Step {step_id} failed: {e}", flush=True)
                 if dist.get_rank() == 0:
                     emergency_path = self.args.log_dir / "last.pth"
+                    self._saver.flush()
                     _atomic_save({
                         "weight": self._trainable_state_dict(model),
                         "ema_weight": self._trainable_state_dict(ema_model) if self.args.use_ema else None,
-                        "optimizer": optimizer.state_dict(),
+                        "optimizer": _cpu_snapshot(optimizer.state_dict()),
                         "iter": step_id,
                         "best_loss": best_loss,
                         "config": _args_to_dict(self.args),
@@ -696,6 +754,7 @@ class BaseTrainTester:
                     )
             if stopping:
                 if dist.get_rank() == 0:
+                    self._saver.flush()
                     preempt.confirm()
                     print(f"Preempted at step {step_id + 1}; checkpoint written, "
                           f"exiting for requeue", flush=True)
@@ -731,6 +790,7 @@ class BaseTrainTester:
                 model.train()
             dist.barrier(device_ids=[torch.cuda.current_device()])
 
+        self._saver.close()
         return ema_model if self.args.use_ema else model
 
     @torch.no_grad()
@@ -1118,7 +1178,7 @@ class BaseTrainTester:
         state = {
             "weight": self._trainable_state_dict(model),
             "ema_weight": self._trainable_state_dict(ema_model) if ema_model is not None else None,
-            "optimizer": optimizer.state_dict(),
+            "optimizer": _cpu_snapshot(optimizer.state_dict()),
             "iter": step_id + 1,
             "best_loss": best_loss,
             "config": _args_to_dict(self.args),
@@ -1134,7 +1194,7 @@ class BaseTrainTester:
             state["epoch"] = epoch
             state["batch_in_epoch"] = batch_in_epoch
             state["samples_per_epoch"] = samples_per_epoch
-        _atomic_save(state, self.args.log_dir / "last.pth")
+        self._saver.save(state, self.args.log_dir / "last.pth")
 
     def _trainable_state_dict(self, model):
         """State dict with only trainable params + workspace_normalizer (skips frozen backbone)."""
@@ -1160,7 +1220,7 @@ class BaseTrainTester:
             "best_loss": best_loss,
             "config": _args_to_dict(self.args),
         }
-        _atomic_save(state, ckpt_path)
+        self._saver.save(state, ckpt_path)
         print(f"Saved periodic checkpoint: {ckpt_path}", flush=True)
         self._submit_checkpoint_evals(step_id + 1)
 
@@ -1214,11 +1274,13 @@ class BaseTrainTester:
         ema_state = self._trainable_state_dict(ema_model) if self.args.use_ema else None
         config_container = _args_to_dict(self.args)
 
+        optimizer_state = _cpu_snapshot(optimizer.state_dict())
+
         def _save(path):
-            _atomic_save({
+            self._saver.save({
                 "weight": model_state,
                 "ema_weight": ema_state,
-                "optimizer": optimizer.state_dict(),
+                "optimizer": optimizer_state,
                 "iter": step_id + 1,
                 "best_loss": best_loss,
                 "config": config_container,
