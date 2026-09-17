@@ -1,11 +1,11 @@
 import torch
 
-from modeling.policy.video_deltam import VideoDeltaM
+from modeling.policy.video_deltam import HistoryFeatureExtractor
 
 
 def test_video_deltam_is_causal_per_camera():
     torch.manual_seed(0)
-    model = VideoDeltaM(12, 3, depth=2, dropout=0.0).eval()
+    model = HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0).eval()
     frames = torch.randn(2, 5, 3, 12)
     camera_token = torch.randn(2, 1, 12)
 
@@ -22,12 +22,12 @@ def test_video_deltam_is_causal_per_camera():
 
 def test_full_image_path_self_attends_over_patches_and_keeps_video_causality():
     torch.manual_seed(0)
-    model = VideoDeltaM(12, 3, depth=2, dropout=0.0, full_image=True).eval()
+    model = HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0, full_image=True).eval()
     images = torch.randn(2, 5, 3, 7, 12)
     camera_token = torch.randn(2, 1, 12)
 
-    # Full-image inputs are first pooled by the legacy per-image cross-attn
-    # readout, then same-time attention receives one token per camera.
+    # Full-image inputs retain all patch tokens in same-time attention:
+    # 3 cameras x 7 patches = 21 tokens.
     same_time_lengths = []
     hook = model.same_time[0].attn.register_forward_hook(
         lambda _module, args, _output: same_time_lengths.append(args[0].shape[1])
@@ -35,7 +35,7 @@ def test_full_image_path_self_attends_over_patches_and_keeps_video_causality():
 
     baseline_frames, baseline_context, _ = model(images, camera_token)
     hook.remove()
-    assert same_time_lengths == [3]
+    assert same_time_lengths == [21]
     future_changed = images.clone()
     future_changed[:, 4, 0] += 100.0
     changed_frames, changed_context, _ = model(future_changed, camera_token)
@@ -55,7 +55,7 @@ def test_predict_delta_m_role_emits_only_delta_m():
     """In the predict_delta_m role the stack's sole output is one orthogonal
     correction per camera; it builds no register readout at all."""
     torch.manual_seed(0)
-    model = VideoDeltaM(12, 3, depth=2, dropout=0.0, predict_delta_m=True).eval()
+    model = HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0, predict_delta_m=True).eval()
     assert not hasattr(model, "camera_readout")
     # The head is zero-initialised (see the identity test below); give it weight
     # so this exercises the mechanism rather than the initialisation.
@@ -83,7 +83,7 @@ def test_delta_m_starts_at_identity():
     correction -- important for warm-starting from a checkpoint trained with a
     head-predicted delta_M."""
     torch.manual_seed(0)
-    model = VideoDeltaM(12, 3, depth=2, dropout=0.0, predict_delta_m=True).eval()
+    model = HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0, predict_delta_m=True).eval()
     _, _, delta_M = model(torch.randn(2, 5, 3, 12), torch.randn(2, 1, 12))
     eye = torch.eye(6).expand_as(delta_M)
     assert torch.allclose(delta_M, eye, atol=1e-6)

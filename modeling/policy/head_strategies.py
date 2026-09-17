@@ -1,20 +1,25 @@
 """
-Helpers for TransformerHead: RoPE/physical-correction prediction and output attention.
+Helpers for TransformerHead: view-alignment prediction and output attention.
+
+View alignment corrects camera-extrinsic error during cross-view fusion. Two
+mechanisms exist: a RoPE mixing matrix (``delta_M``, representation space) and a
+physical SE(3) correction (``R,T``). See ``docs/terminology.md``.
 """
 from torch import nn
 
 
-# ---- Extrinsics ----
+# ---- View alignment ----
 
-class ExtrinsicsPredictor(nn.Module):
-    """Base: no extrinsics prediction."""
+class ViewAlignPredictor(nn.Module):
+    """Base: no view alignment (``view_align_mode=none``)."""
 
     def forward(self, batch_size, device, fps_scene_feats=None, fps_cam_ids=None):
         return None, None, None
 
 
-class RTExtrinsicsPredictor(ExtrinsicsPredictor):
-    """Predict R,T (6D) from camera token. Stores head as non-module ref to avoid circular module graph."""
+class SE3ViewAlignPredictor(ViewAlignPredictor):
+    """``view_align_mode=physical_se3``: predict a physical R,T (6D) from the
+    camera token. Stores head as non-module ref to avoid circular module graph."""
 
     def __init__(self, head):
         super().__init__()
@@ -28,11 +33,14 @@ class RTExtrinsicsPredictor(ExtrinsicsPredictor):
         return rt, None, rt.detach()
 
 
-class DeltaMExtrinsicsPredictor(ExtrinsicsPredictor):
-    """Predict per-camera delta_M RoPE corrections from pooled camera features.
+class RopeViewAlignPredictor(ViewAlignPredictor):
+    """``view_align_mode=rope_6d``/``rope_full``: predict per-camera delta_M RoPE
+    corrections from pooled camera features.
 
-    The class name is retained because it appears in historical code paths; a
-    delta_M is not an estimate of a physical camera extrinsic.
+    delta_M is a representation-space mixing matrix, NOT an estimate of a
+    physical camera extrinsic -- hence "Rope", not "Extrinsics", in the name.
+    Unused when the HistoryFeatureExtractor owns view alignment
+    (``video_deltam_role=predict_delta_m``); see ``modeling/policy/video_deltam.py``.
     """
 
     def __init__(self, head):
@@ -44,14 +52,14 @@ class DeltaMExtrinsicsPredictor(ExtrinsicsPredictor):
         return None, delta_M, delta_M.detach()
 
 
-def make_extrinsics_predictor(head, predict_extrinsics, extrinsics_prediction_mode):
+def make_view_align_predictor(head, predict_extrinsics, extrinsics_prediction_mode):
     if not predict_extrinsics:
-        return ExtrinsicsPredictor()
+        return ViewAlignPredictor()
     mode = extrinsics_prediction_mode.lower()
     if mode == 'rt':
-        return RTExtrinsicsPredictor(head)
+        return SE3ViewAlignPredictor(head)
     if mode in ('delta_m', 'delta_m_full'):
-        return DeltaMExtrinsicsPredictor(head)
+        return RopeViewAlignPredictor(head)
     raise ValueError(f"extrinsics_prediction_mode must be 'rt', 'delta_m', or 'delta_m_full', got {extrinsics_prediction_mode}")
 
 

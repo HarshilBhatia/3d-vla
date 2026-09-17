@@ -30,10 +30,41 @@ mixing matrix $\Delta M_j$. It does not estimate a physical extrinsic.
 Transformer depths from evolving per-camera summary features. It is not a
 temporal mechanism.
 
-**Causal camera history** is the optional `video_deltam` module. It refines
-history-by-camera features and produces one global history context token. It
-must not be described as directly yielding a per-camera history token for
-$\Delta M_j$ until that connection is implemented.
+**History feature extraction** is the optional `video_deltam` module
+(class `HistoryFeatureExtractor`, historically "Video-DeltaM"). It applies sparse
+causal attention over per-camera frame tokens: at each depth, tokens mix across
+cameras within a timestep, then causally across timesteps within a camera.
+
+It has two independent axes, and confusing them is the most common error.
+
+`video_deltam_role` -- **what it hands the policy**:
+
+- `refine`: it emits history-refined camera summaries (which replace the
+  encoder's, inside `fps_scene_feats`) plus a global history register added to
+  the trajectory queries. The policy head still predicts $\Delta M_j$ from those
+  summaries, layer-wise.
+- `predict_delta_m`: it emits $\Delta M_j$ and nothing else. The policy's scene
+  tokens and trajectory queries are untouched -- byte-identical to a model with
+  no history stack -- and the policy's own $\Delta M$ head is never constructed.
+  One $\Delta M$ is reused for every attention block and every denoising step,
+  so `layerwise_view_align` is inert.
+
+`video_deltam_full_image` -- **how much detail it sees**:
+
+- `false` (pooled): one pooled token per (timestep, camera).
+- `true` (full patch): that image's whole patch grid plus a learned image token.
+
+The two axes are orthogonal, giving four variants:
+
+| `video_deltam_role` | `video_deltam_full_image` | $\Delta M$ predicted by | policy inputs changed? |
+|---|---|---|---|
+| `refine` | `false` | policy head | yes (refined summaries + register) |
+| `refine` | `true` | policy head | yes (refined summaries + register) |
+| `predict_delta_m` | `false` | history extractor | no |
+| `predict_delta_m` | `true` | history extractor | no |
+
+`video_deltam=true` with `view_align_mode=none` and `role=refine` is also legal:
+history refines the scene tokens and no $\Delta M$ is produced anywhere.
 
 | Current internal name | Paper/code concept |
 |---|---|
@@ -41,7 +72,8 @@ $\Delta M_j$ until that connection is implemented.
 | `per_img_feats` | camera-summary features; one pooled current-frame feature per camera |
 | `current_per_img_feats` | layer-wise camera-summary features |
 | `video_frame_feats` | history camera-summary features |
-| `video_camera` | history context token |
+| `history_register` | history context token (was `video_camera`) |
+| `history_view_align` | $\Delta M$ produced by the history extractor, not the head |
 
 ## Short public config vocabulary
 
@@ -58,8 +90,25 @@ $\Delta M_j$ until that connection is implemented.
 | `ee_aux` | `predict_ee_aux` |
 | `ee_aux_weight` | `lambda_aux` |
 | `ee_aux_cameras` | `ee_aux_cam_ids` |
-| `causal_cam_history` | `video_deltam` |
-| `causal_cam_history_depth` | `video_deltam_depth` |
+
+### Retired keys
+
+`causal_cam_history` and `causal_cam_history_depth` were retired **in favour of**
+`video_deltam` and `video_deltam_depth`, not the other way round
+(`utils/config_migrations.py`, `_view_align_and_ee_aux`). Old configs still load;
+do not write new ones with the retired spelling.
+
+### Class names vs. serialized names
+
+Class names never appear in a `state_dict`, so they are free to be accurate.
+Attribute names are `state_dict` paths and are frozen.
+
+| Class (accurate) | Attribute / config key (frozen for checkpoints) |
+|---|---|
+| `HistoryFeatureExtractor` | `self.video_deltam`, `video_deltam*` config keys |
+| `ViewAlignPredictor` | `self.view_align_predictor` (holds no parameters) |
+| `RopeViewAlignPredictor` (was `DeltaMExtrinsicsPredictor`) | -- |
+| `SE3ViewAlignPredictor` (was `RTExtrinsicsPredictor`) | -- |
 
 `view_align_mode` values:
 

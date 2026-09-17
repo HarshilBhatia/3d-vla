@@ -5,8 +5,8 @@ from torch.nn import functional as F
 from ..noise_scheduler import fetch_schedulers
 from ..utils.layers import AttentionModule
 from ..utils.position_encodings import SinusoidalPosEmb
-from .head_strategies import make_extrinsics_predictor, run_output_attn
-from .video_deltam import VideoDeltaM
+from .head_strategies import make_view_align_predictor, run_output_attn
+from .video_deltam import HistoryFeatureExtractor
 from ..utils.utils import (
     compute_rotation_matrix_from_ortho6d,
     get_ortho6d_from_rotation_matrix,
@@ -121,24 +121,29 @@ class DenoiseActor(nn.Module):
             rgb3d, rgb2d, pcd, instruction, proprio.flatten(1, 2),
         )
 
-        # Video-DeltaM runs here, not in the head: its inputs do not change
-        # across denoising steps, so the head would recompute it n_steps times.
-        video_camera, precomputed_delta_M = None, None
+        # The HistoryFeatureExtractor runs here, not in the head: its inputs do
+        # not change across denoising steps, so the head would recompute it
+        # n_steps times.
+        history_register, history_view_align = None, None
         head = self.prediction_head
         if getattr(head, 'video_deltam', None) is not None:
             if fps_cam_ids is None:
                 raise ValueError("video_deltam=True requires camera-indexed FPS tokens")
             fixed_camera_token = head.camera_token.unsqueeze(0).expand(rgb3d.shape[0], -1, -1)
-            refined_frames, video_camera, delta_M = head.video_deltam(
+            refined_frames, history_register, delta_M = head.video_deltam(
                 video_frame_feats, fixed_camera_token
             )
             if delta_M is None:
-                # 'refine' role: the stack hands the decoder better scene tokens.
+                # video_deltam_role='refine': the extractor hands the policy
+                # history-refined camera summaries plus a history register. The
+                # policy head still predicts delta_M, layer-wise, from them.
                 camera_summaries = refined_frames[:, -1]
             else:
-                # 'predict_delta_m' role: delta_M is the stack's only output, so
-                # the scene tokens and trajectory queries are left untouched.
-                precomputed_delta_M = head._mask_delta_m_camera_ids(delta_M)
+                # video_deltam_role='predict_delta_m': delta_M is the extractor's
+                # ONLY output, so scene tokens and trajectory queries are left
+                # untouched -- the policy sees exactly what it would with no
+                # history stack at all, and its own delta_M head is never built.
+                history_view_align = head._mask_delta_m_camera_ids(delta_M)
 
         fps_scene_feats = torch.cat([fps_scene_feats, camera_summaries], dim=1)
         fps_scene_pos = torch.cat([fps_scene_pos, camera_summary_pos], dim=1)
@@ -147,7 +152,7 @@ class DenoiseActor(nn.Module):
         query_trajectory = proprio[:, -1:]
         return (query_trajectory, rgb3d_feats, pcd_out, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats, fps_scene_feats,
-                fps_scene_pos, fps_cam_ids, video_camera, precomputed_delta_M)
+                fps_scene_pos, fps_cam_ids, history_register, history_view_align)
 
     def policy_forward_pass(self, trajectory, timestep, fixed_inputs):
         # Parse inputs
@@ -159,7 +164,7 @@ class DenoiseActor(nn.Module):
             proprio_feats,
             fps_scene_feats, fps_scene_pos,
             fps_cam_ids,
-            video_camera, precomputed_delta_M,
+            history_register, history_view_align,
         ) = fixed_inputs
 
         # Get features from normalized (relative) trajectory
@@ -195,8 +200,8 @@ class DenoiseActor(nn.Module):
             fps_scene_feats=fps_scene_feats,
             fps_scene_pos=fps_scene_pos,
             fps_cam_ids=fps_cam_ids,
-            precomputed_delta_M=precomputed_delta_M,
-            video_camera=video_camera,
+            history_view_align=history_view_align,
+            history_register=history_register,
         )
 
     def conditional_sample(self, trajectory, device, fixed_inputs):
@@ -601,8 +606,14 @@ class TransformerHead(nn.Module):
                 f"got {video_deltam_role!r}"
             )
         self.video_deltam_role = video_deltam_role
+        # The attribute is named `video_deltam`, not `history_extractor`, on
+        # purpose: it is a state_dict path
+        # (`prediction_head.video_deltam.*`) in every released checkpoint, and
+        # evaluation/checkpoints.py refuses to load a checkpoint with missing
+        # keys. Renaming it needs a key-remapping layer first. The class name is
+        # free to be accurate because class names never appear in a state_dict.
         self.video_deltam = (
-            VideoDeltaM(
+            HistoryFeatureExtractor(
                 embedding_dim, num_attn_heads, video_deltam_depth,
                 max_history=video_deltam_max_history,
                 max_cameras=video_deltam_max_cameras,
@@ -823,7 +834,7 @@ class TransformerHead(nn.Module):
             nn.init.normal_(self.ee_predictor.weight, mean=0.0, std=0.01)
             nn.init.zeros_(self.ee_predictor.bias)
 
-        self.extrinsics_predictor = make_extrinsics_predictor(
+        self.view_align_predictor = make_view_align_predictor(
             self, head_owns_delta_m, self.extrinsics_prediction_mode
         )
 
@@ -933,7 +944,7 @@ class TransformerHead(nn.Module):
                 rgb3d_feats, rgb3d_pos, rgb2d_feats, rgb2d_pos,
                 instr_feats, instr_pos, proprio_feats,
                 fps_scene_feats, fps_scene_pos, fps_cam_ids=None,
-                precomputed_delta_M=None, video_camera=None):
+                history_view_align=None, history_register=None):
         """
         Arguments:
             traj_feats: (B, trajectory_length, nhand, F)
@@ -986,21 +997,27 @@ class TransformerHead(nn.Module):
         )
 
         batch_size, device = trajectory.shape[0], trajectory.device
-        # Video-DeltaM already ran in encode_inputs; the camera summaries it
-        # refined are in fps_scene_feats and its history register arrives here.
-        if video_camera is not None:
-            traj_feats = traj_feats + video_camera
-        if precomputed_delta_M is not None:
-            # An upstream module already produced delta_M; skip the head's predictor.
-            cam_params_rt, delta_M = None, precomputed_delta_M
-            self._last_predicted_cam_params = precomputed_delta_M.detach()
+        # The HistoryFeatureExtractor already ran in encode_inputs. Under
+        # 'refine' the camera summaries it refined are already inside
+        # fps_scene_feats and its history register arrives as history_register;
+        # under 'predict_delta_m' neither is set and history_view_align carries
+        # the extractor's delta_M instead.
+        if history_register is not None:
+            traj_feats = traj_feats + history_register
+        if history_view_align is not None:
+            # The HistoryFeatureExtractor already produced delta_M; skip the
+            # head's predictor (which was not even constructed in this mode) and
+            # fall through to the static-RoPE path below: one delta_M reused for
+            # every attention block and every denoising step.
+            cam_params_rt, delta_M = None, history_view_align
+            self._last_predicted_cam_params = history_view_align.detach()
         else:
-            cam_params_rt, delta_M, self._last_predicted_cam_params = self.extrinsics_predictor(
+            cam_params_rt, delta_M, self._last_predicted_cam_params = self.view_align_predictor(
                 batch_size, device, fps_scene_feats=fps_scene_feats, fps_cam_ids=fps_cam_ids
             )
 
         if self.layerwise_view_align and self._rope_mode == "standard" and self.predict_extrinsics \
-                and precomputed_delta_M is None:
+                and history_view_align is None:
             # Re-predict delta_M before every block. The camera summaries live in
             # the SA sequence, so each SA block sees a refined delta_M. Originals
             # are kept so RT transforms always start from a clean base.

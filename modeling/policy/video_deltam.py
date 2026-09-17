@@ -1,4 +1,20 @@
-"""Sparse causal Video-DeltaM attention over per-camera frame tokens."""
+"""HistoryFeatureExtractor: sparse causal attention over per-camera frame tokens.
+
+Historically "Video-DeltaM". The module name, the config keys and the
+``prediction_head.video_deltam.*`` state_dict paths keep the old spelling for
+checkpoint compatibility; the class name does not, because class names never
+appear in a state_dict.
+
+Two independent axes (see ``docs/architecture.md``):
+
+* ``predict_delta_m`` -- what the extractor hands the policy. False ("refine")
+  emits history-refined camera summaries plus a global history register, and the
+  policy head still predicts delta_M from them, layer-wise. True ("direct")
+  emits a delta_M and nothing else; the policy's scene tokens are untouched and
+  its own delta_M head is never constructed.
+* ``full_image`` -- how much detail the extractor sees. False pools each
+  (timestep, camera) image to one token; True keeps its whole patch grid.
+"""
 
 import torch
 from torch import nn
@@ -20,8 +36,8 @@ class _Block(nn.Module):
         return self.norm2(x + self.ffn(x))
 
 
-class VideoDeltaM(nn.Module):
-    """Video-DeltaM sparse attention stack with a global causal readout.
+class HistoryFeatureExtractor(nn.Module):
+    """Sparse causal attention stack with a global causal readout.
 
     The legacy input is one pooled visual token per ``(history time, camera)``.
     The full-image path instead appends a learned per-image token to every
@@ -74,6 +90,81 @@ class VideoDeltaM(nn.Module):
             self.camera_readout = nn.ModuleList(
                 [_Block(embedding_dim, num_heads, dropout) for _ in range(depth)]
             )
+        # Set by the checkpoint loader when evaluating a checkpoint written by
+        # the pre-camera-readout implementation.  That implementation used the
+        # learned image token directly (rather than image_readout) and returned
+        # refined per-camera frames only.
+        self._legacy_checkpoint_compat = False
+
+    def enable_legacy_checkpoint_compat(self):
+        """Use the pre-refactor full-patch computation for old checkpoints."""
+        self._legacy_checkpoint_compat = True
+
+    def _forward_legacy(self, frame_tokens):
+        """Exact forward contract of the checkpoint-era HistoryFeatureExtractor stack."""
+        if self.full_image:
+            if frame_tokens.ndim != 5:
+                raise ValueError(
+                    "full-image Video-DeltaM expects frame tokens shaped (B, K, M, P, C), "
+                    f"got {tuple(frame_tokens.shape)}"
+                )
+            bsz, history, ncam, npatch, channels = frame_tokens.shape
+            if npatch < 1:
+                raise ValueError("full-image Video-DeltaM requires at least one visual token per image")
+            frame_tokens = torch.cat(
+                [frame_tokens, self.image_token.expand(bsz, history, ncam, 1, channels)], dim=3
+            )
+        elif frame_tokens.ndim == 4:
+            bsz, history, ncam, _ = frame_tokens.shape
+        else:
+            raise ValueError(
+                "pooled Video-DeltaM expects frame tokens shaped (B, K, M, C), "
+                f"got {tuple(frame_tokens.shape)}"
+            )
+        if history > self.max_history or ncam > self.max_cameras:
+            raise ValueError(
+                f"Video-DeltaM got K={history}, cameras={ncam}; configured maxima are "
+                f"{self.max_history}, {self.max_cameras}"
+            )
+        time_ids = torch.arange(history, device=frame_tokens.device)
+        cam_ids = torch.arange(ncam, device=frame_tokens.device)
+        if self.full_image:
+            frames = frame_tokens + self.time_embedding(time_ids)[None, :, None, None] \
+                + self.camera_embedding(cam_ids)[None, None, :, None]
+            tokens_per_image = frames.shape[3]
+        else:
+            frames = frame_tokens + self.time_embedding(time_ids)[None, :, None] \
+                + self.camera_embedding(cam_ids)[None, None]
+            tokens_per_image = 1
+        time_mask = torch.triu(
+            torch.ones(history, history, dtype=torch.bool, device=frames.device), diagonal=1
+        )
+        causal_mask = (
+            time_mask.repeat_interleave(tokens_per_image, dim=0).repeat_interleave(tokens_per_image, dim=1)
+            if self.full_image else time_mask
+        )
+        for same_time, temporal in zip(self.same_time, self.temporal):
+            if self.full_image:
+                patches, image_tokens = frames[..., :-1, :], frames[..., -1:, :]
+                patches = same_time(
+                    patches.reshape(bsz * history, ncam * (tokens_per_image - 1), -1)
+                ).reshape(bsz, history, ncam, tokens_per_image - 1, -1)
+                frames = torch.cat([patches, image_tokens], dim=3)
+                temporal_frames = frames.transpose(1, 2).reshape(
+                    bsz * ncam, history * tokens_per_image, -1
+                )
+                frames = temporal(temporal_frames, attn_mask=causal_mask).reshape(
+                    bsz, ncam, history, tokens_per_image, -1
+                ).transpose(1, 2)
+            else:
+                frames = same_time(frames.reshape(bsz * history, ncam, -1)).reshape(
+                    bsz, history, ncam, -1
+                )
+                temporal_frames = frames.transpose(1, 2).reshape(bsz * ncam, history, -1)
+                frames = temporal(temporal_frames, attn_mask=causal_mask).reshape(
+                    bsz, ncam, history, -1
+                ).transpose(1, 2)
+        return frames[..., -1, :] if self.full_image else frames
 
     def _delta_m_from(self, camera_summaries):
         """(B, ncam, C) -> (B, ncam, 6, 6) orthogonal, same parameterisation as
@@ -92,6 +183,25 @@ class VideoDeltaM(nn.Module):
                 with ``full_image=True``, ``(B, K, M, P, C)`` full visual
                 token sequences. Time is ordered oldest to current.
         """
+        # Full-image Video-DeltaM keeps the complete patch sequence through
+        # both attention stages.  Do not collapse each image through a
+        # learned-token ``image_readout`` before temporal modeling: that loses
+        # the per-patch history the caller explicitly supplied.  The
+        # checkpoint-era implementation already has the desired computation
+        # (patches mix across cameras at each time, then patches + image token
+        # mix causally across time), so use it for all full-image checkpoints.
+        if self.full_image:
+            refined = self._forward_legacy(frame_tokens)
+            if self._legacy_checkpoint_compat or self.predict_delta_m:
+                return refined, None, (
+                    self._delta_m_from(refined) if self.predict_delta_m else None
+                )
+            cam = fixed_camera_token
+            for readout in self.camera_readout:
+                cam = readout(cam, refined[:, -1])
+            return refined, cam, None
+        if self._legacy_checkpoint_compat:
+            return self._forward_legacy(frame_tokens), None, None
         if self.full_image:
             if frame_tokens.ndim != 5:
                 raise ValueError(

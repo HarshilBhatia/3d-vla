@@ -27,7 +27,8 @@ Output: trajectory (B, T, nhand, 3+4+1)  xyz + quat_xyzw + gripper
 | `main.py` | Entry point: Hydra → DDP → dataset/model/trainer |
 | `modeling/policy/denoise_actor_3d.py` | Main 3D policy; `TransformerHead` extends base |
 | `modeling/policy/base_denoise_actor.py` | `compute_loss`, `conditional_sample`, `forward` |
-| `modeling/policy/head_strategies.py` | `ExtrinsicsPredictor` strategy classes |
+| `modeling/policy/video_deltam.py` | `HistoryFeatureExtractor` (optional causal visual history) |
+| `modeling/policy/head_strategies.py` | `ViewAlignPredictor` strategy classes |
 | `modeling/encoder/multimodal/encoder3d.py` | 3D encoder: backbone + FPS + proprioception RoPE cross-attn |
 | `modeling/noise_scheduler/rectified_flow.py` | Default noise scheduler |
 | `modeling/utils/position_encodings.py` | `RotaryPositionEncoding3D` with optional `delta_M` |
@@ -39,6 +40,37 @@ Output: trajectory (B, T, nhand, 3+4+1)  xyz + quat_xyzw + gripper
 | `utils/depth2cloud/rlbench.py` | Batched depth unprojection to world coords |
 | `online_evaluation_rlbench/evaluate_policy.py` | Online eval entry point |
 | `paths.py` | Per-user path config (toggled via `USER_NAME` env var) |
+
+## Optional: HistoryFeatureExtractor (`video_deltam`)
+
+Off by default. When `video_deltam=true`, a sparse causal attention stack runs
+over the last K frames × M cameras, **once per forward pass in `encode_inputs`**
+— not in the head, because its inputs do not change across denoising steps.
+
+Two orthogonal axes. Keeping them straight is the main source of confusion:
+
+| axis | config key | meaning |
+|---|---|---|
+| **what it outputs** | `video_deltam_role` | `refine` = features for the policy; `predict_delta_m` = $\Delta M$ only |
+| **what it sees** | `video_deltam_full_image` | `false` = 1 pooled token per (t, cam); `true` = that image's full patch grid |
+
+**`role=refine`** — the extractor's refined current-frame features *replace* the
+encoder's per-camera summaries inside `fps_scene_feats`, and a global history
+register is added to the trajectory queries. The policy head still predicts
+$\Delta M$ from those summaries, re-predicting per self-attention block.
+
+**`role=predict_delta_m`** ("Direct") — the extractor emits $\Delta M$ and nothing
+else. Scene tokens and trajectory queries are untouched, so the policy sees
+exactly what it would with no history stack; its `camera_predictor` is never
+constructed. One $\Delta M$ serves every attention block and every denoising
+step, which makes `layerwise_view_align` inert (guarded at the
+`history_view_align is None` condition in `policy_forward_pass`).
+
+Either role still leaves per-camera summary tokens in the self-attention
+sequence — `refine` swaps in better ones, `predict_delta_m` leaves the encoder's
+in place.
+
+See `docs/terminology.md` for the 2×2 table and naming rules.
 
 ## Non-Obvious Design Details
 
@@ -57,5 +89,3 @@ Output: trajectory (B, T, nhand, 3+4+1)  xyz + quat_xyzw + gripper
 **Checkpoint format**: `{"weight": ..., "ema_weight": ..., "optimizer": ..., "iter": int, "best_loss": float}`. Loading is non-strict (`strict=False`) to support architectural changes.
 
 **AMP dtype**: Uses `bfloat16` by default; falls back to `float32` on Quadro RTX 6000 (detected at runtime).
-
-**Checkpoint format**: `{"weight": ..., "ema_weight": ..., "optimizer": ..., "iter": int, "best_loss": float}`. Loading is non-strict (`strict=False`) to support architectural changes.
