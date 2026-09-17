@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
-  "campaign_id": "video_deltam_sbrs_replay_v05_exact_legacy_path",
-  "description": "Exact legacy-path replay of the six completed Video-DeltaM SBRS-best cells. It preserves the exact checkpoint, task-to-group mapping, and materialized medium-plus-3deg/1cm calibration matrices from video_deltam_sbrs_best_v01; validates the bytecode-recovered readout and trajectory/FPS integration.",
+  "campaign_id": "video_deltam_sbrs_replay_v07_latest_schema_fix",
+  "description": "Fresh SBRS replay using the latest Video-DeltaM code and current config schema, with explicit visual_num_history=5 and proprio_num_history=3. It preserves the exact checkpoint, task-to-group mapping, and materialized medium-plus-3deg/1cm calibration matrices from video_deltam_sbrs_best_v01.",
   "calibration_registry": "instructions/eval_calibrations_seen_base_residual_v01.json",
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit",
   "methods": [
@@ -44,6 +44,6 @@
     "max_tries": 1,
     "eval_use_depth2cloud": true,
     "num_demos_total": 20,
-    "overrides": {"image_space_sampling": false, "eval_proprio_history_order": "past_to_current"}
+    "overrides": {"visual_num_history": 5, "eval_proprio_history_order": "past_to_current"}
   }
 }

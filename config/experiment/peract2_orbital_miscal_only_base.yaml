@@ -1,0 +1,28 @@
+# Miscalibration only: the external cameras carry a persistent per-group
+# calibration error and nothing else. No train-time perturbation noise, so there
+# is no jitter for the policy to average away, and no view alignment, so it has
+# no mechanism to correct the error -- it must absorb it into the representation.
+#
+# Against peract2_orbital_new_external_only_miscal_base exactly one thing
+# differs: that arm adds ±3deg/±1cm perturbation noise on top of the same fixed
+# bias. Trained from scratch.
+dataset: OrbitalPeract2
+bimanual: true
+visual_num_history: 3
+batch_size: 256
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+train_iters: 100000
+
+# Persistent per-camera-group calibration error, external cameras only.
+miscal_mode: group
+miscal_group_level: medium
+miscal_cameras: [0, 1]
+
+# The next three already match config.yaml defaults, but they define this arm:
+# stated so the file says "deliberately off", not "never considered".
+view_align_mode: none
+layerwise_view_align: false
+perturbation_noise_rot_deg: null
+perturbation_noise_trans_m: null

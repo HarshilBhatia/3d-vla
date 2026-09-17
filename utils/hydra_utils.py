@@ -114,18 +114,8 @@ def _cfg_to_args(cfg, base_dir: Path = None) -> SimpleNamespace:
 
 
 def normalize_public_vocabulary_args(args: SimpleNamespace) -> None:
-    """Refresh public aliases after an eval checkpoint overlays legacy config.
-
-    Checkpoints contain legacy *model* keys. Clear only their derived public
-    counterparts first; evaluation-condition aliases remain runtime-owned.
-    """
-    values = vars(args)
-    for key in (
-        "view_align_mode", "view_align_cameras", "layerwise_view_align",
-        "ee_aux", "ee_aux_weight", "ee_aux_cameras",
-    ):
-        values[key] = None
-    _normalize_public_vocabulary(values)
+    """Normalize post-checkpoint configuration (migration is authoritative)."""
+    _normalize_public_vocabulary(vars(args))
 
 
 # Config groups that use @_global_ in defaults; CLI override "group=option" must be passed as "group@_global_=option"

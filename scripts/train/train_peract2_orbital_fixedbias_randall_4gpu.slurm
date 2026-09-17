@@ -19,8 +19,14 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, video_deltam_external, video_deltam_direct, or video_deltam_fullpatch}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, or video_deltam_fullpatch}"
 EXTRA_MODEL_OVERRIDES=()
+FROM_SCRATCH=0
+# T_applied = T_perturbation @ T_group[camera_group]. The fixed table lists all
+# four cameras with identity for wrist_left/right, so only orbital_left/right
+# carry the bias; miscal_cameras keeps the wrists clean under the perturbation
+# too. An arm may replace this wholesale -- see miscal_only_base.
+MISCAL_OVERRIDES=()
 case "$ARM" in
   base)
     EXPERIMENT=peract2_orbital_new_external_only_miscal_base
@@ -40,6 +46,16 @@ case "$ARM" in
     EXPERIMENT=peract2_orbital_vid_deltam_direct
     DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_direct
     ;;
+  miscal_only_base)
+    EXPERIMENT=peract2_orbital_miscal_only_base
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_miscal_only_base
+    # The persistent per-group bias with no perturbation noise on top, and no
+    # view alignment. The experiment config owns both; drop the launcher's
+    # perturbation defaults so they cannot override it.
+    MISCAL_OVERRIDES=(miscal_mode=group miscal_group_level=medium
+                      "miscal_group_file=$FIXED_NOISE_FILE" 'miscal_cameras=[0,1]')
+    FROM_SCRATCH=1
+    ;;
   video_deltam_fullpatch)
     EXPERIMENT=peract2_orbital_vid_deltam_fullpatch
     DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_fullpatch_finetune_300k
@@ -48,7 +64,7 @@ case "$ARM" in
     # Video-DeltaM summaries.
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, video_deltam_external, video_deltam_direct, or video_deltam_fullpatch" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, or video_deltam_fullpatch" >&2
     exit 2
     ;;
 esac
@@ -75,14 +91,20 @@ done
 if [[ -n "$RESUME_CHECKPOINT" ]]; then
     [[ -e "$RESUME_CHECKPOINT" ]] || { echo "Missing RESUME_CHECKPOINT: $RESUME_CHECKPOINT" >&2; exit 2; }
     CHECKPOINT_ARGS=("checkpoint=$RESUME_CHECKPOINT")
+elif [[ "$FROM_SCRATCH" == "1" ]]; then
+    CHECKPOINT_ARGS=()
 else
     CHECKPOINT_ARGS=("pretrained_checkpoint=$PRETRAINED_CHECKPOINT")
 fi
 
-# T_applied = T_random @ T_fixed[group]. The fixed table explicitly contains
-# all four cameras, with identity entries for wrist_left/right; only
-# orbital_left/right receive fixed group bias.  The explicit camera mask below
-# also keeps wrist_left/right clean when the random top-up is applied.
+# Arms that did not set their own keep the shared fixed-bias + perturbation recipe.
+if [[ ${#MISCAL_OVERRIDES[@]} -eq 0 ]]; then
+    MISCAL_OVERRIDES=(miscal_mode=group miscal_group_level=medium
+                      "miscal_group_file=$FIXED_NOISE_FILE"
+                      perturbation_noise_rot_deg=3.0 perturbation_noise_trans_m=0.01
+                      'miscal_cameras=[0,1]')
+fi
+
 torchrun --nproc_per_node="$NGPUS" --master_port="$MASTER_PORT" main.py \
     data=orbital_peract2_nfs \
     experiment="$EXPERIMENT" \
@@ -91,12 +113,7 @@ torchrun --nproc_per_node="$NGPUS" --master_port="$MASTER_PORT" main.py \
     exp_log_dir=PerAct2 \
     run_log_dir="$RUN_LOG_DIR" \
     train_iters="$TRAIN_ITERS" \
-    miscal_mode=group \
-    miscal_group_level=medium \
-    miscal_group_file="$FIXED_NOISE_FILE" \
-    perturbation_noise_rot_deg=3.0 \
-    perturbation_noise_trans_m=0.01 \
-    'miscal_cameras=[0,1]' \
+    "${MISCAL_OVERRIDES[@]}" \
     video_deltam_cache_batches=4 \
     video_deltam_cache_span=8 \
     batch_size="$BATCH_SIZE" \

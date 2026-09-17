@@ -21,6 +21,6 @@
     "data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": true,
     "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": true,
     "max_tries": 1, "eval_use_depth2cloud": true, "num_demos_total": 20,
-    "overrides": {"image_space_sampling": false, "eval_proprio_history_order": "past_to_current"}
+    "overrides": {"eval_proprio_history_order": "past_to_current"}
   }
 }
