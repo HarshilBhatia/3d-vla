@@ -258,6 +258,59 @@ and the N=1 baseline happened to land on a node already 5/8 busy. That produced
 apparent *superlinear* scaling at N=2 and N=3, which should have been the
 tell. Pin the nodes, chain the jobs, and record each node's load at launch.
 
+### Is it the fabric, or the collective? (it is the collective)
+
+Same GPU count, intra-node vs inter-node, so the interconnect is the only
+variable. Per-GPU batch 8, A5000, sequential on pinned idle nodes:
+
+| case | ranks | step ms | bwd | Δbwd vs 1 GPU | samp/s/rank | aggregate |
+|---|---|---|---|---|---|---|
+| 1 GPU | 1 | 125.7 | 13.0 | — | 63.6 | 63.6 |
+| 2 GPU, 1 node | 2 | 131.0 | 15.6 | +2.6 | 61.1 | 122.2 |
+| 2 GPU, 2 nodes | 2 | 134.9 | 18.5 | +5.5 | 59.3 | 118.6 |
+| 3 GPU, 1 node | 3 | 140.4 | 23.6 | +10.6 | 57.0 | 171.1 |
+| 3 GPU, 3 nodes | 3 | 147.8 | **23.6** | +10.6 | 54.2 | 162.5 |
+| 8 GPU, 1 node | 8 | 147.7 | 31.4 | +18.4 | 54.2 | 433.5 |
+
+**Going multi-node costs only 3-5%** at a given GPU count, and at 3 ranks the
+backward time — which contains the allreduce — is *identical* whether
+gradients cross PCIe inside one box or 100 Gb InfiniBand between three.
+
+The cost is DDP's per-rank collective overhead, and the proof is that it
+appears with **no network at all**: bwd goes 13.0 → 15.6 → 23.6 → 31.4 ms for
+1 → 2 → 3 → 8 ranks entirely within one node. A bandwidth argument cannot
+explain a 4x jump in allreduce cost from 2 to 3 ranks on the same machine.
+
+Two consequences:
+
+* **Prefer more GPUs on one node over more nodes** for throughput: 8 GPUs in
+  one box gives 433 samp/s at the same 85% efficiency that 3 nodes gives at
+  163 samp/s.
+* **Multi-node's value is availability, not speed.** It lets a run use
+  scattered idle GPUs when no single node has enough free, for a 3-5%
+  premium. That is a scheduling win, and the resilience layer is what makes
+  it safe.
+* **Raise per-GPU batch before adding ranks.** Batch 16 gave +18% single-GPU
+  throughput (63.6 → 75.1 samp/s) and moved 3-rank efficiency from 87.3% to
+  92.2%.
+
+### How to measure this without fooling yourself
+
+Three mistakes made here, all of which produced confident wrong numbers:
+
+1. **Running the legs concurrently.** The first N=1..4 sweep launched all four
+   at once on overlapping nodes, so they contended with each other and
+   produced apparent *superlinear* scaling. Chain them with `--dependency`.
+2. **An uncontrolled baseline.** That sweep's N=1 leg landed on a node already
+   5/8 busy, inflating every efficiency figure derived from it. Pin the nodes
+   and record each one's load at launch.
+3. **Too few samples.** 3-GPU and 4-GPU came out at *exactly* 140.4 ms /
+   57.02 samp/s on 8 benchmark rows each, which read as "the 4th GPU is
+   free". An interleaved repeat (3,4,3,4) at 400 steps / 18 rows showed
+   run-to-run spread of 0.06-0.5% and a real **2.3%** per-rank cost from 3 to
+   4 ranks — about 5x the noise. Interleave, repeat, and check `data_ms` is
+   still negligible so the run is not secretly data-bound.
+
 ### Contention costs more than communication
 
 The single most useful result here. Same config, 1 GPU on an A5000, varying
