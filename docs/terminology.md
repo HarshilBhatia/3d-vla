@@ -49,6 +49,17 @@ It has two independent axes, and confusing them is the most common error.
   One $\Delta M$ is reused for every attention block and every denoising step,
   so `layerwise_view_align` is inert.
 
+`video_deltam_patch_rope3d` -- **whether it sees geometry at all**:
+
+- `false`: positions are two learned lookups, `time_embedding[t]` and
+  `camera_embedding[j]`. The visual features are pure appearance (the point
+  cloud is never fused into them), so the extractor is blind to the camera
+  calibration error it is meant to correct.
+- `true`: queries and keys in both stages are rotated by each patch's world xyz
+  via `RotaryPositionEncoding3D`. Those xyz come from depth unprojected with the
+  *miscalibrated* extrinsics, so cross-camera geometric disagreement becomes
+  visible to attention. Requires `video_deltam_full_image=true`.
+
 `video_deltam_full_image` -- **how much detail it sees**:
 
 - `false` (pooled): one pooled token per (timestep, camera).

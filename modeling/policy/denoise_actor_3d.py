@@ -41,6 +41,7 @@ class DenoiseActor(BaseDenoiseActor):
                  # RoPE type
                  layerwise_view_align=False,
                  video_deltam=False,
+                 video_deltam_patch_rope3d=False,
                  video_deltam_depth=4,
                  video_deltam_max_history=32,
                  video_deltam_max_cameras=8,
@@ -94,6 +95,7 @@ class DenoiseActor(BaseDenoiseActor):
             view_align_cameras=view_align_cameras,
             layerwise_view_align=layerwise_view_align,
             video_deltam=video_deltam,
+            video_deltam_patch_rope3d=video_deltam_patch_rope3d,
             video_deltam_depth=video_deltam_depth,
             video_deltam_max_history=video_deltam_max_history,
             video_deltam_max_cameras=video_deltam_max_cameras,
@@ -147,6 +149,7 @@ class TransformerHead(BaseTransformerHead):
             view_align_cameras=kwargs.get("view_align_cameras", None),
             layerwise_view_align=kwargs.get("layerwise_view_align", False),
             video_deltam=kwargs.get("video_deltam", False),
+            video_deltam_patch_rope3d=kwargs.get("video_deltam_patch_rope3d", False),
             video_deltam_depth=kwargs.get("video_deltam_depth", 4),
             video_deltam_max_history=kwargs.get("video_deltam_max_history", 32),
             video_deltam_max_cameras=kwargs.get("video_deltam_max_cameras", 8),

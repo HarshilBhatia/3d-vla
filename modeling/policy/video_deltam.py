@@ -19,19 +19,30 @@ Two independent axes (see ``docs/architecture.md``):
 import torch
 from torch import nn
 
+from ..utils.multihead_custom_attention import MultiheadCustomAttention
+from ..utils.position_encodings import RotaryPositionEncoding3D
+
 
 class _Block(nn.Module):
+    """Attention + FFN, optionally with relative 3D RoPE. Param names match nn.MultiheadAttention."""
+
     def __init__(self, dim, heads, dropout):
         super().__init__()
-        self.attn = nn.MultiheadAttention(dim, heads, dropout=dropout, batch_first=True)
+        self.attn = MultiheadCustomAttention(dim, heads, dropout=dropout, batch_first=True)
         self.norm1 = nn.LayerNorm(dim)
         self.ffn = nn.Sequential(nn.Linear(dim, 4 * dim), nn.GELU(), nn.Dropout(dropout),
                                  nn.Linear(4 * dim, dim), nn.Dropout(dropout))
         self.norm2 = nn.LayerNorm(dim)
 
-    def forward(self, query, key_value=None, attn_mask=None):
+    def forward(self, query, key_value=None, attn_mask=None,
+                query_pos=None, key_pos=None):
+        """query_pos/key_pos: rotary codes (B, S, C, 2), or None for no PE."""
         key_value = query if key_value is None else key_value
-        out = self.attn(query, key_value, key_value, attn_mask=attn_mask, need_weights=False)[0]
+        rotary_pe = None
+        if query_pos is not None:
+            rotary_pe = (query_pos, query_pos if key_pos is None else key_pos)
+        out = self.attn(query, key_value, key_value, attn_mask=attn_mask,
+                        rotary_pe=rotary_pe)[0]
         x = self.norm1(query + out)
         return self.norm2(x + self.ffn(x))
 
@@ -57,10 +68,21 @@ class HistoryFeatureExtractor(nn.Module):
     """
 
     def __init__(self, embedding_dim, num_heads, depth, max_history=32, max_cameras=8,
-                 dropout=0.1, full_image=False, predict_delta_m=False):
+                 dropout=0.1, full_image=False, predict_delta_m=False,
+                 patch_rope3d=False):
         super().__init__()
         if depth < 1:
             raise ValueError("video_deltam_depth must be at least one")
+        if patch_rope3d and not full_image:
+            raise ValueError(
+                "video_deltam_patch_rope3d requires video_deltam_full_image=True: "
+                "the pooled path has one token per (timestep, camera) and no "
+                "per-patch xyz to encode"
+            )
+        # Only route by which geometry, hence calibration error, reaches this stack.
+        self.patch_rope3d = patch_rope3d
+        if patch_rope3d:
+            self.relative_pe_layer = RotaryPositionEncoding3D(embedding_dim)
         self.max_history = max_history
         self.max_cameras = max_cameras
         self.full_image = full_image
@@ -166,6 +188,75 @@ class HistoryFeatureExtractor(nn.Module):
                 ).transpose(1, 2)
         return frames[..., -1, :] if self.full_image else frames
 
+    def _rope(self, xyz, dtype):
+        """Rotary codes (B, N, C, 2) for world positions (B, N, 3)."""
+        # fp32: bf16 sin/cos blurs cm-scale offsets, which is the error scale.
+        return self.relative_pe_layer(xyz.float()).to(dtype)
+
+    def _forward_patch_rope3d(self, frame_tokens, frame_pcd):
+        """_forward_legacy token flow, with q/k rotated by each patch's world xyz."""
+        if frame_pcd is None:
+            raise ValueError("patch_rope3d=True requires frame_pcd")
+        if frame_tokens.ndim != 5:
+            raise ValueError(
+                "full-image Video-DeltaM expects frame tokens shaped (B, K, M, P, C), "
+                f"got {tuple(frame_tokens.shape)}"
+            )
+        if frame_pcd.shape[:4] != frame_tokens.shape[:4] or frame_pcd.shape[-1] != 3:
+            raise ValueError(
+                "frame_pcd must be (B, K, M, P, 3) matching frame_tokens; got "
+                f"{tuple(frame_pcd.shape)} vs {tuple(frame_tokens.shape)}"
+            )
+        bsz, history, ncam, npatch, channels = frame_tokens.shape
+        if npatch < 1:
+            raise ValueError("full-image Video-DeltaM requires at least one visual token per image")
+        if history > self.max_history or ncam > self.max_cameras:
+            raise ValueError(
+                f"Video-DeltaM got K={history}, cameras={ncam}; configured maxima are "
+                f"{self.max_history}, {self.max_cameras}"
+            )
+
+        time_ids = torch.arange(history, device=frame_tokens.device)
+        cam_ids = torch.arange(ncam, device=frame_tokens.device)
+        frames = torch.cat(
+            [frame_tokens, self.image_token.expand(bsz, history, ncam, 1, channels)], dim=3
+        )
+        frames = frames + self.time_embedding(time_ids)[None, :, None, None] \
+            + self.camera_embedding(cam_ids)[None, None, :, None]
+        tokens_per_image = frames.shape[3]
+
+        # Image token has no xyz; place it at the centroid of its own patches.
+        pos = torch.cat([frame_pcd, frame_pcd.mean(dim=3, keepdim=True)], dim=3)
+
+        patch_pos = self._rope(
+            frame_pcd.reshape(bsz * history, ncam * npatch, 3), frames.dtype
+        )
+        temporal_pos = self._rope(
+            pos.transpose(1, 2).reshape(bsz * ncam, history * tokens_per_image, 3), frames.dtype
+        )
+
+        time_mask = torch.triu(
+            torch.ones(history, history, dtype=torch.bool, device=frames.device), diagonal=1
+        )
+        causal_mask = time_mask.repeat_interleave(
+            tokens_per_image, dim=0
+        ).repeat_interleave(tokens_per_image, dim=1)
+
+        for same_time, temporal in zip(self.same_time, self.temporal):
+            patches, image_tokens = frames[..., :-1, :], frames[..., -1:, :]
+            patches = same_time(
+                patches.reshape(bsz * history, ncam * npatch, -1),
+                query_pos=patch_pos,
+            ).reshape(bsz, history, ncam, npatch, -1)
+            frames = torch.cat([patches, image_tokens], dim=3)
+            temporal_frames = frames.transpose(1, 2).reshape(
+                bsz * ncam, history * tokens_per_image, -1
+            )
+            frames = temporal(
+                temporal_frames, attn_mask=causal_mask, query_pos=temporal_pos,
+            ).reshape(bsz, ncam, history, tokens_per_image, -1).transpose(1, 2)
+        return frames[..., -1, :]
+
     def _delta_m_from(self, camera_summaries):
         """(B, ncam, C) -> (B, ncam, 6, 6) orthogonal, same parameterisation as
         the head's predictor: skew-symmetrise, clamp Frobenius norm, exponentiate."""
@@ -175,13 +266,15 @@ class HistoryFeatureExtractor(nn.Module):
         A = A * (norm.clamp(max=3.0) / norm)
         return torch.linalg.matrix_exp(A)
 
-    def forward(self, frame_tokens, fixed_camera_token):
+    def forward(self, frame_tokens, fixed_camera_token, frame_pcd=None):
         """Refine frame tokens and read history into a camera register.
 
         Args:
             frame_tokens: legacy ``(B, K, M, C)`` pooled frame tokens, or,
                 with ``full_image=True``, ``(B, K, M, P, C)`` full visual
                 token sequences. Time is ordered oldest to current.
+            frame_pcd: ``(B, K, M, P, 3)`` world xyz per patch. Required when
+                ``patch_rope3d=True``, ignored otherwise.
         """
         # Full-image Video-DeltaM keeps the complete patch sequence through
         # both attention stages.  Do not collapse each image through a
@@ -191,10 +284,14 @@ class HistoryFeatureExtractor(nn.Module):
         # (patches mix across cameras at each time, then patches + image token
         # mix causally across time), so use it for all full-image checkpoints.
         if self.full_image:
-            refined = self._forward_legacy(frame_tokens)
+            refined = (
+                self._forward_patch_rope3d(frame_tokens, frame_pcd)
+                if self.patch_rope3d else self._forward_legacy(frame_tokens)
+            )
             if self._legacy_checkpoint_compat or self.predict_delta_m:
                 return refined, None, (
-                    self._delta_m_from(refined) if self.predict_delta_m else None
+                    # Current frame only: delta_M is (B, ncam, 6, 6), as pooled does.
+                    self._delta_m_from(refined[:, -1]) if self.predict_delta_m else None
                 )
             cam = fixed_camera_token
             for readout in self.camera_readout:

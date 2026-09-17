@@ -1,3 +1,4 @@
+import pytest
 import torch
 
 from modeling.policy.video_deltam import HistoryFeatureExtractor
@@ -87,3 +88,65 @@ def test_delta_m_starts_at_identity():
     _, _, delta_M = model(torch.randn(2, 5, 3, 12), torch.randn(2, 1, 12))
     eye = torch.eye(6).expand_as(delta_M)
     assert torch.allclose(delta_M, eye, atol=1e-6)
+
+
+def _rope_model(patch_rope3d, seed=0):
+    torch.manual_seed(seed)
+    model = HistoryFeatureExtractor(
+        12, 3, depth=2, dropout=0.0, full_image=True,
+        predict_delta_m=True, patch_rope3d=patch_rope3d,
+    ).eval()
+    # delta_m_head is zero-init, so delta_M would be identity regardless of input.
+    torch.nn.init.normal_(model.delta_m_head[-1].weight, std=0.05)
+    return model
+
+
+def test_patch_rope3d_requires_full_image():
+    with pytest.raises(ValueError, match="full_image"):
+        HistoryFeatureExtractor(12, 3, depth=2, full_image=False, patch_rope3d=True)
+
+
+def test_patch_rope3d_makes_delta_m_depend_on_geometry():
+    images = torch.randn(2, 5, 3, 7, 12)
+    pcd = torch.randn(2, 5, 3, 7, 3)
+    camera_token = torch.randn(2, 1, 12)
+    shifted = pcd.clone()
+    shifted[:, :, 0] += 0.05
+
+    baseline = _rope_model(False)
+    _, _, dm = baseline(images, camera_token)
+    _, _, dm_shifted = baseline(images, camera_token)
+    assert torch.allclose(dm, dm_shifted)
+
+    roped = _rope_model(True)
+    _, _, dm = roped(images, camera_token, frame_pcd=pcd)
+    _, _, dm_shifted = roped(images, camera_token, frame_pcd=shifted)
+    assert not torch.allclose(dm, dm_shifted)
+    assert dm.shape == (2, 3, 6, 6)
+
+
+def test_patch_rope3d_delta_m_is_orthogonal_and_current_frame_only():
+    model = _rope_model(True)
+    images = torch.randn(2, 5, 3, 7, 12)
+    pcd = torch.randn(2, 5, 3, 7, 3)
+    _, _, dm = model(images, torch.randn(2, 1, 12), frame_pcd=pcd)
+    eye = torch.eye(6).expand_as(dm)
+    assert torch.allclose(dm @ dm.mT, eye, atol=1e-4)
+
+
+def test_patch_rope3d_stays_causal():
+    model = _rope_model(True)
+    images = torch.randn(2, 5, 3, 7, 12)
+    pcd = torch.randn(2, 5, 3, 7, 3)
+    camera_token = torch.randn(2, 1, 12)
+    frames, _, _ = model(images, camera_token, frame_pcd=pcd)
+    future = images.clone()
+    future[:, 4] += 99.0
+    changed, _, _ = model(future, camera_token, frame_pcd=pcd)
+    assert torch.allclose(frames[:, :4], changed[:, :4], atol=1e-5)
+
+
+def test_patch_rope3d_requires_frame_pcd():
+    model = _rope_model(True)
+    with pytest.raises(ValueError, match="frame_pcd"):
+        model(torch.randn(2, 5, 3, 7, 12), torch.randn(2, 1, 12))

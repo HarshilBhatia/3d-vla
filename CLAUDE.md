@@ -13,6 +13,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 - [Config](docs/config.md) — Hydra config system and important flags
 - [Data](docs/data.md) — zarr format, dataset classes, preprocessing, data generation
 
+## Comments
+
+**One line maximum.** Never write multi-line comments or docstrings. Rationale,
+history and caveats go in the commit message or `docs/`, never in the source.
+
 ## Writing Eval Scripts
 
 Use existing scripts in `scripts/eval/` as templates — don't invent values.

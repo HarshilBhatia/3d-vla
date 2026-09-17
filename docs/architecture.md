@@ -52,6 +52,7 @@ Two orthogonal axes. Keeping them straight is the main source of confusion:
 | axis | config key | meaning |
 |---|---|---|
 | **what it outputs** | `video_deltam_role` | `refine` = features for the policy; `predict_delta_m` = $\Delta M$ only |
+| **whether it sees geometry** | `video_deltam_patch_rope3d` | `false` = learned time/camera index lookups only, blind to calibration error; `true` = 3D RoPE on each patch's miscalibrated xyz |
 | **what it sees** | `video_deltam_full_image` | `false` = 1 pooled token per (t, cam); `true` = that image's full patch grid |
 
 **`role=refine`** — the extractor's refined current-frame features *replace* the

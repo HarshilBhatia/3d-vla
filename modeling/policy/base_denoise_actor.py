@@ -130,8 +130,12 @@ class DenoiseActor(nn.Module):
             if fps_cam_ids is None:
                 raise ValueError("video_deltam=True requires camera-indexed FPS tokens")
             fixed_camera_token = head.camera_token.unsqueeze(0).expand(rgb3d.shape[0], -1, -1)
+            frame_pcd = None
+            if head.video_deltam.patch_rope3d:
+                # Miscalibrated xyz per patch; same reshape as video_frame_feats.
+                frame_pcd = pcd_out.reshape(*video_frame_feats.shape[:4], 3)
             refined_frames, history_register, delta_M = head.video_deltam(
-                video_frame_feats, fixed_camera_token
+                video_frame_feats, fixed_camera_token, frame_pcd=frame_pcd
             )
             if delta_M is None:
                 # video_deltam_role='refine': the extractor hands the policy
@@ -578,6 +582,7 @@ class TransformerHead(nn.Module):
                  video_deltam_max_history=32,
                  video_deltam_max_cameras=8,
                  video_deltam_full_image=False,
+                 video_deltam_patch_rope3d=False,
                  video_deltam_role='refine',
                  ee_aux=False,
                  ee_aux_weight=1.0,
@@ -618,6 +623,7 @@ class TransformerHead(nn.Module):
                 max_history=video_deltam_max_history,
                 max_cameras=video_deltam_max_cameras,
                 full_image=video_deltam_full_image,
+                patch_rope3d=video_deltam_patch_rope3d,
                 predict_delta_m=(video_deltam_role == 'predict_delta_m'),
             ) if video_deltam else None
         )
