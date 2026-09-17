@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "campaign_id": "idlt_task_seen_group_fixed_v02",
+  "campaign_id": "idlt_task_seen_group_fixed_v03_video_k5",
   "description": "In-Distribution Lab Transfer: external-camera-only calibration robustness. The target task trained on its selected camera group.",
   "calibration_registry": "instructions/eval_calibrations_idlt_v01.json",
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
@@ -16,8 +16,9 @@
     {
       "id": "video_deltam_best_s084k",
       "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth",
-      "overrides": {
-        "eval_proprio_history_order": "past_to_current"
+    "overrides": {
+      "visual_num_history": 5,
+      "eval_proprio_history_order": "past_to_current"
       }
     }
   ],
