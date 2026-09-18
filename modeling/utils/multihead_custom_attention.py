@@ -1,4 +1,4 @@
-
+import os
 import torch
 from torch import nn
 from torch.nn import functional as F
@@ -150,11 +150,15 @@ def multi_head_attention_forward(query,
     k = k.view(k.shape[0], B_sz, num_heads, head_dim).permute(1, 2, 0, 3)
     v = v.view(v.shape[0], B_sz, num_heads, head_dim).permute(1, 2, 0, 3)
 
-    # SDPA's mem-efficient kernel needs head_dim % 8 == 0 in 16-bit; at head_dim 20
-    # it falls back to math, which materialises (B, H, S, S). Zero-padding q/k/v
-    # contributes 0 to every dot product and the padded output columns are dropped,
-    # so this is exact provided `scale` stays 1/sqrt(true head_dim).
-    pad = (-head_dim) % 8 if q.dtype in (torch.float16, torch.bfloat16) else 0
+    # SDPA's mem-efficient kernel needs head_dim % 8 == 0 in 16-bit; at head_dim 20 it
+    # drops to math, which materialises (B, H, S, S). Autocast casts inside the op, so
+    # the 16-bit rule applies even though q is still fp32 here -- test autocast, not q.
+    _amp16 = torch.is_autocast_enabled() and torch.get_autocast_gpu_dtype() in (torch.float16, torch.bfloat16)
+    pad = (-head_dim) % 8 if (_amp16 or q.dtype in (torch.float16, torch.bfloat16)) else 0
+    if os.environ.get("ATTN_NO_HEADDIM_PAD") == "1":
+        pad = 0
+    # Zero-padded dims contribute 0 to every dot product and the extra output columns
+    # are dropped, so this is exact as long as scale stays 1/sqrt(true head_dim).
     scale = head_dim ** -0.5
     if pad:
         q, k, v = (F.pad(t, (0, pad)) for t in (q, k, v))
