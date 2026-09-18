@@ -65,15 +65,17 @@ def main():
         )
         print("Device count:", torch.cuda.device_count())
 
-    # Short NCCL timeout: detect hung ranks in 120s instead of the default 600s.
-    # When a rank dies the job fails fast, torchrun --max-restarts restarts from checkpoint.
-    os.environ.setdefault("TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC", "120")
+    # NCCL timeout. 120s fails fast on a hung rank, but the launcher passes no
+    # torchrun --max-restarts, so nothing restarts and a merely contended node
+    # (step time 0.5s -> 14s) kills the run. Override with NCCL_TIMEOUT_SEC.
+    _nccl_timeout = int(os.environ.get("NCCL_TIMEOUT_SEC", "1800"))
+    os.environ.setdefault("TORCH_NCCL_HEARTBEAT_TIMEOUT_SEC", str(_nccl_timeout))
 
     # DDP initialization
     torch.cuda.set_device(args.local_rank)
     torch.distributed.init_process_group(
         backend='nccl', init_method='env://',
-        timeout=timedelta(seconds=120),
+        timeout=timedelta(seconds=_nccl_timeout),
     )
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
