@@ -163,7 +163,18 @@ class BaseTrainTester:
         )
 
         gpu_name = torch.cuda.get_device_name(0) if torch.cuda.is_available() else ""
-        self.amp_dtype = torch.float32 if "Quadro RTX 6000" in gpu_name else torch.bfloat16
+        # fp32 keeps SDPA on the mem-efficient kernel; bf16 needs head_dim % 8 == 0.
+        amp = str(getattr(self.args, "amp_dtype", "auto") or "auto").lower()
+        if amp == "float32":
+            self.amp_dtype = torch.float32
+        elif amp == "bfloat16":
+            self.amp_dtype = torch.bfloat16
+        elif amp == "auto":
+            self.amp_dtype = torch.float32 if "Quadro RTX 6000" in gpu_name else torch.bfloat16
+        else:
+            raise ValueError(f"amp_dtype must be auto, float32 or bfloat16, got {amp!r}")
+        if dist.get_rank() == 0:
+            print(f"[amp] dtype={self.amp_dtype} (amp_dtype={amp}, gpu={gpu_name})", flush=True)
 
         if dist.get_rank() == 0 and self.run_mode == "train":
             self.writer = SummaryWriter(log_dir=args.log_dir)

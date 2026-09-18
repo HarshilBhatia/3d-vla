@@ -150,15 +150,26 @@ def multi_head_attention_forward(query,
     k = k.view(k.shape[0], B_sz, num_heads, head_dim).permute(1, 2, 0, 3)
     v = v.view(v.shape[0], B_sz, num_heads, head_dim).permute(1, 2, 0, 3)
 
+    # SDPA's mem-efficient kernel needs head_dim % 8 == 0 in 16-bit; at head_dim 20
+    # it falls back to math, which materialises (B, H, S, S). Zero-padding q/k/v
+    # contributes 0 to every dot product and the padded output columns are dropped,
+    # so this is exact provided `scale` stays 1/sqrt(true head_dim).
+    pad = (-head_dim) % 8 if q.dtype in (torch.float16, torch.bfloat16) else 0
+    scale = head_dim ** -0.5
+    if pad:
+        q, k, v = (F.pad(t, (0, pad)) for t in (q, k, v))
+
     if force_math:
         with sdpa_kernel(SDPBackend.MATH):
             attn_output = F.scaled_dot_product_attention(
-                q, k, v, attn_mask, dropout_p if training else 0.0, is_causal=False
+                q, k, v, attn_mask, dropout_p if training else 0.0, is_causal=False, scale=scale
             )
     else:
         attn_output = F.scaled_dot_product_attention(
-            q, k, v, attn_mask, dropout_p if training else 0.0, is_causal=False
+            q, k, v, attn_mask, dropout_p if training else 0.0, is_causal=False, scale=scale
         )
+    if pad:
+        attn_output = attn_output[..., :head_dim]
     attn_output = attn_output.permute(2, 0, 1, 3).reshape(S, B_sz, num_heads * head_dim)
     attn_output = F.linear(attn_output, out_proj_weight, out_proj_bias)
     attn_output = F.dropout(attn_output, p=dropout_p, training=training)
