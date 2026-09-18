@@ -50,3 +50,31 @@ def test_script_passes_only_live_config_keys(script, valid_keys):
         f"{sorted(offenders)}. Rename them, and add a @migration in "
         f"utils/config_migrations.py if checkpoints carry the old spelling."
     )
+
+
+EVAL_PLANS = sorted((REPO / "instructions" / "eval_plans").glob("*.json"))
+
+
+@pytest.mark.parametrize("plan", EVAL_PLANS, ids=lambda p: p.name)
+def test_eval_plan_uses_only_live_config_keys(plan, valid_keys):
+    """Eval plans carry config overrides as JSON, so the script scan above misses
+    them. A stale key here fails the rollout at Hydra startup, hours later."""
+    import json
+
+    offenders = set()
+
+    def walk(node):
+        if isinstance(node, dict):
+            for key, value in node.items():
+                if key in RETIRED_KEYS and key not in valid_keys:
+                    offenders.add(key)
+                walk(value)
+        elif isinstance(node, list):
+            for value in node:
+                walk(value)
+
+    walk(json.loads(plan.read_text()))
+    assert not offenders, (
+        f"{plan.name} passes retired config keys {sorted(offenders)}; "
+        f"migrate them and add a @migration if checkpoints carry the old spelling."
+    )

@@ -47,7 +47,7 @@
     "eval_use_depth2cloud": true,
     "num_demos_total": 20,
     "overrides": {
-      "image_space_sampling": false,
+      "scene_sampling": "fps",
       "eval_proprio_history_order": "past_to_current"
     }
   }
