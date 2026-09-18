@@ -29,6 +29,10 @@ from omegaconf import OmegaConf, DictConfig
 # still two orders of magnitude inside the 120 s grace window.
 _PREEMPT_CHECK_EVERY = 10
 
+# Repo root. Asserted by tests/test_checkpoint_eval_launch.py so moving this file
+# cannot silently break checkpoint-eval submission again.
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 def _atomic_save(obj, path):
     """Write to a temp file then rename so a killed job never leaves a partial checkpoint."""
@@ -1247,7 +1251,7 @@ class BaseTrainTester:
             entries = OmegaConf.to_container(entries, resolve=True)
         if not entries:
             return
-        repo_root = Path(__file__).resolve().parents[2]
+        repo_root = REPO_ROOT
         launcher = repo_root / "scripts/eval/checkpoint_ladder.py"
         for raw_entry in entries:
             entry = OmegaConf.to_container(raw_entry, resolve=True) if isinstance(raw_entry, DictConfig) else dict(raw_entry)
@@ -1266,8 +1270,12 @@ class BaseTrainTester:
                 "--config", str(recipe),
                 "--min-step", str(step), "--max-step", str(step), "--submit",
             ]
+            # cwd is not on sys.path for a script run by path, so the launcher
+            # cannot import the repo packages without this.
+            env = dict(os.environ)
+            env["PYTHONPATH"] = os.pathsep.join(filter(None, [str(repo_root), env.get("PYTHONPATH", "")]))
             try:
-                result = subprocess.run(command, cwd=repo_root, check=True, text=True, capture_output=True)
+                result = subprocess.run(command, cwd=repo_root, env=env, check=True, text=True, capture_output=True)
                 print(f"[checkpoint eval] step={step}, recipe={recipe}, method={method_id}: {result.stdout.strip()}", flush=True)
             except subprocess.CalledProcessError as error:
                 # A failed eval submission must never kill or stall training;
