@@ -44,11 +44,14 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--plan", required=True)
     parser.add_argument("--submit", action="store_true", help="Submit exactly the missing cells as a Slurm array.")
-    parser.add_argument("--max-parallel", type=int, default=24)
+    parser.add_argument(
+        "--max-parallel", type=int, default=0,
+        help="Optional array throttle; 0 (default) leaves the array unthrottled.",
+    )
     parser.add_argument("--max-requeues", type=int, default=3)
     args = parser.parse_args()
-    if args.max_parallel <= 0 or args.max_requeues < 0:
-        raise ValueError("max-parallel must be positive and max-requeues non-negative")
+    if args.max_parallel < 0 or args.max_requeues < 0:
+        raise ValueError("max-parallel must be non-negative and max-requeues non-negative")
     plan, plan_path = load_plan(args.plan)
     missing = []
     for index, cell in enumerate(cells(plan)):
@@ -59,7 +62,9 @@ def main() -> None:
     if not missing or not args.submit:
         print(compact_indices(missing))
         return
-    array = f"{compact_indices(missing)}%{args.max_parallel}"
+    array = compact_indices(missing)
+    if args.max_parallel:
+        array = f"{array}%{args.max_parallel}"
     command = [
         "sbatch", f"--job-name={plan['campaign_id']}", f"--array={array}",
         f"--export=ALL,EVAL_MAX_REQUEUES={args.max_requeues}",
