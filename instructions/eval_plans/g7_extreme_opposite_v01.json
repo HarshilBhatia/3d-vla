@@ -115,7 +115,7 @@
   },
   "runtime": {
     "data": "orbital_peract2_nfs",
-    "dataset": "OrbitalPerAct2",
+    "dataset": "OrbitalPeract2",
     "bimanual": true,
     "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
     "headless": true,

@@ -47,7 +47,7 @@ plan = {
     "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
     "methods": methods, "calibrations": ["opposite-100cm", "opposite-200cm", "opposite-500cm"],
     "tasks": tasks, "task_viewpoints": {}, "task_calibrations": {},
-    "runtime": {"data": "orbital_peract2_nfs", "dataset": "OrbitalPerAct2", "bimanual": True,
+    "runtime": {"data": "orbital_peract2_nfs", "dataset": "OrbitalPeract2", "bimanual": True,
                  "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test", "headless": True,
                  "max_tries": 1, "eval_use_depth2cloud": True, "num_demos_total": 20,
                  "overrides": {"scene_sampling": "fps", "eval_proprio_history_order": "past_to_current"}},
