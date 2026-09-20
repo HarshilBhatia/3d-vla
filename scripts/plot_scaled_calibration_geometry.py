@@ -64,5 +64,21 @@ for j,level in enumerate([20,40,60],1):
     ax.set_title(f"20/20 → scaled {level}/{level}"); ax.set_xlabel("x"); ax.set_ylabel("y"); ax.set_zlabel("z"); ax.set_box_aspect((1,1,.8))
 fig.suptitle("Clean (gray) vs perturbed (red) projected point-cloud geometry, G2",fontsize=14)
 fig.tight_layout(); fig.savefig(OUT/"scaled_calibration_pointcloud_overlays.png",dpi=220); fig.savefig(OUT/"scaled_calibration_pointcloud_overlays.pdf")
+
+# Translation-only view: deliberately ignore every rotation component.
+fig, ax = plt.subplots(figsize=(10, 7))
+colors={20:"#1f77b4",30:"#ff7f0e",40:"#2ca02c",50:"#d62728",60:"#9467bd"}
+for i,T in enumerate(cams):
+    p=T[:3,3]; ax.scatter(p[0],p[1],color="#222222",s=55,marker="o",label="nominal camera center" if i==0 else None)
+    ax.text(p[0]+.012,p[1]+.012,f"C{i}",fontsize=9)
+    for level in [20,30,40,50,60]:
+        P=load_calibration("G2",level)[i]@T; q=P[:3,3]; d=q-p
+        ax.arrow(p[0],p[1],d[0],d[1],color=colors[level],width=.0015,head_width=.025,length_includes_head=True,alpha=.8)
+        ax.scatter(q[0],q[1],color=colors[level],s=20)
+        if i==0: ax.text(q[0]+.01,q[1]+.01,f"{level}°/{level}cm",color=colors[level],fontsize=8)
+ax.set_xlabel("camera-center x (m)"); ax.set_ylabel("camera-center y (m)"); ax.set_title("Translation-only camera-center displacement (G2; rotations ignored)")
+ax.grid(alpha=.25); ax.set_aspect("equal",adjustable="box"); ax.legend(loc="best",fontsize=9)
+fig.tight_layout(); fig.savefig(OUT/"scaled_calibration_translation_only.png",dpi=220); fig.savefig(OUT/"scaled_calibration_translation_only.pdf")
 print(OUT/"scaled_calibration_camera_frusta.png")
 print(OUT/"scaled_calibration_pointcloud_overlays.png")
+print(OUT/"scaled_calibration_translation_only.png")
