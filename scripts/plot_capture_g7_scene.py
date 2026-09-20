@@ -64,8 +64,9 @@ def capture(args):
 def plot(args):
     data = np.load(args.output_npz)
     points, exts = data["points"], data["extrinsics"]
-    fig = plt.figure(figsize=(10, 8))
-    ax = fig.add_subplot(111, projection="3d")
+    fig = plt.figure(figsize=(16, 7))
+    ax = fig.add_subplot(121, projection="3d")
+    ax2 = fig.add_subplot(122, projection="3d")
     colors = ["#377eb8", "#e41a1c", "#4daf4a", "#984ea3"]
     labels = ["orbital left", "orbital right", "wrist left", "wrist right"]
     # Depth sensors occasionally return a few far-plane pixels.  Keep the
@@ -73,8 +74,10 @@ def plot(args):
     # camera translations remain visible at scene scale.
     merged = points.reshape(-1, 3)
     lo, hi = np.percentile(merged, [1, 99], axis=0)
+    clipped = []
     for i, xyz in enumerate(points):
         xyz = xyz[(xyz >= lo).all(1) & (xyz <= hi).all(1)]
+        clipped.append(xyz)
         ax.scatter(xyz[:, 0], xyz[:, 1], xyz[:, 2], s=0.8, alpha=0.25,
                    color=colors[i], label=labels[i])
     centers = exts[:, :3, 3]
@@ -93,13 +96,45 @@ def plot(args):
         ax.scatter(shifted[:2, 0], shifted[:2, 1], shifted[:2, 2], marker="x",
                    c=[colors[0], colors[1]], s=28)
     ax.set_xlabel("world X (m)"); ax.set_ylabel("world Y (m)"); ax.set_zlabel("world Z (m)")
-    ax.set_title("Real G7 pick-laptop scene point cloud + opposing camera translations")
+    ax.set_title("Clean capture: real scene point cloud")
     ax.legend(loc="upper left", fontsize=8)
     ax.set_box_aspect((1, 1, 0.75))
     pad = 0.12
     ax.set_xlim(lo[0] - pad, hi[0] + pad)
     ax.set_ylim(lo[1] - pad, hi[1] + pad)
     ax.set_zlim(lo[2] - pad, hi[2] + pad)
+
+    # Show what the evaluator actually sees after a 60 cm opposing
+    # calibration: T_noise @ T_camera translates the reconstructed world
+    # points for the two external cameras. Wrist-camera clouds are unchanged.
+    for i, xyz in enumerate(clipped):
+        ax2.scatter(xyz[:, 0], xyz[:, 1], xyz[:, 2], s=0.8, alpha=0.10,
+                    color="#666666")
+    level = 0.60
+    shifts = np.zeros((4, 3), dtype=float)
+    shifts[0] = level * d
+    shifts[1] = -level * d
+    for i in (0, 1):
+        shifted = clipped[i] + shifts[i]
+        ax2.scatter(shifted[:, 0], shifted[:, 1], shifted[:, 2], s=1.0,
+                    alpha=0.24, color=colors[i], label=f"{labels[i]} + miscal")
+    shifted_centers = centers + shifts
+    ax2.scatter(centers[:, 0], centers[:, 1], centers[:, 2], marker="^", s=55,
+                c="#777777", label="true camera centers")
+    ax2.scatter(shifted_centers[:2, 0], shifted_centers[:2, 1],
+                shifted_centers[:2, 2], marker="x", s=45, c=[colors[0], colors[1]],
+                label="60 cm opposing centers")
+    for i in (0, 1):
+        ax2.plot([centers[i, 0], shifted_centers[i, 0]],
+                 [centers[i, 1], shifted_centers[i, 1]],
+                 [centers[i, 2], shifted_centers[i, 2]], "--", color=colors[i])
+    ax2.set_title("Evaluator view after 60 cm opposing translation")
+    ax2.set_xlabel("world X (m)"); ax2.set_ylabel("world Y (m)"); ax2.set_zlabel("world Z (m)")
+    ax2.legend(loc="upper left", fontsize=8)
+    ax2.set_box_aspect((1, 1, 0.75))
+    ax2.set_xlim(lo[0] - pad - 0.65, hi[0] + pad + 0.65)
+    ax2.set_ylim(lo[1] - pad - 0.65, hi[1] + pad + 0.65)
+    ax2.set_zlim(lo[2] - pad, hi[2] + pad)
     fig.tight_layout()
     Path(args.output_png).parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(args.output_png, dpi=220)
