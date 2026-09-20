@@ -1,6 +1,6 @@
 {
   "schema_version": 1,
-  "campaign_id": "idlt_scaled_extreme_task_seen_group_v01",
+  "campaign_id": "idlt_scaled_extreme_task_seen_group_v02_5060",
   "description": "In-Distribution Lab Transfer: external-camera-only calibration robustness. The target task trained on its selected camera group.",
   "calibration_registry": "instructions/eval_calibrations_idlt_scaled_extreme_v01.json",
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
@@ -112,61 +112,61 @@
   },
   "task_calibrations": {
     "bimanual_push_box": [
-      "seen-g1-medium-unknown-e30deg-t30cm-v01",
-      "seen-g1-medium-unknown-e40deg-t40cm-v01"
+      "seen-g1-medium-unknown-e50deg-t50cm-v01",
+      "seen-g1-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_lift_ball": [
-      "seen-g2-medium-unknown-e30deg-t30cm-v01",
-      "seen-g2-medium-unknown-e40deg-t40cm-v01"
+      "seen-g2-medium-unknown-e50deg-t50cm-v01",
+      "seen-g2-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_dual_push_buttons": [
-      "seen-g3-medium-unknown-e30deg-t30cm-v01",
-      "seen-g3-medium-unknown-e40deg-t40cm-v01"
+      "seen-g3-medium-unknown-e50deg-t50cm-v01",
+      "seen-g3-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_pick_plate": [
-      "seen-g4-medium-unknown-e30deg-t30cm-v01",
-      "seen-g4-medium-unknown-e40deg-t40cm-v01"
+      "seen-g4-medium-unknown-e50deg-t50cm-v01",
+      "seen-g4-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_put_item_in_drawer": [
-      "seen-g5-medium-unknown-e30deg-t30cm-v01",
-      "seen-g5-medium-unknown-e40deg-t40cm-v01"
+      "seen-g5-medium-unknown-e50deg-t50cm-v01",
+      "seen-g5-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_put_bottle_in_fridge": [
-      "seen-g6-medium-unknown-e30deg-t30cm-v01",
-      "seen-g6-medium-unknown-e40deg-t40cm-v01"
+      "seen-g6-medium-unknown-e50deg-t50cm-v01",
+      "seen-g6-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_handover_item": [
-      "seen-g1-medium-unknown-e30deg-t30cm-v01",
-      "seen-g1-medium-unknown-e40deg-t40cm-v01"
+      "seen-g1-medium-unknown-e50deg-t50cm-v01",
+      "seen-g1-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_pick_laptop": [
-      "seen-g2-medium-unknown-e30deg-t30cm-v01",
-      "seen-g2-medium-unknown-e40deg-t40cm-v01"
+      "seen-g2-medium-unknown-e50deg-t50cm-v01",
+      "seen-g2-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_straighten_rope": [
-      "seen-g3-medium-unknown-e30deg-t30cm-v01",
-      "seen-g3-medium-unknown-e40deg-t40cm-v01"
+      "seen-g3-medium-unknown-e50deg-t50cm-v01",
+      "seen-g3-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_sweep_to_dustpan": [
-      "seen-g4-medium-unknown-e30deg-t30cm-v01",
-      "seen-g4-medium-unknown-e40deg-t40cm-v01"
+      "seen-g4-medium-unknown-e50deg-t50cm-v01",
+      "seen-g4-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_lift_tray": [
-      "seen-g5-medium-unknown-e30deg-t30cm-v01",
-      "seen-g5-medium-unknown-e40deg-t40cm-v01"
+      "seen-g5-medium-unknown-e50deg-t50cm-v01",
+      "seen-g5-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_handover_item_easy": [
-      "seen-g6-medium-unknown-e30deg-t30cm-v01",
-      "seen-g6-medium-unknown-e40deg-t40cm-v01"
+      "seen-g6-medium-unknown-e50deg-t50cm-v01",
+      "seen-g6-medium-unknown-e60deg-t60cm-v01"
     ],
     "bimanual_take_tray_out_of_oven": [
-      "seen-g1-medium-unknown-e30deg-t30cm-v01",
-      "seen-g1-medium-unknown-e40deg-t40cm-v01"
+      "seen-g1-medium-unknown-e50deg-t50cm-v01",
+      "seen-g1-medium-unknown-e60deg-t60cm-v01"
     ]
   },
   "calibrations": [
-    "unknown-e30deg-t30cm",
-    "unknown-e40deg-t40cm"
+    "unknown-e50deg-t50cm",
+    "unknown-e60deg-t60cm"
   ],
   "tasks": [
     "bimanual_push_box",
