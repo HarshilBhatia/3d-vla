@@ -43,7 +43,7 @@ RANK_THROUGHPUT_B8 = {
 }
 # Cards this model cannot run on at all, regardless of what Slurm advertises.
 UNUSABLE = {
-    "rtx2080ti": "torch.compile + bf16 fails on Turing sm_75 (ptxas exit 255)",
+    "rtx2080ti": "10.6 GiB: too small for this model's per-GPU training batch (eval fits)",
 }
 # Never measured for this workload, so refuse to predict rather than guess.
 UNMEASURED = {"H200", "6000Blackwell", "A6000Ada"}

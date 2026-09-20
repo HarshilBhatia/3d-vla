@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "campaign_id": "vdm_rope3d_2080ti_feasibility_v01",
+  "description": "One-cell feasibility probe: does a real eval cell fit on a 10.6 GiB RTX 2080 Ti?",
+  "calibration_registry": "instructions/eval_calibrations_vdm_rope3d_sweep_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_probe",
+  "methods": [
+    {
+      "id": "vdm-direct-fullpatch-rope3d-best",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_deltam_direct_fullpatch_rope3d/best.pth"
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_push_box": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_push_box": [
+      "seen-g4-medium-unknown-e60deg-t60cm-v01"
+    ]
+  },
+  "calibrations": [
+    "unknown-e60deg-t60cm"
+  ],
+  "tasks": [
+    "bimanual_push_box"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 3
+  }
+}
