@@ -32,7 +32,7 @@ plan["campaign_id"] = "vdm_rope3d_sweep_task_heldout_group_v01"
 plan["description"] = ("Vid-DeltaM full-patch + patch-RoPE, Direct vs Refine, calibration sweep "
                        "clean through 60/60, task_heldout_group.")
 plan["calibration_registry"] = "instructions/eval_calibrations_vdm_rope3d_sweep_v01.json"
-plan["output_root"] = "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts"
+plan["output_root"] = "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts"
 plan["methods"] = [
     {"id": "vdm-direct-fullpatch-rope3d-best",
      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_deltam_direct_fullpatch_rope3d/best.pth"},
@@ -44,7 +44,7 @@ plan["task_calibrations"] = {}
 for task in plan["tasks"]:
     g = plan["task_viewpoints"][task]["spawn_camera_group"].lower()
     plan["task_calibrations"][task] = ["calibrated"] + [f"seen-{g}-medium-{lvl}-v01" for lvl in LEVELS]
-plan["runtime"]["num_demos_total"] = 20
+plan["runtime"]["num_demos_total"] = 100
 plan_path = INSTR / "eval_plans/vdm_rope3d_sweep_task_heldout_group_v01.json"
 plan_path.write_text(json.dumps(plan, indent=2) + "\n")
 

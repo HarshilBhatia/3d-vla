@@ -3,7 +3,7 @@
   "campaign_id": "vdm_rope3d_sweep_task_heldout_group_v01",
   "description": "Vid-DeltaM full-patch + patch-RoPE, Direct vs Refine, calibration sweep clean through 60/60, task_heldout_group.",
   "calibration_registry": "instructions/eval_calibrations_vdm_rope3d_sweep_v01.json",
-  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
   "methods": [
     {
       "id": "vdm-direct-fullpatch-rope3d-best",
@@ -231,6 +231,6 @@
     "headless": true,
     "max_tries": 1,
     "eval_use_depth2cloud": true,
-    "num_demos_total": 20
+    "num_demos_total": 100
   }
 }
