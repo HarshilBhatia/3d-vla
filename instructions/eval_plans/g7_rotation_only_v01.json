@@ -1,0 +1,137 @@
+{
+  "schema_version": 1,
+  "campaign_id": "g7_rotation_only_v01",
+  "description": "G7 unseen camera group; six SBRS tasks; orbital-camera world-Z rotations 20/90/180/270 degrees; zero translation.",
+  "calibration_registry": "instructions/eval_calibrations_g7_rotation_only_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+  "methods": [
+    {
+      "id": "base_s160k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base_200k/interm_step_160000.pth"
+    },
+    {
+      "id": "deltam_s140k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_deltam_external_200k/interm_step_140000.pth"
+    },
+    {
+      "id": "video_pooled_s084k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    },
+    {
+      "id": "video_fullpatch_best",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_deltam_fullpatch_finetune_300k_a6000_b64/best.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    }
+  ],
+  "calibrations": [
+    "rot-20deg",
+    "rot-90deg",
+    "rot-180deg",
+    "rot-270deg"
+  ],
+  "tasks": [
+    "bimanual_handover_item_easy",
+    "bimanual_lift_ball",
+    "bimanual_push_box",
+    "bimanual_pick_plate",
+    "bimanual_pick_laptop",
+    "bimanual_straighten_rope"
+  ],
+  "task_viewpoints": {
+    "bimanual_handover_item_easy": {
+      "id": "g7_rotation_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_lift_ball": {
+      "id": "g7_rotation_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_push_box": {
+      "id": "g7_rotation_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_plate": {
+      "id": "g7_rotation_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_laptop": {
+      "id": "g7_rotation_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_straighten_rope": {
+      "id": "g7_rotation_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_handover_item_easy": [
+      "g7-rot-20deg-v01",
+      "g7-rot-90deg-v01",
+      "g7-rot-180deg-v01",
+      "g7-rot-270deg-v01"
+    ],
+    "bimanual_lift_ball": [
+      "g7-rot-20deg-v01",
+      "g7-rot-90deg-v01",
+      "g7-rot-180deg-v01",
+      "g7-rot-270deg-v01"
+    ],
+    "bimanual_push_box": [
+      "g7-rot-20deg-v01",
+      "g7-rot-90deg-v01",
+      "g7-rot-180deg-v01",
+      "g7-rot-270deg-v01"
+    ],
+    "bimanual_pick_plate": [
+      "g7-rot-20deg-v01",
+      "g7-rot-90deg-v01",
+      "g7-rot-180deg-v01",
+      "g7-rot-270deg-v01"
+    ],
+    "bimanual_pick_laptop": [
+      "g7-rot-20deg-v01",
+      "g7-rot-90deg-v01",
+      "g7-rot-180deg-v01",
+      "g7-rot-270deg-v01"
+    ],
+    "bimanual_straighten_rope": [
+      "g7-rot-20deg-v01",
+      "g7-rot-90deg-v01",
+      "g7-rot-180deg-v01",
+      "g7-rot-270deg-v01"
+    ]
+  },
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 20,
+    "overrides": {
+      "scene_sampling": "fps",
+      "eval_proprio_history_order": "past_to_current"
+    }
+  }
+}
