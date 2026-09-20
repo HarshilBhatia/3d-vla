@@ -79,6 +79,19 @@ for i,T in enumerate(cams):
 ax.set_xlabel("camera-center x (m)"); ax.set_ylabel("camera-center y (m)"); ax.set_title("Translation-only camera-center displacement (G2; rotations ignored)")
 ax.grid(alpha=.25); ax.set_aspect("equal",adjustable="box"); ax.legend(loc="best",fontsize=9)
 fig.tight_layout(); fig.savefig(OUT/"scaled_calibration_translation_only.png",dpi=220); fig.savefig(OUT/"scaled_calibration_translation_only.pdf")
+
+fig=plt.figure(figsize=(10,8)); ax=fig.add_subplot(111,projection="3d")
+for i,T in enumerate(cams):
+    p=T[:3,3]; ax.scatter(*p,color="#222222",s=55,label="nominal camera center" if i==0 else None); ax.text(*p,f" C{i}")
+    for level in [20,30,40,50,60]:
+        q=(load_calibration("G2",level)[i]@T)[:3,3]; d=q-p
+        ax.quiver(*p,*d,color=colors[level],arrow_length_ratio=.08,linewidth=1.5)
+        ax.scatter(*q,color=colors[level],s=22)
+        if i==0: ax.text(*q,f" {level}/{level}",color=colors[level],fontsize=8)
+ax.set_xlabel("camera-center x (m)"); ax.set_ylabel("camera-center y (m)"); ax.set_zlabel("camera-center z (m)")
+ax.set_title("3D translation-only camera-center displacement (G2; rotations ignored)"); ax.legend(loc="upper left",fontsize=9)
+fig.tight_layout(); fig.savefig(OUT/"scaled_calibration_translation_only_3d.png",dpi=220); fig.savefig(OUT/"scaled_calibration_translation_only_3d.pdf")
 print(OUT/"scaled_calibration_camera_frusta.png")
 print(OUT/"scaled_calibration_pointcloud_overlays.png")
 print(OUT/"scaled_calibration_translation_only.png")
+print(OUT/"scaled_calibration_translation_only_3d.png")
