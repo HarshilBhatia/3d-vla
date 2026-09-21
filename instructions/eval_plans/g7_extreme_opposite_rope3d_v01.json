@@ -1,0 +1,124 @@
+{
+  "schema_version": 1,
+  "campaign_id": "g7_extreme_opposite_rope3d_v01",
+  "description": "G7 unseen camera group; six SBRS tasks; 100/200/500cm opposing translations. Direct and Refine full-patch Rope3D checkpoints.",
+  "calibration_registry": "instructions/eval_calibrations_g7_extreme_opposite_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+  "methods": [
+    {
+      "id": "direct_fullpatch_rope3d",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_deltam_direct_fullpatch_rope3d/best.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "proprio_num_history": 3,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    },
+    {
+      "id": "refine_fullpatch_rope3d",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_deltam_refine_fullpatch_rope3d/best.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "proprio_num_history": 3,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    }
+  ],
+  "calibrations": [
+    "opposite-100cm",
+    "opposite-200cm",
+    "opposite-500cm"
+  ],
+  "tasks": [
+    "bimanual_handover_item_easy",
+    "bimanual_lift_ball",
+    "bimanual_push_box",
+    "bimanual_pick_plate",
+    "bimanual_pick_laptop",
+    "bimanual_straighten_rope"
+  ],
+  "task_viewpoints": {
+    "bimanual_handover_item_easy": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_lift_ball": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_push_box": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_plate": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_laptop": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_straighten_rope": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_handover_item_easy": [
+      "g7-opposite-100cm-v01",
+      "g7-opposite-200cm-v01",
+      "g7-opposite-500cm-v01"
+    ],
+    "bimanual_lift_ball": [
+      "g7-opposite-100cm-v01",
+      "g7-opposite-200cm-v01",
+      "g7-opposite-500cm-v01"
+    ],
+    "bimanual_push_box": [
+      "g7-opposite-100cm-v01",
+      "g7-opposite-200cm-v01",
+      "g7-opposite-500cm-v01"
+    ],
+    "bimanual_pick_plate": [
+      "g7-opposite-100cm-v01",
+      "g7-opposite-200cm-v01",
+      "g7-opposite-500cm-v01"
+    ],
+    "bimanual_pick_laptop": [
+      "g7-opposite-100cm-v01",
+      "g7-opposite-200cm-v01",
+      "g7-opposite-500cm-v01"
+    ],
+    "bimanual_straighten_rope": [
+      "g7-opposite-100cm-v01",
+      "g7-opposite-200cm-v01",
+      "g7-opposite-500cm-v01"
+    ]
+  },
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 20,
+    "overrides": {
+      "scene_sampling": "fps",
+      "eval_proprio_history_order": "past_to_current"
+    }
+  }
+}
