@@ -118,11 +118,11 @@ PRETRAINED_CHECKPOINT="${PRETRAINED_CHECKPOINT:-$REPO_ROOT/train_logs/PerAct2/pe
 # Unlike PRETRAINED_CHECKPOINT, it is a true continuation rather than a
 # weights-only initialization. On resume the config's train_iters is the *total*.
 RESUME_CHECKPOINT="${RESUME_CHECKPOINT:-}"
-# A Slurm requeue (e.g. preemption on `all`) continues from this run's own last.pth instead of restarting.
-REQUEUE_LAST="$REPO_ROOT/train_logs/PerAct2/$RUN_LOG_DIR/last.pth"
-if [[ -z "$RESUME_CHECKPOINT" && "${SLURM_RESTART_COUNT:-0}" -gt 0 && -e "$REQUEUE_LAST" ]]; then
-    RESUME_CHECKPOINT="$REQUEUE_LAST"
-    echo "Requeue ${SLURM_RESTART_COUNT}: resuming from $RESUME_CHECKPOINT"
+# Any start (requeue, chained continuation, or a twin of a multinode run) continues from this run's own last.pth.
+OWN_LAST="$REPO_ROOT/train_logs/PerAct2/$RUN_LOG_DIR/last.pth"
+if [[ -z "$RESUME_CHECKPOINT" && -e "$OWN_LAST" ]]; then
+    RESUME_CHECKPOINT="$OWN_LAST"
+    echo "Resuming from this run's own $RESUME_CHECKPOINT"
 fi
 # Empty by default: the experiment config is the record of how long a run is.
 TRAIN_ITERS="${TRAIN_ITERS:-}"
@@ -156,6 +156,9 @@ if [[ "$NO_MISCAL" == "1" ]]; then
 elif [[ "$NO_PERTURBATION" != "1" ]]; then
     MISCAL_OVERRIDES+=(perturbation_noise_rot_deg=3.0 perturbation_noise_trans_m=0.01)
 fi
+
+# Another running job (e.g. a multinode twin of this run) may already own the run directory.
+"$REPO_ROOT/scripts/train/claim_run.sh" "$REPO_ROOT/train_logs/PerAct2/$RUN_LOG_DIR" || exit 0
 
 torchrun --nproc_per_node="$NGPUS" --master_port="$MASTER_PORT" main.py \
     data=orbital_peract2_nfs \

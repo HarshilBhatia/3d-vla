@@ -31,6 +31,7 @@ train_cmd: >-
   && conda activate 3dfa
   && cd /home/harshilb/3dfa_unified
   && export PYTHONPATH=/home/harshilb/3dfa_unified:$PYTHONPATH BLOSC_NTHREADS=1
+  && scripts/train/claim_run.sh /home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_camframe_rope6d
   && exec python main.py
   data=orbital_peract2_nfs experiment=peract2_orbital_camframe_rope6d
   train_data_dir=/grogu/datasets/hbhatia/3dfa_egress_extracted/3dfa_egress_20260820/datasets/orbital_peract2/zarr/train.zarr
