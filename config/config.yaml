@@ -21,6 +21,7 @@ batch_size_val: 32
 chunk_size: 1
 memory_limit: 8.0
 preload: false              # load full dataset into RAM at init (ignores memory_limit)
+train_tasks: null           # task names to train/validate on; null = every task in the zarr
 # Set >0 for Video-DeltaM: every batch has distinct demo/session contexts, but
 # each DataLoader worker keeps that diverse set warm for this many batches.
 # This is cross-batch locality only; it never packs multiple samples from one

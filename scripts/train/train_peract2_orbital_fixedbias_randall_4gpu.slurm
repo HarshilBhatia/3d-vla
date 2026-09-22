@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, or camframe_rope6d}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, or nowrist4_video_pooled}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -83,6 +83,16 @@ case "$ARM" in
     DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_fullpatch_d8
     # Depth 8; warm-start from the pooled refine run, which is the only checkpoint carrying camera_readout.
     ;;
+  nowrist4_base)
+    EXPERIMENT=peract2_orbital_nowrist4_base
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_nowrist4_base
+    # External cameras only, four tasks; the experiment config owns dataset and train_tasks.
+    ;;
+  nowrist4_video_pooled)
+    EXPERIMENT=peract2_orbital_nowrist4_vid_pooled
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_nowrist4_vid_pooled
+    # External cameras only, four tasks; same VideoPooled-Refine architecture as the 84k model.
+    ;;
   camframe_rope6d)
     EXPERIMENT=peract2_orbital_camframe_rope6d
     DEFAULT_RUN_LOG_DIR=peract2_orbital_camframe_rope6d
@@ -91,7 +101,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, or camframe_rope6d" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, or nowrist4_video_pooled" >&2
     exit 2
     ;;
 esac

@@ -198,6 +198,10 @@ class BaseTrainTester:
             else:
                 print("Wandb logging disabled (using TensorBoard only)")
 
+    def _task_filter_kwargs(self):
+        tasks = getattr(self.args, 'train_tasks', None)
+        return {} if tasks is None else {'filter_tasks': list(tasks)}
+
     def get_datasets(self):
         """Initialize datasets."""
         # Initialize datasets with arguments
@@ -213,6 +217,7 @@ class BaseTrainTester:
             visual_num_history=visual_num_history,
             proprio_num_history=getattr(self.args, 'proprio_num_history', visual_num_history),
             preload=preload,
+            **self._task_filter_kwargs(),
             visual_history_sampling=getattr(self.args, 'visual_history_sampling', 'consecutive'),
         )
         val_dataset = self.dataset_cls(
@@ -225,6 +230,7 @@ class BaseTrainTester:
             visual_num_history=visual_num_history,
             proprio_num_history=getattr(self.args, 'proprio_num_history', visual_num_history),
             preload=preload,
+            **self._task_filter_kwargs(),
             visual_history_sampling=getattr(self.args, 'visual_history_sampling', 'consecutive'),
         )
         return train_dataset, val_dataset
@@ -391,7 +397,8 @@ class BaseTrainTester:
             relative_action=self.args.relative_action,
             mem_limit=0.1,
             actions_only=True,
-            chunk_size=self.args.chunk_size
+            chunk_size=self.args.chunk_size,
+            **self._task_filter_kwargs(),
         )
 
         data_loader = DataLoader(

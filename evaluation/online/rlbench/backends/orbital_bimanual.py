@@ -107,7 +107,9 @@ class RLBenchEnv(BimanualRLBenchEnv):
         calibration_registry=None,
         calibration_id=None,
         scene_frame="world",
+        model_camera_indices=None,
     ):
+        self._model_camera_indices = None if model_camera_indices is None else list(model_camera_indices)
         if cameras_file is None:
             raise ValueError("cameras_file must be provided for orbital eval")
         if spawn_camera_group is None:
@@ -357,6 +359,9 @@ class RLBenchEnv(BimanualRLBenchEnv):
             obs.right.gripper_pose, [obs.right.gripper_open],
         ])).float().unsqueeze(0)  # (1, 16)
 
+        if self._model_camera_indices is not None:
+            # Miscalibration is applied in the full 4-camera order above; only the model's cameras are returned.
+            rgb, pcd = rgb[:, self._model_camera_indices], pcd[:, self._model_camera_indices]
         return rgb, pcd, gripper
 
     def _extract_video_frame(self, obs):

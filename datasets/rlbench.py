@@ -78,8 +78,12 @@ class RLBenchDataset(BaseDataset):
         result = {}
         for key in annos:
             if hasattr(annos[key], '__getitem__'):
-                arr = np.array(annos[key][:])
-                result[key] = arr[indices] if indices is not None else arr
+                if indices is None:
+                    result[key] = np.array(annos[key][:])
+                else:
+                    # Read only the kept records, one contiguous run at a time, instead of the whole array.
+                    runs = np.split(indices, np.where(np.diff(indices) != 1)[0] + 1)
+                    result[key] = np.concatenate([np.asarray(annos[key][r[0]:r[-1] + 1]) for r in runs])
             else:
                 result[key] = annos[key]
         return result

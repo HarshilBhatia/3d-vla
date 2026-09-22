@@ -85,9 +85,10 @@ def run_online_evaluation(args: Any, *, model_loader: Callable[[Any], Any]) -> b
         print(f"[skip] output file already exists: {output_file}", flush=True)
         return False
 
+    model = model_loader(args)
+    # Resolve after loading: the checkpoint's saved dataset (e.g. OrbitalPeract2NoWrist) owns the camera set.
     backend = load_backend(RLBenchRequest(args.dataset, bool(args.bimanual)))
     dataset_class = fetch_dataset_class(args.dataset)
-    model = model_loader(args)
     write_eval_manifest(args, output_file.with_suffix(".manifest.json"))
     print("workspace_normalizer:", model.workspace_normalizer)
 
@@ -106,6 +107,7 @@ def run_online_evaluation(args: Any, *, model_loader: Callable[[Any], Any]) -> b
         apply_cameras=dataset_class.cameras,
         collision_checking=bool(args.collision_checking),
         **build_environment_kwargs(args),
+        **({"model_camera_indices": dataset_class.camera_inds} if getattr(dataset_class, "camera_inds", None) is not None else {}),
     )
     text_backbone = getattr(args, "text_backbone", None) or args.backbone
     actioner = backend.Actioner(model, backbone=text_backbone, cfg_scale=getattr(args, "cfg_scale", None))

@@ -1,0 +1,33 @@
+# Base on the two external cameras only (no wrists), trained on four tasks: handover, oven tray, dustpan, dual buttons.
+dataset: OrbitalPeract2NoWrist
+train_tasks: [bimanual_handover_item, bimanual_take_tray_out_of_oven, bimanual_sweep_to_dustpan, bimanual_dual_push_buttons]
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+visual_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: true
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 128
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 100000
+head_positional_encoding: rope3d
+view_align_mode: none
+miscal_cameras: [0, 1]
+layerwise_view_align: false
+interm_ckpt_interval_steps: 10000
+checkpoint_evals:
+  - recipe: instructions/eval_plans/nowrist4_base_checkpoint_ladder_v01.json
+    method_id: nowrist4-base
+    min_step: 30000
+    max_step: 100000
