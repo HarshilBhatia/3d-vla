@@ -1,0 +1,134 @@
+{
+  "schema_version": 1,
+  "campaign_id": "all_tasks_rollout_videos_v01",
+  "description": "All 13 tasks, task-seen camera group, calibrated, 5 rollouts each with four-camera videos; Base 160k and VideoPooled 84k.",
+  "calibration_registry": "instructions/eval_calibrations_idlt_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+  "methods": [
+    {
+      "id": "base_s160k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base_200k/interm_step_160000.pth"
+    },
+    {
+      "id": "video_pooled_s084k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    }
+  ],
+  "calibrations": [
+    "calibrated"
+  ],
+  "tasks": [
+    "bimanual_push_box",
+    "bimanual_lift_ball",
+    "bimanual_dual_push_buttons",
+    "bimanual_pick_plate",
+    "bimanual_put_item_in_drawer",
+    "bimanual_put_bottle_in_fridge",
+    "bimanual_handover_item",
+    "bimanual_pick_laptop",
+    "bimanual_straighten_rope",
+    "bimanual_sweep_to_dustpan",
+    "bimanual_lift_tray",
+    "bimanual_handover_item_easy",
+    "bimanual_take_tray_out_of_oven"
+  ],
+  "task_viewpoints": {
+    "bimanual_push_box": {
+      "id": "g1_task_seen_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_lift_ball": {
+      "id": "g2_task_seen_group",
+      "spawn_camera_group": "G2",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_dual_push_buttons": {
+      "id": "g3_task_seen_group",
+      "spawn_camera_group": "G3",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_plate": {
+      "id": "g4_task_seen_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_put_item_in_drawer": {
+      "id": "g5_task_seen_group",
+      "spawn_camera_group": "G5",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_put_bottle_in_fridge": {
+      "id": "g6_task_seen_group",
+      "spawn_camera_group": "G6",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_handover_item": {
+      "id": "g1_task_seen_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_laptop": {
+      "id": "g2_task_seen_group",
+      "spawn_camera_group": "G2",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_straighten_rope": {
+      "id": "g3_task_seen_group",
+      "spawn_camera_group": "G3",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_sweep_to_dustpan": {
+      "id": "g4_task_seen_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_lift_tray": {
+      "id": "g5_task_seen_group",
+      "spawn_camera_group": "G5",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_handover_item_easy": {
+      "id": "g6_task_seen_group",
+      "spawn_camera_group": "G6",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_take_tray_out_of_oven": {
+      "id": "g1_task_seen_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 5,
+    "overrides": {
+      "scene_sampling": "fps",
+      "eval_proprio_history_order": "past_to_current",
+      "save_video": true
+    }
+  }
+}
