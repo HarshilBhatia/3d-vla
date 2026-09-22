@@ -118,6 +118,12 @@ PRETRAINED_CHECKPOINT="${PRETRAINED_CHECKPOINT:-$REPO_ROOT/train_logs/PerAct2/pe
 # Unlike PRETRAINED_CHECKPOINT, it is a true continuation rather than a
 # weights-only initialization. On resume the config's train_iters is the *total*.
 RESUME_CHECKPOINT="${RESUME_CHECKPOINT:-}"
+# A Slurm requeue (e.g. preemption on `all`) continues from this run's own last.pth instead of restarting.
+REQUEUE_LAST="$REPO_ROOT/train_logs/PerAct2/$RUN_LOG_DIR/last.pth"
+if [[ -z "$RESUME_CHECKPOINT" && "${SLURM_RESTART_COUNT:-0}" -gt 0 && -e "$REQUEUE_LAST" ]]; then
+    RESUME_CHECKPOINT="$REQUEUE_LAST"
+    echo "Requeue ${SLURM_RESTART_COUNT}: resuming from $RESUME_CHECKPOINT"
+fi
 # Empty by default: the experiment config is the record of how long a run is.
 TRAIN_ITERS="${TRAIN_ITERS:-}"
 TRAIN_ITERS_ARGS=(); [[ -n "$TRAIN_ITERS" ]] && TRAIN_ITERS_ARGS=("train_iters=$TRAIN_ITERS")
