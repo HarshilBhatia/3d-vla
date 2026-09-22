@@ -77,3 +77,9 @@ debug_videos/
 
 # agent + editor local state
 .claude/
+
+# generated renders, rollout media and Rerun recordings
+docs/figures/task_gallery/
+docs/figures/g7_sweep_captures/
+docs/figures/*.rrd
+legacy_may/
