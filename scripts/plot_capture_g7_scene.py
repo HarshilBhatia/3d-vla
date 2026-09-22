@@ -23,7 +23,8 @@ def capture(args):
         headless=True,
         cameras_file=args.cameras_file,
         spawn_camera_group=args.camera_group,
-        calibration_registry=None,
+        calibration_registry=args.calibration_registry,
+        calibration_id=args.calibration_id,
     )
     try:
         env._launch_env()
@@ -154,6 +155,8 @@ if __name__ == "__main__":
     p.add_argument("--cameras-file", default="instructions/orbital_cameras_grouped.json")
     p.add_argument("--output-npz", default="docs/figures/g7_pick_laptop_scene_pointcloud.npz")
     p.add_argument("--output-png", default="docs/figures/g7_pick_laptop_scene_pointcloud.png")
+    p.add_argument("--calibration-registry", default=None)
+    p.add_argument("--calibration-id", default=None)
     a = p.parse_args()
     if a.capture:
         capture(a)
