@@ -181,6 +181,8 @@ perturbation_noise_fixed_trans_m: null
 # Both axes are restricted to these camera groups (1-based) / cameras (0-based).
 miscal_camera_groups: null
 miscal_cameras: null
+# world (camera-to-world extrinsics) | camera (each camera's own frame; extrinsics unused, miscal must be off)
+scene_frame: world
 
 
 

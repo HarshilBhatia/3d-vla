@@ -188,7 +188,7 @@ def make_preprocessor(args, **extra_kwargs):
         args.keypose_only,
         args.visual_num_history,
         custom_imsize=getattr(args, "custom_img_size", None),
-        depth2cloud=fetch_depth2cloud(args.dataset),
+        depth2cloud=fetch_depth2cloud(args.dataset, getattr(args, "scene_frame", "world")),
         **extra_kwargs,
     )
 

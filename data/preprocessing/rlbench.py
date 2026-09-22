@@ -82,6 +82,8 @@ class RLBenchDataPreprocessor(DataPreprocessor):
             raise ValueError("miscal_mode='group' requires miscal_group_level (a level name or a list of them)")
         if miscal_mode == 'none' and miscal_group_level is not None:
             raise ValueError("miscal_group_level is set but miscal_mode='none'; set miscal_mode='group' to use it")
+        if getattr(depth2cloud, 'scene_frame', 'world') == 'camera' and (miscal_mode != 'none' or self._has_perturbation):
+            raise ValueError("scene_frame='camera' ignores extrinsics, so miscal_mode and perturbation noise must be off")
 
         self._group_noise_table       = None  # (K_groups,       ncam, 4, 4) lazy-init
         self._group_level_noise_table = None  # (K_group_levels, ncam, 4, 4) lazy-init

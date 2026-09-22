@@ -1,0 +1,38 @@
+# No robot calibration: every camera's cloud in its own frame, rope_6d DeltaM on all cameras bridges to the robot frame.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+visual_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: true
+denoise_timesteps: 5
+denoise_model: rectified_flow
+# Global batch of the deltam_external_200k run (the launcher's 128 overrode that yaml's 256).
+batch_size: 128
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 200000
+head_positional_encoding: rope3d
+view_align_mode: rope_6d
+view_align_cameras: null
+layerwise_view_align: true
+scene_frame: camera
+miscal_mode: none
+miscal_group_level: null
+miscal_cameras: null
+perturbation_noise_rot_deg: null
+perturbation_noise_trans_m: null
+checkpoint_evals:
+  - recipe: instructions/eval_plans/sbrs_checkpoint_ladder_v01.json
+    method_id: camframe-rope6d
+    min_step: 70000
+    max_step: 200000
