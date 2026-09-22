@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, or video_deltam_fullpatch}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, or video_deltam_pooled_no_view_align}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -37,6 +37,11 @@ case "$ARM" in
     DEFAULT_RUN_LOG_DIR=peract2_orbital_video_deltam_external_warmstart_k5v_k3p
     # The experiment owns the pooled Video-DeltaM architecture, so this arm
     # cannot drift from the fullpatch sibling through shell overrides.
+    ;;
+  video_deltam_pooled_no_view_align)
+    EXPERIMENT=peract2_orbital_vid_deltam_pooled_no_view_align
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_pooled_no_view_align
+    # Pooled history still feeds camera summaries and the register; only delta_M is off.
     ;;
   video_deltam_direct)
     EXPERIMENT=peract2_orbital_vid_deltam_direct
@@ -67,8 +72,13 @@ case "$ARM" in
     # cadence. Keep this arm explicit so it cannot accidentally use pooled
     # Video-DeltaM summaries.
     ;;
+  video_deltam_fullpatch_d8)
+    EXPERIMENT=peract2_orbital_vid_deltam_fullpatch_d8
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_fullpatch_d8
+    # Depth 8; warm-start from the pooled refine run, which is the only checkpoint carrying camera_readout.
+    ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, or video_deltam_fullpatch" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, or video_deltam_pooled_no_view_align" >&2
     exit 2
     ;;
 esac
@@ -86,7 +96,9 @@ RESUME_CHECKPOINT="${RESUME_CHECKPOINT:-}"
 # Empty by default: the experiment config is the record of how long a run is.
 TRAIN_ITERS="${TRAIN_ITERS:-}"
 TRAIN_ITERS_ARGS=(); [[ -n "$TRAIN_ITERS" ]] && TRAIN_ITERS_ARGS=("train_iters=$TRAIN_ITERS")
-BATCH_SIZE="${BATCH_SIZE:-128}"
+# Empty by default: the experiment config is the record of the global batch.
+BATCH_SIZE="${BATCH_SIZE:-}"
+BATCH_SIZE_ARGS=(); [[ -n "$BATCH_SIZE" ]] && BATCH_SIZE_ARGS=("batch_size=$BATCH_SIZE")
 NGPUS="${SLURM_GPUS_ON_NODE:-$(nvidia-smi -L | wc -l)}"
 MASTER_PORT=$((27500 + RANDOM % 1000))
 
@@ -119,11 +131,10 @@ torchrun --nproc_per_node="$NGPUS" --master_port="$MASTER_PORT" main.py \
     eval_data_dir="$EVAL_DATA_DIR" \
     exp_log_dir=PerAct2 \
     run_log_dir="$RUN_LOG_DIR" \
-    "${TRAIN_ITERS_ARGS[@]}" \
+    "${TRAIN_ITERS_ARGS[@]}" "${BATCH_SIZE_ARGS[@]}" \
     "${MISCAL_OVERRIDES[@]}" \
     video_deltam_cache_batches=4 \
     video_deltam_cache_span=8 \
-    batch_size="$BATCH_SIZE" \
     num_workers="${NUM_WORKERS:-8}" \
     prefetch_factor="${PREFETCH_FACTOR:-2}" \
     "${CHECKPOINT_ARGS[@]}" \
