@@ -213,6 +213,7 @@ class BaseTrainTester:
             visual_num_history=visual_num_history,
             proprio_num_history=getattr(self.args, 'proprio_num_history', visual_num_history),
             preload=preload,
+            visual_history_sampling=getattr(self.args, 'visual_history_sampling', 'consecutive'),
         )
         val_dataset = self.dataset_cls(
             root=self.args.eval_data_dir,
@@ -224,6 +225,7 @@ class BaseTrainTester:
             visual_num_history=visual_num_history,
             proprio_num_history=getattr(self.args, 'proprio_num_history', visual_num_history),
             preload=preload,
+            visual_history_sampling=getattr(self.args, 'visual_history_sampling', 'consecutive'),
         )
         return train_dataset, val_dataset
 

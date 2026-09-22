@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, or video_deltam_pooled_no_view_align}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, or video_deltam_pooled_randhist_notime}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -42,6 +42,11 @@ case "$ARM" in
     EXPERIMENT=peract2_orbital_vid_deltam_pooled_no_view_align
     DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_pooled_no_view_align
     # Pooled history still feeds camera summaries and the register; only delta_M is off.
+    ;;
+  video_deltam_pooled_randhist_notime)
+    EXPERIMENT=peract2_orbital_vid_deltam_pooled_randhist_notime
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_pooled_randhist_notime
+    # Random unordered history set, no time embedding or causal mask; tests temporal use vs extra views.
     ;;
   video_deltam_direct)
     EXPERIMENT=peract2_orbital_vid_deltam_direct
@@ -78,7 +83,7 @@ case "$ARM" in
     # Depth 8; warm-start from the pooled refine run, which is the only checkpoint carrying camera_readout.
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, or video_deltam_pooled_no_view_align" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, or video_deltam_pooled_randhist_notime" >&2
     exit 2
     ;;
 esac

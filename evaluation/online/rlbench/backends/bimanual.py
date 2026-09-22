@@ -165,6 +165,13 @@ def _append_causal_visual_history(history, current, visual_num_history):
     return history
 
 
+def _random_visual_history_indices(num_frames, visual_num_history, rng):
+    """Mirror of BaseDataset._random_hist_indices: K-1 distinct random past frames, current last."""
+    current = num_frames - 1
+    picked = rng.sample(range(current), min(current, visual_num_history - 1))
+    return [0] * (visual_num_history - 1 - len(picked)) + picked + [current]
+
+
 def _causal_proprio_window(history, visual_num_history):
     """Reproduce the dataset's Video-DeltaM proprio convention exactly.
 
@@ -319,6 +326,8 @@ class RLBenchEnv:
         progress_file=None,
         num_demos=None,
         num_demos_total=None,
+        visual_history_sampling="consecutive",
+        history_seed=0,
     ):
         progress = {}
         if progress_file is not None and os.path.exists(progress_file):
@@ -386,6 +395,8 @@ class RLBenchEnv:
                     progress=progress,
                     progress_file=progress_file,
                     num_demos=var_num_demos,
+                    visual_history_sampling=visual_history_sampling,
+                    history_seed=history_seed,
                 )
             )
             if valid:
@@ -419,6 +430,8 @@ class RLBenchEnv:
         progress=None,
         progress_file=None,
         num_demos=None,
+        visual_history_sampling="consecutive",
+        history_seed=0,
     ):
         success_rate = 0
         total_reward = 0
@@ -452,6 +465,7 @@ class RLBenchEnv:
             pcd_history = None
             descriptions, obs = task.reset_to_demo(demo)
             actioner.load_episode(descriptions)
+            history_rng = random.Random(f"{history_seed}-{task_str}-{variation}-{demo_id}")
 
             move = Mover(task, max_tries=max_tries)
             max_reward = 0.0
@@ -469,14 +483,26 @@ class RLBenchEnv:
                 # Keep visual history at the policy replan cadence.  The
                 # returned windows are oldest→current, exactly matching the
                 # training loader's `_get_single_frame_hist` convention.
-                rgbs_input = _append_causal_visual_history(
-                    rgb_history, rgb_current, visual_num_history
-                )
-                pcds_input = _append_causal_visual_history(
-                    pcd_history, pcd_current, visual_num_history
-                )
-                rgb_history = rgbs_input
-                pcd_history = pcds_input
+                if visual_history_sampling == "random":
+                    # Keep every episode frame and draw an unordered history set, as in training.
+                    rgb_history = rgb_current.unsqueeze(1) if rgb_history is None else torch.cat(
+                        (rgb_history, rgb_current.unsqueeze(1)), dim=1
+                    )
+                    pcd_history = pcd_current.unsqueeze(1) if pcd_history is None else torch.cat(
+                        (pcd_history, pcd_current.unsqueeze(1)), dim=1
+                    )
+                    hist_idx = _random_visual_history_indices(rgb_history.shape[1], visual_num_history, history_rng)
+                    rgbs_input = rgb_history[:, hist_idx]
+                    pcds_input = pcd_history[:, hist_idx]
+                else:
+                    rgbs_input = _append_causal_visual_history(
+                        rgb_history, rgb_current, visual_num_history
+                    )
+                    pcds_input = _append_causal_visual_history(
+                        pcd_history, pcd_current, visual_num_history
+                    )
+                    rgb_history = rgbs_input
+                    pcd_history = pcds_input
                 # Preserve the pre-Video-DeltaM input layout for old models.
                 if visual_num_history == 1:
                     rgbs_input = rgbs_input[:, 0]
