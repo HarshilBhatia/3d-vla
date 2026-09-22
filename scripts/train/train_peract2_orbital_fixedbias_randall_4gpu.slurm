@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, or video_deltam_fullpatch}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, or video_deltam_pooled_randhist_notime}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -37,6 +37,11 @@ case "$ARM" in
     DEFAULT_RUN_LOG_DIR=peract2_orbital_video_deltam_external_warmstart_k5v_k3p
     # The experiment owns the pooled Video-DeltaM architecture, so this arm
     # cannot drift from the fullpatch sibling through shell overrides.
+    ;;
+  video_deltam_pooled_randhist_notime)
+    EXPERIMENT=peract2_orbital_vid_deltam_pooled_randhist_notime
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_pooled_randhist_notime
+    # Random unordered history set, no time embedding or causal mask; tests temporal use vs extra views.
     ;;
   video_deltam_direct)
     EXPERIMENT=peract2_orbital_vid_deltam_direct
@@ -68,7 +73,7 @@ case "$ARM" in
     # Video-DeltaM summaries.
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, or video_deltam_fullpatch" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, or video_deltam_pooled_randhist_notime" >&2
     exit 2
     ;;
 esac

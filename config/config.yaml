@@ -118,6 +118,8 @@ visual_num_history: 1
 # Proprio remains the original Zarr-provided causal K=3 window; Video-DeltaM
 # visual history may use a different K.
 proprio_num_history: 3
+# consecutive (last K keyframes, in order) | random (current last + K-1 random distinct past keyframes of the demo)
+visual_history_sampling: consecutive
 num_shared_attn_layers: 4
 # Sparse causal temporal frontend.  When enabled, Video-DeltaM repeats
 # same-time cross-camera and causal per-camera attention.
@@ -130,6 +132,8 @@ video_deltam_max_cameras: 8
 video_deltam_full_image: false
 # 3D RoPE on history patches from their (miscalibrated) xyz. Needs full_image; adds no params.
 video_deltam_patch_rope3d: false
+# false: no time embedding or causal mask on history, only a learned current-frame vector. Pooled only.
+video_deltam_time_embedding: true
 # What the Video-DeltaM stack is for:
 #   refine          — it hands the decoder history-refined camera summaries and a
 #                     global history register; the head still predicts delta_M

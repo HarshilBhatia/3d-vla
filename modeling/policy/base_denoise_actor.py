@@ -583,6 +583,7 @@ class TransformerHead(nn.Module):
                  video_deltam_max_cameras=8,
                  video_deltam_full_image=False,
                  video_deltam_patch_rope3d=False,
+                 video_deltam_time_embedding=True,
                  video_deltam_role='refine',
                  ee_aux=False,
                  ee_aux_weight=1.0,
@@ -624,6 +625,7 @@ class TransformerHead(nn.Module):
                 max_cameras=video_deltam_max_cameras,
                 full_image=video_deltam_full_image,
                 patch_rope3d=video_deltam_patch_rope3d,
+                use_time_embedding=video_deltam_time_embedding,
                 predict_delta_m=(video_deltam_role == 'predict_delta_m'),
             ) if video_deltam else None
         )

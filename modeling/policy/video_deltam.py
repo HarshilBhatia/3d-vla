@@ -69,10 +69,15 @@ class HistoryFeatureExtractor(nn.Module):
 
     def __init__(self, embedding_dim, num_heads, depth, max_history=32, max_cameras=8,
                  dropout=0.1, full_image=False, predict_delta_m=False,
-                 patch_rope3d=False):
+                 patch_rope3d=False, use_time_embedding=True):
         super().__init__()
         if depth < 1:
             raise ValueError("video_deltam_depth must be at least one")
+        if not use_time_embedding and full_image:
+            raise ValueError(
+                "video_deltam_time_embedding=False is only supported on the pooled path "
+                "(video_deltam_full_image=False)"
+            )
         if patch_rope3d and not full_image:
             raise ValueError(
                 "video_deltam_patch_rope3d requires video_deltam_full_image=True: "
@@ -86,7 +91,13 @@ class HistoryFeatureExtractor(nn.Module):
         self.max_history = max_history
         self.max_cameras = max_cameras
         self.full_image = full_image
-        self.time_embedding = nn.Embedding(max_history, embedding_dim)
+        self.use_time_embedding = use_time_embedding
+        if use_time_embedding:
+            self.time_embedding = nn.Embedding(max_history, embedding_dim)
+        else:
+            # Order-free history: only the current (last) slot is marked.
+            self.current_frame_embedding = nn.Parameter(torch.zeros(embedding_dim))
+            nn.init.normal_(self.current_frame_embedding, std=0.02)
         self.camera_embedding = nn.Embedding(max_cameras, embedding_dim)
         # Instantiated once per (history time, camera) image and appended last
         # to that image's visual sequence in the full-image path.
@@ -327,7 +338,12 @@ class HistoryFeatureExtractor(nn.Module):
             )
         time_ids = torch.arange(history, device=frame_tokens.device)
         cam_ids = torch.arange(ncam, device=frame_tokens.device)
-        frames = frame_tokens + self.time_embedding(time_ids)[None, :, None] + self.camera_embedding(cam_ids)[None, None]
+        if self.use_time_embedding:
+            frames = frame_tokens + self.time_embedding(time_ids)[None, :, None] + self.camera_embedding(cam_ids)[None, None]
+        else:
+            current = torch.zeros(history, 1, 1, device=frame_tokens.device, dtype=frame_tokens.dtype)
+            current[-1] = 1
+            frames = frame_tokens + current * self.current_frame_embedding + self.camera_embedding(cam_ids)[None, None]
         cam = fixed_camera_token
         # True above means a query cannot see a later key. The time axis is
         # oldest -> current, therefore this is strictly causal. In the full
@@ -335,7 +351,7 @@ class HistoryFeatureExtractor(nn.Module):
         # from its own and earlier images, never a future image.
         time_mask = torch.triu(
             torch.ones(history, history, dtype=torch.bool, device=frames.device), diagonal=1
-        )
+        ) if self.use_time_embedding else None
         readouts = [None] * len(self.same_time) if self.predict_delta_m else self.camera_readout
         for same_time, temporal, readout in zip(self.same_time, self.temporal, readouts):
             frames = same_time(frames.reshape(bsz * history, ncam, -1)).reshape(

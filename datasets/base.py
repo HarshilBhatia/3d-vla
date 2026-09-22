@@ -1,5 +1,7 @@
 import json
+import random
 
+import numpy as np
 import torch
 from torch.utils.data import Dataset
 
@@ -23,6 +25,7 @@ class BaseDataset(Dataset):
         visual_num_history=1,  # number of visual history frames (1 = current frame only)
         proprio_num_history=None,
         preload=False,  # load entire dataset into RAM at init
+        visual_history_sampling='consecutive',  # consecutive | random
     ):
         super().__init__()
         self.copies = self.train_copies if copies is None else copies
@@ -31,6 +34,10 @@ class BaseDataset(Dataset):
         self.chunk_size = chunk_size
         self.visual_num_history = visual_num_history
         self.proprio_num_history = visual_num_history if proprio_num_history is None else proprio_num_history
+        if visual_history_sampling not in ('consecutive', 'random'):
+            raise ValueError(f"visual_history_sampling must be consecutive or random, got {visual_history_sampling!r}")
+        self.visual_history_sampling = visual_history_sampling
+        self._demo_ids = None
 
         # Load instructions
         self._instructions = self._load_instructions(instructions)
@@ -73,32 +80,50 @@ class BaseDataset(Dataset):
     def _get_rgb(self, idx, key='rgb'):
         return self._get_attr_by_idx(idx, key, True)
 
-    def _get_single_frame_hist(self, zarr_idx, attr, filter_cam=False):
-        """Return (visual_num_history, *shape) for one zarr index with demo_id boundary padding."""
+    def _consecutive_hist_indices(self, zarr_idx):
+        """Oldest → current zarr indices; slots before the demo start repeat its first frame."""
         demo_curr = int(self.annos['demo_id'][zarr_idx])
-        frames = []
-        first_valid = None
-        for k in range(self.visual_num_history - 1, -1, -1):  # oldest → current
-            j = zarr_idx - k
-            if j >= 0 and int(self.annos['demo_id'][j]) == demo_curr:
-                t = to_tensor(self.annos[attr][j:j + 1])[0]
-                if filter_cam and self.camera_inds is not None:
-                    t = t[self.camera_inds]
-                if first_valid is None:
-                    first_valid = t
-                frames.append(t)
-            else:
-                frames.append(None)
-        fallback = first_valid if first_valid is not None else (
-            to_tensor(self.annos[attr][zarr_idx:zarr_idx + 1])[0]
-        )
-        return torch.stack([f if f is not None else fallback for f in frames])
+        valid = [
+            zarr_idx - k if zarr_idx - k >= 0 and int(self.annos['demo_id'][zarr_idx - k]) == demo_curr else None
+            for k in range(self.visual_num_history - 1, -1, -1)
+        ]
+        fallback = next(j for j in valid if j is not None)
+        return [fallback if j is None else j for j in valid]
 
-    def _get_attr_hist(self, idx, attr, filter_cam=False):
+    def _random_hist_indices(self, zarr_idx):
+        """K-1 distinct random past indices of the same demo, current index last."""
+        if self._demo_ids is None:
+            self._demo_ids = np.asarray(self.annos['demo_id'][:])
+        start = zarr_idx
+        while start > 0 and self._demo_ids[start - 1] == self._demo_ids[zarr_idx]:
+            start -= 1
+        past = list(range(start, zarr_idx))
+        picked = random.sample(past, min(len(past), self.visual_num_history - 1))
+        pad = self.visual_num_history - 1 - len(picked)
+        return [start] * pad + picked + [zarr_idx]
+
+    def _get_hist_indices(self, idx):
+        """Per-sample source indices for a chunk, shared by every visual attribute."""
+        fn = self._random_hist_indices if self.visual_history_sampling == 'random' else self._consecutive_hist_indices
+        return [fn(idx + i) for i in range(self.chunk_size)]
+
+    def _get_single_frame_hist(self, indices, attr, filter_cam=False):
+        """Return (visual_num_history, *shape) gathered at the given zarr indices."""
+        frames = []
+        for j in indices:
+            t = to_tensor(self.annos[attr][j:j + 1])[0]
+            if filter_cam and self.camera_inds is not None:
+                t = t[self.camera_inds]
+            frames.append(t)
+        return torch.stack(frames)
+
+    def _get_attr_hist(self, idx, attr, filter_cam=False, hist_indices=None):
         """Return (chunk_size, visual_num_history, *shape) — each sample with nhist history frames."""
+        if hist_indices is None:
+            hist_indices = self._get_hist_indices(idx)
         return torch.stack([
-            self._get_single_frame_hist(idx + i, attr, filter_cam)
-            for i in range(self.chunk_size)
+            self._get_single_frame_hist(indices, attr, filter_cam)
+            for indices in hist_indices
         ])
 
     def _get_single_proprio_hist(self, zarr_idx):
