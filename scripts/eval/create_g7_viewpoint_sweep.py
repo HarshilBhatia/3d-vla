@@ -13,16 +13,18 @@ CENTER = np.array([0.248, -0.001, 0.954])
 G7 = dict(az=45.0, el=47.5, r=1.31)
 # (name, azimuth deg, elevation deg, radius m); left camera at +az, right mirrored at -az.
 SWEEP = [
-    ("G7_el00", 45, 0, 1.31),
-    ("G7_el22", 45, 22, 1.31),
     ("G7_el72", 45, 72, 1.31),
     ("G7_el85", 45, 85, 1.31),
     ("G7_az25", 25, 47.5, 1.31),
     ("G7_az65", 65, 47.5, 1.31),
     ("G7_az90", 90, 47.5, 1.31),
-    ("G7_r090", 45, 47.5, 0.90),
     ("G7_r180", 45, 47.5, 1.80),
-    ("G7_ood_az70_el75_r160", 70, 75, 1.60),
+    # Slightly OOD: just outside the training grid in azimuth, or in elevation and radius.
+    ("G7_slight_az56", 56, 47.5, 1.31),
+    ("G7_slight_el66_r145", 45, 66, 1.45),
+    # Extreme OOD: far from the table, and from the opposite side of the workspace.
+    ("G7_extreme_r350", 45, 35, 3.50),
+    ("G7_extreme_az150_r250", 150, 30, 2.50),
 ]
 
 

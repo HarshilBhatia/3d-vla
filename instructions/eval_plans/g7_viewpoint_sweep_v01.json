@@ -45,18 +45,6 @@
       "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
     },
     {
-      "id": "g7_el00",
-      "spawn_camera_group": "G7_el00",
-      "regime": "g7_viewpoint_sweep",
-      "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
-    },
-    {
-      "id": "g7_el22",
-      "spawn_camera_group": "G7_el22",
-      "regime": "g7_viewpoint_sweep",
-      "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
-    },
-    {
       "id": "g7_el72",
       "spawn_camera_group": "G7_el72",
       "regime": "g7_viewpoint_sweep",
@@ -87,20 +75,32 @@
       "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
     },
     {
-      "id": "g7_r090",
-      "spawn_camera_group": "G7_r090",
-      "regime": "g7_viewpoint_sweep",
-      "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
-    },
-    {
       "id": "g7_r180",
       "spawn_camera_group": "G7_r180",
       "regime": "g7_viewpoint_sweep",
       "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
     },
     {
-      "id": "g7_ood_az70_el75_r160",
-      "spawn_camera_group": "G7_ood_az70_el75_r160",
+      "id": "g7_slight_az56",
+      "spawn_camera_group": "G7_slight_az56",
+      "regime": "g7_viewpoint_sweep",
+      "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
+    },
+    {
+      "id": "g7_slight_el66_r145",
+      "spawn_camera_group": "G7_slight_el66_r145",
+      "regime": "g7_viewpoint_sweep",
+      "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
+    },
+    {
+      "id": "g7_extreme_r350",
+      "spawn_camera_group": "G7_extreme_r350",
+      "regime": "g7_viewpoint_sweep",
+      "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
+    },
+    {
+      "id": "g7_extreme_az150_r250",
+      "spawn_camera_group": "G7_extreme_az150_r250",
       "regime": "g7_viewpoint_sweep",
       "cameras_file": "instructions/orbital_cameras_g7_sweep_v01.json"
     }

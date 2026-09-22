@@ -33,6 +33,7 @@ def main():
     ap.add_argument("--captures", default="docs/figures/g7_sweep_captures/bimanual_pick_laptop",
                     help="per-group npz from capture_g7_sweep_views.py; logged when present")
     ap.add_argument("--out", default="docs/figures/g7_viewpoint_sweep.rrd")
+    ap.add_argument("--no-sweep", action="store_true", help="G1-G7 and the scene only")
     args = ap.parse_args()
 
     rr.init("g7_viewpoint_sweep", spawn=False)
@@ -48,7 +49,7 @@ def main():
         colour = G7_COLOUR if g["group"] == "G7" else TRAIN_COLOUR
         log_pair(f"world/{'g7' if g['group'] == 'G7' else 'train'}/{g['group']}", g, colour)
 
-    sweep = [g for g in json.loads(Path(args.sweep_cameras).read_text()) if g["group"] != "G7"]
+    sweep = [] if args.no_sweep else [g for g in json.loads(Path(args.sweep_cameras).read_text()) if g["group"] != "G7"]
     for i, g in enumerate(sweep):
         colour = PALETTE[i % len(PALETTE)]
         log_pair(f"world/sweep/{g['group']}", g, colour)
