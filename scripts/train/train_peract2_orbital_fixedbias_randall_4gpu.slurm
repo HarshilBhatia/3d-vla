@@ -87,11 +87,13 @@ case "$ARM" in
     EXPERIMENT=peract2_orbital_nowrist4_base
     DEFAULT_RUN_LOG_DIR=peract2_orbital_nowrist4_base
     # External cameras only, four tasks; the experiment config owns dataset and train_tasks.
+    FROM_SCRATCH=1
     ;;
   nowrist4_video_pooled)
     EXPERIMENT=peract2_orbital_nowrist4_vid_pooled
     DEFAULT_RUN_LOG_DIR=peract2_orbital_nowrist4_vid_pooled
     # External cameras only, four tasks; same VideoPooled-Refine architecture as the 84k model.
+    FROM_SCRATCH=1
     ;;
   camframe_rope6d)
     EXPERIMENT=peract2_orbital_camframe_rope6d
