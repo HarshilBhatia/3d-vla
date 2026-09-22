@@ -163,6 +163,7 @@ class RLBenchEnv:
         eval_miscal_trans_level=None,
         camera_groups=None,
         spawn_camera_group=None,
+        scene_frame="world",
     ):
         self.data_path = data_path
         self._task_str = task_str
@@ -181,7 +182,7 @@ class RLBenchEnv:
 
         # Depth2cloud (always needed for orbital eval)
         h_init, w_init = image_size if isinstance(image_size, (tuple, list)) else (image_size, image_size)
-        self._depth2cloud = RLBenchDepth2Cloud((h_init, w_init))
+        self._depth2cloud = RLBenchDepth2Cloud((h_init, w_init), scene_frame)
 
         # Per-group orbital miscalibration noise (optional)
         self._orbital_noise_dict = None

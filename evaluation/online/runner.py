@@ -51,6 +51,7 @@ def build_environment_kwargs(args: Any) -> dict[str, Any]:
             "miscal_camera_indices": None if materialized else getattr(args, "miscal_camera_indices", None),
             "calibration_registry": registry,
             "calibration_id": calibration_id,
+            "scene_frame": getattr(args, "scene_frame", "world"),
         }
     if "orbital" in dataset:
         return {
@@ -62,6 +63,7 @@ def build_environment_kwargs(args: Any) -> dict[str, Any]:
             "eval_miscal_trans_level": getattr(args, "eval_miscal_trans_level", None),
             "camera_groups": [group.strip() for group in args.camera_groups.split(",")] if args.camera_groups else None,
             "spawn_camera_group": args.spawn_camera_group if args.spawn_camera_group else None,
+            "scene_frame": getattr(args, "scene_frame", "world"),
         }
     if "peract" in dataset:
         return {"use_depth2cloud": args.eval_use_depth2cloud}

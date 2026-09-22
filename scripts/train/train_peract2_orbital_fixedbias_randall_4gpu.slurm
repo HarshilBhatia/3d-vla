@@ -19,10 +19,11 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, or video_deltam_pooled_randhist_notime}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, or camframe_rope6d}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
+NO_MISCAL=0
 case "$ARM" in
   base)
     EXPERIMENT=peract2_orbital_new_external_only_miscal_base
@@ -82,8 +83,15 @@ case "$ARM" in
     DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_deltam_fullpatch_d8
     # Depth 8; warm-start from the pooled refine run, which is the only checkpoint carrying camera_readout.
     ;;
+  camframe_rope6d)
+    EXPERIMENT=peract2_orbital_camframe_rope6d
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_camframe_rope6d
+    # Camera-frame clouds ignore extrinsics, so no miscalibration or perturbation is passed.
+    NO_MISCAL=1
+    FROM_SCRATCH=1
+    ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, or video_deltam_pooled_randhist_notime" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, or camframe_rope6d" >&2
     exit 2
     ;;
 esac
@@ -125,7 +133,9 @@ fi
 # Built here, after FIXED_NOISE_FILE exists.
 MISCAL_OVERRIDES=(miscal_mode=group miscal_group_level=medium
                   "miscal_group_file=$FIXED_NOISE_FILE" 'miscal_cameras=[0,1]')
-if [[ "$NO_PERTURBATION" != "1" ]]; then
+if [[ "$NO_MISCAL" == "1" ]]; then
+    MISCAL_OVERRIDES=()
+elif [[ "$NO_PERTURBATION" != "1" ]]; then
     MISCAL_OVERRIDES+=(perturbation_noise_rot_deg=3.0 perturbation_noise_trans_m=0.01)
 fi
 

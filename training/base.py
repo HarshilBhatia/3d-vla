@@ -154,7 +154,7 @@ class BaseTrainTester:
             self.args.visual_num_history,
             proprio_num_history=getattr(self.args, 'proprio_num_history', self.args.visual_num_history),
             custom_imsize=self.args.custom_img_size,
-            depth2cloud=fetch_depth2cloud(self.args.dataset),
+            depth2cloud=fetch_depth2cloud(self.args.dataset, getattr(self.args, 'scene_frame', 'world')),
             miscal_mode=self.args.miscal_mode,
             perturbation_noise_rot_deg=self.args.perturbation_noise_rot_deg,
             perturbation_noise_trans_m=self.args.perturbation_noise_trans_m,

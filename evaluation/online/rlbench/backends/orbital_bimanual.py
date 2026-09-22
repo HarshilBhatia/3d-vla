@@ -106,6 +106,7 @@ class RLBenchEnv(BimanualRLBenchEnv):
         miscal_camera_indices=None,
         calibration_registry=None,
         calibration_id=None,
+        scene_frame="world",
     ):
         if cameras_file is None:
             raise ValueError("cameras_file must be provided for orbital eval")
@@ -164,7 +165,9 @@ class RLBenchEnv(BimanualRLBenchEnv):
 
         # Orbital sensors are raw PyRep VisionSensors, so their depth never passes
         # through RLBench's ObservationConfig; unproject it here, as training does.
-        self._depth2cloud = RLBenchDepth2Cloud((h, w))
+        self._depth2cloud = RLBenchDepth2Cloud((h, w), scene_frame)
+        if scene_frame == "camera":
+            print("[orbital bimanual eval] scene_frame=camera: extrinsics (and any miscalibration) do not reach the policy", flush=True)
         self._left_sensor = None
         self._right_sensor = None
         self._orbital_extrinsics = None

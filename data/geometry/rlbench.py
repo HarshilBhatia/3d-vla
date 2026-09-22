@@ -4,9 +4,16 @@ import numpy as np
 import torch
 
 
+# world = camera-to-world extrinsics; camera = each camera's own frame (extrinsics ignored).
+SCENE_FRAMES = ("world", "camera")
+
+
 class RLBenchDepth2Cloud:
 
-    def __init__(self, shape):
+    def __init__(self, shape, scene_frame="world"):
+        if scene_frame not in SCENE_FRAMES:
+            raise ValueError(f"scene_frame must be one of {SCENE_FRAMES}, got {scene_frame!r}")
+        self.scene_frame = scene_frame
         self.uniforms = torch.from_numpy(
             self._create_uniform_pixel_coords_image(shape)
         ).permute(2, 0, 1).cuda(non_blocking=True)  # (3, H, W)
@@ -57,6 +64,8 @@ class RLBenchDepth2Cloud:
         # output is (B Nc 3 H W)
         # Nc is the number of cameras
         b, nc, h, w = depth.shape
+        if self.scene_frame == "camera":
+            extrinsics = torch.eye(4, dtype=extrinsics.dtype, device=extrinsics.device).expand_as(extrinsics)
         pc = self.unproject(
             depth.view(-1, h, w),
             extrinsics.view(-1, 4, 4),
