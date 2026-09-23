@@ -1260,6 +1260,8 @@ class BaseTrainTester:
             entries = OmegaConf.to_container(entries, resolve=True)
         if not entries:
             return
+        # The ladder scans for interm_step_*.pth on disk, so the async write must land first.
+        self._saver.flush()
         repo_root = REPO_ROOT
         launcher = repo_root / "scripts/eval/checkpoint_ladder.py"
         for raw_entry in entries:
