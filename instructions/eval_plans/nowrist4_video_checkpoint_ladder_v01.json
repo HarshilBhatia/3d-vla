@@ -40,7 +40,8 @@
     "num_demos_total": 20,
     "overrides": {
       "scene_sampling": "fps",
-      "eval_proprio_history_order": "past_to_current"
+      "eval_proprio_history_order": "past_to_current",
+      "visual_num_history": 5
     }
   }
 }
