@@ -17,7 +17,7 @@
 # grogu-3-20's RTX 2080 Ti is not visible through the evaluation container
 # (PyTorch reports CUDA unknown error before any rollout starts); grogu-0-15
 # hangs PyRep before producing a rollout artifact.
-#SBATCH --exclude=grogu-0-15,grogu-3-20,grogu-3-30,grogu-4-23
+#SBATCH --exclude=grogu-0-15,grogu-3-20,grogu-3-30,grogu-4-23,grogu-4-3
 
 set -euo pipefail
 PLAN="${1:?Pass an evaluation plan JSON path}"
