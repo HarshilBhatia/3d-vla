@@ -20,6 +20,14 @@
         "visual_num_history": 5,
         "eval_proprio_history_order": "past_to_current"
       }
+    },
+    {
+      "id": "video_pooled_no_view_align_s140k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_deltam_pooled_no_view_align/interm_step_140000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current"
+      }
     }
   ],
   "calibrations": [

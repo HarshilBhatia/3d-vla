@@ -8,10 +8,11 @@ PLANS = ROOT / "instructions/eval_plans"
 VIDEO = {"visual_num_history": 5, "eval_proprio_history_order": "past_to_current"}
 VIDEO_POOLED = {"id": "video_pooled_s084k", "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth", "overrides": VIDEO}
 RANDHIST = {"id": "video_pooled_randhist_notime_s050k", "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_deltam_pooled_randhist_notime/interm_step_50000.pth", "overrides": VIDEO}
+NO_VIEW_ALIGN = {"id": "video_pooled_no_view_align_s140k", "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_deltam_pooled_no_view_align/interm_step_140000.pth", "overrides": VIDEO}
 BASE = {"id": "base_s160k", "checkpoint": "train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base_200k/interm_step_160000.pth"}
 PROBES = {
     # All K-1 past slots hold the current frame: does history content matter at all?
-    "hist_current_only": ([VIDEO_POOLED, RANDHIST], {"eval_history_probe": "current_only"}),
+    "hist_current_only": ([VIDEO_POOLED, RANDHIST, NO_VIEW_ALIGN], {"eval_history_probe": "current_only"}),
     # Past slots come from the previous episode (different scene): does it use this episode's past?
     "hist_other_episode": ([VIDEO_POOLED, RANDHIST], {"eval_history_probe": "other_episode"}),
     # Orbital cameras get black RGB and out-of-workspace points: how much rests on the wrist cameras?
