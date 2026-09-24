@@ -20,7 +20,7 @@ EVALUATION_RUNTIME_KEYS = frozenset({
     "val_instructions", "log_dir", "base_log_dir", "save_video",
     "save_trajectory", "eval_use_depth2cloud", "image_size",
     "collision_checking", "cfg_scale", "prediction_len", "max_steps",
-    "eval_proprio_history_order",
+    "eval_proprio_history_order", "eval_history_probe", "eval_blackout_cameras",
     # Dataset/rollout input shape controls; these do not change model
     # architecture (proprio_num_history remains checkpoint-owned because it
     # determines decoder dimensions).

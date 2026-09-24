@@ -306,6 +306,26 @@ class RLBenchEnv:
 
         return rgb, pcd, gripper
 
+    def _apply_history_probe(self, probe, rgbs, pcds, step_id, sampling, rng):
+        """Replace the K-1 past visual slots (current frame stays last) for an eval-only history probe."""
+        if probe == "current_only" or (probe == "other_episode" and getattr(self, "_probe_prev", None) is None):
+            if probe == "other_episode":
+                print("[history probe] no previous episode yet; this episode uses current_only", flush=True)
+            return rgbs[:, -1:].expand_as(rgbs).clone(), pcds[:, -1:].expand_as(pcds).clone()
+        if probe != "other_episode":
+            raise ValueError(f"eval_history_probe must be none, current_only or other_episode, got {probe!r}")
+        prev_rgb, prev_pcd = self._probe_prev
+        past, length = rgbs.shape[1] - 1, prev_rgb.shape[1]
+        if sampling == "random":
+            idx = sorted(rng.sample(range(length), min(length, past)))
+            idx = [idx[0]] * (past - len(idx)) + idx
+        else:
+            # Same relative position in the other episode as a consecutive window here.
+            idx = [min(max(step_id - k, 0), length - 1) for k in range(past, 0, -1)]
+        rgbs, pcds = rgbs.clone(), pcds.clone()
+        rgbs[:, :-1], pcds[:, :-1] = prev_rgb[:, idx], prev_pcd[:, idx]
+        return rgbs, pcds
+
     def _extract_video_frame(self, obs):
         frames = [obs.perception_data[f"{cam}_rgb"] for cam in self.apply_cameras]
         return np.concatenate(frames, axis=1)
@@ -328,6 +348,7 @@ class RLBenchEnv:
         num_demos_total=None,
         visual_history_sampling="consecutive",
         history_seed=0,
+        history_probe="none",
     ):
         progress = {}
         if progress_file is not None and os.path.exists(progress_file):
@@ -397,6 +418,7 @@ class RLBenchEnv:
                     num_demos=var_num_demos,
                     visual_history_sampling=visual_history_sampling,
                     history_seed=history_seed,
+                    history_probe=history_probe,
                 )
             )
             if valid:
@@ -432,6 +454,7 @@ class RLBenchEnv:
         num_demos=None,
         visual_history_sampling="consecutive",
         history_seed=0,
+        history_probe="none",
     ):
         success_rate = 0
         total_reward = 0
@@ -466,6 +489,7 @@ class RLBenchEnv:
             descriptions, obs = task.reset_to_demo(demo)
             actioner.load_episode(descriptions)
             history_rng = random.Random(f"{history_seed}-{task_str}-{variation}-{demo_id}")
+            episode_rgb, episode_pcd = [], []
 
             move = Mover(task, max_tries=max_tries)
             max_reward = 0.0
@@ -503,6 +527,12 @@ class RLBenchEnv:
                     )
                     rgb_history = rgbs_input
                     pcd_history = pcds_input
+                if history_probe != "none" and visual_num_history > 1:
+                    episode_rgb.append(rgb_current)
+                    episode_pcd.append(pcd_current)
+                    rgbs_input, pcds_input = self._apply_history_probe(
+                        history_probe, rgbs_input, pcds_input, step_id, visual_history_sampling, history_rng
+                    )
                 # Preserve the pre-Video-DeltaM input layout for old models.
                 if visual_num_history == 1:
                     rgbs_input = rgbs_input[:, 0]
@@ -547,6 +577,9 @@ class RLBenchEnv:
                     reward = 0
 
             total_reward += max_reward
+            if episode_rgb:
+                # The next episode's other-episode probe reads this episode's frames.
+                self._probe_prev = (torch.stack(episode_rgb, 1), torch.stack(episode_pcd, 1))
 
             if progress is not None and progress_file is not None:
                 progress[key] = 1 if max_reward == 1 else 0

@@ -52,6 +52,7 @@ def build_environment_kwargs(args: Any) -> dict[str, Any]:
             "calibration_registry": registry,
             "calibration_id": calibration_id,
             "scene_frame": getattr(args, "scene_frame", "world"),
+            "blackout_cameras": list(getattr(args, "eval_blackout_cameras", None) or []),
         }
     if "orbital" in dataset:
         return {
@@ -114,6 +115,8 @@ def run_online_evaluation(args: Any, *, model_loader: Callable[[Any], Any]) -> b
     evaluation_extra = {}
     if getattr(args, "num_demos_total", None) is not None:
         evaluation_extra["num_demos_total"] = int(args.num_demos_total)
+    if getattr(args, "eval_history_probe", "none") != "none":
+        evaluation_extra["history_probe"] = args.eval_history_probe
     if getattr(args, "visual_history_sampling", "consecutive") != "consecutive":
         evaluation_extra["visual_history_sampling"] = args.visual_history_sampling
         evaluation_extra["history_seed"] = int(args.seed)

@@ -1,0 +1,109 @@
+{
+  "schema_version": 1,
+  "campaign_id": "g7_opposite200_probe_hist_current_only_v01",
+  "description": "G7 opposing translation 200 cm, 6 SBRS tasks x 20 rollouts, eval-only probe: hist_current_only.",
+  "calibration_registry": "instructions/eval_calibrations_g7_extreme_opposite_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+  "methods": [
+    {
+      "id": "video_pooled_s084k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    },
+    {
+      "id": "video_pooled_randhist_notime_s050k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_deltam_pooled_randhist_notime/interm_step_50000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    }
+  ],
+  "calibrations": [
+    "opposite-200cm"
+  ],
+  "tasks": [
+    "bimanual_handover_item_easy",
+    "bimanual_lift_ball",
+    "bimanual_push_box",
+    "bimanual_pick_plate",
+    "bimanual_pick_laptop",
+    "bimanual_straighten_rope"
+  ],
+  "task_viewpoints": {
+    "bimanual_handover_item_easy": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_lift_ball": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_push_box": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_plate": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_laptop": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_straighten_rope": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_handover_item_easy": [
+      "g7-opposite-200cm-v01"
+    ],
+    "bimanual_lift_ball": [
+      "g7-opposite-200cm-v01"
+    ],
+    "bimanual_push_box": [
+      "g7-opposite-200cm-v01"
+    ],
+    "bimanual_pick_plate": [
+      "g7-opposite-200cm-v01"
+    ],
+    "bimanual_pick_laptop": [
+      "g7-opposite-200cm-v01"
+    ],
+    "bimanual_straighten_rope": [
+      "g7-opposite-200cm-v01"
+    ]
+  },
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 20,
+    "overrides": {
+      "scene_sampling": "fps",
+      "eval_proprio_history_order": "past_to_current",
+      "eval_history_probe": "current_only"
+    }
+  }
+}

@@ -35,6 +35,8 @@ eval_calibration_registry: null
 # is causal and aligns the final slot with the policy's current-state reads;
 # ``current_to_past`` reproduces the present Video-DeltaM training loader.
 eval_proprio_history_order: past_to_current
+eval_history_probe: none        # none | current_only | other_episode: replace the K-1 past visual slots at eval
+eval_blackout_cameras: []       # camera indices (4-camera order) given black RGB and points parked out of the workspace
 # eval_use_depth2cloud: route peract online eval through depth+extrinsics→PCD (consistent with training).
 # Required for miscalibration eval; also set true for clean train/eval alignment.
 eval_use_depth2cloud: false
