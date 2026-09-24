@@ -14,10 +14,12 @@
 #SBATCH --mem=64G
 #SBATCH --time=23:59:00
 #SBATCH --requeue
+# Keep every attempt's log; a requeue would otherwise overwrite the failure that caused it.
+#SBATCH --open-mode=append
 # grogu-3-20's RTX 2080 Ti is not visible through the evaluation container
 # (PyTorch reports CUDA unknown error before any rollout starts); grogu-0-15
 # hangs PyRep before producing a rollout artifact.
-#SBATCH --exclude=grogu-0-15,grogu-3-20,grogu-3-30,grogu-4-23,grogu-4-3
+#SBATCH --exclude=grogu-0-15,grogu-3-20,grogu-3-30,grogu-4-23,grogu-4-3,grogu-4-13
 
 set -euo pipefail
 PLAN="${1:?Pass an evaluation plan JSON path}"
@@ -28,11 +30,13 @@ PYREP_DIR="${PYREP_DIR:-/home/harshilb/peract2_eval_deps/PyRep}"
 RLBENCH_DIR="${RLBENCH_DIR:-/home/harshilb/peract2_eval_deps/RLBench}"
 
 cd "$REPO_ROOT"
-# A CUDA/container startup failure is node-specific in practice.  Requeue the
-# cell onto a fresh allocation, but bound it so genuine evaluation failures are
-# still surfaced.  Slurm increments SLURM_RESTART_COUNT on each requeue.
-MAX_REQUEUES="${EVAL_MAX_REQUEUES:-2}"
-RESTART_COUNT="${SLURM_RESTART_COUNT:-0}"
+# A CUDA/container startup failure is node-specific in practice. A failed cell exits
+# non-zero (so Slurm shows FAILED) and submits a fresh one-cell retry that excludes
+# every node this cell has already failed on. A running job's exclude list cannot be
+# changed, and `scontrol requeue` kills the script before it could be, hence a new job.
+MAX_RETRIES="${EVAL_MAX_RETRIES:-3}"
+RETRY="${EVAL_RETRY:-0}"
+FAILED_NODES="${EVAL_FAILED_NODES:-}"
 
 if apptainer exec --nv --fakeroot \
   --bind "$REPO_ROOT:/workspace/3dfa_unified" \
@@ -46,12 +50,16 @@ else
   EXIT_CODE=$?
 fi
 
-if (( RESTART_COUNT < MAX_REQUEUES )); then
-  echo "Evaluation cell ${CELL_INDEX} failed (exit ${EXIT_CODE}); requeueing on a fresh node (retry $((RESTART_COUNT + 1))/${MAX_REQUEUES})." >&2
-  if scontrol requeue "$SLURM_JOB_ID"; then
-    exit 0
-  fi
-  echo "Could not requeue ${SLURM_JOB_ID}; preserving the original failure." >&2
+echo "Evaluation cell ${CELL_INDEX} failed on ${SLURMD_NODENAME} (exit ${EXIT_CODE})." >&2
+if (( RETRY < MAX_RETRIES )); then
+  FAILED_NODES="${FAILED_NODES:+$FAILED_NODES,}${SLURMD_NODENAME}"
+  BASE_EXCLUDE=$(sed -n 's/^#SBATCH --exclude=//p' "$REPO_ROOT/scripts/eval/online_eval_plan.slurm")
+  RETRY_JOB=$(EVAL_RETRY=$((RETRY + 1)) EVAL_FAILED_NODES="$FAILED_NODES" sbatch --parsable \
+    --array="$CELL_INDEX" --exclude="${BASE_EXCLUDE},${FAILED_NODES}" \
+    "$REPO_ROOT/scripts/eval/online_eval_plan.slurm" "$PLAN") \
+    && echo "Retry $((RETRY + 1))/${MAX_RETRIES} submitted as ${RETRY_JOB}, excluding ${FAILED_NODES}." >&2 \
+    || echo "Could not submit a retry for cell ${CELL_INDEX}." >&2
+else
+  echo "Cell ${CELL_INDEX} gave up after ${MAX_RETRIES} retries (failed on: ${FAILED_NODES:+$FAILED_NODES,}${SLURMD_NODENAME})." >&2
 fi
-
 exit "$EXIT_CODE"
