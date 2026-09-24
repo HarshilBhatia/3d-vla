@@ -31,3 +31,14 @@ for name, (methods, probe) in PROBES.items():
     out = PLANS / f"{plan['campaign_id']}.json"
     out.write_text(json.dumps(plan, indent=2) + "\n")
     print(out.name, len(methods) * len(plan["tasks"]), "cells")
+
+# Current-frame-only across the full G7 extremes, for all three history models.
+for src_name in ("g7_extreme_opposite_v01", "g7_rotation_only_v01"):
+    plan = json.loads((PLANS / f"{src_name}.json").read_text())
+    plan["campaign_id"] = f"{src_name.replace('_v01', '')}_hist_current_only_v01"
+    plan["description"] += " Eval-only probe: history slots hold the current frame."
+    plan["methods"] = [VIDEO_POOLED, NO_VIEW_ALIGN, RANDHIST]
+    plan["runtime"]["overrides"] = {**plan["runtime"].get("overrides", {}), "eval_history_probe": "current_only"}
+    out = PLANS / f"{plan['campaign_id']}.json"
+    out.write_text(json.dumps(plan, indent=2) + "\n")
+    print(out.name, sum(len(v) for v in plan["task_calibrations"].values()) * len(plan["methods"]), "cells")
