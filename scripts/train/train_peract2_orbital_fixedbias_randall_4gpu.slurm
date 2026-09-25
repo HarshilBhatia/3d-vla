@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, or vid_pooled_noalign_randhist_scratch}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, or vid_pooled_noalign_randhist_noreg_scratch}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -101,6 +101,12 @@ case "$ARM" in
     # From scratch so no weights were ever trained with delta_M or ordered history.
     FROM_SCRATCH=1
     ;;
+  vid_pooled_noalign_randhist_noreg_scratch)
+    EXPERIMENT=peract2_orbital_vid_pooled_noalign_randhist_noreg_scratch
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_pooled_noalign_randhist_noreg_scratch
+    # Identical to vid_pooled_noalign_randhist_scratch except no history register reaches the trajectory queries.
+    FROM_SCRATCH=1
+    ;;
   camframe_rope6d)
     EXPERIMENT=peract2_orbital_camframe_rope6d
     DEFAULT_RUN_LOG_DIR=peract2_orbital_camframe_rope6d
@@ -109,7 +115,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, or vid_pooled_noalign_randhist_scratch" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, or vid_pooled_noalign_randhist_noreg_scratch" >&2
     exit 2
     ;;
 esac

@@ -135,6 +135,7 @@ video_deltam_full_image: false
 video_deltam_patch_rope3d: false
 # false: no time embedding or causal mask on history, only a learned current-frame vector. Pooled only.
 video_deltam_time_embedding: true
+video_deltam_history_register: true  # false: no global history register added to the trajectory queries (pooled refine only)
 # What the Video-DeltaM stack is for:
 #   refine          — it hands the decoder history-refined camera summaries and a
 #                     global history register; the head still predicts delta_M

@@ -69,7 +69,7 @@ class HistoryFeatureExtractor(nn.Module):
 
     def __init__(self, embedding_dim, num_heads, depth, max_history=32, max_cameras=8,
                  dropout=0.1, full_image=False, predict_delta_m=False,
-                 patch_rope3d=False, use_time_embedding=True):
+                 patch_rope3d=False, use_time_embedding=True, use_register=True):
         super().__init__()
         if depth < 1:
             raise ValueError("video_deltam_depth must be at least one")
@@ -78,6 +78,8 @@ class HistoryFeatureExtractor(nn.Module):
                 "video_deltam_time_embedding=False is only supported on the pooled path "
                 "(video_deltam_full_image=False)"
             )
+        if not use_register and (full_image or predict_delta_m):
+            raise ValueError("video_deltam_history_register=False is only supported on the pooled refine path")
         if patch_rope3d and not full_image:
             raise ValueError(
                 "video_deltam_patch_rope3d requires video_deltam_full_image=True: "
@@ -118,7 +120,7 @@ class HistoryFeatureExtractor(nn.Module):
             # Zero-init: delta_M = exp(0) = I, so the arm starts from no correction.
             nn.init.zeros_(self.delta_m_head[-1].weight)
             nn.init.zeros_(self.delta_m_head[-1].bias)
-        else:
+        elif use_register:
             # Legacy checkpoint-compatible global camera-register readout.
             self.camera_readout = nn.ModuleList(
                 [_Block(embedding_dim, num_heads, dropout) for _ in range(depth)]
@@ -352,7 +354,9 @@ class HistoryFeatureExtractor(nn.Module):
         time_mask = torch.triu(
             torch.ones(history, history, dtype=torch.bool, device=frames.device), diagonal=1
         ) if self.use_time_embedding else None
-        readouts = [None] * len(self.same_time) if self.predict_delta_m else self.camera_readout
+        # Without a register the readout is never built, so the policy gets no history_register.
+        use_readout = hasattr(self, "camera_readout") and not self.predict_delta_m
+        readouts = self.camera_readout if use_readout else [None] * len(self.same_time)
         for same_time, temporal, readout in zip(self.same_time, self.temporal, readouts):
             frames = same_time(frames.reshape(bsz * history, ncam, -1)).reshape(
                 bsz, history, ncam, -1
@@ -371,4 +375,4 @@ class HistoryFeatureExtractor(nn.Module):
             # Sole output: one orthogonal correction per camera, from the
             # history-refined summary of the current frame.
             return frames, None, self._delta_m_from(frames[:, -1])
-        return frames, cam, None
+        return frames, (cam if use_readout else None), None
