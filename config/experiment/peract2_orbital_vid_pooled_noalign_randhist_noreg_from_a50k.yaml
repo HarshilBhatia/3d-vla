@@ -1,4 +1,4 @@
-# Twin of vid_pooled_noalign_randhist_scratch without the global history register on the trajectory queries: is the register the robust channel?
+# Warm-started from the register-on run (vid_pooled_noalign_randhist_scratch) at 50k, then 150k steps without the history register: 200k total like its twin.
 dataset: OrbitalPeract2
 model_type: denoise3d
 bimanual: true
@@ -21,7 +21,7 @@ batch_size_val: 64
 lr: 0.0003
 backbone_lr: 0.0003
 wd: 0.005
-train_iters: 200000
+train_iters: 150000
 head_positional_encoding: rope3d
 view_align_mode: none
 view_align_cameras: [0, 1]
@@ -35,6 +35,6 @@ video_deltam_time_embedding: false
 video_deltam_history_register: false
 checkpoint_evals:
   - recipe: instructions/eval_plans/video_deltam_checkpoint_ladder_v01.json
-    method_id: vid-pooled-noalign-randhist-noreg-scratch
+    method_id: vid-pooled-noalign-randhist-noreg-from-a50k
     min_step: 50000
-    max_step: 200000
+    max_step: 150000

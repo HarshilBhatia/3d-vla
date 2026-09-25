@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, or vid_pooled_noalign_randhist_noreg_scratch}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, or vid_pooled_noalign_randhist_noreg_from_a50k}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -101,11 +101,11 @@ case "$ARM" in
     # From scratch so no weights were ever trained with delta_M or ordered history.
     FROM_SCRATCH=1
     ;;
-  vid_pooled_noalign_randhist_noreg_scratch)
-    EXPERIMENT=peract2_orbital_vid_pooled_noalign_randhist_noreg_scratch
-    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_pooled_noalign_randhist_noreg_scratch
-    # Identical to vid_pooled_noalign_randhist_scratch except no history register reaches the trajectory queries.
-    FROM_SCRATCH=1
+  vid_pooled_noalign_randhist_noreg_from_a50k)
+    EXPERIMENT=peract2_orbital_vid_pooled_noalign_randhist_noreg_from_a50k
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_pooled_noalign_randhist_noreg_from_a50k
+    # Twin of vid_pooled_noalign_randhist_scratch sharing its first 50k steps; the register is off from here on.
+    DEFAULT_PRETRAINED=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_vid_pooled_noalign_randhist_scratch/interm_step_50000.pth
     ;;
   camframe_rope6d)
     EXPERIMENT=peract2_orbital_camframe_rope6d
@@ -115,7 +115,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, or vid_pooled_noalign_randhist_noreg_scratch" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, or vid_pooled_noalign_randhist_noreg_from_a50k" >&2
     exit 2
     ;;
 esac
@@ -125,7 +125,7 @@ TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-$EGRESS_ROOT/datasets/orbital_peract2/zarr/tra
 EVAL_DATA_DIR="${EVAL_DATA_DIR:-$EGRESS_ROOT/datasets/orbital_peract2/zarr/val.zarr}"
 FIXED_NOISE_FILE="${FIXED_NOISE_FILE:-instructions/orbital_miscalibration_noise_bimanual_external_only.json}"
 RUN_LOG_DIR="${RUN_LOG_DIR:-$DEFAULT_RUN_LOG_DIR}"
-PRETRAINED_CHECKPOINT="${PRETRAINED_CHECKPOINT:-$REPO_ROOT/train_logs/PerAct2/peract2_orbital_video_deltam_external_20260910/last.pth}"
+PRETRAINED_CHECKPOINT="${PRETRAINED_CHECKPOINT:-${DEFAULT_PRETRAINED:-$REPO_ROOT/train_logs/PerAct2/peract2_orbital_video_deltam_external_20260910/last.pth}}"
 # Resume restores model, EMA, optimizer, scheduler position, and iteration.
 # Unlike PRETRAINED_CHECKPOINT, it is a true continuation rather than a
 # weights-only initialization. On resume the config's train_iters is the *total*.
