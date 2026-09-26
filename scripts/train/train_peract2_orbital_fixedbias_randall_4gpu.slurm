@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, or vid_pooled_noalign_randhist_noreg_from_a50k}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_{vidpooled,randhist,noviewalign,regtest_a,regtest_c,base}}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -107,6 +107,42 @@ case "$ARM" in
     # Twin of vid_pooled_noalign_randhist_scratch sharing its first 50k steps; the register is off from here on.
     DEFAULT_PRETRAINED=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_vid_pooled_noalign_randhist_scratch/interm_step_50000.pth
     ;;
+  ema20k_vidpooled)
+    EXPERIMENT=peract2_orbital_ema20k_vidpooled
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_ema20k_vidpooled
+    # 20k EMA fine-tune; the experiment config owns use_ema and the raw/EMA ladders.
+    DEFAULT_PRETRAINED=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_video_deltam_external_warmstart_k5v_k3p_a5000_resume/best.pth
+    ;;
+  ema20k_randhist)
+    EXPERIMENT=peract2_orbital_ema20k_randhist
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_ema20k_randhist
+    # 20k EMA fine-tune; the experiment config owns use_ema and the raw/EMA ladders.
+    DEFAULT_PRETRAINED=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_vid_deltam_pooled_randhist_notime/interm_step_50000.pth
+    ;;
+  ema20k_noviewalign)
+    EXPERIMENT=peract2_orbital_ema20k_noviewalign
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_ema20k_noviewalign
+    # 20k EMA fine-tune; the experiment config owns use_ema and the raw/EMA ladders.
+    DEFAULT_PRETRAINED=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_vid_deltam_pooled_no_view_align/interm_step_140000.pth
+    ;;
+  ema20k_regtest_a)
+    EXPERIMENT=peract2_orbital_ema20k_regtest_a
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_ema20k_regtest_a
+    # 20k EMA fine-tune; the experiment config owns use_ema and the raw/EMA ladders.
+    DEFAULT_PRETRAINED=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_vid_pooled_noalign_randhist_scratch/interm_step_160000.pth
+    ;;
+  ema20k_regtest_c)
+    EXPERIMENT=peract2_orbital_ema20k_regtest_c
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_ema20k_regtest_c
+    # 20k EMA fine-tune; the experiment config owns use_ema and the raw/EMA ladders.
+    DEFAULT_PRETRAINED=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_vid_pooled_noalign_randhist_noreg_from_a50k/interm_step_100000.pth
+    ;;
+  ema20k_base)
+    EXPERIMENT=peract2_orbital_ema20k_base
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_ema20k_base
+    # 20k EMA fine-tune; the experiment config owns use_ema and the raw/EMA ladders.
+    DEFAULT_PRETRAINED=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base_200k/interm_step_160000.pth
+    ;;
   camframe_rope6d)
     EXPERIMENT=peract2_orbital_camframe_rope6d
     DEFAULT_RUN_LOG_DIR=peract2_orbital_camframe_rope6d
@@ -115,7 +151,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, or vid_pooled_noalign_randhist_noreg_from_a50k" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_{vidpooled,randhist,noviewalign,regtest_a,regtest_c,base}" >&2
     exit 2
     ;;
 esac

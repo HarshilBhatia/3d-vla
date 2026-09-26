@@ -20,7 +20,7 @@ EVALUATION_RUNTIME_KEYS = frozenset({
     "val_instructions", "log_dir", "base_log_dir", "save_video",
     "save_trajectory", "eval_use_depth2cloud", "image_size",
     "collision_checking", "cfg_scale", "prediction_len", "max_steps",
-    "eval_proprio_history_order", "eval_history_probe", "eval_blackout_cameras",
+    "eval_proprio_history_order", "eval_history_probe", "eval_blackout_cameras", "eval_weights",
     # Dataset/rollout input shape controls; these do not change model
     # architecture (proprio_num_history remains checkpoint-owned because it
     # determines decoder dimensions).
@@ -109,9 +109,13 @@ def load_model_for_evaluation(args: Any):
     model_kwargs = build_model_kwargs(args, model_class)
     assert_model_kwargs_complete(args, model_class, model_kwargs)
     model = model_class(**model_kwargs)
+    weights_key = {"raw": "weight", "ema": "ema_weight"}[getattr(args, "eval_weights", "raw")]
+    if checkpoint.get(weights_key) is None:
+        raise ValueError(f"eval_weights={args.eval_weights!r} but {args.checkpoint} has no {weights_key!r}")
+    print(f"Evaluating {weights_key} from {args.checkpoint}", flush=True)
     state = {
         key[7:]: value
-        for key, value in checkpoint["weight"].items()
+        for key, value in checkpoint[weights_key].items()
     }
     incompatible = model.load_state_dict(state, strict=False)
     missing, unexpected = _non_frozen_checkpoint_incompatibilities(model, incompatible)

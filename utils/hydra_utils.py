@@ -232,6 +232,7 @@ def write_eval_manifest(args: SimpleNamespace, path: Path) -> None:
             "proprio_num_history": args.proprio_num_history,
             "visual_history_sampling": getattr(args, "visual_history_sampling", "consecutive"),
             "eval_history_probe": getattr(args, "eval_history_probe", "none"),
+            "eval_weights": getattr(args, "eval_weights", "raw"),
             "eval_blackout_cameras": list(getattr(args, "eval_blackout_cameras", None) or []),
             "eval_proprio_history_order": args.eval_proprio_history_order,
             "scene_sampling": args.scene_sampling,

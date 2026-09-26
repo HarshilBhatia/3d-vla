@@ -1,0 +1,43 @@
+# 20k-step EMA fine-tune of no-view-align 140k (peract2_orbital_vid_deltam_pooled_no_view_align); SBRS every 5k on raw and EMA weights.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+visual_num_history: 5
+proprio_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: true
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 128
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 20000
+head_positional_encoding: rope3d
+view_align_mode: none
+view_align_cameras: [0, 1]
+layerwise_view_align: true
+miscal_cameras: [0, 1]
+video_deltam: true
+video_deltam_depth: 4
+video_deltam_max_cameras: 4
+video_deltam_full_image: false
+use_ema: true
+interm_ckpt_interval_steps: 5000
+checkpoint_evals:
+  - recipe: instructions/eval_plans/video_deltam_checkpoint_ladder_ema20k_raw_v01.json
+    method_id: ema20k-noviewalign-raw
+    min_step: 5000
+    max_step: 20000
+  - recipe: instructions/eval_plans/video_deltam_checkpoint_ladder_ema20k_ema_v01.json
+    method_id: ema20k-noviewalign-ema
+    min_step: 5000
+    max_step: 20000
