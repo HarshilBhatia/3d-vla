@@ -1,0 +1,463 @@
+model,panel,total_steps_k,success_pct
+"Random hist, δM on (+184k from VP84k)",mean over 6 tasks,214.0,70.0
+"Random hist, δM on (+184k from VP84k)",mean over 6 tasks,224.0,69.2
+"Random hist, δM on (+184k from VP84k)",mean over 6 tasks,234.0,83.3
+"Random hist, δM on (+184k from VP84k)",mean over 6 tasks,244.0,80.0
+"Random hist, δM on (+184k from VP84k)",mean over 6 tasks,254.0,68.3
+"Random hist, δM on (+184k from VP84k)",mean over 6 tasks,264.0,77.5
+"Random hist, δM on (+184k from VP84k)",mean over 6 tasks,274.0,70.0
+"Random hist, δM on (+184k from VP84k)",mean over 6 tasks,284.0,70.0
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,234.0,71.7
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,244.0,70.8
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,254.0,82.5
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,264.0,74.2
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,274.0,70.0
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,284.0,75.8
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,294.0,60.0
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,304.0,78.3
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,314.0,78.3
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,324.0,83.3
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,334.0,75.0
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,344.0,78.3
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,354.0,75.8
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,364.0,75.8
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,374.0,73.3
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,384.0,71.7
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,394.0,64.2
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,404.0,81.7
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,414.0,72.5
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,424.0,79.2
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,434.0,68.3
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,444.0,73.3
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,454.0,63.3
+"No δM, ordered (+184k from VP84k)",mean over 6 tasks,464.0,80.0
+"A: scratch, no δM, random",mean over 6 tasks,50.0,55.8
+"A: scratch, no δM, random",mean over 6 tasks,60.0,63.3
+"A: scratch, no δM, random",mean over 6 tasks,70.0,66.7
+"A: scratch, no δM, random",mean over 6 tasks,80.0,73.3
+"A: scratch, no δM, random",mean over 6 tasks,90.0,77.5
+"A: scratch, no δM, random",mean over 6 tasks,100.0,75.0
+"A: scratch, no δM, random",mean over 6 tasks,110.0,66.7
+"A: scratch, no δM, random",mean over 6 tasks,120.0,65.8
+"A: scratch, no δM, random",mean over 6 tasks,130.0,70.0
+"A: scratch, no δM, random",mean over 6 tasks,140.0,75.0
+"A: scratch, no δM, random",mean over 6 tasks,150.0,73.3
+"A: scratch, no δM, random",mean over 6 tasks,160.0,80.0
+"A: scratch, no δM, random",mean over 6 tasks,170.0,75.0
+"A: scratch, no δM, random",mean over 6 tasks,180.0,64.2
+"A: scratch, no δM, random",mean over 6 tasks,190.0,72.5
+"A: scratch, no δM, random",mean over 6 tasks,200.0,65.0
+C: A − register (+50k from A),mean over 6 tasks,100.0,70.8
+C: A − register (+50k from A),mean over 6 tasks,110.0,71.7
+C: A − register (+50k from A),mean over 6 tasks,120.0,71.7
+C: A − register (+50k from A),mean over 6 tasks,130.0,70.0
+C: A − register (+50k from A),mean over 6 tasks,140.0,74.2
+C: A − register (+50k from A),mean over 6 tasks,150.0,79.2
+C: A − register (+50k from A),mean over 6 tasks,160.0,72.5
+C: A − register (+50k from A),mean over 6 tasks,170.0,68.3
+C: A − register (+50k from A),mean over 6 tasks,180.0,63.3
+C: A − register (+50k from A),mean over 6 tasks,190.0,71.7
+C: A − register (+50k from A),mean over 6 tasks,200.0,71.7
+Base (scratch),mean over 6 tasks,110.0,64.2
+Base (scratch),mean over 6 tasks,120.0,63.3
+Base (scratch),mean over 6 tasks,130.0,63.3
+Base (scratch),mean over 6 tasks,140.0,66.7
+Base (scratch),mean over 6 tasks,150.0,63.3
+Base (scratch),mean over 6 tasks,160.0,74.2
+Base (scratch),mean over 6 tasks,170.0,66.7
+"Random hist, δM on (+184k from VP84k)",handover_item_easy,214.0,100.0
+"Random hist, δM on (+184k from VP84k)",handover_item_easy,224.0,95.0
+"Random hist, δM on (+184k from VP84k)",handover_item_easy,234.0,100.0
+"Random hist, δM on (+184k from VP84k)",handover_item_easy,244.0,90.0
+"Random hist, δM on (+184k from VP84k)",handover_item_easy,254.0,95.0
+"Random hist, δM on (+184k from VP84k)",handover_item_easy,264.0,100.0
+"Random hist, δM on (+184k from VP84k)",handover_item_easy,274.0,100.0
+"Random hist, δM on (+184k from VP84k)",handover_item_easy,284.0,95.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,234.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,244.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,254.0,95.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,264.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,274.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,284.0,95.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,294.0,95.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,304.0,95.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,314.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,324.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,334.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,344.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,354.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,364.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,374.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,384.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,394.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,404.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,414.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,424.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,434.0,100.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,444.0,95.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,454.0,95.0
+"No δM, ordered (+184k from VP84k)",handover_item_easy,464.0,100.0
+"A: scratch, no δM, random",handover_item_easy,50.0,95.0
+"A: scratch, no δM, random",handover_item_easy,60.0,100.0
+"A: scratch, no δM, random",handover_item_easy,70.0,100.0
+"A: scratch, no δM, random",handover_item_easy,80.0,95.0
+"A: scratch, no δM, random",handover_item_easy,90.0,95.0
+"A: scratch, no δM, random",handover_item_easy,100.0,85.0
+"A: scratch, no δM, random",handover_item_easy,110.0,85.0
+"A: scratch, no δM, random",handover_item_easy,120.0,95.0
+"A: scratch, no δM, random",handover_item_easy,130.0,100.0
+"A: scratch, no δM, random",handover_item_easy,140.0,95.0
+"A: scratch, no δM, random",handover_item_easy,150.0,90.0
+"A: scratch, no δM, random",handover_item_easy,160.0,95.0
+"A: scratch, no δM, random",handover_item_easy,170.0,85.0
+"A: scratch, no δM, random",handover_item_easy,180.0,100.0
+"A: scratch, no δM, random",handover_item_easy,190.0,95.0
+"A: scratch, no δM, random",handover_item_easy,200.0,95.0
+C: A − register (+50k from A),handover_item_easy,100.0,95.0
+C: A − register (+50k from A),handover_item_easy,110.0,100.0
+C: A − register (+50k from A),handover_item_easy,120.0,35.0
+C: A − register (+50k from A),handover_item_easy,130.0,90.0
+C: A − register (+50k from A),handover_item_easy,140.0,100.0
+C: A − register (+50k from A),handover_item_easy,150.0,95.0
+C: A − register (+50k from A),handover_item_easy,160.0,95.0
+C: A − register (+50k from A),handover_item_easy,170.0,95.0
+C: A − register (+50k from A),handover_item_easy,180.0,95.0
+C: A − register (+50k from A),handover_item_easy,190.0,95.0
+C: A − register (+50k from A),handover_item_easy,200.0,100.0
+Base (scratch),handover_item_easy,110.0,35.0
+Base (scratch),handover_item_easy,120.0,95.0
+Base (scratch),handover_item_easy,130.0,90.0
+Base (scratch),handover_item_easy,140.0,85.0
+Base (scratch),handover_item_easy,150.0,100.0
+Base (scratch),handover_item_easy,160.0,100.0
+Base (scratch),handover_item_easy,170.0,95.0
+"Random hist, δM on (+184k from VP84k)",lift_ball,214.0,100.0
+"Random hist, δM on (+184k from VP84k)",lift_ball,224.0,100.0
+"Random hist, δM on (+184k from VP84k)",lift_ball,234.0,95.0
+"Random hist, δM on (+184k from VP84k)",lift_ball,244.0,100.0
+"Random hist, δM on (+184k from VP84k)",lift_ball,254.0,100.0
+"Random hist, δM on (+184k from VP84k)",lift_ball,264.0,100.0
+"Random hist, δM on (+184k from VP84k)",lift_ball,274.0,100.0
+"Random hist, δM on (+184k from VP84k)",lift_ball,284.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,234.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,244.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,254.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,264.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,274.0,95.0
+"No δM, ordered (+184k from VP84k)",lift_ball,284.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,294.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,304.0,95.0
+"No δM, ordered (+184k from VP84k)",lift_ball,314.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,324.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,334.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,344.0,95.0
+"No δM, ordered (+184k from VP84k)",lift_ball,354.0,95.0
+"No δM, ordered (+184k from VP84k)",lift_ball,364.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,374.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,384.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,394.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,404.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,414.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,424.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,434.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,444.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,454.0,100.0
+"No δM, ordered (+184k from VP84k)",lift_ball,464.0,100.0
+"A: scratch, no δM, random",lift_ball,50.0,100.0
+"A: scratch, no δM, random",lift_ball,60.0,90.0
+"A: scratch, no δM, random",lift_ball,70.0,100.0
+"A: scratch, no δM, random",lift_ball,80.0,100.0
+"A: scratch, no δM, random",lift_ball,90.0,100.0
+"A: scratch, no δM, random",lift_ball,100.0,100.0
+"A: scratch, no δM, random",lift_ball,110.0,100.0
+"A: scratch, no δM, random",lift_ball,120.0,100.0
+"A: scratch, no δM, random",lift_ball,130.0,100.0
+"A: scratch, no δM, random",lift_ball,140.0,100.0
+"A: scratch, no δM, random",lift_ball,150.0,100.0
+"A: scratch, no δM, random",lift_ball,160.0,100.0
+"A: scratch, no δM, random",lift_ball,170.0,100.0
+"A: scratch, no δM, random",lift_ball,180.0,100.0
+"A: scratch, no δM, random",lift_ball,190.0,100.0
+"A: scratch, no δM, random",lift_ball,200.0,100.0
+C: A − register (+50k from A),lift_ball,100.0,100.0
+C: A − register (+50k from A),lift_ball,110.0,100.0
+C: A − register (+50k from A),lift_ball,120.0,100.0
+C: A − register (+50k from A),lift_ball,130.0,100.0
+C: A − register (+50k from A),lift_ball,140.0,100.0
+C: A − register (+50k from A),lift_ball,150.0,100.0
+C: A − register (+50k from A),lift_ball,160.0,100.0
+C: A − register (+50k from A),lift_ball,170.0,100.0
+C: A − register (+50k from A),lift_ball,180.0,100.0
+C: A − register (+50k from A),lift_ball,190.0,100.0
+C: A − register (+50k from A),lift_ball,200.0,100.0
+Base (scratch),lift_ball,110.0,100.0
+Base (scratch),lift_ball,120.0,100.0
+Base (scratch),lift_ball,130.0,100.0
+Base (scratch),lift_ball,140.0,100.0
+Base (scratch),lift_ball,150.0,100.0
+Base (scratch),lift_ball,160.0,100.0
+Base (scratch),lift_ball,170.0,100.0
+"Random hist, δM on (+184k from VP84k)",pick_laptop,214.0,30.0
+"Random hist, δM on (+184k from VP84k)",pick_laptop,224.0,65.0
+"Random hist, δM on (+184k from VP84k)",pick_laptop,234.0,65.0
+"Random hist, δM on (+184k from VP84k)",pick_laptop,244.0,75.0
+"Random hist, δM on (+184k from VP84k)",pick_laptop,254.0,30.0
+"Random hist, δM on (+184k from VP84k)",pick_laptop,264.0,75.0
+"Random hist, δM on (+184k from VP84k)",pick_laptop,274.0,35.0
+"Random hist, δM on (+184k from VP84k)",pick_laptop,284.0,70.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,234.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,244.0,70.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,254.0,80.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,264.0,40.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,274.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,284.0,75.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,294.0,55.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,304.0,70.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,314.0,70.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,324.0,75.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,334.0,35.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,344.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,354.0,50.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,364.0,55.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,374.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,384.0,70.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,394.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,404.0,75.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,414.0,80.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,424.0,75.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,434.0,55.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,444.0,85.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,454.0,65.0
+"No δM, ordered (+184k from VP84k)",pick_laptop,464.0,70.0
+"A: scratch, no δM, random",pick_laptop,50.0,30.0
+"A: scratch, no δM, random",pick_laptop,60.0,10.0
+"A: scratch, no δM, random",pick_laptop,70.0,40.0
+"A: scratch, no δM, random",pick_laptop,80.0,65.0
+"A: scratch, no δM, random",pick_laptop,90.0,65.0
+"A: scratch, no δM, random",pick_laptop,100.0,65.0
+"A: scratch, no δM, random",pick_laptop,110.0,35.0
+"A: scratch, no δM, random",pick_laptop,120.0,65.0
+"A: scratch, no δM, random",pick_laptop,130.0,65.0
+"A: scratch, no δM, random",pick_laptop,140.0,75.0
+"A: scratch, no δM, random",pick_laptop,150.0,75.0
+"A: scratch, no δM, random",pick_laptop,160.0,75.0
+"A: scratch, no δM, random",pick_laptop,170.0,40.0
+"A: scratch, no δM, random",pick_laptop,180.0,60.0
+"A: scratch, no δM, random",pick_laptop,190.0,70.0
+"A: scratch, no δM, random",pick_laptop,200.0,55.0
+C: A − register (+50k from A),pick_laptop,100.0,65.0
+C: A − register (+50k from A),pick_laptop,110.0,65.0
+C: A − register (+50k from A),pick_laptop,120.0,70.0
+C: A − register (+50k from A),pick_laptop,130.0,85.0
+C: A − register (+50k from A),pick_laptop,140.0,55.0
+C: A − register (+50k from A),pick_laptop,150.0,75.0
+C: A − register (+50k from A),pick_laptop,160.0,55.0
+C: A − register (+50k from A),pick_laptop,170.0,65.0
+C: A − register (+50k from A),pick_laptop,180.0,50.0
+C: A − register (+50k from A),pick_laptop,190.0,60.0
+C: A − register (+50k from A),pick_laptop,200.0,55.0
+Base (scratch),pick_laptop,110.0,25.0
+Base (scratch),pick_laptop,120.0,55.0
+Base (scratch),pick_laptop,130.0,35.0
+Base (scratch),pick_laptop,140.0,25.0
+Base (scratch),pick_laptop,150.0,75.0
+Base (scratch),pick_laptop,160.0,45.0
+Base (scratch),pick_laptop,170.0,40.0
+"Random hist, δM on (+184k from VP84k)",pick_plate,214.0,55.0
+"Random hist, δM on (+184k from VP84k)",pick_plate,224.0,25.0
+"Random hist, δM on (+184k from VP84k)",pick_plate,234.0,90.0
+"Random hist, δM on (+184k from VP84k)",pick_plate,244.0,90.0
+"Random hist, δM on (+184k from VP84k)",pick_plate,254.0,60.0
+"Random hist, δM on (+184k from VP84k)",pick_plate,264.0,55.0
+"Random hist, δM on (+184k from VP84k)",pick_plate,274.0,45.0
+"Random hist, δM on (+184k from VP84k)",pick_plate,284.0,35.0
+"No δM, ordered (+184k from VP84k)",pick_plate,234.0,45.0
+"No δM, ordered (+184k from VP84k)",pick_plate,244.0,50.0
+"No δM, ordered (+184k from VP84k)",pick_plate,254.0,70.0
+"No δM, ordered (+184k from VP84k)",pick_plate,264.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_plate,274.0,55.0
+"No δM, ordered (+184k from VP84k)",pick_plate,284.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_plate,294.0,15.0
+"No δM, ordered (+184k from VP84k)",pick_plate,304.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_plate,314.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_plate,324.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_plate,334.0,70.0
+"No δM, ordered (+184k from VP84k)",pick_plate,344.0,70.0
+"No δM, ordered (+184k from VP84k)",pick_plate,354.0,70.0
+"No δM, ordered (+184k from VP84k)",pick_plate,364.0,55.0
+"No δM, ordered (+184k from VP84k)",pick_plate,374.0,45.0
+"No δM, ordered (+184k from VP84k)",pick_plate,384.0,45.0
+"No δM, ordered (+184k from VP84k)",pick_plate,394.0,25.0
+"No δM, ordered (+184k from VP84k)",pick_plate,404.0,60.0
+"No δM, ordered (+184k from VP84k)",pick_plate,414.0,50.0
+"No δM, ordered (+184k from VP84k)",pick_plate,424.0,85.0
+"No δM, ordered (+184k from VP84k)",pick_plate,434.0,40.0
+"No δM, ordered (+184k from VP84k)",pick_plate,444.0,35.0
+"No δM, ordered (+184k from VP84k)",pick_plate,454.0,20.0
+"No δM, ordered (+184k from VP84k)",pick_plate,464.0,65.0
+"A: scratch, no δM, random",pick_plate,50.0,15.0
+"A: scratch, no δM, random",pick_plate,60.0,65.0
+"A: scratch, no δM, random",pick_plate,70.0,35.0
+"A: scratch, no δM, random",pick_plate,80.0,50.0
+"A: scratch, no δM, random",pick_plate,90.0,80.0
+"A: scratch, no δM, random",pick_plate,100.0,65.0
+"A: scratch, no δM, random",pick_plate,110.0,50.0
+"A: scratch, no δM, random",pick_plate,120.0,35.0
+"A: scratch, no δM, random",pick_plate,130.0,55.0
+"A: scratch, no δM, random",pick_plate,140.0,45.0
+"A: scratch, no δM, random",pick_plate,150.0,55.0
+"A: scratch, no δM, random",pick_plate,160.0,85.0
+"A: scratch, no δM, random",pick_plate,170.0,65.0
+"A: scratch, no δM, random",pick_plate,180.0,30.0
+"A: scratch, no δM, random",pick_plate,190.0,40.0
+"A: scratch, no δM, random",pick_plate,200.0,40.0
+C: A − register (+50k from A),pick_plate,100.0,35.0
+C: A − register (+50k from A),pick_plate,110.0,40.0
+C: A − register (+50k from A),pick_plate,120.0,85.0
+C: A − register (+50k from A),pick_plate,130.0,40.0
+C: A − register (+50k from A),pick_plate,140.0,45.0
+C: A − register (+50k from A),pick_plate,150.0,75.0
+C: A − register (+50k from A),pick_plate,160.0,70.0
+C: A − register (+50k from A),pick_plate,170.0,30.0
+C: A − register (+50k from A),pick_plate,180.0,30.0
+C: A − register (+50k from A),pick_plate,190.0,35.0
+C: A − register (+50k from A),pick_plate,200.0,50.0
+Base (scratch),pick_plate,110.0,75.0
+Base (scratch),pick_plate,120.0,30.0
+Base (scratch),pick_plate,130.0,35.0
+Base (scratch),pick_plate,140.0,95.0
+Base (scratch),pick_plate,150.0,10.0
+Base (scratch),pick_plate,160.0,80.0
+Base (scratch),pick_plate,170.0,65.0
+"Random hist, δM on (+184k from VP84k)",push_box,214.0,95.0
+"Random hist, δM on (+184k from VP84k)",push_box,224.0,95.0
+"Random hist, δM on (+184k from VP84k)",push_box,234.0,100.0
+"Random hist, δM on (+184k from VP84k)",push_box,244.0,100.0
+"Random hist, δM on (+184k from VP84k)",push_box,254.0,90.0
+"Random hist, δM on (+184k from VP84k)",push_box,264.0,95.0
+"Random hist, δM on (+184k from VP84k)",push_box,274.0,95.0
+"Random hist, δM on (+184k from VP84k)",push_box,284.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,234.0,90.0
+"No δM, ordered (+184k from VP84k)",push_box,244.0,100.0
+"No δM, ordered (+184k from VP84k)",push_box,254.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,264.0,90.0
+"No δM, ordered (+184k from VP84k)",push_box,274.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,284.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,294.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,304.0,100.0
+"No δM, ordered (+184k from VP84k)",push_box,314.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,324.0,90.0
+"No δM, ordered (+184k from VP84k)",push_box,334.0,100.0
+"No δM, ordered (+184k from VP84k)",push_box,344.0,90.0
+"No δM, ordered (+184k from VP84k)",push_box,354.0,90.0
+"No δM, ordered (+184k from VP84k)",push_box,364.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,374.0,90.0
+"No δM, ordered (+184k from VP84k)",push_box,384.0,90.0
+"No δM, ordered (+184k from VP84k)",push_box,394.0,90.0
+"No δM, ordered (+184k from VP84k)",push_box,404.0,100.0
+"No δM, ordered (+184k from VP84k)",push_box,414.0,80.0
+"No δM, ordered (+184k from VP84k)",push_box,424.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,434.0,85.0
+"No δM, ordered (+184k from VP84k)",push_box,444.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,454.0,95.0
+"No δM, ordered (+184k from VP84k)",push_box,464.0,90.0
+"A: scratch, no δM, random",push_box,50.0,90.0
+"A: scratch, no δM, random",push_box,60.0,90.0
+"A: scratch, no δM, random",push_box,70.0,90.0
+"A: scratch, no δM, random",push_box,80.0,100.0
+"A: scratch, no δM, random",push_box,90.0,85.0
+"A: scratch, no δM, random",push_box,100.0,95.0
+"A: scratch, no δM, random",push_box,110.0,90.0
+"A: scratch, no δM, random",push_box,120.0,90.0
+"A: scratch, no δM, random",push_box,130.0,75.0
+"A: scratch, no δM, random",push_box,140.0,95.0
+"A: scratch, no δM, random",push_box,150.0,95.0
+"A: scratch, no δM, random",push_box,160.0,100.0
+"A: scratch, no δM, random",push_box,170.0,100.0
+"A: scratch, no δM, random",push_box,180.0,95.0
+"A: scratch, no δM, random",push_box,190.0,95.0
+"A: scratch, no δM, random",push_box,200.0,85.0
+C: A − register (+50k from A),push_box,100.0,85.0
+C: A − register (+50k from A),push_box,110.0,95.0
+C: A − register (+50k from A),push_box,120.0,100.0
+C: A − register (+50k from A),push_box,130.0,100.0
+C: A − register (+50k from A),push_box,140.0,95.0
+C: A − register (+50k from A),push_box,150.0,90.0
+C: A − register (+50k from A),push_box,160.0,80.0
+C: A − register (+50k from A),push_box,170.0,100.0
+C: A − register (+50k from A),push_box,180.0,95.0
+C: A − register (+50k from A),push_box,190.0,100.0
+C: A − register (+50k from A),push_box,200.0,85.0
+Base (scratch),push_box,110.0,85.0
+Base (scratch),push_box,120.0,95.0
+Base (scratch),push_box,130.0,100.0
+Base (scratch),push_box,140.0,95.0
+Base (scratch),push_box,150.0,95.0
+Base (scratch),push_box,160.0,95.0
+Base (scratch),push_box,170.0,100.0
+"Random hist, δM on (+184k from VP84k)",straighten_rope,214.0,40.0
+"Random hist, δM on (+184k from VP84k)",straighten_rope,224.0,35.0
+"Random hist, δM on (+184k from VP84k)",straighten_rope,234.0,50.0
+"Random hist, δM on (+184k from VP84k)",straighten_rope,244.0,25.0
+"Random hist, δM on (+184k from VP84k)",straighten_rope,254.0,35.0
+"Random hist, δM on (+184k from VP84k)",straighten_rope,264.0,40.0
+"Random hist, δM on (+184k from VP84k)",straighten_rope,274.0,45.0
+"Random hist, δM on (+184k from VP84k)",straighten_rope,284.0,25.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,234.0,35.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,244.0,5.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,254.0,55.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,264.0,55.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,274.0,15.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,284.0,30.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,294.0,0.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,304.0,50.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,314.0,45.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,324.0,75.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,334.0,45.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,344.0,55.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,354.0,50.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,364.0,50.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,374.0,45.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,384.0,25.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,394.0,10.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,404.0,55.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,414.0,25.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,424.0,20.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,434.0,30.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,444.0,30.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,454.0,5.0
+"No δM, ordered (+184k from VP84k)",straighten_rope,464.0,55.0
+"A: scratch, no δM, random",straighten_rope,50.0,5.0
+"A: scratch, no δM, random",straighten_rope,60.0,25.0
+"A: scratch, no δM, random",straighten_rope,70.0,35.0
+"A: scratch, no δM, random",straighten_rope,80.0,30.0
+"A: scratch, no δM, random",straighten_rope,90.0,40.0
+"A: scratch, no δM, random",straighten_rope,100.0,40.0
+"A: scratch, no δM, random",straighten_rope,110.0,40.0
+"A: scratch, no δM, random",straighten_rope,120.0,10.0
+"A: scratch, no δM, random",straighten_rope,130.0,25.0
+"A: scratch, no δM, random",straighten_rope,140.0,40.0
+"A: scratch, no δM, random",straighten_rope,150.0,25.0
+"A: scratch, no δM, random",straighten_rope,160.0,25.0
+"A: scratch, no δM, random",straighten_rope,170.0,60.0
+"A: scratch, no δM, random",straighten_rope,180.0,0.0
+"A: scratch, no δM, random",straighten_rope,190.0,35.0
+"A: scratch, no δM, random",straighten_rope,200.0,15.0
+C: A − register (+50k from A),straighten_rope,100.0,45.0
+C: A − register (+50k from A),straighten_rope,110.0,30.0
+C: A − register (+50k from A),straighten_rope,120.0,40.0
+C: A − register (+50k from A),straighten_rope,130.0,5.0
+C: A − register (+50k from A),straighten_rope,140.0,50.0
+C: A − register (+50k from A),straighten_rope,150.0,40.0
+C: A − register (+50k from A),straighten_rope,160.0,35.0
+C: A − register (+50k from A),straighten_rope,170.0,20.0
+C: A − register (+50k from A),straighten_rope,180.0,10.0
+C: A − register (+50k from A),straighten_rope,190.0,40.0
+C: A − register (+50k from A),straighten_rope,200.0,40.0
+Base (scratch),straighten_rope,110.0,65.0
+Base (scratch),straighten_rope,120.0,5.0
+Base (scratch),straighten_rope,130.0,20.0
+Base (scratch),straighten_rope,140.0,0.0
+Base (scratch),straighten_rope,150.0,0.0
+Base (scratch),straighten_rope,160.0,25.0
+Base (scratch),straighten_rope,170.0,0.0
