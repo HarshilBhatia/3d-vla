@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_{vidpooled,randhist,noviewalign,regtest_a,regtest_c,base}}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -151,7 +151,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_{vidpooled,randhist,noviewalign,regtest_a,regtest_c,base}" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base" >&2
     exit 2
     ;;
 esac
