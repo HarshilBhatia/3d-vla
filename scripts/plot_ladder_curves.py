@@ -78,5 +78,44 @@ def main():
     print("wrote", OUT / "ladder_curves_sbrs.png", {k: len(v) for k, v in data.items()})
 
 
+TASK_STYLE = list(zip(TASKS, ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"], "os^Dv<"))
+
+
+def per_run():
+    """One panel per run: each checkpoint's 6 task success rates and their mean, x = that run's own step."""
+    fig, axes = plt.subplots(2, 3, figsize=(14, 7.2), sharey=True, facecolor="#fcfcfb")
+    for ax, (label, prefix, offset, _, _) in zip(axes.ravel(), RUNS):
+        pts = ladder(prefix, 0)
+        xs = list(pts)
+        ax.set_ylim(-3, 103)
+        ax.grid(axis="y", color=GRID, linewidth=0.8)
+        ax.set_axisbelow(True)
+        for side in ("top", "right"):
+            ax.spines[side].set_visible(False)
+        ax.tick_params(colors=MUTED, labelsize=7)
+        for task, colour, marker in TASK_STYLE:
+            ax.plot(xs, [v[task] for v in pts.values()], color=colour, linewidth=1.3, marker=marker,
+                    markersize=3.5, alpha=0.9, label=task)
+        ax.plot(xs, [sum(v.values()) / len(v) for v in pts.values()], color=TEXT, linewidth=2.6, marker="o",
+                markersize=4.5, label="mean over 6 tasks", zorder=4)
+        name = label.split(" (")[0]
+        ax.set_title(f"{name}\n(steps in this run; +{offset // 1000}k inherited)" if offset else f"{name}\n(from scratch)",
+                     fontsize=8.5, color=TEXT)
+        if not pts:
+            ax.text(0.5, 0.5, "K=5 ladder still running", transform=ax.transAxes, ha="center", color=MUTED, fontsize=9)
+            ax.set_xticks([])
+        ax.set_xlabel("checkpoint step (k)", fontsize=7.5, color=MUTED)
+    for ax in axes[:, 0]:
+        ax.set_ylabel("SBRS success %", fontsize=8, color=MUTED)
+    handles, labels = axes.ravel()[3].get_legend_handles_labels()
+    fig.legend(handles, labels, loc="upper center", ncol=7, fontsize=8, frameon=False, bbox_to_anchor=(0.5, 1.0))
+    fig.suptitle("SBRS ladder per run: task success and mean at each checkpoint (6 tasks × 20 rollouts)",
+                 fontsize=11, color=TEXT, y=1.04)
+    fig.tight_layout(rect=(0, 0, 1, 0.96))
+    fig.savefig(OUT / "ladder_per_run_sbrs.png", dpi=160, bbox_inches="tight")
+    print("wrote", OUT / "ladder_per_run_sbrs.png")
+
+
 if __name__ == "__main__":
     main()
+    per_run()
