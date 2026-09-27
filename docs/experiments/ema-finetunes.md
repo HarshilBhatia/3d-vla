@@ -51,7 +51,7 @@ SBRS mean (6 tasks × 20 rollouts), raw / EMA:
 
 ## Against the starting checkpoint (27 Sept)
 
-`docs/figures/ema20k_ladders_per_task.png` (from `scripts/plot_ema_ladders.py`) adds step 0: the starting checkpoint's own SBRS score, before any fine-tuning.
+`docs/figures/ladders/ema20k_ladders_per_task.png` (from `scripts/plot_ema_ladders.py`) adds step 0: the starting checkpoint's own SBRS score, before any fine-tuning.
 
 | Run | Step 0 (start) | Best EMA, 5–20k | Best raw, 5–20k |
 |---|---|---|---|
@@ -72,7 +72,10 @@ SBRS mean (6 tasks × 20 rollouts), raw / EMA:
 
 - **What:** one checkpoint per run, the best by EMA SBRS (later step on ties), on the same IDLT task-heldout and G7 extreme protocols as before. Plans: `instructions/eval_plans/*_ema20k.json`; 1,290 cells in 7 arrays (3977686–3977717).
 - **Checkpoints:** VideoPooled 15k, random history 15k, no delta_M 15k, A 20k, C 10k, Base 20k.
-- **An accidental cancel:** an interrupted cancel command had already cancelled 67 pending G7 translation cells (3977686_[41-107]) before the user stopped it. They were resubmitted as 3977736.
+- **An accidental cancel:** an interrupted cancel command cancelled about 1,050 pending cells for the five non-random-history models, not the 67 first reported; a grouped `sacct` view was misread.
+  - The 67 G7 translation cells were resubmitted first (3977736).
+  - On 27 Sept, 17:56 the remaining 985 missing cells were found by checking result files and resubmitted (3978720–3978725).
+- **Random history EMA 15k is complete.** IDLT held-out, original 50k → EMA 15k: calibrated 75 → 78, 10/10 74 → 80, 20/20 74 → 80, 40/40 73 → 77, 60/60 72 → **77**.
 
 ## Operational notes
 
