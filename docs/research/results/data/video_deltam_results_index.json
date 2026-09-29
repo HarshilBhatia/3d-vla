@@ -1,0 +1,1413 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-09-14T19:52:35.980561+00:00",
+  "description": "Machine-readable index of Video-DeltaM raw online-evaluation JSON files and aggregates.",
+  "campaigns": [
+    {
+      "id": "history_smoke",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_history_smoke_v01",
+      "plan": "instructions/eval_plans/video_deltam_history_smoke_v01.json",
+      "status": "complete",
+      "comparability": "smoke_only",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_history_smoke_v01"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_history_smoke_v01",
+          "method": "video_deltam",
+          "viewpoint": "g4_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_push_box": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "proprio_ab_causal",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit/video_deltam_proprio_ab_causal_v01",
+      "plan": "instructions/eval_plans/video_deltam_proprio_ab_causal_v01.json",
+      "status": "complete",
+      "comparability": "single_task_diagnostic",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_audit/video_deltam_proprio_ab_causal_v01"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit/video_deltam_proprio_ab_causal_v01",
+          "method": "video_deltam",
+          "viewpoint": "g3_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.9,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.9
+          }
+        }
+      ]
+    },
+    {
+      "id": "proprio_ab_trainfaithful",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit/video_deltam_proprio_ab_trainfaithful_v01",
+      "plan": "instructions/eval_plans/video_deltam_proprio_ab_trainfaithful_v01.json",
+      "status": "complete",
+      "comparability": "single_task_diagnostic",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_audit/video_deltam_proprio_ab_trainfaithful_v01"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit/video_deltam_proprio_ab_trainfaithful_v01",
+          "method": "video_deltam",
+          "viewpoint": "g3_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.0,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "proprio_parity_smoke",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit/video_deltam_proprio_parity_smoke_v01",
+      "plan": "instructions/eval_plans/video_deltam_proprio_parity_smoke_v01.json",
+      "status": "complete",
+      "comparability": "smoke_only",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_audit/video_deltam_proprio_parity_smoke_v01"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_audit/video_deltam_proprio_parity_smoke_v01",
+          "method": "video_deltam",
+          "viewpoint": "g4_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_push_box": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "task_heldout_v02",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+      "plan": null,
+      "status": "incomplete",
+      "comparability": "intermediate_history_fix",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g1_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.04,
+          "task_means": {
+            "bimanual_pick_plate": 0.0,
+            "bimanual_sweep_to_dustpan": 0.08
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g1_task_heldout",
+          "calibration": "ext-r10deg-t10cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.05,
+          "task_means": {
+            "bimanual_pick_plate": 0.0,
+            "bimanual_sweep_to_dustpan": 0.1
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g1_task_heldout",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.04,
+          "task_means": {
+            "bimanual_pick_plate": 0.0,
+            "bimanual_sweep_to_dustpan": 0.08
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g1_task_heldout",
+          "calibration": "ext-r5deg-t5cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.0,
+          "task_means": {
+            "bimanual_pick_plate": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g2_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.5,
+          "task_means": {
+            "bimanual_lift_tray": 0.9,
+            "bimanual_put_item_in_drawer": 0.1
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g2_task_heldout",
+          "calibration": "ext-r10deg-t10cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.45,
+          "task_means": {
+            "bimanual_lift_tray": 0.8,
+            "bimanual_put_item_in_drawer": 0.1
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g2_task_heldout",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.5,
+          "task_means": {
+            "bimanual_lift_tray": 0.92,
+            "bimanual_put_item_in_drawer": 0.08
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g3_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.7,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.92,
+            "bimanual_put_bottle_in_fridge": 0.48
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g3_task_heldout",
+          "calibration": "ext-r10deg-t10cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.8,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.8
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g3_task_heldout",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.66,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.9,
+            "bimanual_put_bottle_in_fridge": 0.42
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g4_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 3,
+          "macro_mean_success": 0.5066666666666667,
+          "task_means": {
+            "bimanual_handover_item": 0.58,
+            "bimanual_push_box": 0.94,
+            "bimanual_take_tray_out_of_oven": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g4_task_heldout",
+          "calibration": "ext-r10deg-t10cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.48,
+          "task_means": {
+            "bimanual_push_box": 0.96,
+            "bimanual_take_tray_out_of_oven": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g4_task_heldout",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 3,
+          "macro_mean_success": 0.52,
+          "task_means": {
+            "bimanual_handover_item": 0.66,
+            "bimanual_push_box": 0.9,
+            "bimanual_take_tray_out_of_oven": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g4_task_heldout",
+          "calibration": "ext-r5deg-t5cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.49,
+          "task_means": {
+            "bimanual_push_box": 0.98,
+            "bimanual_take_tray_out_of_oven": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g5_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.44,
+          "task_means": {
+            "bimanual_lift_ball": 0.88,
+            "bimanual_pick_laptop": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g5_task_heldout",
+          "calibration": "ext-r10deg-t10cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.4,
+          "task_means": {
+            "bimanual_lift_ball": 0.8,
+            "bimanual_pick_laptop": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g5_task_heldout",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.7,
+          "task_means": {
+            "bimanual_lift_ball": 0.7
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g5_task_heldout",
+          "calibration": "ext-r5deg-t5cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.76,
+          "task_means": {
+            "bimanual_lift_ball": 0.76
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g6_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.0,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g6_task_heldout",
+          "calibration": "ext-r10deg-t10cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.0,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g6_task_heldout",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.0,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v02_visual_history",
+          "method": "video_deltam",
+          "viewpoint": "g6_task_heldout",
+          "calibration": "ext-r5deg-t5cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.0,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "task_heldout_v03",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity",
+      "plan": "instructions/eval_plans/video_deltam_task_heldout_g1_g6_v01.json",
+      "status": "incomplete",
+      "comparability": "historical_parity_attempt",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity",
+          "method": "video_deltam",
+          "viewpoint": "g1_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.01,
+          "task_means": {
+            "bimanual_pick_plate": 0.02,
+            "bimanual_sweep_to_dustpan": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity",
+          "method": "video_deltam",
+          "viewpoint": "g2_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.15,
+          "task_means": {
+            "bimanual_lift_tray": 0.24,
+            "bimanual_put_item_in_drawer": 0.06
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity",
+          "method": "video_deltam",
+          "viewpoint": "g3_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.03,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.06,
+            "bimanual_put_bottle_in_fridge": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity",
+          "method": "video_deltam",
+          "viewpoint": "g4_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.47,
+          "task_means": {
+            "bimanual_handover_item": 0.0,
+            "bimanual_push_box": 0.94
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity",
+          "method": "video_deltam",
+          "viewpoint": "g4_task_heldout",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.96,
+          "task_means": {
+            "bimanual_push_box": 0.96
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity",
+          "method": "video_deltam",
+          "viewpoint": "g5_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.44,
+          "task_means": {
+            "bimanual_lift_ball": 0.88,
+            "bimanual_pick_laptop": 0.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity",
+          "method": "video_deltam",
+          "viewpoint": "g5_task_heldout",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.9,
+          "task_means": {
+            "bimanual_lift_ball": 0.9
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts/video_deltam_task_heldout_g1_g6_v03_history_parity",
+          "method": "video_deltam",
+          "viewpoint": "g6_task_heldout",
+          "calibration": "calibrated",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.135,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.27,
+            "bimanual_straighten_rope": 0.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "seen_base_ladder",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+      "prefix": "video_deltam_checkpoint_ladder_v01_",
+      "plan": "instructions/eval_plans/video_deltam_checkpoint_ladder_v01.json",
+      "status": "complete_through_130k",
+      "comparability": "training_style_seen_group",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s050000",
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s060000",
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s070000",
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s080000",
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s090000",
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s100000",
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s110000",
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s120000",
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s130000",
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s140000"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s050000",
+          "method": "video_deltam",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_push_box": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s050000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.8,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.6
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s050000",
+          "method": "video_deltam",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.25,
+          "task_means": {
+            "bimanual_straighten_rope": 0.25
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s050000",
+          "method": "video_deltam",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.65,
+          "task_means": {
+            "bimanual_pick_plate": 0.65
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s050000",
+          "method": "video_deltam",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_handover_item_easy": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s060000",
+          "method": "video_deltam",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.9,
+          "task_means": {
+            "bimanual_push_box": 0.9
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s060000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.9
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s060000",
+          "method": "video_deltam",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.25,
+          "task_means": {
+            "bimanual_straighten_rope": 0.25
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s060000",
+          "method": "video_deltam",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.75,
+          "task_means": {
+            "bimanual_pick_plate": 0.75
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s060000",
+          "method": "video_deltam",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_handover_item_easy": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s070000",
+          "method": "video_deltam",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_push_box": 0.95
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s070000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.825,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.65
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s070000",
+          "method": "video_deltam",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.2,
+          "task_means": {
+            "bimanual_straighten_rope": 0.2
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s070000",
+          "method": "video_deltam",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.55,
+          "task_means": {
+            "bimanual_pick_plate": 0.55
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s070000",
+          "method": "video_deltam",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_handover_item_easy": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s080000",
+          "method": "video_deltam",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_push_box": 0.95
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s080000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.725,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.45
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s080000",
+          "method": "video_deltam",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.35,
+          "task_means": {
+            "bimanual_straighten_rope": 0.35
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s080000",
+          "method": "video_deltam",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.6,
+          "task_means": {
+            "bimanual_pick_plate": 0.6
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s080000",
+          "method": "video_deltam",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_handover_item_easy": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s090000",
+          "method": "video_deltam",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_push_box": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s090000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.8,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.6
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s090000",
+          "method": "video_deltam",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.1,
+          "task_means": {
+            "bimanual_straighten_rope": 0.1
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s090000",
+          "method": "video_deltam",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.45,
+          "task_means": {
+            "bimanual_pick_plate": 0.45
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s090000",
+          "method": "video_deltam",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_handover_item_easy": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s100000",
+          "method": "video_deltam",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_push_box": 0.95
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s100000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.85,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.7
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s100000",
+          "method": "video_deltam",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.4,
+          "task_means": {
+            "bimanual_straighten_rope": 0.4
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s100000",
+          "method": "video_deltam",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.75,
+          "task_means": {
+            "bimanual_pick_plate": 0.75
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s100000",
+          "method": "video_deltam",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.95
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s110000",
+          "method": "video_deltam",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_push_box": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s110000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_lift_ball": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s110000",
+          "method": "video_deltam",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.95
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s120000",
+          "method": "video_deltam",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_push_box": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s120000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.875,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.75
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s120000",
+          "method": "video_deltam",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.25,
+          "task_means": {
+            "bimanual_straighten_rope": 0.25
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s120000",
+          "method": "video_deltam",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.7,
+          "task_means": {
+            "bimanual_pick_plate": 0.7
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s120000",
+          "method": "video_deltam",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_handover_item_easy": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s130000",
+          "method": "video_deltam",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_push_box": 0.95
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s130000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.85,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.7
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s130000",
+          "method": "video_deltam",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.2,
+          "task_means": {
+            "bimanual_straighten_rope": 0.2
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s130000",
+          "method": "video_deltam",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_pick_plate": 0.95
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s130000",
+          "method": "video_deltam",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.95
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_checkpoint_ladder_v01_video_deltam_s140000",
+          "method": "video_deltam",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_lift_ball": 0.95
+          }
+        }
+      ]
+    },
+    {
+      "id": "seen_base_best_84k",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_best_v01",
+      "plan": "instructions/eval_plans/video_deltam_sbrs_best_v01.json",
+      "status": "complete",
+      "comparability": "training_style_seen_group",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_best_v01"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_best_v01",
+          "method": "video_deltam_k5v_k3p_best",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_push_box": 0.95
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_best_v01",
+          "method": "video_deltam_k5v_k3p_best",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.875,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.75
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_best_v01",
+          "method": "video_deltam_k5v_k3p_best",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.35,
+          "task_means": {
+            "bimanual_straighten_rope": 0.35
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_best_v01",
+          "method": "video_deltam_k5v_k3p_best",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_pick_plate": 1.0
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_best_v01",
+          "method": "video_deltam_k5v_k3p_best",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.95,
+          "task_means": {
+            "bimanual_handover_item_easy": 0.95
+          }
+        }
+      ]
+    },
+    {
+      "id": "seen_base_smoke_80k",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_smoke_80k_v01",
+      "plan": "instructions/eval_plans/video_deltam_sbrs_smoke_80k_v01.json",
+      "status": "complete",
+      "comparability": "training_style_seen_group",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_smoke_80k_v01"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_smoke_80k_v01",
+          "method": "video_deltam_k5v_k3p_80k",
+          "viewpoint": "g1_seen_train_group",
+          "calibration": "seen-g1-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.9,
+          "task_means": {
+            "bimanual_push_box": 0.9
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_smoke_80k_v01",
+          "method": "video_deltam_k5v_k3p_80k",
+          "viewpoint": "g2_seen_train_group",
+          "calibration": "seen-g2-medium-e3deg-t1cm-v01",
+          "completed_tasks": 2,
+          "macro_mean_success": 0.75,
+          "task_means": {
+            "bimanual_lift_ball": 1.0,
+            "bimanual_pick_laptop": 0.5
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_smoke_80k_v01",
+          "method": "video_deltam_k5v_k3p_80k",
+          "viewpoint": "g3_seen_train_group",
+          "calibration": "seen-g3-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.25,
+          "task_means": {
+            "bimanual_straighten_rope": 0.25
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_smoke_80k_v01",
+          "method": "video_deltam_k5v_k3p_80k",
+          "viewpoint": "g4_seen_train_group",
+          "calibration": "seen-g4-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 0.65,
+          "task_means": {
+            "bimanual_pick_plate": 0.65
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/video_deltam_sbrs_smoke_80k_v01",
+          "method": "video_deltam_k5v_k3p_80k",
+          "viewpoint": "g6_seen_train_group",
+          "calibration": "seen-g6-medium-e3deg-t1cm-v01",
+          "completed_tasks": 1,
+          "macro_mean_success": 1.0,
+          "task_means": {
+            "bimanual_handover_item_easy": 1.0
+          }
+        }
+      ]
+    },
+    {
+      "id": "ulrs_g7_100rollouts",
+      "root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+      "plan": "instructions/eval_plans/ulrs_g7_video_deltam_100rollouts_v01.json",
+      "status": "complete",
+      "comparability": "fully_unknown_lab_g7",
+      "raw_result_roots": [
+        "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01"
+      ],
+      "summaries": [
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_best_s084k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "calibrated",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7853846153846153,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.79,
+            "bimanual_handover_item": 0.9,
+            "bimanual_handover_item_easy": 0.95,
+            "bimanual_lift_ball": 1.0,
+            "bimanual_lift_tray": 0.95,
+            "bimanual_pick_laptop": 0.54,
+            "bimanual_pick_plate": 0.79,
+            "bimanual_push_box": 0.96,
+            "bimanual_put_bottle_in_fridge": 0.44,
+            "bimanual_put_item_in_drawer": 0.83,
+            "bimanual_straighten_rope": 0.48,
+            "bimanual_sweep_to_dustpan": 0.71,
+            "bimanual_take_tray_out_of_oven": 0.87
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_best_s084k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "ext-r10deg-t10cm-v01",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7807692307692308,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.81,
+            "bimanual_handover_item": 0.91,
+            "bimanual_handover_item_easy": 0.95,
+            "bimanual_lift_ball": 0.98,
+            "bimanual_lift_tray": 0.91,
+            "bimanual_pick_laptop": 0.55,
+            "bimanual_pick_plate": 0.76,
+            "bimanual_push_box": 0.95,
+            "bimanual_put_bottle_in_fridge": 0.55,
+            "bimanual_put_item_in_drawer": 0.81,
+            "bimanual_straighten_rope": 0.39,
+            "bimanual_sweep_to_dustpan": 0.67,
+            "bimanual_take_tray_out_of_oven": 0.91
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_best_s084k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7830769230769232,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.82,
+            "bimanual_handover_item": 0.89,
+            "bimanual_handover_item_easy": 0.96,
+            "bimanual_lift_ball": 1.0,
+            "bimanual_lift_tray": 0.91,
+            "bimanual_pick_laptop": 0.56,
+            "bimanual_pick_plate": 0.8,
+            "bimanual_push_box": 0.97,
+            "bimanual_put_bottle_in_fridge": 0.44,
+            "bimanual_put_item_in_drawer": 0.85,
+            "bimanual_straighten_rope": 0.43,
+            "bimanual_sweep_to_dustpan": 0.67,
+            "bimanual_take_tray_out_of_oven": 0.88
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_best_s084k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "ext-r5deg-t5cm-v01",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.78,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.83,
+            "bimanual_handover_item": 0.94,
+            "bimanual_handover_item_easy": 1.0,
+            "bimanual_lift_ball": 1.0,
+            "bimanual_lift_tray": 0.9,
+            "bimanual_pick_laptop": 0.58,
+            "bimanual_pick_plate": 0.76,
+            "bimanual_push_box": 0.93,
+            "bimanual_put_bottle_in_fridge": 0.51,
+            "bimanual_put_item_in_drawer": 0.8,
+            "bimanual_straighten_rope": 0.38,
+            "bimanual_sweep_to_dustpan": 0.64,
+            "bimanual_take_tray_out_of_oven": 0.87
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_s100k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "calibrated",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7792307692307693,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.76,
+            "bimanual_handover_item": 0.95,
+            "bimanual_handover_item_easy": 1.0,
+            "bimanual_lift_ball": 0.98,
+            "bimanual_lift_tray": 0.95,
+            "bimanual_pick_laptop": 0.61,
+            "bimanual_pick_plate": 0.44,
+            "bimanual_push_box": 0.93,
+            "bimanual_put_bottle_in_fridge": 0.77,
+            "bimanual_put_item_in_drawer": 0.8,
+            "bimanual_straighten_rope": 0.37,
+            "bimanual_sweep_to_dustpan": 0.69,
+            "bimanual_take_tray_out_of_oven": 0.88
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_s100k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "ext-r10deg-t10cm-v01",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7853846153846155,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.78,
+            "bimanual_handover_item": 0.88,
+            "bimanual_handover_item_easy": 0.96,
+            "bimanual_lift_ball": 0.97,
+            "bimanual_lift_tray": 0.95,
+            "bimanual_pick_laptop": 0.58,
+            "bimanual_pick_plate": 0.46,
+            "bimanual_push_box": 0.98,
+            "bimanual_put_bottle_in_fridge": 0.72,
+            "bimanual_put_item_in_drawer": 0.79,
+            "bimanual_straighten_rope": 0.55,
+            "bimanual_sweep_to_dustpan": 0.74,
+            "bimanual_take_tray_out_of_oven": 0.85
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_s100k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7799999999999999,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.73,
+            "bimanual_handover_item": 0.9,
+            "bimanual_handover_item_easy": 0.97,
+            "bimanual_lift_ball": 0.97,
+            "bimanual_lift_tray": 0.94,
+            "bimanual_pick_laptop": 0.58,
+            "bimanual_pick_plate": 0.43,
+            "bimanual_push_box": 0.95,
+            "bimanual_put_bottle_in_fridge": 0.79,
+            "bimanual_put_item_in_drawer": 0.83,
+            "bimanual_straighten_rope": 0.43,
+            "bimanual_sweep_to_dustpan": 0.77,
+            "bimanual_take_tray_out_of_oven": 0.85
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_s100k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "ext-r5deg-t5cm-v01",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7884615384615384,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.78,
+            "bimanual_handover_item": 0.95,
+            "bimanual_handover_item_easy": 0.97,
+            "bimanual_lift_ball": 0.99,
+            "bimanual_lift_tray": 0.96,
+            "bimanual_pick_laptop": 0.55,
+            "bimanual_pick_plate": 0.39,
+            "bimanual_push_box": 0.98,
+            "bimanual_put_bottle_in_fridge": 0.77,
+            "bimanual_put_item_in_drawer": 0.82,
+            "bimanual_straighten_rope": 0.41,
+            "bimanual_sweep_to_dustpan": 0.83,
+            "bimanual_take_tray_out_of_oven": 0.85
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_s130k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "calibrated",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7599999999999999,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.77,
+            "bimanual_handover_item": 0.91,
+            "bimanual_handover_item_easy": 0.97,
+            "bimanual_lift_ball": 1.0,
+            "bimanual_lift_tray": 0.91,
+            "bimanual_pick_laptop": 0.73,
+            "bimanual_pick_plate": 0.8,
+            "bimanual_push_box": 0.98,
+            "bimanual_put_bottle_in_fridge": 0.76,
+            "bimanual_put_item_in_drawer": 0.79,
+            "bimanual_straighten_rope": 0.11,
+            "bimanual_sweep_to_dustpan": 0.29,
+            "bimanual_take_tray_out_of_oven": 0.86
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_s130k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "ext-r10deg-t10cm-v01",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7461538461538461,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.77,
+            "bimanual_handover_item": 0.91,
+            "bimanual_handover_item_easy": 0.98,
+            "bimanual_lift_ball": 0.99,
+            "bimanual_lift_tray": 0.9,
+            "bimanual_pick_laptop": 0.74,
+            "bimanual_pick_plate": 0.75,
+            "bimanual_push_box": 0.98,
+            "bimanual_put_bottle_in_fridge": 0.71,
+            "bimanual_put_item_in_drawer": 0.74,
+            "bimanual_straighten_rope": 0.12,
+            "bimanual_sweep_to_dustpan": 0.29,
+            "bimanual_take_tray_out_of_oven": 0.82
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_s130k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "ext-r2deg-t2cm-v01",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7523076923076923,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.78,
+            "bimanual_handover_item": 0.94,
+            "bimanual_handover_item_easy": 0.98,
+            "bimanual_lift_ball": 1.0,
+            "bimanual_lift_tray": 0.87,
+            "bimanual_pick_laptop": 0.67,
+            "bimanual_pick_plate": 0.77,
+            "bimanual_push_box": 0.95,
+            "bimanual_put_bottle_in_fridge": 0.7,
+            "bimanual_put_item_in_drawer": 0.86,
+            "bimanual_straighten_rope": 0.16,
+            "bimanual_sweep_to_dustpan": 0.31,
+            "bimanual_take_tray_out_of_oven": 0.79
+          }
+        },
+        {
+          "campaign_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_video_deltam_100rollouts_v01",
+          "method": "video_deltam_s130k",
+          "viewpoint": "g7_fully_unknown_lab",
+          "calibration": "ext-r5deg-t5cm-v01",
+          "completed_tasks": 13,
+          "macro_mean_success": 0.7546153846153847,
+          "task_means": {
+            "bimanual_dual_push_buttons": 0.76,
+            "bimanual_handover_item": 0.9,
+            "bimanual_handover_item_easy": 0.98,
+            "bimanual_lift_ball": 0.99,
+            "bimanual_lift_tray": 0.86,
+            "bimanual_pick_laptop": 0.72,
+            "bimanual_pick_plate": 0.73,
+            "bimanual_push_box": 0.95,
+            "bimanual_put_bottle_in_fridge": 0.75,
+            "bimanual_put_item_in_drawer": 0.8,
+            "bimanual_straighten_rope": 0.21,
+            "bimanual_sweep_to_dustpan": 0.28,
+            "bimanual_take_tray_out_of_oven": 0.88
+          }
+        }
+      ]
+    }
+  ]
+}

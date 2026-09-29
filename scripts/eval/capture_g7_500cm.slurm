@@ -26,6 +26,6 @@ apptainer exec --nv --fakeroot --bind "$PWD:/workspace/3dfa_unified" \
     xvfb-run -a python scripts/plot_capture_g7_scene.py --capture \
       --calibration-registry instructions/eval_calibrations_g7_extreme_opposite_v01.json \
       --calibration-id g7-opposite-500cm-v01 \
-      --output-npz docs/figures/g7_pick_laptop_scene_pointcloud_500cm.npz \
-      --output-png docs/figures/g7_pick_laptop_scene_pointcloud_500cm.png
+      --output-npz docs/handbook/eval/figures/g7_pick_laptop_scene_pointcloud_500cm.npz \
+      --output-png docs/handbook/eval/figures/g7_pick_laptop_scene_pointcloud_500cm.png
   '

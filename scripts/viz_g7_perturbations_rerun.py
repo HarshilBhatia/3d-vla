@@ -22,9 +22,9 @@ def frustum(T, scale=0.25):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--scene", default="docs/figures/g7_pick_laptop_scene_pointcloud.npz")
+    ap.add_argument("--scene", default="docs/handbook/eval/figures/g7_pick_laptop_scene_pointcloud.npz")
     ap.add_argument("--registry", default="instructions/eval_calibrations_g7_extreme_opposite_v01.json")
-    ap.add_argument("--out", default="docs/figures/g7_perturbations.rrd")
+    ap.add_argument("--out", default="docs/handbook/eval/figures/g7_perturbations.rrd")
     ap.add_argument("--cameras", nargs="*", default=["orbital_left","orbital_right"],
                     help="which cameras to displace; wrists are never miscalibrated in this setup")
     args = ap.parse_args()

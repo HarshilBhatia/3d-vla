@@ -93,7 +93,7 @@ def main() -> None:
         type=Path,
         default=Path("/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts/ULRS_G7_100rollouts_v01"),
     )
-    parser.add_argument("--video-metrics", type=Path, default=Path("docs/results/video_deltam_task_metrics.csv"))
+    parser.add_argument("--video-metrics", type=Path, default=Path("docs/research/results/data/video_deltam_task_metrics.csv"))
     parser.add_argument("--output-dir", type=Path, default=Path("eval/interp"))
     parser.add_argument("--base-peract2", type=float, default=85.0)
     parser.add_argument("--camvar-peract2", type=float, default=79.2)
@@ -172,7 +172,7 @@ def main() -> None:
         f"| Base PerAct2 reference | {args.base_peract2:.1f}% | {args.base_peract2:.1f}% | {args.base_peract2:.1f}% | {args.base_peract2:.1f}% |",
         f"| Cam-var PerAct2 reference | {args.camvar_peract2:.1f}% | {args.camvar_peract2:.1f}% | {args.camvar_peract2:.1f}% | {args.camvar_peract2:.1f}% |",
         "",
-        "Base/DeltaM points are re-aggregated from the ULRS raw task JSONs; Video-DeltaM points are re-aggregated from the decision-grade ULRS rows in `docs/results/video_deltam_task_metrics.csv`. The two PerAct2 references were supplied as horizontal reference levels and are not asserted to share this G7 external-camera protocol.",
+        "Base/DeltaM points are re-aggregated from the ULRS raw task JSONs; Video-DeltaM points are re-aggregated from the decision-grade ULRS rows in `docs/research/results/data/video_deltam_task_metrics.csv`. The two PerAct2 references were supplied as horizontal reference levels and are not asserted to share this G7 external-camera protocol.",
     ])
     markdown_path = write_markdown_table(stem.with_suffix(".md"), lines)
 

@@ -1,7 +1,7 @@
 # PerAct2 (bimanual) eval image
 
 `docker/online-eval/` builds the unimanual eval image. **Every bimanual eval
-campaign in `docs/status/experiments.md` ran on the image built from *this*
+campaign in `docs/research/archive/experiments.md` ran on the image built from *this*
 directory**, not on that one. This is the recorded source for it.
 
 ## The chain

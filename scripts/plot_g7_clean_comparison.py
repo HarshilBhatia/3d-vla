@@ -52,7 +52,7 @@ def main() -> None:
         type=Path,
         default=Path("/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts"),
     )
-    parser.add_argument("--output-dir", type=Path, default=Path("docs/figures"))
+    parser.add_argument("--output-dir", type=Path, default=Path("docs/research/results/figures"))
     args = parser.parse_args()
 
     root = args.results_root

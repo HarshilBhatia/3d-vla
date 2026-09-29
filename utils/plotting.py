@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import math
 from collections.abc import Iterable, Mapping, Sequence
+from datetime import date, timedelta
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -34,6 +35,20 @@ COLORS = {
 
 DEFAULT_TASK_COUNT = 13
 DEFAULT_DPI = 240
+
+EXPERIMENTS_ROOT = Path("docs/research/experiments")
+WEEK_END_WEEKDAY = 1
+
+
+def week_figures_dir(today: date | None = None) -> Path:
+    """Figures directory for the experiment week containing `today`.
+
+    Weeks are named by their end date (Tuesday), matching
+    `docs/research/weekly_logs/<YYYY-MM-DD>.md`.
+    """
+    day = today or date.today()
+    end = day + timedelta(days=(WEEK_END_WEEKDAY - day.weekday()) % 7)
+    return EXPERIMENTS_ROOT / end.isoformat() / "figures"
 
 
 def configure_theme() -> None:

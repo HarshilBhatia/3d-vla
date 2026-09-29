@@ -1,8 +1,8 @@
 # R1c — orbital PerAct2 bimanual deltaM + EE-AUX HEAD under persistent camera
 # miscalibration. 1 node x 4 H200 on k8s/ll-lax.
 #
-# Program: the deltaM ladder in docs/status/deltaM_plan.md, and the R2/R2b verdict
-# in docs/status/experiments.md. R2 found deltaM (R1b) *below* the miscal-trained
+# Program: the deltaM ladder in docs/research/archive/deltaM_plan.md, and the R2/R2b verdict
+# in docs/research/archive/experiments.md. R2 found deltaM (R1b) *below* the miscal-trained
 # baseline (R1a) at 0/2/5 deg and only marginally flatter at 15 deg. But R1b was
 # not a replica of grogu's winning variant: grogu's `deltaM_EEF` also trained an
 # END-EFFECTOR AUXILIARY HEAD off the same camera trunk, and R1b omitted it (the
@@ -34,7 +34,7 @@
 # GROGU PROVENANCE OF THE THREE FLAG VALUES — recovered exactly, not guessed, from
 # `scripts/train/G3G4_finetune_deltaM_eef.slurm` at commit 716a3bf (the launch
 # script for the `G3G4_finetune_deltaM_eef_final` checkpoint that produced the
-# `deltaM_EEF` column in docs/status/experiments.md; the file was later deleted
+# `deltaM_EEF` column in docs/research/archive/experiments.md; the file was later deleted
 # from the tree, hence `git show 716a3bf:` to read it):
 #     ee_aux=true    ee_aux_weight=1.0    "ee_aux_cameras=[0,1]"
 # All three carried over verbatim. `ee_aux_weight=1.0` and `ee_aux_cameras=[0,1]`
@@ -95,7 +95,7 @@
 # EVAL PROTOCOL FOR THIS CHECKPOINT: the world stays miscalibrated. Eval MUST
 # reapply the SAME fixed per-group medium miscalibration this checkpoint trained
 # under and sweep the random noise on top, exactly as the R2 three-curve
-# comparison did (docs/status/experiments.md), so R1c is directly comparable to
+# comparison did (docs/research/archive/experiments.md), so R1c is directly comparable to
 # the R1a/R1b curves. The eval-side plumbing that earlier YAML flagged as missing
 # now EXISTS — commit b9e05b0 threaded `orbital_miscal_noise_level` through the
 # bimanual branch of evaluate_policy.py and the harness. It is in

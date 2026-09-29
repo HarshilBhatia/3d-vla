@@ -60,7 +60,7 @@ def main() -> None:
         type=Path,
         default=Path("/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts"),
     )
-    parser.add_argument("--output-dir", type=Path, default=Path("docs/figures"))
+    parser.add_argument("--output-dir", type=Path, default=Path("docs/research/results/figures"))
     parser.add_argument(
         "--r1-only",
         action="store_true",

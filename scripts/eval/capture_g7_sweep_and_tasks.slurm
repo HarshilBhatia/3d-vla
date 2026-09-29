@@ -31,6 +31,6 @@ apptainer exec --nv --fakeroot \
       --tasks bimanual_pick_laptop bimanual_push_box bimanual_lift_ball bimanual_pick_plate bimanual_straighten_rope bimanual_handover_item_easy
     xvfb-run -a python scripts/capture_g7_sweep_views.py --png \
       --cameras-file instructions/orbital_cameras_grouped.json --groups G1 G7 \
-      --out-dir docs/figures/task_gallery \
+      --out-dir docs/research/results/figures/task-gallery \
       --tasks bimanual_push_box bimanual_lift_ball bimanual_dual_push_buttons bimanual_pick_plate bimanual_put_item_in_drawer bimanual_put_bottle_in_fridge bimanual_handover_item bimanual_pick_laptop bimanual_straighten_rope bimanual_sweep_to_dustpan bimanual_lift_tray bimanual_handover_item_easy bimanual_take_tray_out_of_oven
   '

@@ -78,8 +78,15 @@ debug_videos/
 # agent + editor local state
 .claude/
 
-# generated renders, rollout media and Rerun recordings
-docs/figures/task_gallery/
-docs/figures/g7_sweep_captures/
-docs/figures/*.rrd
+# the bare `results/` rule above targets run outputs; keep it off the docs tree
+!docs/research/results/
+
+# docs figures — each figures/ dir has a README naming the script per file.
+# Committed: plot outputs and the small .npz scene inputs, so every figure a
+# doc embeds is in the repo. Negations are needed because *.png is global.
+!docs/**/figures/*.png
+# Not committed: bulk renders (326 MB) and Rerun recordings; regenerate them.
+docs/research/results/figures/task-gallery/
+docs/research/experiments/*/figures/viewpoint-sweep/
+docs/**/*.rrd
 legacy_may/

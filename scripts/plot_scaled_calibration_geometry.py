@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / "docs/figures"
+OUT = ROOT / "docs/handbook/eval/figures"
 OUT.mkdir(parents=True, exist_ok=True)
 
 def frame(cam):

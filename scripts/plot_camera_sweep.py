@@ -8,7 +8,7 @@ import numpy as np
 
 
 ROOT = Path("/grogu/datasets/hbhatia/3dfa_online_eval_50rollouts")
-OUT = Path(__file__).resolve().parents[1] / "docs/results/figures"
+OUT = Path(__file__).resolve().parents[1] / "docs/research/results/figures"
 LEVELS = [2, 5, 10]
 TASKS = [
     "push_box", "lift_ball", "dual_push_buttons", "pick_plate",

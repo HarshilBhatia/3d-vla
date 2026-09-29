@@ -1,7 +1,7 @@
 # R1b — orbital PerAct2 bimanual deltaM (learned extrinsics) under persistent camera miscalibration.
 # 1 node x 4 H200 on k8s/ll-lax.
 #
-# Program: the deltaM ladder in docs/status/deltaM_plan.md, section (c). This is
+# Program: the deltaM ladder in docs/research/archive/deltaM_plan.md, section (c). This is
 # the experiment arm; scripts/sky/peract2_orbital_miscal_base_h200.yaml is the
 # control and differs by EXACTLY ONE line (`experiment=default` rather than
 # `experiment=camtoken_deltaM`). Everything else — data, miscal, nhist, batch,

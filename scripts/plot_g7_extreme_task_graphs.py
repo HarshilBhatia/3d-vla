@@ -19,7 +19,7 @@ import numpy as np
 
 
 ROOT = Path("/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts")
-OUT = Path("docs/figures/g7_extreme_task_graphs.png")
+OUT = Path("docs/research/results/figures/g7_extreme_task_graphs.png")
 
 TRANSLATION_CAMPAIGN = "g7_extreme_opposite_v01"
 ROTATION_CAMPAIGN = "g7_rotation_only_v01"

@@ -1,6 +1,6 @@
 """Asymmetric per-camera miscalibration — offline keypose error + delta_M response.
 
-Tier-3 proposal T3-1 from ``docs/status/deltam_advantage_analysis.md``. The Tier-2
+Tier-3 proposal T3-1 from ``docs/research/archive/deltam_advantage_analysis.md``. The Tier-2
 result there is that ``||delta_M - I||_F`` only responds to injected corruption on
 cameras 0 and 1, which are exactly ``ee_aux_cameras``. That predicts a
 **camera x arm interaction**: corrupt one camera at a time and R1c (deltaM +

@@ -10,7 +10,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 ROOT = Path("/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts")
-OUT = Path(__file__).resolve().parents[1] / "docs/figures/heldout_miscal_curves.png"
+OUT = Path(__file__).resolve().parents[1] / "docs/research/results/figures/heldout_miscal_curves.png"
 EXPECTED_TASKS = 13
 # Checkpoint directory -> (column label, categorical slot, marker, complete sampling).
 ARMS = {

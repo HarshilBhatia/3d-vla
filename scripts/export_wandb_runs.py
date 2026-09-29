@@ -28,7 +28,7 @@ import os
 import sys
 from pathlib import Path
 
-# The eight runs behind docs/status/experiments.md, in campaign order.
+# The eight runs behind docs/research/archive/experiments.md, in campaign order.
 RUNS: dict[str, str] = {
     "peract2_base_b200": "7vjpod6m",
     "peract2_base_nhist3_b200": "bk6j5v66",

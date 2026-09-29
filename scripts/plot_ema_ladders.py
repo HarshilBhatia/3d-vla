@@ -1,7 +1,9 @@
 """Per-task SBRS success over the 20k EMA fine-tunes: raw vs EMA weights per run, step 0 = the starting checkpoint."""
+import argparse
 import csv
 import glob
 import json
+import sys
 from pathlib import Path
 
 import matplotlib
@@ -9,8 +11,14 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from utils.plotting import week_figures_dir
+
 R20 = Path("/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts")
-OUT = Path("docs/figures")
+OUT = week_figures_dir()
 V, B = "video_deltam_checkpoint_ladder", "sbrs_checkpoint_ladder"
 # (run key, label, ladder family, the starting checkpoint's own ladder dir or None).
 RUNS = [
@@ -88,4 +96,9 @@ def main():
 
 
 if __name__ == "__main__":
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--output-dir", type=Path, default=OUT,
+                    help="where to write the figures (default: this week's experiment figures dir)")
+    OUT = ap.parse_args().output_dir
+    OUT.mkdir(parents=True, exist_ok=True)
     main()

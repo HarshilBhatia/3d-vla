@@ -5,7 +5,7 @@ Historically "Video-DeltaM". The module name, the config keys and the
 checkpoint compatibility; the class name does not, because class names never
 appear in a state_dict.
 
-Two independent axes (see ``docs/architecture.md``):
+Two independent axes (see ``docs/handbook/model/architecture.md``):
 
 * ``predict_delta_m`` -- what the extractor hands the policy. False ("refine")
   emits history-refined camera summaries plus a global history register, and the

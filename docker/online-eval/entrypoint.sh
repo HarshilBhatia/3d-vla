@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Entrypoint for the 3DFA online-eval image.
 #
-# Establishes the CoppeliaSim / PyRep environment described in docs/commands.md
+# Establishes the CoppeliaSim / PyRep environment described in docs/handbook/commands.md
 # and then execs whatever command was passed. PyRep and RLBench are already
 # installed into /opt/venv (baked at build time) — nothing is installed here.
 set -euo pipefail

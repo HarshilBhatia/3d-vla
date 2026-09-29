@@ -20,4 +20,4 @@ experiments or documented checkpoints. They are not the default starting point:
 - `debug.slurm` — debugging only.
 
 Do not delete historical scripts until the corresponding result provenance in
-`docs/REPRODUCE.md` and `docs/status/` has been migrated to an archive index.
+`docs/research/reproduce.md` and `docs/research/archive/` has been migrated to an archive index.

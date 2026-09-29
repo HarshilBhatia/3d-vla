@@ -1,7 +1,7 @@
 # R1a — orbital PerAct2 bimanual BASELINE under persistent camera miscalibration.
 # 1 node x 4 H200 on k8s/ll-lax.
 #
-# Program: the deltaM ladder in docs/status/deltaM_plan.md, section (c). This is
+# Program: the deltaM ladder in docs/research/archive/deltaM_plan.md, section (c). This is
 # the control arm; scripts/sky/peract2_orbital_miscal_deltam_h200.yaml is the
 # experiment arm and differs by EXACTLY ONE line (`experiment=camtoken_deltaM`
 # rather than `experiment=default`). Everything else — data, miscal, nhist,

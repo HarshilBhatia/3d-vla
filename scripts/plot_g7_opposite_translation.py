@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-ROOT=Path(__file__).resolve().parents[1]; OUT=ROOT/'docs/figures'; OUT.mkdir(parents=True,exist_ok=True)
+ROOT=Path(__file__).resolve().parents[1]; OUT=ROOT/'docs/handbook/eval/figures'; OUT.mkdir(parents=True,exist_ok=True)
 rows=json.loads((ROOT/'instructions/orbital_cameras_grouped.json').read_text()); g=next(x for x in rows if x['group']=='G7')
 p=[np.asarray(g['left']['pos'],float),np.asarray(g['right']['pos'],float)]
 d=p[0]-p[1]; d=d/np.linalg.norm(d)

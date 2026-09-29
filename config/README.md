@@ -18,7 +18,7 @@ there would silently clobber miscal values set by an experiment config.
 New paper-facing runs should start from `paper_external_control`,
 `paper_external_view_align`, or `paper_external_view_align_eeaux`. Their short
 keys are normalized to the historical runtime API, so existing checkpoints and
-launch scripts remain compatible. See `docs/terminology.md`.
+launch scripts remain compatible. See `docs/handbook/model/terminology.md`.
 
 
 - **run_mode:** Derived from `eval_only`: `eval_only=true` → `run_mode=eval_offline`; else `run_mode=train`.

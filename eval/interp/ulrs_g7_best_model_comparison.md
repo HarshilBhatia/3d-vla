@@ -8,4 +8,4 @@
 | Base PerAct2 reference | 85.0% | 85.0% | 85.0% | 85.0% |
 | Cam-var PerAct2 reference | 79.2% | 79.2% | 79.2% | 79.2% |
 
-Base/DeltaM points are re-aggregated from the ULRS raw task JSONs; Video-DeltaM points are re-aggregated from the decision-grade ULRS rows in `docs/results/video_deltam_task_metrics.csv`. The two PerAct2 references were supplied as horizontal reference levels and are not asserted to share this G7 external-camera protocol.
+Base/DeltaM points are re-aggregated from the ULRS raw task JSONs; Video-DeltaM points are re-aggregated from the decision-grade ULRS rows in `docs/research/results/data/video_deltam_task_metrics.csv`. The two PerAct2 references were supplied as horizontal reference levels and are not asserted to share this G7 external-camera protocol.

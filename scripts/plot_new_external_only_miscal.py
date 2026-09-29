@@ -62,7 +62,7 @@ def main() -> None:
         default=Path("eval_logs"),
         help="Root containing the historical clean-trained camera-subset results.",
     )
-    parser.add_argument("--output-dir", type=Path, default=Path("docs/figures"))
+    parser.add_argument("--output-dir", type=Path, default=Path("docs/research/results/figures"))
     args = parser.parse_args()
 
     results: dict[str, dict[str, dict[str, float]]] = {}

@@ -23,7 +23,7 @@ moves should happen after active arrays finish and after references are updated.
 
 Pass `eval_protocol`, `eval_condition_id`, and the `eval_*miscal*` keys to the
 evaluator. It writes a per-task manifest alongside the result JSON. See
-[`docs/online_eval_naming.md`](../../docs/online_eval_naming.md) for canonical
+[`docs/handbook/eval/protocols.md`](../../docs/handbook/eval/protocols.md) for canonical
 protocols, condition IDs, layouts, and method labels.
 ## External-only checkpoint ladder
 

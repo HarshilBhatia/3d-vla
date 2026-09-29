@@ -4,7 +4,7 @@
 Reads every s3://.../orbital_miscal_deltam_eeaux/<cond>/<task>.json written by
 scripts/sky/peract2_orbital_online_eval.yaml and prints (a) coverage, (b) the
 per-task R1c table, and (c) the condition | R1a | R1b | R1c comparison, with the
-R1a/R1b reference numbers from docs/status/experiments.md (R2, R2b).
+R1a/R1b reference numbers from docs/research/archive/experiments.md (R2, R2b).
 """
 
 import json
@@ -39,7 +39,7 @@ TASKS = [
     "bimanual_take_tray_out_of_oven",
 ]
 
-# docs/status/experiments.md — R2 three-curve table and R2b OOD table.
+# docs/research/archive/experiments.md — R2 three-curve table and R2b OOD table.
 REF = {
     "level0": (0.623, 0.508),
     "noise_2deg2cm": (0.654, 0.500),

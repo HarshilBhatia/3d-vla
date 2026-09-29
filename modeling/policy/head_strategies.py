@@ -3,7 +3,7 @@ Helpers for TransformerHead: view-alignment prediction and output attention.
 
 View alignment corrects camera-extrinsic error during cross-view fusion. Two
 mechanisms exist: a RoPE mixing matrix (``delta_M``, representation space) and a
-physical SE(3) correction (``R,T``). See ``docs/terminology.md``.
+physical SE(3) correction (``R,T``). See ``docs/handbook/model/terminology.md``.
 """
 from torch import nn
 

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Legacy reproducibility launcher. It retains historical construction flags and
 # output directories; create a registry entry plus JSON campaign plan for new
-# evaluation work (see docs/online_eval_naming.md).
+# evaluation work (see docs/handbook/eval/protocols.md).
 #SBATCH --partition=all
 # grogu-3-30 sources a broken root fzf shell hook in non-interactive jobs;
 # grogu-4-23 has Blackwell (sm_120) GPUs unsupported by the evaluator's pinned

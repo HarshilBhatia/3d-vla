@@ -29,10 +29,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--train-cameras", default="instructions/orbital_cameras_grouped.json")
     ap.add_argument("--sweep-cameras", default="instructions/orbital_cameras_g7_sweep_v01.json")
-    ap.add_argument("--scene", default="docs/figures/g7_pick_laptop_scene_pointcloud.npz")
-    ap.add_argument("--captures", default="docs/figures/g7_sweep_captures/bimanual_pick_laptop",
+    ap.add_argument("--scene", default="docs/handbook/eval/figures/g7_pick_laptop_scene_pointcloud.npz")
+    ap.add_argument("--captures", default="docs/research/experiments/2026-09-29/figures/viewpoint-sweep/captures/bimanual_pick_laptop",
                     help="per-group npz from capture_g7_sweep_views.py; logged when present")
-    ap.add_argument("--out", default="docs/figures/g7_viewpoint_sweep.rrd")
+    ap.add_argument("--out", default="docs/research/experiments/2026-09-29/figures/viewpoint-sweep/g7_viewpoint_sweep.rrd")
     ap.add_argument("--no-sweep", action="store_true", help="G1-G7 and the scene only")
     args = ap.parse_args()
 

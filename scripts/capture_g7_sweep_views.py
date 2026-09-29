@@ -46,7 +46,7 @@ def main():
     p.add_argument("--image-size", type=int, default=256)
     p.add_argument("--max-points", type=int, default=8000)
     p.add_argument("--cameras-file", default="instructions/orbital_cameras_g7_sweep_v01.json")
-    p.add_argument("--out-dir", default="docs/figures/g7_sweep_captures")
+    p.add_argument("--out-dir", default="docs/research/experiments/2026-09-29/figures/viewpoint-sweep/captures")
     p.add_argument("--tasks", nargs="*", default=None, help="overrides --task; one capture per task")
     p.add_argument("--groups", nargs="*", default=None, help="subset of groups in --cameras-file")
     p.add_argument("--png", action="store_true", help="also write a left|right|wrist_l|wrist_r RGB strip")

@@ -1,0 +1,2605 @@
+suite,model,task,condition,success_pct
+idlt_heldout,VideoPooled 84k,mean over tasks,calibrated,78.6
+idlt_heldout,VideoPooled 84k,mean over tasks,known,79.5
+idlt_heldout,VideoPooled 84k,mean over tasks,e3deg-t1cm,78.5
+idlt_heldout,VideoPooled 84k,mean over tasks,e5deg-t5cm,77.2
+idlt_heldout,VideoPooled 84k,mean over tasks,e10deg-t10cm,78.3
+idlt_heldout,VideoPooled 84k,mean over tasks,e15deg-t15cm,78.4
+idlt_heldout,VideoPooled 84k,mean over tasks,e20deg-t20cm,
+idlt_heldout,VideoPooled 84k,mean over tasks,e30deg-t30cm,75.4
+idlt_heldout,VideoPooled 84k,mean over tasks,e40deg-t40cm,72.0
+idlt_heldout,VideoPooled 84k,mean over tasks,e50deg-t50cm,72.2
+idlt_heldout,VideoPooled 84k,mean over tasks,e60deg-t60cm,71.5
+idlt_heldout,Random hist 50k (δM on),mean over tasks,calibrated,74.8
+idlt_heldout,Random hist 50k (δM on),mean over tasks,known,73.9
+idlt_heldout,Random hist 50k (δM on),mean over tasks,e3deg-t1cm,75.2
+idlt_heldout,Random hist 50k (δM on),mean over tasks,e5deg-t5cm,75.8
+idlt_heldout,Random hist 50k (δM on),mean over tasks,e10deg-t10cm,
+idlt_heldout,Random hist 50k (δM on),mean over tasks,e15deg-t15cm,75.0
+idlt_heldout,Random hist 50k (δM on),mean over tasks,e20deg-t20cm,74.3
+idlt_heldout,Random hist 50k (δM on),mean over tasks,e30deg-t30cm,
+idlt_heldout,Random hist 50k (δM on),mean over tasks,e40deg-t40cm,72.5
+idlt_heldout,Random hist 50k (δM on),mean over tasks,e50deg-t50cm,73.4
+idlt_heldout,Random hist 50k (δM on),mean over tasks,e60deg-t60cm,71.9
+idlt_heldout,No δM 140k (ordered),mean over tasks,calibrated,77.1
+idlt_heldout,No δM 140k (ordered),mean over tasks,known,76.2
+idlt_heldout,No δM 140k (ordered),mean over tasks,e3deg-t1cm,76.6
+idlt_heldout,No δM 140k (ordered),mean over tasks,e5deg-t5cm,77.8
+idlt_heldout,No δM 140k (ordered),mean over tasks,e10deg-t10cm,78.3
+idlt_heldout,No δM 140k (ordered),mean over tasks,e15deg-t15cm,75.4
+idlt_heldout,No δM 140k (ordered),mean over tasks,e20deg-t20cm,73.7
+idlt_heldout,No δM 140k (ordered),mean over tasks,e30deg-t30cm,73.6
+idlt_heldout,No δM 140k (ordered),mean over tasks,e40deg-t40cm,72.4
+idlt_heldout,No δM 140k (ordered),mean over tasks,e50deg-t50cm,73.7
+idlt_heldout,No δM 140k (ordered),mean over tasks,e60deg-t60cm,71.4
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,calibrated,75.3
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,known,75.8
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,e3deg-t1cm,74.3
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,e5deg-t5cm,75.2
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,e10deg-t10cm,73.8
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,e15deg-t15cm,71.5
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,e20deg-t20cm,67.1
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,e30deg-t30cm,68.1
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,e40deg-t40cm,64.8
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,e50deg-t50cm,63.2
+idlt_heldout,"A: scratch, no δM, rand",mean over tasks,e60deg-t60cm,62.8
+idlt_heldout,C: A − register,mean over tasks,calibrated,74.1
+idlt_heldout,C: A − register,mean over tasks,known,74.5
+idlt_heldout,C: A − register,mean over tasks,e3deg-t1cm,74.7
+idlt_heldout,C: A − register,mean over tasks,e5deg-t5cm,76.2
+idlt_heldout,C: A − register,mean over tasks,e10deg-t10cm,75.2
+idlt_heldout,C: A − register,mean over tasks,e15deg-t15cm,71.0
+idlt_heldout,C: A − register,mean over tasks,e20deg-t20cm,72.0
+idlt_heldout,C: A − register,mean over tasks,e30deg-t30cm,69.1
+idlt_heldout,C: A − register,mean over tasks,e40deg-t40cm,66.2
+idlt_heldout,C: A − register,mean over tasks,e50deg-t50cm,64.9
+idlt_heldout,C: A − register,mean over tasks,e60deg-t60cm,61.6
+idlt_heldout,Base 160k,mean over tasks,calibrated,70.8
+idlt_heldout,Base 160k,mean over tasks,known,69.9
+idlt_heldout,Base 160k,mean over tasks,e3deg-t1cm,70.3
+idlt_heldout,Base 160k,mean over tasks,e5deg-t5cm,69.2
+idlt_heldout,Base 160k,mean over tasks,e10deg-t10cm,68.2
+idlt_heldout,Base 160k,mean over tasks,e15deg-t15cm,63.9
+idlt_heldout,Base 160k,mean over tasks,e20deg-t20cm,60.6
+idlt_heldout,Base 160k,mean over tasks,e30deg-t30cm,57.7
+idlt_heldout,Base 160k,mean over tasks,e40deg-t40cm,49.8
+idlt_heldout,Base 160k,mean over tasks,e50deg-t50cm,39.5
+idlt_heldout,Base 160k,mean over tasks,e60deg-t60cm,27.1
+idlt_heldout,VideoPooled 84k,dual_push_buttons,calibrated,79.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,known,78.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,e3deg-t1cm,81.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,e5deg-t5cm,82.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,e10deg-t10cm,82.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,e15deg-t15cm,82.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,e20deg-t20cm,85.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,e30deg-t30cm,82.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,e40deg-t40cm,79.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,e50deg-t50cm,85.0
+idlt_heldout,VideoPooled 84k,dual_push_buttons,e60deg-t60cm,82.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,calibrated,72.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,known,73.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,e3deg-t1cm,72.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,e5deg-t5cm,74.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,e10deg-t10cm,76.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,e15deg-t15cm,77.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,e20deg-t20cm,76.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,e30deg-t30cm,74.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,e40deg-t40cm,77.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,e50deg-t50cm,77.0
+idlt_heldout,Random hist 50k (δM on),dual_push_buttons,e60deg-t60cm,72.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,calibrated,76.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,known,77.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,e3deg-t1cm,79.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,e5deg-t5cm,83.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,e10deg-t10cm,79.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,e15deg-t15cm,77.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,e20deg-t20cm,79.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,e30deg-t30cm,79.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,e40deg-t40cm,78.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,e50deg-t50cm,77.0
+idlt_heldout,No δM 140k (ordered),dual_push_buttons,e60deg-t60cm,72.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,calibrated,73.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,known,76.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,e3deg-t1cm,74.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,e5deg-t5cm,77.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,e10deg-t10cm,76.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,e15deg-t15cm,74.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,e20deg-t20cm,77.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,e30deg-t30cm,73.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,e40deg-t40cm,74.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,e50deg-t50cm,71.0
+idlt_heldout,"A: scratch, no δM, rand",dual_push_buttons,e60deg-t60cm,73.0
+idlt_heldout,C: A − register,dual_push_buttons,calibrated,78.0
+idlt_heldout,C: A − register,dual_push_buttons,known,77.0
+idlt_heldout,C: A − register,dual_push_buttons,e3deg-t1cm,78.0
+idlt_heldout,C: A − register,dual_push_buttons,e5deg-t5cm,78.0
+idlt_heldout,C: A − register,dual_push_buttons,e10deg-t10cm,77.0
+idlt_heldout,C: A − register,dual_push_buttons,e15deg-t15cm,79.0
+idlt_heldout,C: A − register,dual_push_buttons,e20deg-t20cm,78.0
+idlt_heldout,C: A − register,dual_push_buttons,e30deg-t30cm,78.0
+idlt_heldout,C: A − register,dual_push_buttons,e40deg-t40cm,79.0
+idlt_heldout,C: A − register,dual_push_buttons,e50deg-t50cm,78.0
+idlt_heldout,C: A − register,dual_push_buttons,e60deg-t60cm,78.0
+idlt_heldout,Base 160k,dual_push_buttons,calibrated,81.0
+idlt_heldout,Base 160k,dual_push_buttons,known,78.0
+idlt_heldout,Base 160k,dual_push_buttons,e3deg-t1cm,77.0
+idlt_heldout,Base 160k,dual_push_buttons,e5deg-t5cm,81.0
+idlt_heldout,Base 160k,dual_push_buttons,e10deg-t10cm,81.0
+idlt_heldout,Base 160k,dual_push_buttons,e15deg-t15cm,54.0
+idlt_heldout,Base 160k,dual_push_buttons,e20deg-t20cm,81.0
+idlt_heldout,Base 160k,dual_push_buttons,e30deg-t30cm,81.0
+idlt_heldout,Base 160k,dual_push_buttons,e40deg-t40cm,74.0
+idlt_heldout,Base 160k,dual_push_buttons,e50deg-t50cm,63.0
+idlt_heldout,Base 160k,dual_push_buttons,e60deg-t60cm,36.0
+idlt_heldout,VideoPooled 84k,handover_item,calibrated,87.0
+idlt_heldout,VideoPooled 84k,handover_item,known,91.0
+idlt_heldout,VideoPooled 84k,handover_item,e3deg-t1cm,83.0
+idlt_heldout,VideoPooled 84k,handover_item,e5deg-t5cm,83.0
+idlt_heldout,VideoPooled 84k,handover_item,e10deg-t10cm,87.0
+idlt_heldout,VideoPooled 84k,handover_item,e15deg-t15cm,91.0
+idlt_heldout,VideoPooled 84k,handover_item,e20deg-t20cm,
+idlt_heldout,VideoPooled 84k,handover_item,e30deg-t30cm,87.0
+idlt_heldout,VideoPooled 84k,handover_item,e40deg-t40cm,90.0
+idlt_heldout,VideoPooled 84k,handover_item,e50deg-t50cm,96.0
+idlt_heldout,VideoPooled 84k,handover_item,e60deg-t60cm,93.0
+idlt_heldout,Random hist 50k (δM on),handover_item,calibrated,87.0
+idlt_heldout,Random hist 50k (δM on),handover_item,known,88.0
+idlt_heldout,Random hist 50k (δM on),handover_item,e3deg-t1cm,87.0
+idlt_heldout,Random hist 50k (δM on),handover_item,e5deg-t5cm,87.0
+idlt_heldout,Random hist 50k (δM on),handover_item,e10deg-t10cm,93.0
+idlt_heldout,Random hist 50k (δM on),handover_item,e15deg-t15cm,89.0
+idlt_heldout,Random hist 50k (δM on),handover_item,e20deg-t20cm,87.0
+idlt_heldout,Random hist 50k (δM on),handover_item,e30deg-t30cm,85.0
+idlt_heldout,Random hist 50k (δM on),handover_item,e40deg-t40cm,83.0
+idlt_heldout,Random hist 50k (δM on),handover_item,e50deg-t50cm,86.0
+idlt_heldout,Random hist 50k (δM on),handover_item,e60deg-t60cm,87.0
+idlt_heldout,No δM 140k (ordered),handover_item,calibrated,87.0
+idlt_heldout,No δM 140k (ordered),handover_item,known,87.0
+idlt_heldout,No δM 140k (ordered),handover_item,e3deg-t1cm,87.0
+idlt_heldout,No δM 140k (ordered),handover_item,e5deg-t5cm,90.0
+idlt_heldout,No δM 140k (ordered),handover_item,e10deg-t10cm,88.0
+idlt_heldout,No δM 140k (ordered),handover_item,e15deg-t15cm,85.0
+idlt_heldout,No δM 140k (ordered),handover_item,e20deg-t20cm,85.0
+idlt_heldout,No δM 140k (ordered),handover_item,e30deg-t30cm,83.0
+idlt_heldout,No δM 140k (ordered),handover_item,e40deg-t40cm,88.0
+idlt_heldout,No δM 140k (ordered),handover_item,e50deg-t50cm,93.0
+idlt_heldout,No δM 140k (ordered),handover_item,e60deg-t60cm,93.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,calibrated,71.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,known,70.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,e3deg-t1cm,66.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,e5deg-t5cm,73.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,e10deg-t10cm,71.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,e15deg-t15cm,74.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,e20deg-t20cm,76.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,e30deg-t30cm,81.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,e40deg-t40cm,78.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,e50deg-t50cm,71.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item,e60deg-t60cm,70.0
+idlt_heldout,C: A − register,handover_item,calibrated,78.0
+idlt_heldout,C: A − register,handover_item,known,79.0
+idlt_heldout,C: A − register,handover_item,e3deg-t1cm,79.0
+idlt_heldout,C: A − register,handover_item,e5deg-t5cm,83.0
+idlt_heldout,C: A − register,handover_item,e10deg-t10cm,83.0
+idlt_heldout,C: A − register,handover_item,e15deg-t15cm,80.0
+idlt_heldout,C: A − register,handover_item,e20deg-t20cm,76.0
+idlt_heldout,C: A − register,handover_item,e30deg-t30cm,71.0
+idlt_heldout,C: A − register,handover_item,e40deg-t40cm,80.0
+idlt_heldout,C: A − register,handover_item,e50deg-t50cm,79.0
+idlt_heldout,C: A − register,handover_item,e60deg-t60cm,66.0
+idlt_heldout,Base 160k,handover_item,calibrated,81.0
+idlt_heldout,Base 160k,handover_item,known,81.0
+idlt_heldout,Base 160k,handover_item,e3deg-t1cm,71.0
+idlt_heldout,Base 160k,handover_item,e5deg-t5cm,78.0
+idlt_heldout,Base 160k,handover_item,e10deg-t10cm,79.0
+idlt_heldout,Base 160k,handover_item,e15deg-t15cm,77.0
+idlt_heldout,Base 160k,handover_item,e20deg-t20cm,74.0
+idlt_heldout,Base 160k,handover_item,e30deg-t30cm,69.0
+idlt_heldout,Base 160k,handover_item,e40deg-t40cm,66.0
+idlt_heldout,Base 160k,handover_item,e50deg-t50cm,57.0
+idlt_heldout,Base 160k,handover_item,e60deg-t60cm,1.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,calibrated,100.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,known,96.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,e3deg-t1cm,97.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,e5deg-t5cm,97.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,e10deg-t10cm,98.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,e15deg-t15cm,98.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,e20deg-t20cm,98.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,e30deg-t30cm,99.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,e40deg-t40cm,96.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,e50deg-t50cm,98.0
+idlt_heldout,VideoPooled 84k,handover_item_easy,e60deg-t60cm,97.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,calibrated,97.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,known,97.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,e3deg-t1cm,99.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,e5deg-t5cm,97.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,e10deg-t10cm,
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,e15deg-t15cm,96.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,e20deg-t20cm,98.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,e30deg-t30cm,97.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,e40deg-t40cm,98.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,e50deg-t50cm,99.0
+idlt_heldout,Random hist 50k (δM on),handover_item_easy,e60deg-t60cm,98.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,calibrated,97.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,known,95.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,e3deg-t1cm,93.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,e5deg-t5cm,95.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,e10deg-t10cm,95.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,e15deg-t15cm,91.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,e20deg-t20cm,94.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,e30deg-t30cm,95.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,e40deg-t40cm,92.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,e50deg-t50cm,95.0
+idlt_heldout,No δM 140k (ordered),handover_item_easy,e60deg-t60cm,93.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,calibrated,94.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,known,94.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,e3deg-t1cm,91.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,e5deg-t5cm,92.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,e10deg-t10cm,94.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,e15deg-t15cm,92.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,e20deg-t20cm,87.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,e30deg-t30cm,92.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,e40deg-t40cm,87.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,e50deg-t50cm,88.0
+idlt_heldout,"A: scratch, no δM, rand",handover_item_easy,e60deg-t60cm,87.0
+idlt_heldout,C: A − register,handover_item_easy,calibrated,97.0
+idlt_heldout,C: A − register,handover_item_easy,known,93.0
+idlt_heldout,C: A − register,handover_item_easy,e3deg-t1cm,93.0
+idlt_heldout,C: A − register,handover_item_easy,e5deg-t5cm,96.0
+idlt_heldout,C: A − register,handover_item_easy,e10deg-t10cm,94.0
+idlt_heldout,C: A − register,handover_item_easy,e15deg-t15cm,97.0
+idlt_heldout,C: A − register,handover_item_easy,e20deg-t20cm,99.0
+idlt_heldout,C: A − register,handover_item_easy,e30deg-t30cm,97.0
+idlt_heldout,C: A − register,handover_item_easy,e40deg-t40cm,91.0
+idlt_heldout,C: A − register,handover_item_easy,e50deg-t50cm,88.0
+idlt_heldout,C: A − register,handover_item_easy,e60deg-t60cm,88.0
+idlt_heldout,Base 160k,handover_item_easy,calibrated,86.0
+idlt_heldout,Base 160k,handover_item_easy,known,90.0
+idlt_heldout,Base 160k,handover_item_easy,e3deg-t1cm,91.0
+idlt_heldout,Base 160k,handover_item_easy,e5deg-t5cm,85.0
+idlt_heldout,Base 160k,handover_item_easy,e10deg-t10cm,88.0
+idlt_heldout,Base 160k,handover_item_easy,e15deg-t15cm,92.0
+idlt_heldout,Base 160k,handover_item_easy,e20deg-t20cm,73.0
+idlt_heldout,Base 160k,handover_item_easy,e30deg-t30cm,67.0
+idlt_heldout,Base 160k,handover_item_easy,e40deg-t40cm,1.0
+idlt_heldout,Base 160k,handover_item_easy,e50deg-t50cm,7.0
+idlt_heldout,Base 160k,handover_item_easy,e60deg-t60cm,2.0
+idlt_heldout,VideoPooled 84k,lift_ball,calibrated,99.0
+idlt_heldout,VideoPooled 84k,lift_ball,known,99.0
+idlt_heldout,VideoPooled 84k,lift_ball,e3deg-t1cm,99.0
+idlt_heldout,VideoPooled 84k,lift_ball,e5deg-t5cm,99.0
+idlt_heldout,VideoPooled 84k,lift_ball,e10deg-t10cm,96.0
+idlt_heldout,VideoPooled 84k,lift_ball,e15deg-t15cm,99.0
+idlt_heldout,VideoPooled 84k,lift_ball,e20deg-t20cm,98.0
+idlt_heldout,VideoPooled 84k,lift_ball,e30deg-t30cm,98.0
+idlt_heldout,VideoPooled 84k,lift_ball,e40deg-t40cm,95.0
+idlt_heldout,VideoPooled 84k,lift_ball,e50deg-t50cm,93.0
+idlt_heldout,VideoPooled 84k,lift_ball,e60deg-t60cm,90.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,calibrated,99.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,known,99.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,e3deg-t1cm,99.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,e5deg-t5cm,100.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,e10deg-t10cm,99.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,e15deg-t15cm,97.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,e20deg-t20cm,99.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,e30deg-t30cm,99.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,e40deg-t40cm,99.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,e50deg-t50cm,98.0
+idlt_heldout,Random hist 50k (δM on),lift_ball,e60deg-t60cm,99.0
+idlt_heldout,No δM 140k (ordered),lift_ball,calibrated,98.0
+idlt_heldout,No δM 140k (ordered),lift_ball,known,97.0
+idlt_heldout,No δM 140k (ordered),lift_ball,e3deg-t1cm,99.0
+idlt_heldout,No δM 140k (ordered),lift_ball,e5deg-t5cm,99.0
+idlt_heldout,No δM 140k (ordered),lift_ball,e10deg-t10cm,99.0
+idlt_heldout,No δM 140k (ordered),lift_ball,e15deg-t15cm,99.0
+idlt_heldout,No δM 140k (ordered),lift_ball,e20deg-t20cm,100.0
+idlt_heldout,No δM 140k (ordered),lift_ball,e30deg-t30cm,97.0
+idlt_heldout,No δM 140k (ordered),lift_ball,e40deg-t40cm,100.0
+idlt_heldout,No δM 140k (ordered),lift_ball,e50deg-t50cm,98.0
+idlt_heldout,No δM 140k (ordered),lift_ball,e60deg-t60cm,99.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,calibrated,98.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,known,98.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,e3deg-t1cm,100.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,e5deg-t5cm,98.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,e10deg-t10cm,99.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,e15deg-t15cm,99.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,e20deg-t20cm,100.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,e30deg-t30cm,100.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,e40deg-t40cm,100.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,e50deg-t50cm,100.0
+idlt_heldout,"A: scratch, no δM, rand",lift_ball,e60deg-t60cm,100.0
+idlt_heldout,C: A − register,lift_ball,calibrated,98.0
+idlt_heldout,C: A − register,lift_ball,known,98.0
+idlt_heldout,C: A − register,lift_ball,e3deg-t1cm,100.0
+idlt_heldout,C: A − register,lift_ball,e5deg-t5cm,100.0
+idlt_heldout,C: A − register,lift_ball,e10deg-t10cm,98.0
+idlt_heldout,C: A − register,lift_ball,e15deg-t15cm,98.0
+idlt_heldout,C: A − register,lift_ball,e20deg-t20cm,98.0
+idlt_heldout,C: A − register,lift_ball,e30deg-t30cm,100.0
+idlt_heldout,C: A − register,lift_ball,e40deg-t40cm,97.0
+idlt_heldout,C: A − register,lift_ball,e50deg-t50cm,99.0
+idlt_heldout,C: A − register,lift_ball,e60deg-t60cm,99.0
+idlt_heldout,Base 160k,lift_ball,calibrated,100.0
+idlt_heldout,Base 160k,lift_ball,known,100.0
+idlt_heldout,Base 160k,lift_ball,e3deg-t1cm,100.0
+idlt_heldout,Base 160k,lift_ball,e5deg-t5cm,100.0
+idlt_heldout,Base 160k,lift_ball,e10deg-t10cm,100.0
+idlt_heldout,Base 160k,lift_ball,e15deg-t15cm,98.0
+idlt_heldout,Base 160k,lift_ball,e20deg-t20cm,99.0
+idlt_heldout,Base 160k,lift_ball,e30deg-t30cm,97.0
+idlt_heldout,Base 160k,lift_ball,e40deg-t40cm,98.0
+idlt_heldout,Base 160k,lift_ball,e50deg-t50cm,92.0
+idlt_heldout,Base 160k,lift_ball,e60deg-t60cm,81.0
+idlt_heldout,VideoPooled 84k,lift_tray,calibrated,91.0
+idlt_heldout,VideoPooled 84k,lift_tray,known,89.0
+idlt_heldout,VideoPooled 84k,lift_tray,e3deg-t1cm,88.0
+idlt_heldout,VideoPooled 84k,lift_tray,e5deg-t5cm,88.0
+idlt_heldout,VideoPooled 84k,lift_tray,e10deg-t10cm,95.0
+idlt_heldout,VideoPooled 84k,lift_tray,e15deg-t15cm,92.0
+idlt_heldout,VideoPooled 84k,lift_tray,e20deg-t20cm,93.0
+idlt_heldout,VideoPooled 84k,lift_tray,e30deg-t30cm,90.0
+idlt_heldout,VideoPooled 84k,lift_tray,e40deg-t40cm,91.0
+idlt_heldout,VideoPooled 84k,lift_tray,e50deg-t50cm,94.0
+idlt_heldout,VideoPooled 84k,lift_tray,e60deg-t60cm,96.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,calibrated,96.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,known,93.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,e3deg-t1cm,93.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,e5deg-t5cm,99.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,e10deg-t10cm,92.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,e15deg-t15cm,89.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,e20deg-t20cm,92.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,e30deg-t30cm,93.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,e40deg-t40cm,93.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,e50deg-t50cm,98.0
+idlt_heldout,Random hist 50k (δM on),lift_tray,e60deg-t60cm,93.0
+idlt_heldout,No δM 140k (ordered),lift_tray,calibrated,93.0
+idlt_heldout,No δM 140k (ordered),lift_tray,known,92.0
+idlt_heldout,No δM 140k (ordered),lift_tray,e3deg-t1cm,93.0
+idlt_heldout,No δM 140k (ordered),lift_tray,e5deg-t5cm,94.0
+idlt_heldout,No δM 140k (ordered),lift_tray,e10deg-t10cm,90.0
+idlt_heldout,No δM 140k (ordered),lift_tray,e15deg-t15cm,93.0
+idlt_heldout,No δM 140k (ordered),lift_tray,e20deg-t20cm,94.0
+idlt_heldout,No δM 140k (ordered),lift_tray,e30deg-t30cm,93.0
+idlt_heldout,No δM 140k (ordered),lift_tray,e40deg-t40cm,92.0
+idlt_heldout,No δM 140k (ordered),lift_tray,e50deg-t50cm,93.0
+idlt_heldout,No δM 140k (ordered),lift_tray,e60deg-t60cm,86.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,calibrated,94.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,known,97.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,e3deg-t1cm,94.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,e5deg-t5cm,98.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,e10deg-t10cm,93.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,e15deg-t15cm,95.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,e20deg-t20cm,99.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,e30deg-t30cm,94.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,e40deg-t40cm,97.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,e50deg-t50cm,97.0
+idlt_heldout,"A: scratch, no δM, rand",lift_tray,e60deg-t60cm,95.0
+idlt_heldout,C: A − register,lift_tray,calibrated,56.0
+idlt_heldout,C: A − register,lift_tray,known,68.0
+idlt_heldout,C: A − register,lift_tray,e3deg-t1cm,69.0
+idlt_heldout,C: A − register,lift_tray,e5deg-t5cm,75.0
+idlt_heldout,C: A − register,lift_tray,e10deg-t10cm,66.0
+idlt_heldout,C: A − register,lift_tray,e15deg-t15cm,71.0
+idlt_heldout,C: A − register,lift_tray,e20deg-t20cm,74.0
+idlt_heldout,C: A − register,lift_tray,e30deg-t30cm,73.0
+idlt_heldout,C: A − register,lift_tray,e40deg-t40cm,77.0
+idlt_heldout,C: A − register,lift_tray,e50deg-t50cm,77.0
+idlt_heldout,C: A − register,lift_tray,e60deg-t60cm,74.0
+idlt_heldout,Base 160k,lift_tray,calibrated,94.0
+idlt_heldout,Base 160k,lift_tray,known,93.0
+idlt_heldout,Base 160k,lift_tray,e3deg-t1cm,95.0
+idlt_heldout,Base 160k,lift_tray,e5deg-t5cm,97.0
+idlt_heldout,Base 160k,lift_tray,e10deg-t10cm,99.0
+idlt_heldout,Base 160k,lift_tray,e15deg-t15cm,93.0
+idlt_heldout,Base 160k,lift_tray,e20deg-t20cm,92.0
+idlt_heldout,Base 160k,lift_tray,e30deg-t30cm,97.0
+idlt_heldout,Base 160k,lift_tray,e40deg-t40cm,77.0
+idlt_heldout,Base 160k,lift_tray,e50deg-t50cm,39.0
+idlt_heldout,Base 160k,lift_tray,e60deg-t60cm,26.0
+idlt_heldout,VideoPooled 84k,pick_laptop,calibrated,60.0
+idlt_heldout,VideoPooled 84k,pick_laptop,known,62.0
+idlt_heldout,VideoPooled 84k,pick_laptop,e3deg-t1cm,55.0
+idlt_heldout,VideoPooled 84k,pick_laptop,e5deg-t5cm,48.0
+idlt_heldout,VideoPooled 84k,pick_laptop,e10deg-t10cm,54.0
+idlt_heldout,VideoPooled 84k,pick_laptop,e15deg-t15cm,59.0
+idlt_heldout,VideoPooled 84k,pick_laptop,e20deg-t20cm,42.0
+idlt_heldout,VideoPooled 84k,pick_laptop,e30deg-t30cm,32.0
+idlt_heldout,VideoPooled 84k,pick_laptop,e40deg-t40cm,20.0
+idlt_heldout,VideoPooled 84k,pick_laptop,e50deg-t50cm,22.0
+idlt_heldout,VideoPooled 84k,pick_laptop,e60deg-t60cm,16.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,calibrated,46.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,known,44.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,e3deg-t1cm,55.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,e5deg-t5cm,53.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,e10deg-t10cm,54.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,e15deg-t15cm,51.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,e20deg-t20cm,45.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,e30deg-t30cm,
+idlt_heldout,Random hist 50k (δM on),pick_laptop,e40deg-t40cm,37.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,e50deg-t50cm,27.0
+idlt_heldout,Random hist 50k (δM on),pick_laptop,e60deg-t60cm,27.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,calibrated,70.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,known,59.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,e3deg-t1cm,59.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,e5deg-t5cm,61.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,e10deg-t10cm,59.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,e15deg-t15cm,63.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,e20deg-t20cm,50.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,e30deg-t30cm,29.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,e40deg-t40cm,27.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,e50deg-t50cm,31.0
+idlt_heldout,No δM 140k (ordered),pick_laptop,e60deg-t60cm,28.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,calibrated,71.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,known,67.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,e3deg-t1cm,65.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,e5deg-t5cm,64.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,e10deg-t10cm,65.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,e15deg-t15cm,62.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,e20deg-t20cm,33.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,e30deg-t30cm,33.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,e40deg-t40cm,25.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,e50deg-t50cm,15.0
+idlt_heldout,"A: scratch, no δM, rand",pick_laptop,e60deg-t60cm,17.0
+idlt_heldout,C: A − register,pick_laptop,calibrated,65.0
+idlt_heldout,C: A − register,pick_laptop,known,68.0
+idlt_heldout,C: A − register,pick_laptop,e3deg-t1cm,69.0
+idlt_heldout,C: A − register,pick_laptop,e5deg-t5cm,69.0
+idlt_heldout,C: A − register,pick_laptop,e10deg-t10cm,64.0
+idlt_heldout,C: A − register,pick_laptop,e15deg-t15cm,72.0
+idlt_heldout,C: A − register,pick_laptop,e20deg-t20cm,43.0
+idlt_heldout,C: A − register,pick_laptop,e30deg-t30cm,35.0
+idlt_heldout,C: A − register,pick_laptop,e40deg-t40cm,41.0
+idlt_heldout,C: A − register,pick_laptop,e50deg-t50cm,35.0
+idlt_heldout,C: A − register,pick_laptop,e60deg-t60cm,32.0
+idlt_heldout,Base 160k,pick_laptop,calibrated,29.0
+idlt_heldout,Base 160k,pick_laptop,known,23.0
+idlt_heldout,Base 160k,pick_laptop,e3deg-t1cm,32.0
+idlt_heldout,Base 160k,pick_laptop,e5deg-t5cm,32.0
+idlt_heldout,Base 160k,pick_laptop,e10deg-t10cm,15.0
+idlt_heldout,Base 160k,pick_laptop,e15deg-t15cm,48.0
+idlt_heldout,Base 160k,pick_laptop,e20deg-t20cm,7.0
+idlt_heldout,Base 160k,pick_laptop,e30deg-t30cm,2.0
+idlt_heldout,Base 160k,pick_laptop,e40deg-t40cm,4.0
+idlt_heldout,Base 160k,pick_laptop,e50deg-t50cm,1.0
+idlt_heldout,Base 160k,pick_laptop,e60deg-t60cm,0.0
+idlt_heldout,VideoPooled 84k,pick_plate,calibrated,79.0
+idlt_heldout,VideoPooled 84k,pick_plate,known,82.0
+idlt_heldout,VideoPooled 84k,pick_plate,e3deg-t1cm,81.0
+idlt_heldout,VideoPooled 84k,pick_plate,e5deg-t5cm,80.0
+idlt_heldout,VideoPooled 84k,pick_plate,e10deg-t10cm,83.0
+idlt_heldout,VideoPooled 84k,pick_plate,e15deg-t15cm,75.0
+idlt_heldout,VideoPooled 84k,pick_plate,e20deg-t20cm,84.0
+idlt_heldout,VideoPooled 84k,pick_plate,e30deg-t30cm,83.0
+idlt_heldout,VideoPooled 84k,pick_plate,e40deg-t40cm,78.0
+idlt_heldout,VideoPooled 84k,pick_plate,e50deg-t50cm,79.0
+idlt_heldout,VideoPooled 84k,pick_plate,e60deg-t60cm,84.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,calibrated,67.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,known,65.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,e3deg-t1cm,62.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,e5deg-t5cm,61.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,e10deg-t10cm,76.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,e15deg-t15cm,63.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,e20deg-t20cm,61.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,e30deg-t30cm,67.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,e40deg-t40cm,71.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,e50deg-t50cm,73.0
+idlt_heldout,Random hist 50k (δM on),pick_plate,e60deg-t60cm,63.0
+idlt_heldout,No δM 140k (ordered),pick_plate,calibrated,58.0
+idlt_heldout,No δM 140k (ordered),pick_plate,known,57.0
+idlt_heldout,No δM 140k (ordered),pick_plate,e3deg-t1cm,56.0
+idlt_heldout,No δM 140k (ordered),pick_plate,e5deg-t5cm,61.0
+idlt_heldout,No δM 140k (ordered),pick_plate,e10deg-t10cm,66.0
+idlt_heldout,No δM 140k (ordered),pick_plate,e15deg-t15cm,56.0
+idlt_heldout,No δM 140k (ordered),pick_plate,e20deg-t20cm,59.0
+idlt_heldout,No δM 140k (ordered),pick_plate,e30deg-t30cm,73.0
+idlt_heldout,No δM 140k (ordered),pick_plate,e40deg-t40cm,55.0
+idlt_heldout,No δM 140k (ordered),pick_plate,e50deg-t50cm,72.0
+idlt_heldout,No δM 140k (ordered),pick_plate,e60deg-t60cm,65.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,calibrated,76.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,known,79.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,e3deg-t1cm,71.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,e5deg-t5cm,75.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,e10deg-t10cm,67.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,e15deg-t15cm,77.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,e20deg-t20cm,75.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,e30deg-t30cm,64.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,e40deg-t40cm,57.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,e50deg-t50cm,61.0
+idlt_heldout,"A: scratch, no δM, rand",pick_plate,e60deg-t60cm,61.0
+idlt_heldout,C: A − register,pick_plate,calibrated,59.0
+idlt_heldout,C: A − register,pick_plate,known,74.0
+idlt_heldout,C: A − register,pick_plate,e3deg-t1cm,76.0
+idlt_heldout,C: A − register,pick_plate,e5deg-t5cm,65.0
+idlt_heldout,C: A − register,pick_plate,e10deg-t10cm,72.0
+idlt_heldout,C: A − register,pick_plate,e15deg-t15cm,73.0
+idlt_heldout,C: A − register,pick_plate,e20deg-t20cm,56.0
+idlt_heldout,C: A − register,pick_plate,e30deg-t30cm,63.0
+idlt_heldout,C: A − register,pick_plate,e40deg-t40cm,64.0
+idlt_heldout,C: A − register,pick_plate,e50deg-t50cm,66.0
+idlt_heldout,C: A − register,pick_plate,e60deg-t60cm,59.0
+idlt_heldout,Base 160k,pick_plate,calibrated,86.0
+idlt_heldout,Base 160k,pick_plate,known,81.0
+idlt_heldout,Base 160k,pick_plate,e3deg-t1cm,72.0
+idlt_heldout,Base 160k,pick_plate,e5deg-t5cm,78.0
+idlt_heldout,Base 160k,pick_plate,e10deg-t10cm,74.0
+idlt_heldout,Base 160k,pick_plate,e15deg-t15cm,76.0
+idlt_heldout,Base 160k,pick_plate,e20deg-t20cm,80.0
+idlt_heldout,Base 160k,pick_plate,e30deg-t30cm,76.0
+idlt_heldout,Base 160k,pick_plate,e40deg-t40cm,66.0
+idlt_heldout,Base 160k,pick_plate,e50deg-t50cm,54.0
+idlt_heldout,Base 160k,pick_plate,e60deg-t60cm,23.0
+idlt_heldout,VideoPooled 84k,push_box,calibrated,97.0
+idlt_heldout,VideoPooled 84k,push_box,known,94.0
+idlt_heldout,VideoPooled 84k,push_box,e3deg-t1cm,96.0
+idlt_heldout,VideoPooled 84k,push_box,e5deg-t5cm,96.0
+idlt_heldout,VideoPooled 84k,push_box,e10deg-t10cm,95.0
+idlt_heldout,VideoPooled 84k,push_box,e15deg-t15cm,97.0
+idlt_heldout,VideoPooled 84k,push_box,e20deg-t20cm,93.0
+idlt_heldout,VideoPooled 84k,push_box,e30deg-t30cm,89.0
+idlt_heldout,VideoPooled 84k,push_box,e40deg-t40cm,93.0
+idlt_heldout,VideoPooled 84k,push_box,e50deg-t50cm,91.0
+idlt_heldout,VideoPooled 84k,push_box,e60deg-t60cm,92.0
+idlt_heldout,Random hist 50k (δM on),push_box,calibrated,97.0
+idlt_heldout,Random hist 50k (δM on),push_box,known,92.0
+idlt_heldout,Random hist 50k (δM on),push_box,e3deg-t1cm,94.0
+idlt_heldout,Random hist 50k (δM on),push_box,e5deg-t5cm,95.0
+idlt_heldout,Random hist 50k (δM on),push_box,e10deg-t10cm,97.0
+idlt_heldout,Random hist 50k (δM on),push_box,e15deg-t15cm,95.0
+idlt_heldout,Random hist 50k (δM on),push_box,e20deg-t20cm,95.0
+idlt_heldout,Random hist 50k (δM on),push_box,e30deg-t30cm,95.0
+idlt_heldout,Random hist 50k (δM on),push_box,e40deg-t40cm,91.0
+idlt_heldout,Random hist 50k (δM on),push_box,e50deg-t50cm,93.0
+idlt_heldout,Random hist 50k (δM on),push_box,e60deg-t60cm,94.0
+idlt_heldout,No δM 140k (ordered),push_box,calibrated,95.0
+idlt_heldout,No δM 140k (ordered),push_box,known,90.0
+idlt_heldout,No δM 140k (ordered),push_box,e3deg-t1cm,92.0
+idlt_heldout,No δM 140k (ordered),push_box,e5deg-t5cm,94.0
+idlt_heldout,No δM 140k (ordered),push_box,e10deg-t10cm,92.0
+idlt_heldout,No δM 140k (ordered),push_box,e15deg-t15cm,94.0
+idlt_heldout,No δM 140k (ordered),push_box,e20deg-t20cm,85.0
+idlt_heldout,No δM 140k (ordered),push_box,e30deg-t30cm,94.0
+idlt_heldout,No δM 140k (ordered),push_box,e40deg-t40cm,95.0
+idlt_heldout,No δM 140k (ordered),push_box,e50deg-t50cm,91.0
+idlt_heldout,No δM 140k (ordered),push_box,e60deg-t60cm,87.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,calibrated,95.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,known,96.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,e3deg-t1cm,98.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,e5deg-t5cm,96.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,e10deg-t10cm,97.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,e15deg-t15cm,97.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,e20deg-t20cm,96.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,e30deg-t30cm,99.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,e40deg-t40cm,98.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,e50deg-t50cm,96.0
+idlt_heldout,"A: scratch, no δM, rand",push_box,e60deg-t60cm,94.0
+idlt_heldout,C: A − register,push_box,calibrated,96.0
+idlt_heldout,C: A − register,push_box,known,91.0
+idlt_heldout,C: A − register,push_box,e3deg-t1cm,92.0
+idlt_heldout,C: A − register,push_box,e5deg-t5cm,88.0
+idlt_heldout,C: A − register,push_box,e10deg-t10cm,91.0
+idlt_heldout,C: A − register,push_box,e15deg-t15cm,92.0
+idlt_heldout,C: A − register,push_box,e20deg-t20cm,93.0
+idlt_heldout,C: A − register,push_box,e30deg-t30cm,89.0
+idlt_heldout,C: A − register,push_box,e40deg-t40cm,88.0
+idlt_heldout,C: A − register,push_box,e50deg-t50cm,93.0
+idlt_heldout,C: A − register,push_box,e60deg-t60cm,86.0
+idlt_heldout,Base 160k,push_box,calibrated,80.0
+idlt_heldout,Base 160k,push_box,known,86.0
+idlt_heldout,Base 160k,push_box,e3deg-t1cm,83.0
+idlt_heldout,Base 160k,push_box,e5deg-t5cm,80.0
+idlt_heldout,Base 160k,push_box,e10deg-t10cm,84.0
+idlt_heldout,Base 160k,push_box,e15deg-t15cm,82.0
+idlt_heldout,Base 160k,push_box,e20deg-t20cm,86.0
+idlt_heldout,Base 160k,push_box,e30deg-t30cm,86.0
+idlt_heldout,Base 160k,push_box,e40deg-t40cm,86.0
+idlt_heldout,Base 160k,push_box,e50deg-t50cm,71.0
+idlt_heldout,Base 160k,push_box,e60deg-t60cm,69.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,calibrated,53.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,known,50.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,e3deg-t1cm,48.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,e5deg-t5cm,45.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,e10deg-t10cm,41.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,e15deg-t15cm,41.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,e20deg-t20cm,48.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,e30deg-t30cm,48.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,e40deg-t40cm,45.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,e50deg-t50cm,41.0
+idlt_heldout,VideoPooled 84k,put_bottle_in_fridge,e60deg-t60cm,37.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,calibrated,63.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,known,63.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,e3deg-t1cm,64.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,e5deg-t5cm,68.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,e10deg-t10cm,63.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,e15deg-t15cm,67.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,e20deg-t20cm,61.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,e30deg-t30cm,58.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,e40deg-t40cm,54.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,e50deg-t50cm,67.0
+idlt_heldout,Random hist 50k (δM on),put_bottle_in_fridge,e60deg-t60cm,70.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,calibrated,57.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,known,55.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,e3deg-t1cm,56.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,e5deg-t5cm,58.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,e10deg-t10cm,51.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,e15deg-t15cm,47.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,e20deg-t20cm,45.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,e30deg-t30cm,47.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,e40deg-t40cm,54.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,e50deg-t50cm,61.0
+idlt_heldout,No δM 140k (ordered),put_bottle_in_fridge,e60deg-t60cm,54.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,calibrated,72.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,known,67.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,e3deg-t1cm,68.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,e5deg-t5cm,73.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,e10deg-t10cm,70.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,e15deg-t15cm,18.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,e20deg-t20cm,2.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,e30deg-t30cm,1.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,e40deg-t40cm,0.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,e50deg-t50cm,0.0
+idlt_heldout,"A: scratch, no δM, rand",put_bottle_in_fridge,e60deg-t60cm,0.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,calibrated,68.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,known,73.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,e3deg-t1cm,69.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,e5deg-t5cm,72.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,e10deg-t10cm,86.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,e15deg-t15cm,2.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,e20deg-t20cm,60.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,e30deg-t30cm,56.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,e40deg-t40cm,1.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,e50deg-t50cm,0.0
+idlt_heldout,C: A − register,put_bottle_in_fridge,e60deg-t60cm,0.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,calibrated,56.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,known,57.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,e3deg-t1cm,70.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,e5deg-t5cm,59.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,e10deg-t10cm,58.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,e15deg-t15cm,1.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,e20deg-t20cm,1.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,e30deg-t30cm,1.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,e40deg-t40cm,3.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,e50deg-t50cm,0.0
+idlt_heldout,Base 160k,put_bottle_in_fridge,e60deg-t60cm,0.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,calibrated,81.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,known,85.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,e3deg-t1cm,83.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,e5deg-t5cm,85.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,e10deg-t10cm,83.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,e15deg-t15cm,85.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,e20deg-t20cm,86.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,e30deg-t30cm,82.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,e40deg-t40cm,86.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,e50deg-t50cm,88.0
+idlt_heldout,VideoPooled 84k,put_item_in_drawer,e60deg-t60cm,85.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,calibrated,84.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,known,90.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,e3deg-t1cm,96.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,e5deg-t5cm,95.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,e10deg-t10cm,93.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,e15deg-t15cm,92.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,e20deg-t20cm,89.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,e30deg-t30cm,93.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,e40deg-t40cm,89.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,e50deg-t50cm,90.0
+idlt_heldout,Random hist 50k (δM on),put_item_in_drawer,e60deg-t60cm,88.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,calibrated,81.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,known,88.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,e3deg-t1cm,88.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,e5deg-t5cm,85.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,e10deg-t10cm,91.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,e15deg-t15cm,80.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,e20deg-t20cm,82.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,e30deg-t30cm,81.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,e40deg-t40cm,84.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,e50deg-t50cm,79.0
+idlt_heldout,No δM 140k (ordered),put_item_in_drawer,e60deg-t60cm,81.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,calibrated,82.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,known,88.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,e3deg-t1cm,83.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,e5deg-t5cm,83.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,e10deg-t10cm,85.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,e15deg-t15cm,80.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,e20deg-t20cm,79.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,e30deg-t30cm,88.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,e40deg-t40cm,83.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,e50deg-t50cm,84.0
+idlt_heldout,"A: scratch, no δM, rand",put_item_in_drawer,e60deg-t60cm,81.0
+idlt_heldout,C: A − register,put_item_in_drawer,calibrated,82.0
+idlt_heldout,C: A − register,put_item_in_drawer,known,70.0
+idlt_heldout,C: A − register,put_item_in_drawer,e3deg-t1cm,76.0
+idlt_heldout,C: A − register,put_item_in_drawer,e5deg-t5cm,84.0
+idlt_heldout,C: A − register,put_item_in_drawer,e10deg-t10cm,74.0
+idlt_heldout,C: A − register,put_item_in_drawer,e15deg-t15cm,79.0
+idlt_heldout,C: A − register,put_item_in_drawer,e20deg-t20cm,79.0
+idlt_heldout,C: A − register,put_item_in_drawer,e30deg-t30cm,74.0
+idlt_heldout,C: A − register,put_item_in_drawer,e40deg-t40cm,77.0
+idlt_heldout,C: A − register,put_item_in_drawer,e50deg-t50cm,76.0
+idlt_heldout,C: A − register,put_item_in_drawer,e60deg-t60cm,76.0
+idlt_heldout,Base 160k,put_item_in_drawer,calibrated,66.0
+idlt_heldout,Base 160k,put_item_in_drawer,known,61.0
+idlt_heldout,Base 160k,put_item_in_drawer,e3deg-t1cm,70.0
+idlt_heldout,Base 160k,put_item_in_drawer,e5deg-t5cm,61.0
+idlt_heldout,Base 160k,put_item_in_drawer,e10deg-t10cm,66.0
+idlt_heldout,Base 160k,put_item_in_drawer,e15deg-t15cm,59.0
+idlt_heldout,Base 160k,put_item_in_drawer,e20deg-t20cm,64.0
+idlt_heldout,Base 160k,put_item_in_drawer,e30deg-t30cm,53.0
+idlt_heldout,Base 160k,put_item_in_drawer,e40deg-t40cm,58.0
+idlt_heldout,Base 160k,put_item_in_drawer,e50deg-t50cm,28.0
+idlt_heldout,Base 160k,put_item_in_drawer,e60deg-t60cm,16.0
+idlt_heldout,VideoPooled 84k,straighten_rope,calibrated,49.0
+idlt_heldout,VideoPooled 84k,straighten_rope,known,48.0
+idlt_heldout,VideoPooled 84k,straighten_rope,e3deg-t1cm,51.0
+idlt_heldout,VideoPooled 84k,straighten_rope,e5deg-t5cm,45.0
+idlt_heldout,VideoPooled 84k,straighten_rope,e10deg-t10cm,47.0
+idlt_heldout,VideoPooled 84k,straighten_rope,e15deg-t15cm,55.0
+idlt_heldout,VideoPooled 84k,straighten_rope,e20deg-t20cm,48.0
+idlt_heldout,VideoPooled 84k,straighten_rope,e30deg-t30cm,36.0
+idlt_heldout,VideoPooled 84k,straighten_rope,e40deg-t40cm,18.0
+idlt_heldout,VideoPooled 84k,straighten_rope,e50deg-t50cm,12.0
+idlt_heldout,VideoPooled 84k,straighten_rope,e60deg-t60cm,11.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,calibrated,35.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,known,32.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,e3deg-t1cm,29.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,e5deg-t5cm,32.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,e10deg-t10cm,23.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,e15deg-t15cm,37.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,e20deg-t20cm,29.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,e30deg-t30cm,30.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,e40deg-t40cm,21.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,e50deg-t50cm,16.0
+idlt_heldout,Random hist 50k (δM on),straighten_rope,e60deg-t60cm,12.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,calibrated,45.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,known,44.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,e3deg-t1cm,49.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,e5deg-t5cm,55.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,e10deg-t10cm,53.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,e15deg-t15cm,54.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,e20deg-t20cm,44.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,e30deg-t30cm,44.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,e40deg-t40cm,30.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,e50deg-t50cm,25.0
+idlt_heldout,No δM 140k (ordered),straighten_rope,e60deg-t60cm,30.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,calibrated,24.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,known,20.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,e3deg-t1cm,26.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,e5deg-t5cm,17.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,e10deg-t10cm,27.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,e15deg-t15cm,22.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,e20deg-t20cm,22.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,e30deg-t30cm,24.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,e40deg-t40cm,19.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,e50deg-t50cm,18.0
+idlt_heldout,"A: scratch, no δM, rand",straighten_rope,e60deg-t60cm,10.0
+idlt_heldout,C: A − register,straighten_rope,calibrated,39.0
+idlt_heldout,C: A − register,straighten_rope,known,35.0
+idlt_heldout,C: A − register,straighten_rope,e3deg-t1cm,29.0
+idlt_heldout,C: A − register,straighten_rope,e5deg-t5cm,36.0
+idlt_heldout,C: A − register,straighten_rope,e10deg-t10cm,31.0
+idlt_heldout,C: A − register,straighten_rope,e15deg-t15cm,40.0
+idlt_heldout,C: A − register,straighten_rope,e20deg-t20cm,31.0
+idlt_heldout,C: A − register,straighten_rope,e30deg-t30cm,29.0
+idlt_heldout,C: A − register,straighten_rope,e40deg-t40cm,21.0
+idlt_heldout,C: A − register,straighten_rope,e50deg-t50cm,19.0
+idlt_heldout,C: A − register,straighten_rope,e60deg-t60cm,10.0
+idlt_heldout,Base 160k,straighten_rope,calibrated,21.0
+idlt_heldout,Base 160k,straighten_rope,known,28.0
+idlt_heldout,Base 160k,straighten_rope,e3deg-t1cm,27.0
+idlt_heldout,Base 160k,straighten_rope,e5deg-t5cm,22.0
+idlt_heldout,Base 160k,straighten_rope,e10deg-t10cm,21.0
+idlt_heldout,Base 160k,straighten_rope,e15deg-t15cm,11.0
+idlt_heldout,Base 160k,straighten_rope,e20deg-t20cm,11.0
+idlt_heldout,Base 160k,straighten_rope,e30deg-t30cm,4.0
+idlt_heldout,Base 160k,straighten_rope,e40deg-t40cm,1.0
+idlt_heldout,Base 160k,straighten_rope,e50deg-t50cm,0.0
+idlt_heldout,Base 160k,straighten_rope,e60deg-t60cm,0.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,calibrated,69.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,known,77.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,e3deg-t1cm,79.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,e5deg-t5cm,70.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,e10deg-t10cm,76.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,e15deg-t15cm,71.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,e20deg-t20cm,81.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,e30deg-t30cm,78.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,e40deg-t40cm,69.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,e50deg-t50cm,64.0
+idlt_heldout,VideoPooled 84k,sweep_to_dustpan,e60deg-t60cm,67.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,calibrated,53.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,known,53.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,e3deg-t1cm,53.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,e5deg-t5cm,52.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,e10deg-t10cm,50.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,e15deg-t15cm,50.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,e20deg-t20cm,54.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,e30deg-t30cm,53.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,e40deg-t40cm,50.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,e50deg-t50cm,57.0
+idlt_heldout,Random hist 50k (δM on),sweep_to_dustpan,e60deg-t60cm,53.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,calibrated,72.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,known,77.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,e3deg-t1cm,77.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,e5deg-t5cm,67.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,e10deg-t10cm,77.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,e15deg-t15cm,69.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,e20deg-t20cm,70.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,e30deg-t30cm,70.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,e40deg-t40cm,75.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,e50deg-t50cm,70.0
+idlt_heldout,No δM 140k (ordered),sweep_to_dustpan,e60deg-t60cm,70.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,calibrated,75.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,known,73.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,e3deg-t1cm,75.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,e5deg-t5cm,76.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,e10deg-t10cm,61.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,e15deg-t15cm,76.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,e20deg-t20cm,71.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,e30deg-t30cm,79.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,e40deg-t40cm,67.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,e50deg-t50cm,66.0
+idlt_heldout,"A: scratch, no δM, rand",sweep_to_dustpan,e60deg-t60cm,72.0
+idlt_heldout,C: A − register,sweep_to_dustpan,calibrated,73.0
+idlt_heldout,C: A − register,sweep_to_dustpan,known,70.0
+idlt_heldout,C: A − register,sweep_to_dustpan,e3deg-t1cm,67.0
+idlt_heldout,C: A − register,sweep_to_dustpan,e5deg-t5cm,70.0
+idlt_heldout,C: A − register,sweep_to_dustpan,e10deg-t10cm,70.0
+idlt_heldout,C: A − register,sweep_to_dustpan,e15deg-t15cm,72.0
+idlt_heldout,C: A − register,sweep_to_dustpan,e20deg-t20cm,74.0
+idlt_heldout,C: A − register,sweep_to_dustpan,e30deg-t30cm,60.0
+idlt_heldout,C: A − register,sweep_to_dustpan,e40deg-t40cm,73.0
+idlt_heldout,C: A − register,sweep_to_dustpan,e50deg-t50cm,69.0
+idlt_heldout,C: A − register,sweep_to_dustpan,e60deg-t60cm,73.0
+idlt_heldout,Base 160k,sweep_to_dustpan,calibrated,99.0
+idlt_heldout,Base 160k,sweep_to_dustpan,known,98.0
+idlt_heldout,Base 160k,sweep_to_dustpan,e3deg-t1cm,98.0
+idlt_heldout,Base 160k,sweep_to_dustpan,e5deg-t5cm,98.0
+idlt_heldout,Base 160k,sweep_to_dustpan,e10deg-t10cm,98.0
+idlt_heldout,Base 160k,sweep_to_dustpan,e15deg-t15cm,98.0
+idlt_heldout,Base 160k,sweep_to_dustpan,e20deg-t20cm,98.0
+idlt_heldout,Base 160k,sweep_to_dustpan,e30deg-t30cm,99.0
+idlt_heldout,Base 160k,sweep_to_dustpan,e40deg-t40cm,98.0
+idlt_heldout,Base 160k,sweep_to_dustpan,e50deg-t50cm,98.0
+idlt_heldout,Base 160k,sweep_to_dustpan,e60deg-t60cm,98.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,calibrated,78.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,known,82.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,e3deg-t1cm,79.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,e5deg-t5cm,85.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,e10deg-t10cm,81.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,e15deg-t15cm,74.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,e20deg-t20cm,75.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,e30deg-t30cm,76.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,e40deg-t40cm,76.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,e50deg-t50cm,75.0
+idlt_heldout,VideoPooled 84k,take_tray_out_of_oven,e60deg-t60cm,79.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,calibrated,77.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,known,72.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,e3deg-t1cm,74.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,e5deg-t5cm,72.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,e10deg-t10cm,70.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,e15deg-t15cm,72.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,e20deg-t20cm,80.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,e30deg-t30cm,80.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,e40deg-t40cm,80.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,e50deg-t50cm,73.0
+idlt_heldout,Random hist 50k (δM on),take_tray_out_of_oven,e60deg-t60cm,79.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,calibrated,73.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,known,73.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,e3deg-t1cm,68.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,e5deg-t5cm,70.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,e10deg-t10cm,78.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,e15deg-t15cm,72.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,e20deg-t20cm,71.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,e30deg-t30cm,72.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,e40deg-t40cm,71.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,e50deg-t50cm,73.0
+idlt_heldout,No δM 140k (ordered),take_tray_out_of_oven,e60deg-t60cm,70.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,calibrated,54.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,known,60.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,e3deg-t1cm,55.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,e5deg-t5cm,56.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,e10deg-t10cm,55.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,e15deg-t15cm,63.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,e20deg-t20cm,55.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,e30deg-t30cm,57.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,e40deg-t40cm,57.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,e50deg-t50cm,55.0
+idlt_heldout,"A: scratch, no δM, rand",take_tray_out_of_oven,e60deg-t60cm,56.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,calibrated,74.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,known,73.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,e3deg-t1cm,74.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,e5deg-t5cm,75.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,e10deg-t10cm,72.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,e15deg-t15cm,68.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,e20deg-t20cm,75.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,e30deg-t30cm,73.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,e40deg-t40cm,72.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,e50deg-t50cm,65.0
+idlt_heldout,C: A − register,take_tray_out_of_oven,e60deg-t60cm,60.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,calibrated,42.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,known,33.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,e3deg-t1cm,28.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,e5deg-t5cm,28.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,e10deg-t10cm,23.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,e15deg-t15cm,42.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,e20deg-t20cm,22.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,e30deg-t30cm,18.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,e40deg-t40cm,15.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,e50deg-t50cm,3.0
+idlt_heldout,Base 160k,take_tray_out_of_oven,e60deg-t60cm,0.0
+g7_translation,VideoPooled 84k,mean over tasks,clean,77.5
+g7_translation,VideoPooled 84k,mean over tasks,opposite-100cm,71.7
+g7_translation,VideoPooled 84k,mean over tasks,opposite-200cm,78.3
+g7_translation,VideoPooled 84k,mean over tasks,opposite-500cm,68.3
+g7_translation,Random hist 50k (δM on),mean over tasks,clean,72.5
+g7_translation,Random hist 50k (δM on),mean over tasks,opposite-100cm,75.8
+g7_translation,Random hist 50k (δM on),mean over tasks,opposite-200cm,73.3
+g7_translation,Random hist 50k (δM on),mean over tasks,opposite-500cm,65.8
+g7_translation,No δM 140k (ordered),mean over tasks,clean,83.3
+g7_translation,No δM 140k (ordered),mean over tasks,opposite-100cm,78.3
+g7_translation,No δM 140k (ordered),mean over tasks,opposite-200cm,77.5
+g7_translation,No δM 140k (ordered),mean over tasks,opposite-500cm,65.8
+g7_translation,"A: scratch, no δM, rand",mean over tasks,clean,74.2
+g7_translation,"A: scratch, no δM, rand",mean over tasks,opposite-100cm,71.7
+g7_translation,"A: scratch, no δM, rand",mean over tasks,opposite-200cm,73.3
+g7_translation,"A: scratch, no δM, rand",mean over tasks,opposite-500cm,66.7
+g7_translation,C: A − register,mean over tasks,clean,79.2
+g7_translation,C: A − register,mean over tasks,opposite-100cm,75.0
+g7_translation,C: A − register,mean over tasks,opposite-200cm,80.8
+g7_translation,C: A − register,mean over tasks,opposite-500cm,66.7
+g7_translation,Base 160k,mean over tasks,clean,70.8
+g7_translation,Base 160k,mean over tasks,opposite-100cm,41.7
+g7_translation,Base 160k,mean over tasks,opposite-200cm,42.5
+g7_translation,Base 160k,mean over tasks,opposite-500cm,52.5
+g7_translation,VideoPooled 84k,handover_item_easy,clean,95.0
+g7_translation,VideoPooled 84k,handover_item_easy,opposite-100cm,95.0
+g7_translation,VideoPooled 84k,handover_item_easy,opposite-200cm,95.0
+g7_translation,VideoPooled 84k,handover_item_easy,opposite-500cm,90.0
+g7_translation,Random hist 50k (δM on),handover_item_easy,clean,100.0
+g7_translation,Random hist 50k (δM on),handover_item_easy,opposite-100cm,100.0
+g7_translation,Random hist 50k (δM on),handover_item_easy,opposite-200cm,95.0
+g7_translation,Random hist 50k (δM on),handover_item_easy,opposite-500cm,100.0
+g7_translation,No δM 140k (ordered),handover_item_easy,clean,100.0
+g7_translation,No δM 140k (ordered),handover_item_easy,opposite-100cm,95.0
+g7_translation,No δM 140k (ordered),handover_item_easy,opposite-200cm,95.0
+g7_translation,No δM 140k (ordered),handover_item_easy,opposite-500cm,95.0
+g7_translation,"A: scratch, no δM, rand",handover_item_easy,clean,90.0
+g7_translation,"A: scratch, no δM, rand",handover_item_easy,opposite-100cm,50.0
+g7_translation,"A: scratch, no δM, rand",handover_item_easy,opposite-200cm,85.0
+g7_translation,"A: scratch, no δM, rand",handover_item_easy,opposite-500cm,95.0
+g7_translation,C: A − register,handover_item_easy,clean,100.0
+g7_translation,C: A − register,handover_item_easy,opposite-100cm,95.0
+g7_translation,C: A − register,handover_item_easy,opposite-200cm,95.0
+g7_translation,C: A − register,handover_item_easy,opposite-500cm,95.0
+g7_translation,Base 160k,handover_item_easy,clean,90.0
+g7_translation,Base 160k,handover_item_easy,opposite-100cm,0.0
+g7_translation,Base 160k,handover_item_easy,opposite-200cm,0.0
+g7_translation,Base 160k,handover_item_easy,opposite-500cm,75.0
+g7_translation,VideoPooled 84k,lift_ball,clean,100.0
+g7_translation,VideoPooled 84k,lift_ball,opposite-100cm,95.0
+g7_translation,VideoPooled 84k,lift_ball,opposite-200cm,95.0
+g7_translation,VideoPooled 84k,lift_ball,opposite-500cm,100.0
+g7_translation,Random hist 50k (δM on),lift_ball,clean,100.0
+g7_translation,Random hist 50k (δM on),lift_ball,opposite-100cm,100.0
+g7_translation,Random hist 50k (δM on),lift_ball,opposite-200cm,100.0
+g7_translation,Random hist 50k (δM on),lift_ball,opposite-500cm,100.0
+g7_translation,No δM 140k (ordered),lift_ball,clean,100.0
+g7_translation,No δM 140k (ordered),lift_ball,opposite-100cm,100.0
+g7_translation,No δM 140k (ordered),lift_ball,opposite-200cm,100.0
+g7_translation,No δM 140k (ordered),lift_ball,opposite-500cm,100.0
+g7_translation,"A: scratch, no δM, rand",lift_ball,clean,100.0
+g7_translation,"A: scratch, no δM, rand",lift_ball,opposite-100cm,100.0
+g7_translation,"A: scratch, no δM, rand",lift_ball,opposite-200cm,100.0
+g7_translation,"A: scratch, no δM, rand",lift_ball,opposite-500cm,100.0
+g7_translation,C: A − register,lift_ball,clean,100.0
+g7_translation,C: A − register,lift_ball,opposite-100cm,100.0
+g7_translation,C: A − register,lift_ball,opposite-200cm,95.0
+g7_translation,C: A − register,lift_ball,opposite-500cm,95.0
+g7_translation,Base 160k,lift_ball,clean,100.0
+g7_translation,Base 160k,lift_ball,opposite-100cm,95.0
+g7_translation,Base 160k,lift_ball,opposite-200cm,90.0
+g7_translation,Base 160k,lift_ball,opposite-500cm,100.0
+g7_translation,VideoPooled 84k,pick_laptop,clean,65.0
+g7_translation,VideoPooled 84k,pick_laptop,opposite-100cm,60.0
+g7_translation,VideoPooled 84k,pick_laptop,opposite-200cm,60.0
+g7_translation,VideoPooled 84k,pick_laptop,opposite-500cm,20.0
+g7_translation,Random hist 50k (δM on),pick_laptop,clean,70.0
+g7_translation,Random hist 50k (δM on),pick_laptop,opposite-100cm,70.0
+g7_translation,Random hist 50k (δM on),pick_laptop,opposite-200cm,40.0
+g7_translation,Random hist 50k (δM on),pick_laptop,opposite-500cm,5.0
+g7_translation,No δM 140k (ordered),pick_laptop,clean,75.0
+g7_translation,No δM 140k (ordered),pick_laptop,opposite-100cm,70.0
+g7_translation,No δM 140k (ordered),pick_laptop,opposite-200cm,60.0
+g7_translation,No δM 140k (ordered),pick_laptop,opposite-500cm,35.0
+g7_translation,"A: scratch, no δM, rand",pick_laptop,clean,90.0
+g7_translation,"A: scratch, no δM, rand",pick_laptop,opposite-100cm,65.0
+g7_translation,"A: scratch, no δM, rand",pick_laptop,opposite-200cm,80.0
+g7_translation,"A: scratch, no δM, rand",pick_laptop,opposite-500cm,35.0
+g7_translation,C: A − register,pick_laptop,clean,75.0
+g7_translation,C: A − register,pick_laptop,opposite-100cm,70.0
+g7_translation,C: A − register,pick_laptop,opposite-200cm,80.0
+g7_translation,C: A − register,pick_laptop,opposite-500cm,30.0
+g7_translation,Base 160k,pick_laptop,clean,40.0
+g7_translation,Base 160k,pick_laptop,opposite-100cm,0.0
+g7_translation,Base 160k,pick_laptop,opposite-200cm,0.0
+g7_translation,Base 160k,pick_laptop,opposite-500cm,15.0
+g7_translation,VideoPooled 84k,pick_plate,clean,75.0
+g7_translation,VideoPooled 84k,pick_plate,opposite-100cm,70.0
+g7_translation,VideoPooled 84k,pick_plate,opposite-200cm,90.0
+g7_translation,VideoPooled 84k,pick_plate,opposite-500cm,90.0
+g7_translation,Random hist 50k (δM on),pick_plate,clean,50.0
+g7_translation,Random hist 50k (δM on),pick_plate,opposite-100cm,65.0
+g7_translation,Random hist 50k (δM on),pick_plate,opposite-200cm,80.0
+g7_translation,Random hist 50k (δM on),pick_plate,opposite-500cm,60.0
+g7_translation,No δM 140k (ordered),pick_plate,clean,75.0
+g7_translation,No δM 140k (ordered),pick_plate,opposite-100cm,60.0
+g7_translation,No δM 140k (ordered),pick_plate,opposite-200cm,55.0
+g7_translation,No δM 140k (ordered),pick_plate,opposite-500cm,45.0
+g7_translation,"A: scratch, no δM, rand",pick_plate,clean,70.0
+g7_translation,"A: scratch, no δM, rand",pick_plate,opposite-100cm,80.0
+g7_translation,"A: scratch, no δM, rand",pick_plate,opposite-200cm,70.0
+g7_translation,"A: scratch, no δM, rand",pick_plate,opposite-500cm,65.0
+g7_translation,C: A − register,pick_plate,clean,75.0
+g7_translation,C: A − register,pick_plate,opposite-100cm,75.0
+g7_translation,C: A − register,pick_plate,opposite-200cm,75.0
+g7_translation,C: A − register,pick_plate,opposite-500cm,65.0
+g7_translation,Base 160k,pick_plate,clean,80.0
+g7_translation,Base 160k,pick_plate,opposite-100cm,60.0
+g7_translation,Base 160k,pick_plate,opposite-200cm,65.0
+g7_translation,Base 160k,pick_plate,opposite-500cm,20.0
+g7_translation,VideoPooled 84k,push_box,clean,95.0
+g7_translation,VideoPooled 84k,push_box,opposite-100cm,90.0
+g7_translation,VideoPooled 84k,push_box,opposite-200cm,90.0
+g7_translation,VideoPooled 84k,push_box,opposite-500cm,95.0
+g7_translation,Random hist 50k (δM on),push_box,clean,100.0
+g7_translation,Random hist 50k (δM on),push_box,opposite-100cm,100.0
+g7_translation,Random hist 50k (δM on),push_box,opposite-200cm,95.0
+g7_translation,Random hist 50k (δM on),push_box,opposite-500cm,95.0
+g7_translation,No δM 140k (ordered),push_box,clean,95.0
+g7_translation,No δM 140k (ordered),push_box,opposite-100cm,95.0
+g7_translation,No δM 140k (ordered),push_box,opposite-200cm,95.0
+g7_translation,No δM 140k (ordered),push_box,opposite-500cm,95.0
+g7_translation,"A: scratch, no δM, rand",push_box,clean,90.0
+g7_translation,"A: scratch, no δM, rand",push_box,opposite-100cm,100.0
+g7_translation,"A: scratch, no δM, rand",push_box,opposite-200cm,95.0
+g7_translation,"A: scratch, no δM, rand",push_box,opposite-500cm,95.0
+g7_translation,C: A − register,push_box,clean,85.0
+g7_translation,C: A − register,push_box,opposite-100cm,95.0
+g7_translation,C: A − register,push_box,opposite-200cm,95.0
+g7_translation,C: A − register,push_box,opposite-500cm,80.0
+g7_translation,Base 160k,push_box,clean,95.0
+g7_translation,Base 160k,push_box,opposite-100cm,95.0
+g7_translation,Base 160k,push_box,opposite-200cm,95.0
+g7_translation,Base 160k,push_box,opposite-500cm,100.0
+g7_translation,VideoPooled 84k,straighten_rope,clean,35.0
+g7_translation,VideoPooled 84k,straighten_rope,opposite-100cm,20.0
+g7_translation,VideoPooled 84k,straighten_rope,opposite-200cm,40.0
+g7_translation,VideoPooled 84k,straighten_rope,opposite-500cm,15.0
+g7_translation,Random hist 50k (δM on),straighten_rope,clean,15.0
+g7_translation,Random hist 50k (δM on),straighten_rope,opposite-100cm,20.0
+g7_translation,Random hist 50k (δM on),straighten_rope,opposite-200cm,30.0
+g7_translation,Random hist 50k (δM on),straighten_rope,opposite-500cm,35.0
+g7_translation,No δM 140k (ordered),straighten_rope,clean,55.0
+g7_translation,No δM 140k (ordered),straighten_rope,opposite-100cm,50.0
+g7_translation,No δM 140k (ordered),straighten_rope,opposite-200cm,60.0
+g7_translation,No δM 140k (ordered),straighten_rope,opposite-500cm,25.0
+g7_translation,"A: scratch, no δM, rand",straighten_rope,clean,5.0
+g7_translation,"A: scratch, no δM, rand",straighten_rope,opposite-100cm,35.0
+g7_translation,"A: scratch, no δM, rand",straighten_rope,opposite-200cm,10.0
+g7_translation,"A: scratch, no δM, rand",straighten_rope,opposite-500cm,10.0
+g7_translation,C: A − register,straighten_rope,clean,40.0
+g7_translation,C: A − register,straighten_rope,opposite-100cm,15.0
+g7_translation,C: A − register,straighten_rope,opposite-200cm,45.0
+g7_translation,C: A − register,straighten_rope,opposite-500cm,35.0
+g7_translation,Base 160k,straighten_rope,clean,20.0
+g7_translation,Base 160k,straighten_rope,opposite-100cm,0.0
+g7_translation,Base 160k,straighten_rope,opposite-200cm,5.0
+g7_translation,Base 160k,straighten_rope,opposite-500cm,5.0
+g7_rotation,VideoPooled 84k,mean over tasks,clean,77.5
+g7_rotation,VideoPooled 84k,mean over tasks,rot-20deg,77.5
+g7_rotation,VideoPooled 84k,mean over tasks,rot-90deg,77.5
+g7_rotation,VideoPooled 84k,mean over tasks,rot-180deg,72.5
+g7_rotation,VideoPooled 84k,mean over tasks,rot-270deg,79.2
+g7_rotation,Random hist 50k (δM on),mean over tasks,clean,72.5
+g7_rotation,Random hist 50k (δM on),mean over tasks,rot-20deg,77.5
+g7_rotation,Random hist 50k (δM on),mean over tasks,rot-90deg,76.7
+g7_rotation,Random hist 50k (δM on),mean over tasks,rot-180deg,80.0
+g7_rotation,Random hist 50k (δM on),mean over tasks,rot-270deg,75.8
+g7_rotation,No δM 140k (ordered),mean over tasks,clean,83.3
+g7_rotation,No δM 140k (ordered),mean over tasks,rot-20deg,80.0
+g7_rotation,No δM 140k (ordered),mean over tasks,rot-90deg,74.2
+g7_rotation,No δM 140k (ordered),mean over tasks,rot-180deg,75.0
+g7_rotation,No δM 140k (ordered),mean over tasks,rot-270deg,70.0
+g7_rotation,"A: scratch, no δM, rand",mean over tasks,clean,74.2
+g7_rotation,"A: scratch, no δM, rand",mean over tasks,rot-20deg,78.3
+g7_rotation,"A: scratch, no δM, rand",mean over tasks,rot-90deg,75.0
+g7_rotation,"A: scratch, no δM, rand",mean over tasks,rot-180deg,71.7
+g7_rotation,"A: scratch, no δM, rand",mean over tasks,rot-270deg,74.2
+g7_rotation,C: A − register,mean over tasks,clean,79.2
+g7_rotation,C: A − register,mean over tasks,rot-20deg,80.0
+g7_rotation,C: A − register,mean over tasks,rot-90deg,72.5
+g7_rotation,C: A − register,mean over tasks,rot-180deg,65.8
+g7_rotation,C: A − register,mean over tasks,rot-270deg,70.8
+g7_rotation,Base 160k,mean over tasks,clean,70.8
+g7_rotation,Base 160k,mean over tasks,rot-20deg,77.5
+g7_rotation,Base 160k,mean over tasks,rot-90deg,51.7
+g7_rotation,Base 160k,mean over tasks,rot-180deg,48.3
+g7_rotation,Base 160k,mean over tasks,rot-270deg,56.7
+g7_rotation,VideoPooled 84k,handover_item_easy,clean,95.0
+g7_rotation,VideoPooled 84k,handover_item_easy,rot-20deg,95.0
+g7_rotation,VideoPooled 84k,handover_item_easy,rot-90deg,95.0
+g7_rotation,VideoPooled 84k,handover_item_easy,rot-180deg,100.0
+g7_rotation,VideoPooled 84k,handover_item_easy,rot-270deg,95.0
+g7_rotation,Random hist 50k (δM on),handover_item_easy,clean,100.0
+g7_rotation,Random hist 50k (δM on),handover_item_easy,rot-20deg,100.0
+g7_rotation,Random hist 50k (δM on),handover_item_easy,rot-90deg,100.0
+g7_rotation,Random hist 50k (δM on),handover_item_easy,rot-180deg,100.0
+g7_rotation,Random hist 50k (δM on),handover_item_easy,rot-270deg,100.0
+g7_rotation,No δM 140k (ordered),handover_item_easy,clean,100.0
+g7_rotation,No δM 140k (ordered),handover_item_easy,rot-20deg,100.0
+g7_rotation,No δM 140k (ordered),handover_item_easy,rot-90deg,100.0
+g7_rotation,No δM 140k (ordered),handover_item_easy,rot-180deg,100.0
+g7_rotation,No δM 140k (ordered),handover_item_easy,rot-270deg,95.0
+g7_rotation,"A: scratch, no δM, rand",handover_item_easy,clean,90.0
+g7_rotation,"A: scratch, no δM, rand",handover_item_easy,rot-20deg,95.0
+g7_rotation,"A: scratch, no δM, rand",handover_item_easy,rot-90deg,95.0
+g7_rotation,"A: scratch, no δM, rand",handover_item_easy,rot-180deg,90.0
+g7_rotation,"A: scratch, no δM, rand",handover_item_easy,rot-270deg,95.0
+g7_rotation,C: A − register,handover_item_easy,clean,100.0
+g7_rotation,C: A − register,handover_item_easy,rot-20deg,100.0
+g7_rotation,C: A − register,handover_item_easy,rot-90deg,100.0
+g7_rotation,C: A − register,handover_item_easy,rot-180deg,100.0
+g7_rotation,C: A − register,handover_item_easy,rot-270deg,95.0
+g7_rotation,Base 160k,handover_item_easy,clean,90.0
+g7_rotation,Base 160k,handover_item_easy,rot-20deg,90.0
+g7_rotation,Base 160k,handover_item_easy,rot-90deg,70.0
+g7_rotation,Base 160k,handover_item_easy,rot-180deg,90.0
+g7_rotation,Base 160k,handover_item_easy,rot-270deg,70.0
+g7_rotation,VideoPooled 84k,lift_ball,clean,100.0
+g7_rotation,VideoPooled 84k,lift_ball,rot-20deg,100.0
+g7_rotation,VideoPooled 84k,lift_ball,rot-90deg,100.0
+g7_rotation,VideoPooled 84k,lift_ball,rot-180deg,95.0
+g7_rotation,VideoPooled 84k,lift_ball,rot-270deg,100.0
+g7_rotation,Random hist 50k (δM on),lift_ball,clean,100.0
+g7_rotation,Random hist 50k (δM on),lift_ball,rot-20deg,100.0
+g7_rotation,Random hist 50k (δM on),lift_ball,rot-90deg,100.0
+g7_rotation,Random hist 50k (δM on),lift_ball,rot-180deg,100.0
+g7_rotation,Random hist 50k (δM on),lift_ball,rot-270deg,100.0
+g7_rotation,No δM 140k (ordered),lift_ball,clean,100.0
+g7_rotation,No δM 140k (ordered),lift_ball,rot-20deg,100.0
+g7_rotation,No δM 140k (ordered),lift_ball,rot-90deg,100.0
+g7_rotation,No δM 140k (ordered),lift_ball,rot-180deg,100.0
+g7_rotation,No δM 140k (ordered),lift_ball,rot-270deg,100.0
+g7_rotation,"A: scratch, no δM, rand",lift_ball,clean,100.0
+g7_rotation,"A: scratch, no δM, rand",lift_ball,rot-20deg,100.0
+g7_rotation,"A: scratch, no δM, rand",lift_ball,rot-90deg,100.0
+g7_rotation,"A: scratch, no δM, rand",lift_ball,rot-180deg,100.0
+g7_rotation,"A: scratch, no δM, rand",lift_ball,rot-270deg,100.0
+g7_rotation,C: A − register,lift_ball,clean,100.0
+g7_rotation,C: A − register,lift_ball,rot-20deg,100.0
+g7_rotation,C: A − register,lift_ball,rot-90deg,100.0
+g7_rotation,C: A − register,lift_ball,rot-180deg,100.0
+g7_rotation,C: A − register,lift_ball,rot-270deg,100.0
+g7_rotation,Base 160k,lift_ball,clean,100.0
+g7_rotation,Base 160k,lift_ball,rot-20deg,100.0
+g7_rotation,Base 160k,lift_ball,rot-90deg,100.0
+g7_rotation,Base 160k,lift_ball,rot-180deg,100.0
+g7_rotation,Base 160k,lift_ball,rot-270deg,95.0
+g7_rotation,VideoPooled 84k,pick_laptop,clean,65.0
+g7_rotation,VideoPooled 84k,pick_laptop,rot-20deg,60.0
+g7_rotation,VideoPooled 84k,pick_laptop,rot-90deg,65.0
+g7_rotation,VideoPooled 84k,pick_laptop,rot-180deg,55.0
+g7_rotation,VideoPooled 84k,pick_laptop,rot-270deg,65.0
+g7_rotation,Random hist 50k (δM on),pick_laptop,clean,70.0
+g7_rotation,Random hist 50k (δM on),pick_laptop,rot-20deg,75.0
+g7_rotation,Random hist 50k (δM on),pick_laptop,rot-90deg,50.0
+g7_rotation,Random hist 50k (δM on),pick_laptop,rot-180deg,80.0
+g7_rotation,Random hist 50k (δM on),pick_laptop,rot-270deg,55.0
+g7_rotation,No δM 140k (ordered),pick_laptop,clean,75.0
+g7_rotation,No δM 140k (ordered),pick_laptop,rot-20deg,70.0
+g7_rotation,No δM 140k (ordered),pick_laptop,rot-90deg,65.0
+g7_rotation,No δM 140k (ordered),pick_laptop,rot-180deg,40.0
+g7_rotation,No δM 140k (ordered),pick_laptop,rot-270deg,35.0
+g7_rotation,"A: scratch, no δM, rand",pick_laptop,clean,90.0
+g7_rotation,"A: scratch, no δM, rand",pick_laptop,rot-20deg,80.0
+g7_rotation,"A: scratch, no δM, rand",pick_laptop,rot-90deg,85.0
+g7_rotation,"A: scratch, no δM, rand",pick_laptop,rot-180deg,80.0
+g7_rotation,"A: scratch, no δM, rand",pick_laptop,rot-270deg,65.0
+g7_rotation,C: A − register,pick_laptop,clean,75.0
+g7_rotation,C: A − register,pick_laptop,rot-20deg,75.0
+g7_rotation,C: A − register,pick_laptop,rot-90deg,75.0
+g7_rotation,C: A − register,pick_laptop,rot-180deg,70.0
+g7_rotation,C: A − register,pick_laptop,rot-270deg,55.0
+g7_rotation,Base 160k,pick_laptop,clean,40.0
+g7_rotation,Base 160k,pick_laptop,rot-20deg,65.0
+g7_rotation,Base 160k,pick_laptop,rot-90deg,0.0
+g7_rotation,Base 160k,pick_laptop,rot-180deg,0.0
+g7_rotation,Base 160k,pick_laptop,rot-270deg,15.0
+g7_rotation,VideoPooled 84k,pick_plate,clean,75.0
+g7_rotation,VideoPooled 84k,pick_plate,rot-20deg,75.0
+g7_rotation,VideoPooled 84k,pick_plate,rot-90deg,85.0
+g7_rotation,VideoPooled 84k,pick_plate,rot-180deg,65.0
+g7_rotation,VideoPooled 84k,pick_plate,rot-270deg,80.0
+g7_rotation,Random hist 50k (δM on),pick_plate,clean,50.0
+g7_rotation,Random hist 50k (δM on),pick_plate,rot-20deg,60.0
+g7_rotation,Random hist 50k (δM on),pick_plate,rot-90deg,80.0
+g7_rotation,Random hist 50k (δM on),pick_plate,rot-180deg,70.0
+g7_rotation,Random hist 50k (δM on),pick_plate,rot-270deg,80.0
+g7_rotation,No δM 140k (ordered),pick_plate,clean,75.0
+g7_rotation,No δM 140k (ordered),pick_plate,rot-20deg,65.0
+g7_rotation,No δM 140k (ordered),pick_plate,rot-90deg,50.0
+g7_rotation,No δM 140k (ordered),pick_plate,rot-180deg,70.0
+g7_rotation,No δM 140k (ordered),pick_plate,rot-270deg,75.0
+g7_rotation,"A: scratch, no δM, rand",pick_plate,clean,70.0
+g7_rotation,"A: scratch, no δM, rand",pick_plate,rot-20deg,80.0
+g7_rotation,"A: scratch, no δM, rand",pick_plate,rot-90deg,75.0
+g7_rotation,"A: scratch, no δM, rand",pick_plate,rot-180deg,70.0
+g7_rotation,"A: scratch, no δM, rand",pick_plate,rot-270deg,65.0
+g7_rotation,C: A − register,pick_plate,clean,75.0
+g7_rotation,C: A − register,pick_plate,rot-20deg,80.0
+g7_rotation,C: A − register,pick_plate,rot-90deg,70.0
+g7_rotation,C: A − register,pick_plate,rot-180deg,60.0
+g7_rotation,C: A − register,pick_plate,rot-270deg,60.0
+g7_rotation,Base 160k,pick_plate,clean,80.0
+g7_rotation,Base 160k,pick_plate,rot-20deg,90.0
+g7_rotation,Base 160k,pick_plate,rot-90deg,60.0
+g7_rotation,Base 160k,pick_plate,rot-180deg,30.0
+g7_rotation,Base 160k,pick_plate,rot-270deg,55.0
+g7_rotation,VideoPooled 84k,push_box,clean,95.0
+g7_rotation,VideoPooled 84k,push_box,rot-20deg,95.0
+g7_rotation,VideoPooled 84k,push_box,rot-90deg,85.0
+g7_rotation,VideoPooled 84k,push_box,rot-180deg,95.0
+g7_rotation,VideoPooled 84k,push_box,rot-270deg,100.0
+g7_rotation,Random hist 50k (δM on),push_box,clean,100.0
+g7_rotation,Random hist 50k (δM on),push_box,rot-20deg,100.0
+g7_rotation,Random hist 50k (δM on),push_box,rot-90deg,100.0
+g7_rotation,Random hist 50k (δM on),push_box,rot-180deg,100.0
+g7_rotation,Random hist 50k (δM on),push_box,rot-270deg,100.0
+g7_rotation,No δM 140k (ordered),push_box,clean,95.0
+g7_rotation,No δM 140k (ordered),push_box,rot-20deg,95.0
+g7_rotation,No δM 140k (ordered),push_box,rot-90deg,95.0
+g7_rotation,No δM 140k (ordered),push_box,rot-180deg,100.0
+g7_rotation,No δM 140k (ordered),push_box,rot-270deg,85.0
+g7_rotation,"A: scratch, no δM, rand",push_box,clean,90.0
+g7_rotation,"A: scratch, no δM, rand",push_box,rot-20deg,95.0
+g7_rotation,"A: scratch, no δM, rand",push_box,rot-90deg,75.0
+g7_rotation,"A: scratch, no δM, rand",push_box,rot-180deg,80.0
+g7_rotation,"A: scratch, no δM, rand",push_box,rot-270deg,95.0
+g7_rotation,C: A − register,push_box,clean,85.0
+g7_rotation,C: A − register,push_box,rot-20deg,90.0
+g7_rotation,C: A − register,push_box,rot-90deg,70.0
+g7_rotation,C: A − register,push_box,rot-180deg,60.0
+g7_rotation,C: A − register,push_box,rot-270deg,95.0
+g7_rotation,Base 160k,push_box,clean,95.0
+g7_rotation,Base 160k,push_box,rot-20deg,100.0
+g7_rotation,Base 160k,push_box,rot-90deg,70.0
+g7_rotation,Base 160k,push_box,rot-180deg,65.0
+g7_rotation,Base 160k,push_box,rot-270deg,85.0
+g7_rotation,VideoPooled 84k,straighten_rope,clean,35.0
+g7_rotation,VideoPooled 84k,straighten_rope,rot-20deg,40.0
+g7_rotation,VideoPooled 84k,straighten_rope,rot-90deg,35.0
+g7_rotation,VideoPooled 84k,straighten_rope,rot-180deg,25.0
+g7_rotation,VideoPooled 84k,straighten_rope,rot-270deg,35.0
+g7_rotation,Random hist 50k (δM on),straighten_rope,clean,15.0
+g7_rotation,Random hist 50k (δM on),straighten_rope,rot-20deg,30.0
+g7_rotation,Random hist 50k (δM on),straighten_rope,rot-90deg,30.0
+g7_rotation,Random hist 50k (δM on),straighten_rope,rot-180deg,30.0
+g7_rotation,Random hist 50k (δM on),straighten_rope,rot-270deg,20.0
+g7_rotation,No δM 140k (ordered),straighten_rope,clean,55.0
+g7_rotation,No δM 140k (ordered),straighten_rope,rot-20deg,50.0
+g7_rotation,No δM 140k (ordered),straighten_rope,rot-90deg,35.0
+g7_rotation,No δM 140k (ordered),straighten_rope,rot-180deg,40.0
+g7_rotation,No δM 140k (ordered),straighten_rope,rot-270deg,30.0
+g7_rotation,"A: scratch, no δM, rand",straighten_rope,clean,5.0
+g7_rotation,"A: scratch, no δM, rand",straighten_rope,rot-20deg,20.0
+g7_rotation,"A: scratch, no δM, rand",straighten_rope,rot-90deg,20.0
+g7_rotation,"A: scratch, no δM, rand",straighten_rope,rot-180deg,10.0
+g7_rotation,"A: scratch, no δM, rand",straighten_rope,rot-270deg,25.0
+g7_rotation,C: A − register,straighten_rope,clean,40.0
+g7_rotation,C: A − register,straighten_rope,rot-20deg,35.0
+g7_rotation,C: A − register,straighten_rope,rot-90deg,20.0
+g7_rotation,C: A − register,straighten_rope,rot-180deg,5.0
+g7_rotation,C: A − register,straighten_rope,rot-270deg,20.0
+g7_rotation,Base 160k,straighten_rope,clean,20.0
+g7_rotation,Base 160k,straighten_rope,rot-20deg,20.0
+g7_rotation,Base 160k,straighten_rope,rot-90deg,10.0
+g7_rotation,Base 160k,straighten_rope,rot-180deg,5.0
+g7_rotation,Base 160k,straighten_rope,rot-270deg,20.0
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,calibrated,81.2
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,known,
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,e10deg-t10cm,79.8
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,e15deg-t15cm,80.3
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,e20deg-t20cm,79.0
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,e30deg-t30cm,77.2
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,e40deg-t40cm,76.7
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,e50deg-t50cm,75.2
+idlt_heldout_ema,VideoPooled EMA 15k,mean over tasks,e60deg-t60cm,74.2
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,calibrated,78.5
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,known,81.8
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,e3deg-t1cm,80.8
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,e5deg-t5cm,80.4
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,e10deg-t10cm,80.2
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,e15deg-t15cm,81.8
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,e20deg-t20cm,79.6
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,e30deg-t30cm,80.2
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,e40deg-t40cm,76.8
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,e50deg-t50cm,75.3
+idlt_heldout_ema,Random hist EMA 15k (δM on),mean over tasks,e60deg-t60cm,76.5
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,calibrated,77.8
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,e10deg-t10cm,77.5
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,e15deg-t15cm,76.7
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,e20deg-t20cm,76.6
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,e30deg-t30cm,75.3
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,e40deg-t40cm,72.8
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,e50deg-t50cm,70.7
+idlt_heldout_ema,No δM EMA 15k (ordered),mean over tasks,e60deg-t60cm,71.5
+idlt_heldout_ema,A EMA 20k,mean over tasks,calibrated,74.8
+idlt_heldout_ema,A EMA 20k,mean over tasks,known,
+idlt_heldout_ema,A EMA 20k,mean over tasks,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,mean over tasks,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,mean over tasks,e10deg-t10cm,75.7
+idlt_heldout_ema,A EMA 20k,mean over tasks,e15deg-t15cm,68.3
+idlt_heldout_ema,A EMA 20k,mean over tasks,e20deg-t20cm,70.2
+idlt_heldout_ema,A EMA 20k,mean over tasks,e30deg-t30cm,69.5
+idlt_heldout_ema,A EMA 20k,mean over tasks,e40deg-t40cm,65.8
+idlt_heldout_ema,A EMA 20k,mean over tasks,e50deg-t50cm,64.3
+idlt_heldout_ema,A EMA 20k,mean over tasks,e60deg-t60cm,64.4
+idlt_heldout_ema,C EMA 10k,mean over tasks,calibrated,77.8
+idlt_heldout_ema,C EMA 10k,mean over tasks,known,
+idlt_heldout_ema,C EMA 10k,mean over tasks,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,mean over tasks,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,mean over tasks,e10deg-t10cm,78.4
+idlt_heldout_ema,C EMA 10k,mean over tasks,e15deg-t15cm,73.1
+idlt_heldout_ema,C EMA 10k,mean over tasks,e20deg-t20cm,74.5
+idlt_heldout_ema,C EMA 10k,mean over tasks,e30deg-t30cm,73.8
+idlt_heldout_ema,C EMA 10k,mean over tasks,e40deg-t40cm,70.5
+idlt_heldout_ema,C EMA 10k,mean over tasks,e50deg-t50cm,70.4
+idlt_heldout_ema,C EMA 10k,mean over tasks,e60deg-t60cm,68.7
+idlt_heldout_ema,Base EMA 20k,mean over tasks,calibrated,75.5
+idlt_heldout_ema,Base EMA 20k,mean over tasks,known,
+idlt_heldout_ema,Base EMA 20k,mean over tasks,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,mean over tasks,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,mean over tasks,e10deg-t10cm,73.3
+idlt_heldout_ema,Base EMA 20k,mean over tasks,e15deg-t15cm,68.9
+idlt_heldout_ema,Base EMA 20k,mean over tasks,e20deg-t20cm,63.3
+idlt_heldout_ema,Base EMA 20k,mean over tasks,e30deg-t30cm,62.4
+idlt_heldout_ema,Base EMA 20k,mean over tasks,e40deg-t40cm,56.6
+idlt_heldout_ema,Base EMA 20k,mean over tasks,e50deg-t50cm,47.7
+idlt_heldout_ema,Base EMA 20k,mean over tasks,e60deg-t60cm,38.8
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,calibrated,79.0
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,known,
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,e10deg-t10cm,82.0
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,e15deg-t15cm,82.0
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,e20deg-t20cm,79.0
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,e30deg-t30cm,81.0
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,e40deg-t40cm,78.0
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,e50deg-t50cm,74.0
+idlt_heldout_ema,VideoPooled EMA 15k,dual_push_buttons,e60deg-t60cm,74.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,calibrated,77.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,known,78.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,e3deg-t1cm,77.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,e5deg-t5cm,78.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,e10deg-t10cm,77.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,e15deg-t15cm,77.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,e20deg-t20cm,79.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,e30deg-t30cm,74.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,e40deg-t40cm,78.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,e50deg-t50cm,73.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),dual_push_buttons,e60deg-t60cm,77.0
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,calibrated,81.0
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,e10deg-t10cm,81.0
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,e15deg-t15cm,81.0
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,e20deg-t20cm,83.0
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,e30deg-t30cm,79.0
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,e40deg-t40cm,85.0
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,e50deg-t50cm,79.0
+idlt_heldout_ema,No δM EMA 15k (ordered),dual_push_buttons,e60deg-t60cm,79.0
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,calibrated,81.0
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,known,
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,e10deg-t10cm,81.0
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,e15deg-t15cm,77.0
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,e20deg-t20cm,79.0
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,e30deg-t30cm,81.0
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,e40deg-t40cm,79.0
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,e50deg-t50cm,77.0
+idlt_heldout_ema,A EMA 20k,dual_push_buttons,e60deg-t60cm,81.0
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,calibrated,81.0
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,known,
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,e10deg-t10cm,79.0
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,e15deg-t15cm,82.0
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,e20deg-t20cm,82.0
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,e30deg-t30cm,85.0
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,e40deg-t40cm,81.0
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,e50deg-t50cm,79.0
+idlt_heldout_ema,C EMA 10k,dual_push_buttons,e60deg-t60cm,81.0
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,calibrated,79.0
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,known,
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,e10deg-t10cm,82.0
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,e15deg-t15cm,71.0
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,e20deg-t20cm,79.0
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,e30deg-t30cm,77.0
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,e40deg-t40cm,74.0
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,e50deg-t50cm,69.0
+idlt_heldout_ema,Base EMA 20k,dual_push_buttons,e60deg-t60cm,50.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,calibrated,96.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,known,
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,e10deg-t10cm,94.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,e15deg-t15cm,93.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,e20deg-t20cm,94.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,e30deg-t30cm,96.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,e40deg-t40cm,97.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,e50deg-t50cm,93.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item,e60deg-t60cm,93.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,calibrated,91.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,known,93.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,e3deg-t1cm,94.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,e5deg-t5cm,94.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,e10deg-t10cm,89.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,e15deg-t15cm,97.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,e20deg-t20cm,94.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,e30deg-t30cm,94.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,e40deg-t40cm,91.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,e50deg-t50cm,94.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item,e60deg-t60cm,96.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,calibrated,91.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,e10deg-t10cm,90.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,e15deg-t15cm,94.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,e20deg-t20cm,96.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,e30deg-t30cm,96.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,e40deg-t40cm,90.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,e50deg-t50cm,90.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item,e60deg-t60cm,96.0
+idlt_heldout_ema,A EMA 20k,handover_item,calibrated,80.0
+idlt_heldout_ema,A EMA 20k,handover_item,known,
+idlt_heldout_ema,A EMA 20k,handover_item,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,handover_item,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,handover_item,e10deg-t10cm,82.0
+idlt_heldout_ema,A EMA 20k,handover_item,e15deg-t15cm,88.0
+idlt_heldout_ema,A EMA 20k,handover_item,e20deg-t20cm,85.0
+idlt_heldout_ema,A EMA 20k,handover_item,e30deg-t30cm,82.0
+idlt_heldout_ema,A EMA 20k,handover_item,e40deg-t40cm,85.0
+idlt_heldout_ema,A EMA 20k,handover_item,e50deg-t50cm,86.0
+idlt_heldout_ema,A EMA 20k,handover_item,e60deg-t60cm,85.0
+idlt_heldout_ema,C EMA 10k,handover_item,calibrated,82.0
+idlt_heldout_ema,C EMA 10k,handover_item,known,
+idlt_heldout_ema,C EMA 10k,handover_item,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,handover_item,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,handover_item,e10deg-t10cm,88.0
+idlt_heldout_ema,C EMA 10k,handover_item,e15deg-t15cm,83.0
+idlt_heldout_ema,C EMA 10k,handover_item,e20deg-t20cm,85.0
+idlt_heldout_ema,C EMA 10k,handover_item,e30deg-t30cm,86.0
+idlt_heldout_ema,C EMA 10k,handover_item,e40deg-t40cm,86.0
+idlt_heldout_ema,C EMA 10k,handover_item,e50deg-t50cm,86.0
+idlt_heldout_ema,C EMA 10k,handover_item,e60deg-t60cm,81.0
+idlt_heldout_ema,Base EMA 20k,handover_item,calibrated,91.0
+idlt_heldout_ema,Base EMA 20k,handover_item,known,
+idlt_heldout_ema,Base EMA 20k,handover_item,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,handover_item,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,handover_item,e10deg-t10cm,86.0
+idlt_heldout_ema,Base EMA 20k,handover_item,e15deg-t15cm,86.0
+idlt_heldout_ema,Base EMA 20k,handover_item,e20deg-t20cm,89.0
+idlt_heldout_ema,Base EMA 20k,handover_item,e30deg-t30cm,87.0
+idlt_heldout_ema,Base EMA 20k,handover_item,e40deg-t40cm,82.0
+idlt_heldout_ema,Base EMA 20k,handover_item,e50deg-t50cm,78.0
+idlt_heldout_ema,Base EMA 20k,handover_item,e60deg-t60cm,18.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,calibrated,99.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,known,
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,e10deg-t10cm,95.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,e15deg-t15cm,98.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,e20deg-t20cm,95.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,e30deg-t30cm,98.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,e40deg-t40cm,95.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,e50deg-t50cm,95.0
+idlt_heldout_ema,VideoPooled EMA 15k,handover_item_easy,e60deg-t60cm,95.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,calibrated,98.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,known,99.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,e3deg-t1cm,98.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,e5deg-t5cm,100.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,e10deg-t10cm,99.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,e15deg-t15cm,98.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,e20deg-t20cm,98.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,e30deg-t30cm,99.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,e40deg-t40cm,99.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,e50deg-t50cm,97.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),handover_item_easy,e60deg-t60cm,96.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,calibrated,98.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,e10deg-t10cm,94.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,e15deg-t15cm,94.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,e20deg-t20cm,97.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,e30deg-t30cm,98.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,e40deg-t40cm,95.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,e50deg-t50cm,97.0
+idlt_heldout_ema,No δM EMA 15k (ordered),handover_item_easy,e60deg-t60cm,95.0
+idlt_heldout_ema,A EMA 20k,handover_item_easy,calibrated,94.0
+idlt_heldout_ema,A EMA 20k,handover_item_easy,known,
+idlt_heldout_ema,A EMA 20k,handover_item_easy,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,handover_item_easy,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,handover_item_easy,e10deg-t10cm,95.0
+idlt_heldout_ema,A EMA 20k,handover_item_easy,e15deg-t15cm,95.0
+idlt_heldout_ema,A EMA 20k,handover_item_easy,e20deg-t20cm,94.0
+idlt_heldout_ema,A EMA 20k,handover_item_easy,e30deg-t30cm,93.0
+idlt_heldout_ema,A EMA 20k,handover_item_easy,e40deg-t40cm,97.0
+idlt_heldout_ema,A EMA 20k,handover_item_easy,e50deg-t50cm,96.0
+idlt_heldout_ema,A EMA 20k,handover_item_easy,e60deg-t60cm,95.0
+idlt_heldout_ema,C EMA 10k,handover_item_easy,calibrated,95.0
+idlt_heldout_ema,C EMA 10k,handover_item_easy,known,
+idlt_heldout_ema,C EMA 10k,handover_item_easy,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,handover_item_easy,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,handover_item_easy,e10deg-t10cm,95.0
+idlt_heldout_ema,C EMA 10k,handover_item_easy,e15deg-t15cm,95.0
+idlt_heldout_ema,C EMA 10k,handover_item_easy,e20deg-t20cm,95.0
+idlt_heldout_ema,C EMA 10k,handover_item_easy,e30deg-t30cm,95.0
+idlt_heldout_ema,C EMA 10k,handover_item_easy,e40deg-t40cm,92.0
+idlt_heldout_ema,C EMA 10k,handover_item_easy,e50deg-t50cm,94.0
+idlt_heldout_ema,C EMA 10k,handover_item_easy,e60deg-t60cm,93.0
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,calibrated,92.0
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,known,
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,e10deg-t10cm,93.0
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,e15deg-t15cm,90.0
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,e20deg-t20cm,92.0
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,e30deg-t30cm,82.0
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,e40deg-t40cm,49.0
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,e50deg-t50cm,8.0
+idlt_heldout_ema,Base EMA 20k,handover_item_easy,e60deg-t60cm,4.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,calibrated,100.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,known,
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,e10deg-t10cm,100.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,e15deg-t15cm,99.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,e20deg-t20cm,100.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,e30deg-t30cm,100.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,e40deg-t40cm,99.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,e50deg-t50cm,100.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_ball,e60deg-t60cm,98.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,calibrated,100.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,known,100.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,e3deg-t1cm,100.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,e5deg-t5cm,100.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,e10deg-t10cm,100.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,e15deg-t15cm,100.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,e20deg-t20cm,100.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,e30deg-t30cm,99.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,e40deg-t40cm,98.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,e50deg-t50cm,99.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_ball,e60deg-t60cm,98.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,calibrated,98.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,e10deg-t10cm,100.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,e15deg-t15cm,99.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,e20deg-t20cm,99.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,e30deg-t30cm,100.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,e40deg-t40cm,100.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,e50deg-t50cm,100.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_ball,e60deg-t60cm,99.0
+idlt_heldout_ema,A EMA 20k,lift_ball,calibrated,100.0
+idlt_heldout_ema,A EMA 20k,lift_ball,known,
+idlt_heldout_ema,A EMA 20k,lift_ball,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,lift_ball,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,lift_ball,e10deg-t10cm,99.0
+idlt_heldout_ema,A EMA 20k,lift_ball,e15deg-t15cm,100.0
+idlt_heldout_ema,A EMA 20k,lift_ball,e20deg-t20cm,99.0
+idlt_heldout_ema,A EMA 20k,lift_ball,e30deg-t30cm,99.0
+idlt_heldout_ema,A EMA 20k,lift_ball,e40deg-t40cm,100.0
+idlt_heldout_ema,A EMA 20k,lift_ball,e50deg-t50cm,98.0
+idlt_heldout_ema,A EMA 20k,lift_ball,e60deg-t60cm,98.0
+idlt_heldout_ema,C EMA 10k,lift_ball,calibrated,98.0
+idlt_heldout_ema,C EMA 10k,lift_ball,known,
+idlt_heldout_ema,C EMA 10k,lift_ball,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,lift_ball,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,lift_ball,e10deg-t10cm,100.0
+idlt_heldout_ema,C EMA 10k,lift_ball,e15deg-t15cm,100.0
+idlt_heldout_ema,C EMA 10k,lift_ball,e20deg-t20cm,99.0
+idlt_heldout_ema,C EMA 10k,lift_ball,e30deg-t30cm,100.0
+idlt_heldout_ema,C EMA 10k,lift_ball,e40deg-t40cm,100.0
+idlt_heldout_ema,C EMA 10k,lift_ball,e50deg-t50cm,100.0
+idlt_heldout_ema,C EMA 10k,lift_ball,e60deg-t60cm,100.0
+idlt_heldout_ema,Base EMA 20k,lift_ball,calibrated,98.0
+idlt_heldout_ema,Base EMA 20k,lift_ball,known,
+idlt_heldout_ema,Base EMA 20k,lift_ball,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,lift_ball,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,lift_ball,e10deg-t10cm,96.0
+idlt_heldout_ema,Base EMA 20k,lift_ball,e15deg-t15cm,98.0
+idlt_heldout_ema,Base EMA 20k,lift_ball,e20deg-t20cm,100.0
+idlt_heldout_ema,Base EMA 20k,lift_ball,e30deg-t30cm,100.0
+idlt_heldout_ema,Base EMA 20k,lift_ball,e40deg-t40cm,98.0
+idlt_heldout_ema,Base EMA 20k,lift_ball,e50deg-t50cm,86.0
+idlt_heldout_ema,Base EMA 20k,lift_ball,e60deg-t60cm,89.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,calibrated,83.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,known,
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,e10deg-t10cm,92.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,e15deg-t15cm,94.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,e20deg-t20cm,92.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,e30deg-t30cm,91.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,e40deg-t40cm,91.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,e50deg-t50cm,91.0
+idlt_heldout_ema,VideoPooled EMA 15k,lift_tray,e60deg-t60cm,92.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,calibrated,98.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,known,93.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,e3deg-t1cm,93.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,e5deg-t5cm,89.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,e10deg-t10cm,96.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,e15deg-t15cm,96.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,e20deg-t20cm,89.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,e30deg-t30cm,91.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,e40deg-t40cm,95.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,e50deg-t50cm,89.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),lift_tray,e60deg-t60cm,91.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,calibrated,91.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,e10deg-t10cm,97.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,e15deg-t15cm,93.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,e20deg-t20cm,89.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,e30deg-t30cm,92.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,e40deg-t40cm,88.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,e50deg-t50cm,87.0
+idlt_heldout_ema,No δM EMA 15k (ordered),lift_tray,e60deg-t60cm,82.0
+idlt_heldout_ema,A EMA 20k,lift_tray,calibrated,93.0
+idlt_heldout_ema,A EMA 20k,lift_tray,known,
+idlt_heldout_ema,A EMA 20k,lift_tray,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,lift_tray,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,lift_tray,e10deg-t10cm,96.0
+idlt_heldout_ema,A EMA 20k,lift_tray,e15deg-t15cm,95.0
+idlt_heldout_ema,A EMA 20k,lift_tray,e20deg-t20cm,96.0
+idlt_heldout_ema,A EMA 20k,lift_tray,e30deg-t30cm,97.0
+idlt_heldout_ema,A EMA 20k,lift_tray,e40deg-t40cm,93.0
+idlt_heldout_ema,A EMA 20k,lift_tray,e50deg-t50cm,96.0
+idlt_heldout_ema,A EMA 20k,lift_tray,e60deg-t60cm,95.0
+idlt_heldout_ema,C EMA 10k,lift_tray,calibrated,96.0
+idlt_heldout_ema,C EMA 10k,lift_tray,known,
+idlt_heldout_ema,C EMA 10k,lift_tray,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,lift_tray,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,lift_tray,e10deg-t10cm,96.0
+idlt_heldout_ema,C EMA 10k,lift_tray,e15deg-t15cm,98.0
+idlt_heldout_ema,C EMA 10k,lift_tray,e20deg-t20cm,95.0
+idlt_heldout_ema,C EMA 10k,lift_tray,e30deg-t30cm,97.0
+idlt_heldout_ema,C EMA 10k,lift_tray,e40deg-t40cm,97.0
+idlt_heldout_ema,C EMA 10k,lift_tray,e50deg-t50cm,93.0
+idlt_heldout_ema,C EMA 10k,lift_tray,e60deg-t60cm,96.0
+idlt_heldout_ema,Base EMA 20k,lift_tray,calibrated,97.0
+idlt_heldout_ema,Base EMA 20k,lift_tray,known,
+idlt_heldout_ema,Base EMA 20k,lift_tray,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,lift_tray,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,lift_tray,e10deg-t10cm,99.0
+idlt_heldout_ema,Base EMA 20k,lift_tray,e15deg-t15cm,98.0
+idlt_heldout_ema,Base EMA 20k,lift_tray,e20deg-t20cm,100.0
+idlt_heldout_ema,Base EMA 20k,lift_tray,e30deg-t30cm,99.0
+idlt_heldout_ema,Base EMA 20k,lift_tray,e40deg-t40cm,94.0
+idlt_heldout_ema,Base EMA 20k,lift_tray,e50deg-t50cm,55.0
+idlt_heldout_ema,Base EMA 20k,lift_tray,e60deg-t60cm,56.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,calibrated,47.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,known,
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,e10deg-t10cm,42.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,e15deg-t15cm,52.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,e20deg-t20cm,33.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,e30deg-t30cm,22.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,e40deg-t40cm,15.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,e50deg-t50cm,14.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_laptop,e60deg-t60cm,13.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,calibrated,40.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,known,47.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,e3deg-t1cm,38.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,e5deg-t5cm,46.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,e10deg-t10cm,49.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,e15deg-t15cm,51.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,e20deg-t20cm,33.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,e30deg-t30cm,32.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,e40deg-t40cm,20.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,e50deg-t50cm,25.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_laptop,e60deg-t60cm,20.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,calibrated,62.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,e10deg-t10cm,58.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,e15deg-t15cm,62.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,e20deg-t20cm,45.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,e30deg-t30cm,29.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,e40deg-t40cm,23.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,e50deg-t50cm,18.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_laptop,e60deg-t60cm,18.0
+idlt_heldout_ema,A EMA 20k,pick_laptop,calibrated,44.0
+idlt_heldout_ema,A EMA 20k,pick_laptop,known,
+idlt_heldout_ema,A EMA 20k,pick_laptop,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,pick_laptop,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,pick_laptop,e10deg-t10cm,49.0
+idlt_heldout_ema,A EMA 20k,pick_laptop,e15deg-t15cm,54.0
+idlt_heldout_ema,A EMA 20k,pick_laptop,e20deg-t20cm,33.0
+idlt_heldout_ema,A EMA 20k,pick_laptop,e30deg-t30cm,26.0
+idlt_heldout_ema,A EMA 20k,pick_laptop,e40deg-t40cm,22.0
+idlt_heldout_ema,A EMA 20k,pick_laptop,e50deg-t50cm,23.0
+idlt_heldout_ema,A EMA 20k,pick_laptop,e60deg-t60cm,28.0
+idlt_heldout_ema,C EMA 10k,pick_laptop,calibrated,62.0
+idlt_heldout_ema,C EMA 10k,pick_laptop,known,
+idlt_heldout_ema,C EMA 10k,pick_laptop,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,pick_laptop,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,pick_laptop,e10deg-t10cm,62.0
+idlt_heldout_ema,C EMA 10k,pick_laptop,e15deg-t15cm,66.0
+idlt_heldout_ema,C EMA 10k,pick_laptop,e20deg-t20cm,63.0
+idlt_heldout_ema,C EMA 10k,pick_laptop,e30deg-t30cm,46.0
+idlt_heldout_ema,C EMA 10k,pick_laptop,e40deg-t40cm,41.0
+idlt_heldout_ema,C EMA 10k,pick_laptop,e50deg-t50cm,40.0
+idlt_heldout_ema,C EMA 10k,pick_laptop,e60deg-t60cm,37.0
+idlt_heldout_ema,Base EMA 20k,pick_laptop,calibrated,43.0
+idlt_heldout_ema,Base EMA 20k,pick_laptop,known,
+idlt_heldout_ema,Base EMA 20k,pick_laptop,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,pick_laptop,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,pick_laptop,e10deg-t10cm,30.0
+idlt_heldout_ema,Base EMA 20k,pick_laptop,e15deg-t15cm,60.0
+idlt_heldout_ema,Base EMA 20k,pick_laptop,e20deg-t20cm,13.0
+idlt_heldout_ema,Base EMA 20k,pick_laptop,e30deg-t30cm,10.0
+idlt_heldout_ema,Base EMA 20k,pick_laptop,e40deg-t40cm,9.0
+idlt_heldout_ema,Base EMA 20k,pick_laptop,e50deg-t50cm,2.0
+idlt_heldout_ema,Base EMA 20k,pick_laptop,e60deg-t60cm,2.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,calibrated,64.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,known,
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,e10deg-t10cm,64.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,e15deg-t15cm,62.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,e20deg-t20cm,65.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,e30deg-t30cm,64.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,e40deg-t40cm,63.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,e50deg-t50cm,71.0
+idlt_heldout_ema,VideoPooled EMA 15k,pick_plate,e60deg-t60cm,66.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,calibrated,48.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,known,62.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,e3deg-t1cm,63.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,e5deg-t5cm,62.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,e10deg-t10cm,58.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,e15deg-t15cm,60.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,e20deg-t20cm,58.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,e30deg-t30cm,72.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,e40deg-t40cm,55.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,e50deg-t50cm,59.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),pick_plate,e60deg-t60cm,66.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,calibrated,40.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,e10deg-t10cm,41.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,e15deg-t15cm,31.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,e20deg-t20cm,37.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,e30deg-t30cm,34.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,e40deg-t40cm,35.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,e50deg-t50cm,39.0
+idlt_heldout_ema,No δM EMA 15k (ordered),pick_plate,e60deg-t60cm,47.0
+idlt_heldout_ema,A EMA 20k,pick_plate,calibrated,54.0
+idlt_heldout_ema,A EMA 20k,pick_plate,known,
+idlt_heldout_ema,A EMA 20k,pick_plate,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,pick_plate,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,pick_plate,e10deg-t10cm,40.0
+idlt_heldout_ema,A EMA 20k,pick_plate,e15deg-t15cm,46.0
+idlt_heldout_ema,A EMA 20k,pick_plate,e20deg-t20cm,44.0
+idlt_heldout_ema,A EMA 20k,pick_plate,e30deg-t30cm,46.0
+idlt_heldout_ema,A EMA 20k,pick_plate,e40deg-t40cm,41.0
+idlt_heldout_ema,A EMA 20k,pick_plate,e50deg-t50cm,44.0
+idlt_heldout_ema,A EMA 20k,pick_plate,e60deg-t60cm,34.0
+idlt_heldout_ema,C EMA 10k,pick_plate,calibrated,37.0
+idlt_heldout_ema,C EMA 10k,pick_plate,known,
+idlt_heldout_ema,C EMA 10k,pick_plate,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,pick_plate,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,pick_plate,e10deg-t10cm,44.0
+idlt_heldout_ema,C EMA 10k,pick_plate,e15deg-t15cm,50.0
+idlt_heldout_ema,C EMA 10k,pick_plate,e20deg-t20cm,41.0
+idlt_heldout_ema,C EMA 10k,pick_plate,e30deg-t30cm,51.0
+idlt_heldout_ema,C EMA 10k,pick_plate,e40deg-t40cm,45.0
+idlt_heldout_ema,C EMA 10k,pick_plate,e50deg-t50cm,42.0
+idlt_heldout_ema,C EMA 10k,pick_plate,e60deg-t60cm,43.0
+idlt_heldout_ema,Base EMA 20k,pick_plate,calibrated,49.0
+idlt_heldout_ema,Base EMA 20k,pick_plate,known,
+idlt_heldout_ema,Base EMA 20k,pick_plate,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,pick_plate,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,pick_plate,e10deg-t10cm,58.0
+idlt_heldout_ema,Base EMA 20k,pick_plate,e15deg-t15cm,50.0
+idlt_heldout_ema,Base EMA 20k,pick_plate,e20deg-t20cm,47.0
+idlt_heldout_ema,Base EMA 20k,pick_plate,e30deg-t30cm,40.0
+idlt_heldout_ema,Base EMA 20k,pick_plate,e40deg-t40cm,31.0
+idlt_heldout_ema,Base EMA 20k,pick_plate,e50deg-t50cm,32.0
+idlt_heldout_ema,Base EMA 20k,pick_plate,e60deg-t60cm,35.0
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,calibrated,99.0
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,known,
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,e10deg-t10cm,97.0
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,e15deg-t15cm,94.0
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,e20deg-t20cm,93.0
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,e30deg-t30cm,95.0
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,e40deg-t40cm,97.0
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,e50deg-t50cm,94.0
+idlt_heldout_ema,VideoPooled EMA 15k,push_box,e60deg-t60cm,96.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,calibrated,95.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,known,96.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,e3deg-t1cm,96.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,e5deg-t5cm,91.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,e10deg-t10cm,97.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,e15deg-t15cm,95.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,e20deg-t20cm,94.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,e30deg-t30cm,94.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,e40deg-t40cm,95.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,e50deg-t50cm,96.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),push_box,e60deg-t60cm,97.0
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,calibrated,97.0
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,e10deg-t10cm,95.0
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,e15deg-t15cm,96.0
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,e20deg-t20cm,97.0
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,e30deg-t30cm,96.0
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,e40deg-t40cm,95.0
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,e50deg-t50cm,98.0
+idlt_heldout_ema,No δM EMA 15k (ordered),push_box,e60deg-t60cm,95.0
+idlt_heldout_ema,A EMA 20k,push_box,calibrated,92.0
+idlt_heldout_ema,A EMA 20k,push_box,known,
+idlt_heldout_ema,A EMA 20k,push_box,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,push_box,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,push_box,e10deg-t10cm,94.0
+idlt_heldout_ema,A EMA 20k,push_box,e15deg-t15cm,93.0
+idlt_heldout_ema,A EMA 20k,push_box,e20deg-t20cm,93.0
+idlt_heldout_ema,A EMA 20k,push_box,e30deg-t30cm,92.0
+idlt_heldout_ema,A EMA 20k,push_box,e40deg-t40cm,91.0
+idlt_heldout_ema,A EMA 20k,push_box,e50deg-t50cm,87.0
+idlt_heldout_ema,A EMA 20k,push_box,e60deg-t60cm,87.0
+idlt_heldout_ema,C EMA 10k,push_box,calibrated,96.0
+idlt_heldout_ema,C EMA 10k,push_box,known,
+idlt_heldout_ema,C EMA 10k,push_box,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,push_box,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,push_box,e10deg-t10cm,92.0
+idlt_heldout_ema,C EMA 10k,push_box,e15deg-t15cm,91.0
+idlt_heldout_ema,C EMA 10k,push_box,e20deg-t20cm,93.0
+idlt_heldout_ema,C EMA 10k,push_box,e30deg-t30cm,95.0
+idlt_heldout_ema,C EMA 10k,push_box,e40deg-t40cm,94.0
+idlt_heldout_ema,C EMA 10k,push_box,e50deg-t50cm,93.0
+idlt_heldout_ema,C EMA 10k,push_box,e60deg-t60cm,91.0
+idlt_heldout_ema,Base EMA 20k,push_box,calibrated,93.0
+idlt_heldout_ema,Base EMA 20k,push_box,known,
+idlt_heldout_ema,Base EMA 20k,push_box,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,push_box,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,push_box,e10deg-t10cm,95.0
+idlt_heldout_ema,Base EMA 20k,push_box,e15deg-t15cm,88.0
+idlt_heldout_ema,Base EMA 20k,push_box,e20deg-t20cm,98.0
+idlt_heldout_ema,Base EMA 20k,push_box,e30deg-t30cm,95.0
+idlt_heldout_ema,Base EMA 20k,push_box,e40deg-t40cm,95.0
+idlt_heldout_ema,Base EMA 20k,push_box,e50deg-t50cm,95.0
+idlt_heldout_ema,Base EMA 20k,push_box,e60deg-t60cm,90.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,calibrated,76.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,known,
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,e10deg-t10cm,73.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,e15deg-t15cm,71.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,e20deg-t20cm,78.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,e30deg-t30cm,67.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,e40deg-t40cm,77.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,e50deg-t50cm,78.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_bottle_in_fridge,e60deg-t60cm,76.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,calibrated,73.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,known,75.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,e3deg-t1cm,79.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,e5deg-t5cm,78.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,e10deg-t10cm,80.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,e15deg-t15cm,76.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,e20deg-t20cm,73.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,e30deg-t30cm,80.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,e40deg-t40cm,76.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,e50deg-t50cm,69.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_bottle_in_fridge,e60deg-t60cm,82.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,calibrated,76.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,e10deg-t10cm,78.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,e15deg-t15cm,79.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,e20deg-t20cm,78.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,e30deg-t30cm,81.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,e40deg-t40cm,82.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,e50deg-t50cm,68.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_bottle_in_fridge,e60deg-t60cm,79.0
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,calibrated,81.0
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,known,
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,e10deg-t10cm,81.0
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,e15deg-t15cm,0.0
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,e20deg-t20cm,19.0
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,e30deg-t30cm,17.0
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,e40deg-t40cm,1.0
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,e50deg-t50cm,0.0
+idlt_heldout_ema,A EMA 20k,put_bottle_in_fridge,e60deg-t60cm,0.0
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,calibrated,77.0
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,known,
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,e10deg-t10cm,70.0
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,e15deg-t15cm,1.0
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,e20deg-t20cm,19.0
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,e30deg-t30cm,24.0
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,e40deg-t40cm,0.0
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,e50deg-t50cm,0.0
+idlt_heldout_ema,C EMA 10k,put_bottle_in_fridge,e60deg-t60cm,0.0
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,calibrated,82.0
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,known,
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,e10deg-t10cm,77.0
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,e15deg-t15cm,10.0
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,e20deg-t20cm,1.0
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,e30deg-t30cm,0.0
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,e40deg-t40cm,0.0
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,e50deg-t50cm,0.0
+idlt_heldout_ema,Base EMA 20k,put_bottle_in_fridge,e60deg-t60cm,0.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,calibrated,93.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,known,
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,e10deg-t10cm,86.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,e15deg-t15cm,86.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,e20deg-t20cm,85.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,e30deg-t30cm,86.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,e40deg-t40cm,86.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,e50deg-t50cm,84.0
+idlt_heldout_ema,VideoPooled EMA 15k,put_item_in_drawer,e60deg-t60cm,80.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,calibrated,86.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,known,94.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,e3deg-t1cm,90.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,e5deg-t5cm,86.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,e10deg-t10cm,86.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,e15deg-t15cm,91.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,e20deg-t20cm,93.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,e30deg-t30cm,88.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,e40deg-t40cm,90.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,e50deg-t50cm,89.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),put_item_in_drawer,e60deg-t60cm,94.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,calibrated,91.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,e10deg-t10cm,89.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,e15deg-t15cm,82.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,e20deg-t20cm,89.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,e30deg-t30cm,88.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,e40deg-t40cm,90.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,e50deg-t50cm,92.0
+idlt_heldout_ema,No δM EMA 15k (ordered),put_item_in_drawer,e60deg-t60cm,82.0
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,calibrated,91.0
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,known,
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,e10deg-t10cm,88.0
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,e15deg-t15cm,83.0
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,e20deg-t20cm,84.0
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,e30deg-t30cm,88.0
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,e40deg-t40cm,81.0
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,e50deg-t50cm,85.0
+idlt_heldout_ema,A EMA 20k,put_item_in_drawer,e60deg-t60cm,81.0
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,calibrated,89.0
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,known,
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,e10deg-t10cm,86.0
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,e15deg-t15cm,89.0
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,e20deg-t20cm,88.0
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,e30deg-t30cm,86.0
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,e40deg-t40cm,88.0
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,e50deg-t50cm,82.0
+idlt_heldout_ema,C EMA 10k,put_item_in_drawer,e60deg-t60cm,84.0
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,calibrated,80.0
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,known,
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,e10deg-t10cm,80.0
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,e15deg-t15cm,77.0
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,e20deg-t20cm,73.0
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,e30deg-t30cm,86.0
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,e40deg-t40cm,88.0
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,e50deg-t50cm,74.0
+idlt_heldout_ema,Base EMA 20k,put_item_in_drawer,e60deg-t60cm,52.0
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,calibrated,58.0
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,known,
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,e10deg-t10cm,50.0
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,e15deg-t15cm,46.0
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,e20deg-t20cm,45.0
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,e30deg-t30cm,43.0
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,e40deg-t40cm,32.0
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,e50deg-t50cm,30.0
+idlt_heldout_ema,VideoPooled EMA 15k,straighten_rope,e60deg-t60cm,19.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,calibrated,46.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,known,55.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,e3deg-t1cm,53.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,e5deg-t5cm,57.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,e10deg-t10cm,41.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,e15deg-t15cm,51.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,e20deg-t20cm,56.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,e30deg-t30cm,47.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,e40deg-t40cm,35.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,e50deg-t50cm,24.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),straighten_rope,e60deg-t60cm,15.0
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,calibrated,40.0
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,e10deg-t10cm,32.0
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,e15deg-t15cm,47.0
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,e20deg-t20cm,42.0
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,e30deg-t30cm,33.0
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,e40deg-t40cm,18.0
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,e50deg-t50cm,15.0
+idlt_heldout_ema,No δM EMA 15k (ordered),straighten_rope,e60deg-t60cm,15.0
+idlt_heldout_ema,A EMA 20k,straighten_rope,calibrated,38.0
+idlt_heldout_ema,A EMA 20k,straighten_rope,known,
+idlt_heldout_ema,A EMA 20k,straighten_rope,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,straighten_rope,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,straighten_rope,e10deg-t10cm,38.0
+idlt_heldout_ema,A EMA 20k,straighten_rope,e15deg-t15cm,37.0
+idlt_heldout_ema,A EMA 20k,straighten_rope,e20deg-t20cm,40.0
+idlt_heldout_ema,A EMA 20k,straighten_rope,e30deg-t30cm,31.0
+idlt_heldout_ema,A EMA 20k,straighten_rope,e40deg-t40cm,31.0
+idlt_heldout_ema,A EMA 20k,straighten_rope,e50deg-t50cm,19.0
+idlt_heldout_ema,A EMA 20k,straighten_rope,e60deg-t60cm,13.0
+idlt_heldout_ema,C EMA 10k,straighten_rope,calibrated,37.0
+idlt_heldout_ema,C EMA 10k,straighten_rope,known,
+idlt_heldout_ema,C EMA 10k,straighten_rope,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,straighten_rope,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,straighten_rope,e10deg-t10cm,36.0
+idlt_heldout_ema,C EMA 10k,straighten_rope,e15deg-t15cm,29.0
+idlt_heldout_ema,C EMA 10k,straighten_rope,e20deg-t20cm,33.0
+idlt_heldout_ema,C EMA 10k,straighten_rope,e30deg-t30cm,28.0
+idlt_heldout_ema,C EMA 10k,straighten_rope,e40deg-t40cm,28.0
+idlt_heldout_ema,C EMA 10k,straighten_rope,e50deg-t50cm,29.0
+idlt_heldout_ema,C EMA 10k,straighten_rope,e60deg-t60cm,20.0
+idlt_heldout_ema,Base EMA 20k,straighten_rope,calibrated,26.0
+idlt_heldout_ema,Base EMA 20k,straighten_rope,known,
+idlt_heldout_ema,Base EMA 20k,straighten_rope,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,straighten_rope,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,straighten_rope,e10deg-t10cm,20.0
+idlt_heldout_ema,Base EMA 20k,straighten_rope,e15deg-t15cm,14.0
+idlt_heldout_ema,Base EMA 20k,straighten_rope,e20deg-t20cm,4.0
+idlt_heldout_ema,Base EMA 20k,straighten_rope,e30deg-t30cm,10.0
+idlt_heldout_ema,Base EMA 20k,straighten_rope,e40deg-t40cm,2.0
+idlt_heldout_ema,Base EMA 20k,straighten_rope,e50deg-t50cm,1.0
+idlt_heldout_ema,Base EMA 20k,straighten_rope,e60deg-t60cm,0.0
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,calibrated,78.0
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,known,
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,e10deg-t10cm,73.0
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,e15deg-t15cm,77.0
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,e20deg-t20cm,76.0
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,e30deg-t30cm,73.0
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,e40deg-t40cm,79.0
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,e50deg-t50cm,68.0
+idlt_heldout_ema,VideoPooled EMA 15k,sweep_to_dustpan,e60deg-t60cm,73.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,calibrated,84.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,known,87.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,e3deg-t1cm,90.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,e5deg-t5cm,87.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,e10deg-t10cm,85.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,e15deg-t15cm,90.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,e20deg-t20cm,86.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,e30deg-t30cm,91.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,e40deg-t40cm,86.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,e50deg-t50cm,89.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),sweep_to_dustpan,e60deg-t60cm,81.0
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,calibrated,59.0
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,e10deg-t10cm,59.0
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,e15deg-t15cm,52.0
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,e20deg-t20cm,58.0
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,e30deg-t30cm,63.0
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,e40deg-t40cm,58.0
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,e50deg-t50cm,56.0
+idlt_heldout_ema,No δM EMA 15k (ordered),sweep_to_dustpan,e60deg-t60cm,57.0
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,calibrated,71.0
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,known,
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,e10deg-t10cm,70.0
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,e15deg-t15cm,64.0
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,e20deg-t20cm,75.0
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,e30deg-t30cm,82.0
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,e40deg-t40cm,71.0
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,e50deg-t50cm,61.0
+idlt_heldout_ema,A EMA 20k,sweep_to_dustpan,e60deg-t60cm,69.0
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,calibrated,87.0
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,known,
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,e10deg-t10cm,93.0
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,e15deg-t15cm,91.0
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,e20deg-t20cm,91.0
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,e30deg-t30cm,89.0
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,e40deg-t40cm,86.0
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,e50deg-t50cm,91.0
+idlt_heldout_ema,C EMA 10k,sweep_to_dustpan,e60deg-t60cm,94.0
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,calibrated,97.0
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,known,
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,e10deg-t10cm,98.0
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,e15deg-t15cm,98.0
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,e20deg-t20cm,97.0
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,e30deg-t30cm,98.0
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,e40deg-t40cm,94.0
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,e50deg-t50cm,97.0
+idlt_heldout_ema,Base EMA 20k,sweep_to_dustpan,e60deg-t60cm,98.0
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,calibrated,84.0
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,known,
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,e3deg-t1cm,
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,e5deg-t5cm,
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,e10deg-t10cm,89.0
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,e15deg-t15cm,90.0
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,e20deg-t20cm,92.0
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,e30deg-t30cm,87.0
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,e40deg-t40cm,88.0
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,e50deg-t50cm,85.0
+idlt_heldout_ema,VideoPooled EMA 15k,take_tray_out_of_oven,e60deg-t60cm,89.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,calibrated,84.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,known,84.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,e3deg-t1cm,80.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,e5deg-t5cm,77.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,e10deg-t10cm,85.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,e15deg-t15cm,81.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,e20deg-t20cm,82.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,e30deg-t30cm,81.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,e40deg-t40cm,81.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,e50deg-t50cm,76.0
+idlt_heldout_ema,Random hist EMA 15k (δM on),take_tray_out_of_oven,e60deg-t60cm,82.0
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,calibrated,87.0
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,known,
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,e3deg-t1cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,e5deg-t5cm,
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,e10deg-t10cm,93.0
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,e15deg-t15cm,87.0
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,e20deg-t20cm,86.0
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,e30deg-t30cm,90.0
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,e40deg-t40cm,88.0
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,e50deg-t50cm,80.0
+idlt_heldout_ema,No δM EMA 15k (ordered),take_tray_out_of_oven,e60deg-t60cm,85.0
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,calibrated,53.0
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,known,
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,e3deg-t1cm,
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,e5deg-t5cm,
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,e10deg-t10cm,71.0
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,e15deg-t15cm,56.0
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,e20deg-t20cm,71.0
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,e30deg-t30cm,69.0
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,e40deg-t40cm,64.0
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,e50deg-t50cm,64.0
+idlt_heldout_ema,A EMA 20k,take_tray_out_of_oven,e60deg-t60cm,71.0
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,calibrated,74.0
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,known,
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,e3deg-t1cm,
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,e5deg-t5cm,
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,e10deg-t10cm,78.0
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,e15deg-t15cm,75.0
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,e20deg-t20cm,84.0
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,e30deg-t30cm,78.0
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,e40deg-t40cm,79.0
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,e50deg-t50cm,86.0
+idlt_heldout_ema,C EMA 10k,take_tray_out_of_oven,e60deg-t60cm,73.0
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,calibrated,55.0
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,known,
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,e3deg-t1cm,
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,e5deg-t5cm,
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,e10deg-t10cm,39.0
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,e15deg-t15cm,56.0
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,e20deg-t20cm,30.0
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,e30deg-t30cm,27.0
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,e40deg-t40cm,20.0
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,e50deg-t50cm,23.0
+idlt_heldout_ema,Base EMA 20k,take_tray_out_of_oven,e60deg-t60cm,10.0
+g7_translation_ema,VideoPooled EMA 15k,mean over tasks,clean,74.2
+g7_translation_ema,VideoPooled EMA 15k,mean over tasks,opposite-100cm,77.5
+g7_translation_ema,VideoPooled EMA 15k,mean over tasks,opposite-200cm,78.3
+g7_translation_ema,VideoPooled EMA 15k,mean over tasks,opposite-500cm,74.2
+g7_translation_ema,Random hist EMA 15k (δM on),mean over tasks,clean,78.3
+g7_translation_ema,Random hist EMA 15k (δM on),mean over tasks,opposite-100cm,78.3
+g7_translation_ema,Random hist EMA 15k (δM on),mean over tasks,opposite-200cm,77.5
+g7_translation_ema,Random hist EMA 15k (δM on),mean over tasks,opposite-500cm,69.2
+g7_translation_ema,No δM EMA 15k (ordered),mean over tasks,clean,80.0
+g7_translation_ema,No δM EMA 15k (ordered),mean over tasks,opposite-100cm,75.0
+g7_translation_ema,No δM EMA 15k (ordered),mean over tasks,opposite-200cm,76.7
+g7_translation_ema,No δM EMA 15k (ordered),mean over tasks,opposite-500cm,59.2
+g7_translation_ema,A EMA 20k,mean over tasks,clean,76.7
+g7_translation_ema,A EMA 20k,mean over tasks,opposite-100cm,70.0
+g7_translation_ema,A EMA 20k,mean over tasks,opposite-200cm,73.3
+g7_translation_ema,A EMA 20k,mean over tasks,opposite-500cm,69.2
+g7_translation_ema,C EMA 10k,mean over tasks,clean,71.7
+g7_translation_ema,C EMA 10k,mean over tasks,opposite-100cm,65.0
+g7_translation_ema,C EMA 10k,mean over tasks,opposite-200cm,74.2
+g7_translation_ema,C EMA 10k,mean over tasks,opposite-500cm,68.3
+g7_translation_ema,Base EMA 20k,mean over tasks,clean,73.3
+g7_translation_ema,Base EMA 20k,mean over tasks,opposite-100cm,47.5
+g7_translation_ema,Base EMA 20k,mean over tasks,opposite-200cm,36.7
+g7_translation_ema,Base EMA 20k,mean over tasks,opposite-500cm,59.2
+g7_translation_ema,VideoPooled EMA 15k,handover_item_easy,clean,100.0
+g7_translation_ema,VideoPooled EMA 15k,handover_item_easy,opposite-100cm,100.0
+g7_translation_ema,VideoPooled EMA 15k,handover_item_easy,opposite-200cm,100.0
+g7_translation_ema,VideoPooled EMA 15k,handover_item_easy,opposite-500cm,100.0
+g7_translation_ema,Random hist EMA 15k (δM on),handover_item_easy,clean,100.0
+g7_translation_ema,Random hist EMA 15k (δM on),handover_item_easy,opposite-100cm,100.0
+g7_translation_ema,Random hist EMA 15k (δM on),handover_item_easy,opposite-200cm,100.0
+g7_translation_ema,Random hist EMA 15k (δM on),handover_item_easy,opposite-500cm,95.0
+g7_translation_ema,No δM EMA 15k (ordered),handover_item_easy,clean,100.0
+g7_translation_ema,No δM EMA 15k (ordered),handover_item_easy,opposite-100cm,100.0
+g7_translation_ema,No δM EMA 15k (ordered),handover_item_easy,opposite-200cm,100.0
+g7_translation_ema,No δM EMA 15k (ordered),handover_item_easy,opposite-500cm,100.0
+g7_translation_ema,A EMA 20k,handover_item_easy,clean,95.0
+g7_translation_ema,A EMA 20k,handover_item_easy,opposite-100cm,95.0
+g7_translation_ema,A EMA 20k,handover_item_easy,opposite-200cm,95.0
+g7_translation_ema,A EMA 20k,handover_item_easy,opposite-500cm,95.0
+g7_translation_ema,C EMA 10k,handover_item_easy,clean,95.0
+g7_translation_ema,C EMA 10k,handover_item_easy,opposite-100cm,95.0
+g7_translation_ema,C EMA 10k,handover_item_easy,opposite-200cm,95.0
+g7_translation_ema,C EMA 10k,handover_item_easy,opposite-500cm,90.0
+g7_translation_ema,Base EMA 20k,handover_item_easy,clean,95.0
+g7_translation_ema,Base EMA 20k,handover_item_easy,opposite-100cm,45.0
+g7_translation_ema,Base EMA 20k,handover_item_easy,opposite-200cm,0.0
+g7_translation_ema,Base EMA 20k,handover_item_easy,opposite-500cm,95.0
+g7_translation_ema,VideoPooled EMA 15k,lift_ball,clean,100.0
+g7_translation_ema,VideoPooled EMA 15k,lift_ball,opposite-100cm,100.0
+g7_translation_ema,VideoPooled EMA 15k,lift_ball,opposite-200cm,100.0
+g7_translation_ema,VideoPooled EMA 15k,lift_ball,opposite-500cm,100.0
+g7_translation_ema,Random hist EMA 15k (δM on),lift_ball,clean,95.0
+g7_translation_ema,Random hist EMA 15k (δM on),lift_ball,opposite-100cm,100.0
+g7_translation_ema,Random hist EMA 15k (δM on),lift_ball,opposite-200cm,100.0
+g7_translation_ema,Random hist EMA 15k (δM on),lift_ball,opposite-500cm,100.0
+g7_translation_ema,No δM EMA 15k (ordered),lift_ball,clean,100.0
+g7_translation_ema,No δM EMA 15k (ordered),lift_ball,opposite-100cm,100.0
+g7_translation_ema,No δM EMA 15k (ordered),lift_ball,opposite-200cm,100.0
+g7_translation_ema,No δM EMA 15k (ordered),lift_ball,opposite-500cm,100.0
+g7_translation_ema,A EMA 20k,lift_ball,clean,100.0
+g7_translation_ema,A EMA 20k,lift_ball,opposite-100cm,100.0
+g7_translation_ema,A EMA 20k,lift_ball,opposite-200cm,100.0
+g7_translation_ema,A EMA 20k,lift_ball,opposite-500cm,100.0
+g7_translation_ema,C EMA 10k,lift_ball,clean,100.0
+g7_translation_ema,C EMA 10k,lift_ball,opposite-100cm,95.0
+g7_translation_ema,C EMA 10k,lift_ball,opposite-200cm,100.0
+g7_translation_ema,C EMA 10k,lift_ball,opposite-500cm,100.0
+g7_translation_ema,Base EMA 20k,lift_ball,clean,100.0
+g7_translation_ema,Base EMA 20k,lift_ball,opposite-100cm,95.0
+g7_translation_ema,Base EMA 20k,lift_ball,opposite-200cm,95.0
+g7_translation_ema,Base EMA 20k,lift_ball,opposite-500cm,100.0
+g7_translation_ema,VideoPooled EMA 15k,pick_laptop,clean,50.0
+g7_translation_ema,VideoPooled EMA 15k,pick_laptop,opposite-100cm,50.0
+g7_translation_ema,VideoPooled EMA 15k,pick_laptop,opposite-200cm,70.0
+g7_translation_ema,VideoPooled EMA 15k,pick_laptop,opposite-500cm,30.0
+g7_translation_ema,Random hist EMA 15k (δM on),pick_laptop,clean,55.0
+g7_translation_ema,Random hist EMA 15k (δM on),pick_laptop,opposite-100cm,55.0
+g7_translation_ema,Random hist EMA 15k (δM on),pick_laptop,opposite-200cm,60.0
+g7_translation_ema,Random hist EMA 15k (δM on),pick_laptop,opposite-500cm,35.0
+g7_translation_ema,No δM EMA 15k (ordered),pick_laptop,clean,80.0
+g7_translation_ema,No δM EMA 15k (ordered),pick_laptop,opposite-100cm,65.0
+g7_translation_ema,No δM EMA 15k (ordered),pick_laptop,opposite-200cm,70.0
+g7_translation_ema,No δM EMA 15k (ordered),pick_laptop,opposite-500cm,20.0
+g7_translation_ema,A EMA 20k,pick_laptop,clean,75.0
+g7_translation_ema,A EMA 20k,pick_laptop,opposite-100cm,40.0
+g7_translation_ema,A EMA 20k,pick_laptop,opposite-200cm,40.0
+g7_translation_ema,A EMA 20k,pick_laptop,opposite-500cm,30.0
+g7_translation_ema,C EMA 10k,pick_laptop,clean,60.0
+g7_translation_ema,C EMA 10k,pick_laptop,opposite-100cm,45.0
+g7_translation_ema,C EMA 10k,pick_laptop,opposite-200cm,70.0
+g7_translation_ema,C EMA 10k,pick_laptop,opposite-500cm,45.0
+g7_translation_ema,Base EMA 20k,pick_laptop,clean,65.0
+g7_translation_ema,Base EMA 20k,pick_laptop,opposite-100cm,0.0
+g7_translation_ema,Base EMA 20k,pick_laptop,opposite-200cm,0.0
+g7_translation_ema,Base EMA 20k,pick_laptop,opposite-500cm,15.0
+g7_translation_ema,VideoPooled EMA 15k,pick_plate,clean,55.0
+g7_translation_ema,VideoPooled EMA 15k,pick_plate,opposite-100cm,65.0
+g7_translation_ema,VideoPooled EMA 15k,pick_plate,opposite-200cm,55.0
+g7_translation_ema,VideoPooled EMA 15k,pick_plate,opposite-500cm,85.0
+g7_translation_ema,Random hist EMA 15k (δM on),pick_plate,clean,65.0
+g7_translation_ema,Random hist EMA 15k (δM on),pick_plate,opposite-100cm,70.0
+g7_translation_ema,Random hist EMA 15k (δM on),pick_plate,opposite-200cm,60.0
+g7_translation_ema,Random hist EMA 15k (δM on),pick_plate,opposite-500cm,60.0
+g7_translation_ema,No δM EMA 15k (ordered),pick_plate,clean,35.0
+g7_translation_ema,No δM EMA 15k (ordered),pick_plate,opposite-100cm,45.0
+g7_translation_ema,No δM EMA 15k (ordered),pick_plate,opposite-200cm,35.0
+g7_translation_ema,No δM EMA 15k (ordered),pick_plate,opposite-500cm,20.0
+g7_translation_ema,A EMA 20k,pick_plate,clean,60.0
+g7_translation_ema,A EMA 20k,pick_plate,opposite-100cm,60.0
+g7_translation_ema,A EMA 20k,pick_plate,opposite-200cm,55.0
+g7_translation_ema,A EMA 20k,pick_plate,opposite-500cm,55.0
+g7_translation_ema,C EMA 10k,pick_plate,clean,55.0
+g7_translation_ema,C EMA 10k,pick_plate,opposite-100cm,45.0
+g7_translation_ema,C EMA 10k,pick_plate,opposite-200cm,55.0
+g7_translation_ema,C EMA 10k,pick_plate,opposite-500cm,40.0
+g7_translation_ema,Base EMA 20k,pick_plate,clean,50.0
+g7_translation_ema,Base EMA 20k,pick_plate,opposite-100cm,35.0
+g7_translation_ema,Base EMA 20k,pick_plate,opposite-200cm,30.0
+g7_translation_ema,Base EMA 20k,pick_plate,opposite-500cm,35.0
+g7_translation_ema,VideoPooled EMA 15k,push_box,clean,90.0
+g7_translation_ema,VideoPooled EMA 15k,push_box,opposite-100cm,95.0
+g7_translation_ema,VideoPooled EMA 15k,push_box,opposite-200cm,100.0
+g7_translation_ema,VideoPooled EMA 15k,push_box,opposite-500cm,90.0
+g7_translation_ema,Random hist EMA 15k (δM on),push_box,clean,100.0
+g7_translation_ema,Random hist EMA 15k (δM on),push_box,opposite-100cm,95.0
+g7_translation_ema,Random hist EMA 15k (δM on),push_box,opposite-200cm,100.0
+g7_translation_ema,Random hist EMA 15k (δM on),push_box,opposite-500cm,90.0
+g7_translation_ema,No δM EMA 15k (ordered),push_box,clean,100.0
+g7_translation_ema,No δM EMA 15k (ordered),push_box,opposite-100cm,100.0
+g7_translation_ema,No δM EMA 15k (ordered),push_box,opposite-200cm,100.0
+g7_translation_ema,No δM EMA 15k (ordered),push_box,opposite-500cm,95.0
+g7_translation_ema,A EMA 20k,push_box,clean,90.0
+g7_translation_ema,A EMA 20k,push_box,opposite-100cm,95.0
+g7_translation_ema,A EMA 20k,push_box,opposite-200cm,90.0
+g7_translation_ema,A EMA 20k,push_box,opposite-500cm,95.0
+g7_translation_ema,C EMA 10k,push_box,clean,85.0
+g7_translation_ema,C EMA 10k,push_box,opposite-100cm,95.0
+g7_translation_ema,C EMA 10k,push_box,opposite-200cm,100.0
+g7_translation_ema,C EMA 10k,push_box,opposite-500cm,100.0
+g7_translation_ema,Base EMA 20k,push_box,clean,90.0
+g7_translation_ema,Base EMA 20k,push_box,opposite-100cm,100.0
+g7_translation_ema,Base EMA 20k,push_box,opposite-200cm,95.0
+g7_translation_ema,Base EMA 20k,push_box,opposite-500cm,95.0
+g7_translation_ema,VideoPooled EMA 15k,straighten_rope,clean,50.0
+g7_translation_ema,VideoPooled EMA 15k,straighten_rope,opposite-100cm,55.0
+g7_translation_ema,VideoPooled EMA 15k,straighten_rope,opposite-200cm,45.0
+g7_translation_ema,VideoPooled EMA 15k,straighten_rope,opposite-500cm,40.0
+g7_translation_ema,Random hist EMA 15k (δM on),straighten_rope,clean,55.0
+g7_translation_ema,Random hist EMA 15k (δM on),straighten_rope,opposite-100cm,50.0
+g7_translation_ema,Random hist EMA 15k (δM on),straighten_rope,opposite-200cm,45.0
+g7_translation_ema,Random hist EMA 15k (δM on),straighten_rope,opposite-500cm,35.0
+g7_translation_ema,No δM EMA 15k (ordered),straighten_rope,clean,65.0
+g7_translation_ema,No δM EMA 15k (ordered),straighten_rope,opposite-100cm,40.0
+g7_translation_ema,No δM EMA 15k (ordered),straighten_rope,opposite-200cm,55.0
+g7_translation_ema,No δM EMA 15k (ordered),straighten_rope,opposite-500cm,20.0
+g7_translation_ema,A EMA 20k,straighten_rope,clean,40.0
+g7_translation_ema,A EMA 20k,straighten_rope,opposite-100cm,30.0
+g7_translation_ema,A EMA 20k,straighten_rope,opposite-200cm,60.0
+g7_translation_ema,A EMA 20k,straighten_rope,opposite-500cm,40.0
+g7_translation_ema,C EMA 10k,straighten_rope,clean,35.0
+g7_translation_ema,C EMA 10k,straighten_rope,opposite-100cm,15.0
+g7_translation_ema,C EMA 10k,straighten_rope,opposite-200cm,25.0
+g7_translation_ema,C EMA 10k,straighten_rope,opposite-500cm,35.0
+g7_translation_ema,Base EMA 20k,straighten_rope,clean,40.0
+g7_translation_ema,Base EMA 20k,straighten_rope,opposite-100cm,10.0
+g7_translation_ema,Base EMA 20k,straighten_rope,opposite-200cm,0.0
+g7_translation_ema,Base EMA 20k,straighten_rope,opposite-500cm,15.0
+g7_rotation_ema,VideoPooled EMA 15k,mean over tasks,clean,74.2
+g7_rotation_ema,VideoPooled EMA 15k,mean over tasks,rot-20deg,77.5
+g7_rotation_ema,VideoPooled EMA 15k,mean over tasks,rot-90deg,70.8
+g7_rotation_ema,VideoPooled EMA 15k,mean over tasks,rot-180deg,70.0
+g7_rotation_ema,VideoPooled EMA 15k,mean over tasks,rot-270deg,73.3
+g7_rotation_ema,Random hist EMA 15k (δM on),mean over tasks,clean,78.3
+g7_rotation_ema,Random hist EMA 15k (δM on),mean over tasks,rot-20deg,77.5
+g7_rotation_ema,Random hist EMA 15k (δM on),mean over tasks,rot-90deg,75.0
+g7_rotation_ema,Random hist EMA 15k (δM on),mean over tasks,rot-180deg,68.3
+g7_rotation_ema,Random hist EMA 15k (δM on),mean over tasks,rot-270deg,73.3
+g7_rotation_ema,No δM EMA 15k (ordered),mean over tasks,clean,80.0
+g7_rotation_ema,No δM EMA 15k (ordered),mean over tasks,rot-20deg,80.0
+g7_rotation_ema,No δM EMA 15k (ordered),mean over tasks,rot-90deg,75.0
+g7_rotation_ema,No δM EMA 15k (ordered),mean over tasks,rot-180deg,62.5
+g7_rotation_ema,No δM EMA 15k (ordered),mean over tasks,rot-270deg,65.0
+g7_rotation_ema,A EMA 20k,mean over tasks,clean,76.7
+g7_rotation_ema,A EMA 20k,mean over tasks,rot-20deg,71.7
+g7_rotation_ema,A EMA 20k,mean over tasks,rot-90deg,71.7
+g7_rotation_ema,A EMA 20k,mean over tasks,rot-180deg,68.3
+g7_rotation_ema,A EMA 20k,mean over tasks,rot-270deg,66.7
+g7_rotation_ema,C EMA 10k,mean over tasks,clean,71.7
+g7_rotation_ema,C EMA 10k,mean over tasks,rot-20deg,73.3
+g7_rotation_ema,C EMA 10k,mean over tasks,rot-90deg,70.0
+g7_rotation_ema,C EMA 10k,mean over tasks,rot-180deg,69.2
+g7_rotation_ema,C EMA 10k,mean over tasks,rot-270deg,66.7
+g7_rotation_ema,Base EMA 20k,mean over tasks,clean,73.3
+g7_rotation_ema,Base EMA 20k,mean over tasks,rot-20deg,70.8
+g7_rotation_ema,Base EMA 20k,mean over tasks,rot-90deg,53.3
+g7_rotation_ema,Base EMA 20k,mean over tasks,rot-180deg,50.8
+g7_rotation_ema,Base EMA 20k,mean over tasks,rot-270deg,61.7
+g7_rotation_ema,VideoPooled EMA 15k,handover_item_easy,clean,100.0
+g7_rotation_ema,VideoPooled EMA 15k,handover_item_easy,rot-20deg,95.0
+g7_rotation_ema,VideoPooled EMA 15k,handover_item_easy,rot-90deg,100.0
+g7_rotation_ema,VideoPooled EMA 15k,handover_item_easy,rot-180deg,100.0
+g7_rotation_ema,VideoPooled EMA 15k,handover_item_easy,rot-270deg,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),handover_item_easy,clean,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),handover_item_easy,rot-20deg,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),handover_item_easy,rot-90deg,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),handover_item_easy,rot-180deg,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),handover_item_easy,rot-270deg,95.0
+g7_rotation_ema,No δM EMA 15k (ordered),handover_item_easy,clean,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),handover_item_easy,rot-20deg,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),handover_item_easy,rot-90deg,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),handover_item_easy,rot-180deg,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),handover_item_easy,rot-270deg,100.0
+g7_rotation_ema,A EMA 20k,handover_item_easy,clean,95.0
+g7_rotation_ema,A EMA 20k,handover_item_easy,rot-20deg,95.0
+g7_rotation_ema,A EMA 20k,handover_item_easy,rot-90deg,95.0
+g7_rotation_ema,A EMA 20k,handover_item_easy,rot-180deg,95.0
+g7_rotation_ema,A EMA 20k,handover_item_easy,rot-270deg,95.0
+g7_rotation_ema,C EMA 10k,handover_item_easy,clean,95.0
+g7_rotation_ema,C EMA 10k,handover_item_easy,rot-20deg,95.0
+g7_rotation_ema,C EMA 10k,handover_item_easy,rot-90deg,95.0
+g7_rotation_ema,C EMA 10k,handover_item_easy,rot-180deg,95.0
+g7_rotation_ema,C EMA 10k,handover_item_easy,rot-270deg,90.0
+g7_rotation_ema,Base EMA 20k,handover_item_easy,clean,95.0
+g7_rotation_ema,Base EMA 20k,handover_item_easy,rot-20deg,100.0
+g7_rotation_ema,Base EMA 20k,handover_item_easy,rot-90deg,90.0
+g7_rotation_ema,Base EMA 20k,handover_item_easy,rot-180deg,100.0
+g7_rotation_ema,Base EMA 20k,handover_item_easy,rot-270deg,100.0
+g7_rotation_ema,VideoPooled EMA 15k,lift_ball,clean,100.0
+g7_rotation_ema,VideoPooled EMA 15k,lift_ball,rot-20deg,100.0
+g7_rotation_ema,VideoPooled EMA 15k,lift_ball,rot-90deg,100.0
+g7_rotation_ema,VideoPooled EMA 15k,lift_ball,rot-180deg,100.0
+g7_rotation_ema,VideoPooled EMA 15k,lift_ball,rot-270deg,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),lift_ball,clean,95.0
+g7_rotation_ema,Random hist EMA 15k (δM on),lift_ball,rot-20deg,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),lift_ball,rot-90deg,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),lift_ball,rot-180deg,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),lift_ball,rot-270deg,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),lift_ball,clean,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),lift_ball,rot-20deg,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),lift_ball,rot-90deg,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),lift_ball,rot-180deg,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),lift_ball,rot-270deg,100.0
+g7_rotation_ema,A EMA 20k,lift_ball,clean,100.0
+g7_rotation_ema,A EMA 20k,lift_ball,rot-20deg,100.0
+g7_rotation_ema,A EMA 20k,lift_ball,rot-90deg,100.0
+g7_rotation_ema,A EMA 20k,lift_ball,rot-180deg,100.0
+g7_rotation_ema,A EMA 20k,lift_ball,rot-270deg,100.0
+g7_rotation_ema,C EMA 10k,lift_ball,clean,100.0
+g7_rotation_ema,C EMA 10k,lift_ball,rot-20deg,100.0
+g7_rotation_ema,C EMA 10k,lift_ball,rot-90deg,100.0
+g7_rotation_ema,C EMA 10k,lift_ball,rot-180deg,100.0
+g7_rotation_ema,C EMA 10k,lift_ball,rot-270deg,100.0
+g7_rotation_ema,Base EMA 20k,lift_ball,clean,100.0
+g7_rotation_ema,Base EMA 20k,lift_ball,rot-20deg,100.0
+g7_rotation_ema,Base EMA 20k,lift_ball,rot-90deg,100.0
+g7_rotation_ema,Base EMA 20k,lift_ball,rot-180deg,100.0
+g7_rotation_ema,Base EMA 20k,lift_ball,rot-270deg,95.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_laptop,clean,50.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_laptop,rot-20deg,60.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_laptop,rot-90deg,40.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_laptop,rot-180deg,40.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_laptop,rot-270deg,55.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_laptop,clean,55.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_laptop,rot-20deg,60.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_laptop,rot-90deg,45.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_laptop,rot-180deg,25.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_laptop,rot-270deg,50.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_laptop,clean,80.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_laptop,rot-20deg,85.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_laptop,rot-90deg,70.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_laptop,rot-180deg,40.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_laptop,rot-270deg,45.0
+g7_rotation_ema,A EMA 20k,pick_laptop,clean,75.0
+g7_rotation_ema,A EMA 20k,pick_laptop,rot-20deg,65.0
+g7_rotation_ema,A EMA 20k,pick_laptop,rot-90deg,80.0
+g7_rotation_ema,A EMA 20k,pick_laptop,rot-180deg,60.0
+g7_rotation_ema,A EMA 20k,pick_laptop,rot-270deg,45.0
+g7_rotation_ema,C EMA 10k,pick_laptop,clean,60.0
+g7_rotation_ema,C EMA 10k,pick_laptop,rot-20deg,70.0
+g7_rotation_ema,C EMA 10k,pick_laptop,rot-90deg,70.0
+g7_rotation_ema,C EMA 10k,pick_laptop,rot-180deg,65.0
+g7_rotation_ema,C EMA 10k,pick_laptop,rot-270deg,60.0
+g7_rotation_ema,Base EMA 20k,pick_laptop,clean,65.0
+g7_rotation_ema,Base EMA 20k,pick_laptop,rot-20deg,65.0
+g7_rotation_ema,Base EMA 20k,pick_laptop,rot-90deg,5.0
+g7_rotation_ema,Base EMA 20k,pick_laptop,rot-180deg,0.0
+g7_rotation_ema,Base EMA 20k,pick_laptop,rot-270deg,20.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_plate,clean,55.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_plate,rot-20deg,60.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_plate,rot-90deg,75.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_plate,rot-180deg,75.0
+g7_rotation_ema,VideoPooled EMA 15k,pick_plate,rot-270deg,65.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_plate,clean,65.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_plate,rot-20deg,70.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_plate,rot-90deg,70.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_plate,rot-180deg,65.0
+g7_rotation_ema,Random hist EMA 15k (δM on),pick_plate,rot-270deg,65.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_plate,clean,35.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_plate,rot-20deg,45.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_plate,rot-90deg,55.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_plate,rot-180deg,35.0
+g7_rotation_ema,No δM EMA 15k (ordered),pick_plate,rot-270deg,35.0
+g7_rotation_ema,A EMA 20k,pick_plate,clean,60.0
+g7_rotation_ema,A EMA 20k,pick_plate,rot-20deg,45.0
+g7_rotation_ema,A EMA 20k,pick_plate,rot-90deg,40.0
+g7_rotation_ema,A EMA 20k,pick_plate,rot-180deg,65.0
+g7_rotation_ema,A EMA 20k,pick_plate,rot-270deg,50.0
+g7_rotation_ema,C EMA 10k,pick_plate,clean,55.0
+g7_rotation_ema,C EMA 10k,pick_plate,rot-20deg,50.0
+g7_rotation_ema,C EMA 10k,pick_plate,rot-90deg,50.0
+g7_rotation_ema,C EMA 10k,pick_plate,rot-180deg,50.0
+g7_rotation_ema,C EMA 10k,pick_plate,rot-270deg,50.0
+g7_rotation_ema,Base EMA 20k,pick_plate,clean,50.0
+g7_rotation_ema,Base EMA 20k,pick_plate,rot-20deg,55.0
+g7_rotation_ema,Base EMA 20k,pick_plate,rot-90deg,40.0
+g7_rotation_ema,Base EMA 20k,pick_plate,rot-180deg,25.0
+g7_rotation_ema,Base EMA 20k,pick_plate,rot-270deg,55.0
+g7_rotation_ema,VideoPooled EMA 15k,push_box,clean,90.0
+g7_rotation_ema,VideoPooled EMA 15k,push_box,rot-20deg,100.0
+g7_rotation_ema,VideoPooled EMA 15k,push_box,rot-90deg,70.0
+g7_rotation_ema,VideoPooled EMA 15k,push_box,rot-180deg,75.0
+g7_rotation_ema,VideoPooled EMA 15k,push_box,rot-270deg,95.0
+g7_rotation_ema,Random hist EMA 15k (δM on),push_box,clean,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),push_box,rot-20deg,100.0
+g7_rotation_ema,Random hist EMA 15k (δM on),push_box,rot-90deg,90.0
+g7_rotation_ema,Random hist EMA 15k (δM on),push_box,rot-180deg,95.0
+g7_rotation_ema,Random hist EMA 15k (δM on),push_box,rot-270deg,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),push_box,clean,100.0
+g7_rotation_ema,No δM EMA 15k (ordered),push_box,rot-20deg,95.0
+g7_rotation_ema,No δM EMA 15k (ordered),push_box,rot-90deg,85.0
+g7_rotation_ema,No δM EMA 15k (ordered),push_box,rot-180deg,90.0
+g7_rotation_ema,No δM EMA 15k (ordered),push_box,rot-270deg,100.0
+g7_rotation_ema,A EMA 20k,push_box,clean,90.0
+g7_rotation_ema,A EMA 20k,push_box,rot-20deg,95.0
+g7_rotation_ema,A EMA 20k,push_box,rot-90deg,80.0
+g7_rotation_ema,A EMA 20k,push_box,rot-180deg,80.0
+g7_rotation_ema,A EMA 20k,push_box,rot-270deg,90.0
+g7_rotation_ema,C EMA 10k,push_box,clean,85.0
+g7_rotation_ema,C EMA 10k,push_box,rot-20deg,95.0
+g7_rotation_ema,C EMA 10k,push_box,rot-90deg,80.0
+g7_rotation_ema,C EMA 10k,push_box,rot-180deg,95.0
+g7_rotation_ema,C EMA 10k,push_box,rot-270deg,95.0
+g7_rotation_ema,Base EMA 20k,push_box,clean,90.0
+g7_rotation_ema,Base EMA 20k,push_box,rot-20deg,90.0
+g7_rotation_ema,Base EMA 20k,push_box,rot-90deg,75.0
+g7_rotation_ema,Base EMA 20k,push_box,rot-180deg,80.0
+g7_rotation_ema,Base EMA 20k,push_box,rot-270deg,95.0
+g7_rotation_ema,VideoPooled EMA 15k,straighten_rope,clean,50.0
+g7_rotation_ema,VideoPooled EMA 15k,straighten_rope,rot-20deg,50.0
+g7_rotation_ema,VideoPooled EMA 15k,straighten_rope,rot-90deg,40.0
+g7_rotation_ema,VideoPooled EMA 15k,straighten_rope,rot-180deg,30.0
+g7_rotation_ema,VideoPooled EMA 15k,straighten_rope,rot-270deg,25.0
+g7_rotation_ema,Random hist EMA 15k (δM on),straighten_rope,clean,55.0
+g7_rotation_ema,Random hist EMA 15k (δM on),straighten_rope,rot-20deg,35.0
+g7_rotation_ema,Random hist EMA 15k (δM on),straighten_rope,rot-90deg,45.0
+g7_rotation_ema,Random hist EMA 15k (δM on),straighten_rope,rot-180deg,25.0
+g7_rotation_ema,Random hist EMA 15k (δM on),straighten_rope,rot-270deg,30.0
+g7_rotation_ema,No δM EMA 15k (ordered),straighten_rope,clean,65.0
+g7_rotation_ema,No δM EMA 15k (ordered),straighten_rope,rot-20deg,55.0
+g7_rotation_ema,No δM EMA 15k (ordered),straighten_rope,rot-90deg,40.0
+g7_rotation_ema,No δM EMA 15k (ordered),straighten_rope,rot-180deg,10.0
+g7_rotation_ema,No δM EMA 15k (ordered),straighten_rope,rot-270deg,10.0
+g7_rotation_ema,A EMA 20k,straighten_rope,clean,40.0
+g7_rotation_ema,A EMA 20k,straighten_rope,rot-20deg,30.0
+g7_rotation_ema,A EMA 20k,straighten_rope,rot-90deg,35.0
+g7_rotation_ema,A EMA 20k,straighten_rope,rot-180deg,10.0
+g7_rotation_ema,A EMA 20k,straighten_rope,rot-270deg,20.0
+g7_rotation_ema,C EMA 10k,straighten_rope,clean,35.0
+g7_rotation_ema,C EMA 10k,straighten_rope,rot-20deg,30.0
+g7_rotation_ema,C EMA 10k,straighten_rope,rot-90deg,25.0
+g7_rotation_ema,C EMA 10k,straighten_rope,rot-180deg,10.0
+g7_rotation_ema,C EMA 10k,straighten_rope,rot-270deg,5.0
+g7_rotation_ema,Base EMA 20k,straighten_rope,clean,40.0
+g7_rotation_ema,Base EMA 20k,straighten_rope,rot-20deg,15.0
+g7_rotation_ema,Base EMA 20k,straighten_rope,rot-90deg,10.0
+g7_rotation_ema,Base EMA 20k,straighten_rope,rot-180deg,0.0
+g7_rotation_ema,Base EMA 20k,straighten_rope,rot-270deg,5.0

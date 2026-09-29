@@ -8,10 +8,30 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Docs
 
-- [Commands](docs/commands.md) — training, evaluation, data conversion, environment setup
-- [Architecture](docs/architecture.md) — model pipeline, key modules, non-obvious design details
-- [Config](docs/config.md) — Hydra config system and important flags
-- [Data](docs/data.md) — zarr format, dataset classes, preprocessing, data generation
+`docs/` is the canonical state of the codebase, split by how fast it changes.
+[docs/README.md](docs/README.md) indexes the whole tree; start there.
+
+- [`docs/handbook/`](docs/handbook/) — how the system works: `model/`, `data/`,
+  `eval/`, `codebase/`, plus `setup.md` and `commands.md`. The four you will
+  need most: [commands](docs/handbook/commands.md),
+  [architecture](docs/handbook/model/architecture.md),
+  [config](docs/handbook/model/config.md),
+  [terminology](docs/handbook/model/terminology.md).
+- [`docs/research/`](docs/research/) — what we are finding out:
+  `experiments/<week>/` (one page per experiment),
+  `weekly_logs/YYYY-MM-DD.md` (per-week tracker, named by the week's end date),
+  `results/` (settled numbers), `archive/` (**not** canonical).
+
+Figures live with whatever owns them — `handbook/eval/figures/` for geometry
+illustrations, `research/results/figures/` for cross-model plots,
+`research/experiments/<week>/figures/` for that week's. Each `figures/` has a
+README naming the script that makes every file.
+
+A new page goes where its change rate says: a fact about the system →
+`handbook/`; something you are testing → `research/experiments/<week>/`; a
+number you would cite → `research/results/`; what happened this week →
+`research/weekly_logs/`. A figure goes in the `figures/` folder of whichever of
+those owns it.
 
 ## Experiments
 

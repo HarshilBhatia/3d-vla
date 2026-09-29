@@ -1,7 +1,9 @@
 """SBRS checkpoint-ladder success vs total training steps (from random init) for the history ablations and Base."""
+import argparse
 import csv
 import glob
 import json
+import sys
 from collections import defaultdict
 from pathlib import Path
 
@@ -10,8 +12,14 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from utils.plotting import week_figures_dir
+
 R20 = Path("/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts")
-OUT = Path("docs/figures")
+OUT = week_figures_dir()
 # (label, ladder campaign prefix, steps inherited before this run's step 0, colour, marker).
 RUNS = [
     ("VideoPooled (+100k scratch stage)", "video_deltam_checkpoint_ladder_v01_video-pooled-k5", 100_000, "#2a78d6", "o"),
@@ -117,5 +125,10 @@ def per_run():
 
 
 if __name__ == "__main__":
+    ap = argparse.ArgumentParser(description=__doc__)
+    ap.add_argument("--output-dir", type=Path, default=OUT,
+                    help="where to write the figures (default: this week's experiment figures dir)")
+    OUT = ap.parse_args().output_dir
+    OUT.mkdir(parents=True, exist_ok=True)
     main()
     per_run()
