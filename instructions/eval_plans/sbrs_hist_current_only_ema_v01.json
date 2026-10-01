@@ -1,0 +1,103 @@
+{
+  "schema_version": 1,
+  "campaign_id": "sbrs_hist_current_only_ema_v01",
+  "description": "SBRS (trained group bias + 3 deg / 1 cm), 6 tasks x 20 rollouts, EMA weights; eval-only probe: history slots hold the current frame.",
+  "calibration_registry": "instructions/eval_calibrations_seen_base_residual_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+  "methods": [
+    {
+      "id": "ema20k_randhist_s15k_ema",
+      "checkpoint": "/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_ema20k_randhist/interm_step_15000.pth"
+    },
+    {
+      "id": "ema20k_regtest_a_s20k_ema",
+      "checkpoint": "/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_ema20k_regtest_a/interm_step_20000.pth"
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_lift_ball": {
+      "id": "g2_seen_train_group",
+      "spawn_camera_group": "G2",
+      "regime": "seen_train_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_push_box": {
+      "id": "g1_seen_train_group",
+      "spawn_camera_group": "G1",
+      "regime": "seen_train_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_handover_item_easy": {
+      "id": "g6_seen_train_group",
+      "spawn_camera_group": "G6",
+      "regime": "seen_train_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_laptop": {
+      "id": "g2_seen_train_group",
+      "spawn_camera_group": "G2",
+      "regime": "seen_train_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_plate": {
+      "id": "g4_seen_train_group",
+      "spawn_camera_group": "G4",
+      "regime": "seen_train_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_straighten_rope": {
+      "id": "g3_seen_train_group",
+      "spawn_camera_group": "G3",
+      "regime": "seen_train_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_lift_ball": [
+      "seen-g2-medium-e3deg-t1cm-v01"
+    ],
+    "bimanual_push_box": [
+      "seen-g1-medium-e3deg-t1cm-v01"
+    ],
+    "bimanual_handover_item_easy": [
+      "seen-g6-medium-e3deg-t1cm-v01"
+    ],
+    "bimanual_pick_laptop": [
+      "seen-g2-medium-e3deg-t1cm-v01"
+    ],
+    "bimanual_pick_plate": [
+      "seen-g4-medium-e3deg-t1cm-v01"
+    ],
+    "bimanual_straighten_rope": [
+      "seen-g3-medium-e3deg-t1cm-v01"
+    ]
+  },
+  "calibrations": [
+    "e3deg-t1cm"
+  ],
+  "tasks": [
+    "bimanual_lift_ball",
+    "bimanual_push_box",
+    "bimanual_handover_item_easy",
+    "bimanual_pick_laptop",
+    "bimanual_pick_plate",
+    "bimanual_straighten_rope"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 20,
+    "overrides": {
+      "scene_sampling": "fps",
+      "eval_proprio_history_order": "past_to_current",
+      "visual_num_history": 5,
+      "eval_weights": "ema",
+      "eval_history_probe": "current_only"
+    }
+  }
+}

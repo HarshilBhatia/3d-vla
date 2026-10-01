@@ -54,3 +54,9 @@ campaigns, which is within noise.
   history content or delta_M.
 - Models trained with ordered history lose 15–29 points everywhere when the
   history is flattened; random history is unaffected (71–82).
+
+## Current-frame-only on SBRS, EMA checkpoints (submitted 1 Oct)
+
+Random history EMA 15k and A (no delta_M + random history) EMA 20k, SBRS (trained bias + 3/1, 6 tasks × 20),
+`eval_history_probe: current_only`. Pairs with the EMA ladder cells at the same steps. Plan
+`instructions/eval_plans/sbrs_hist_current_only_ema_v01.json` from `scripts/eval/create_sbrs_current_only_ema_plan.py`; array 3984479.
