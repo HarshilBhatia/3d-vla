@@ -9,7 +9,7 @@ They write to the **current week's** figures directory by default (`utils.plotti
 
 | Figure | Shows | Script |
 |---|---|---|
-| `ema_idlt_mean.{png,csv}` | IDLT task-mean vs miscalibration, best EMA checkpoints of VideoPooled, random history, no delta_M and Base | `scripts/plot_ema_idlt_mean.py` |
+| `ema_idlt_mean.{png,csv}` | IDLT task-mean vs miscalibration, best EMA checkpoints of VideoPooled, random history, no delta_M, A and Base | `scripts/plot_ema_idlt_mean.py` |
 | `ema_vs_original.png` | Task-mean success per model, original (solid) vs best-EMA checkpoint (dashed): IDLT held-out, G7 translation, G7 rotation | `scripts/plot_ema_vs_original.py` |
 | `ema_per_model_<model>.png` | One figure per model (`vidpooled`, `randhist`, `noviewalign`, `regtest_a`, `regtest_c`, `base`): every IDLT and G7 task, original vs EMA | `scripts/plot_ema_per_model.py` |
 | `ema20k_ladders_per_task.{png,csv}` | SBRS per task over the 20k fine-tunes, raw vs EMA weights; step 0 = starting checkpoint | `scripts/plot_ema_ladders.py` |

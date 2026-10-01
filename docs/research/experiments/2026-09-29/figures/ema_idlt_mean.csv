@@ -23,6 +23,14 @@ No delta_M EMA 15k,e30deg-t30cm,75.3
 No delta_M EMA 15k,e40deg-t40cm,72.8
 No delta_M EMA 15k,e50deg-t50cm,70.7
 No delta_M EMA 15k,e60deg-t60cm,71.5
+"A: scratch, no delta_M, random history, EMA 20k",calibrated,74.8
+"A: scratch, no delta_M, random history, EMA 20k",e10deg-t10cm,75.7
+"A: scratch, no delta_M, random history, EMA 20k",e15deg-t15cm,68.3
+"A: scratch, no delta_M, random history, EMA 20k",e20deg-t20cm,70.2
+"A: scratch, no delta_M, random history, EMA 20k",e30deg-t30cm,69.5
+"A: scratch, no delta_M, random history, EMA 20k",e40deg-t40cm,65.8
+"A: scratch, no delta_M, random history, EMA 20k",e50deg-t50cm,64.3
+"A: scratch, no delta_M, random history, EMA 20k",e60deg-t60cm,64.4
 Base EMA 20k,calibrated,75.5
 Base EMA 20k,e10deg-t10cm,73.3
 Base EMA 20k,e15deg-t15cm,68.9

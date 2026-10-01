@@ -12,10 +12,11 @@ from plot_ablation_per_task import GRID, IDLT_CAMPAIGNS, MUTED, R100, TEXT, load
 OUT = Path("docs/research/experiments/2026-09-29/figures")
 LEVELS = [("calibrated", "0"), ("e10deg-t10cm", "10"), ("e15deg-t15cm", "15"), ("e20deg-t20cm", "20"),
           ("e30deg-t30cm", "30"), ("e40deg-t40cm", "40"), ("e50deg-t50cm", "50"), ("e60deg-t60cm", "60")]
-# Validated categorical slots 1-3 for the history models; Base is the neutral reference.
+# Validated categorical slots 1-4 for the history models; Base is the neutral reference.
 MODELS = [("VideoPooled EMA 15k", "ema20k_vidpooled_s15k_ema", "#2a78d6", "o", "-"),
           ("Random history EMA 15k", "ema20k_randhist_s15k_ema", "#eb6834", "s", "-"),
           ("No delta_M EMA 15k", "ema20k_noviewalign_s15k_ema", "#1baf7a", "^", "-"),
+          ("A: scratch, no delta_M, random history, EMA 20k", "ema20k_regtest_a_s20k_ema", "#eda100", "D", "-"),
           ("Base EMA 20k", "ema20k_base_s20k_ema", "#8a8985", "x", "--")]
 
 
