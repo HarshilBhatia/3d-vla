@@ -13,6 +13,7 @@ They write to the **current week's** figures directory by default (`utils.plotti
 | `ema_vs_original.png` | Task-mean success per model, original (solid) vs best-EMA checkpoint (dashed): IDLT held-out, G7 translation, G7 rotation | `scripts/plot_ema_vs_original.py` |
 | `ema_per_model_<model>.png` | One figure per model (`vidpooled`, `randhist`, `noviewalign`, `regtest_a`, `regtest_c`, `base`): every IDLT and G7 task, original vs EMA | `scripts/plot_ema_per_model.py` |
 | `ema_vs_raw_over_steps.png` | SBRS task-mean vs fine-tune step, raw (dashed grey) vs EMA (solid blue) overlaid, one panel per run | `scripts/plot_ema_vs_raw_steps.py` |
+| `ema_vs_raw_over_steps_per_task.png` | The same overlay per task: rows = runs, columns = task mean + 6 SBRS tasks | `scripts/plot_ema_vs_raw_steps.py` |
 | `ema20k_ladders_per_task.{png,csv}` | SBRS per task over the 20k fine-tunes, raw vs EMA weights; step 0 = starting checkpoint | `scripts/plot_ema_ladders.py` |
 
 ## Robustness per task, all six models
