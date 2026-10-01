@@ -1,0 +1,33 @@
+model,condition,success_pct
+VideoPooled EMA 15k,calibrated,81.2
+VideoPooled EMA 15k,e10deg-t10cm,79.8
+VideoPooled EMA 15k,e15deg-t15cm,80.3
+VideoPooled EMA 15k,e20deg-t20cm,79.0
+VideoPooled EMA 15k,e30deg-t30cm,77.2
+VideoPooled EMA 15k,e40deg-t40cm,76.7
+VideoPooled EMA 15k,e50deg-t50cm,75.2
+VideoPooled EMA 15k,e60deg-t60cm,74.2
+Random history EMA 15k,calibrated,78.5
+Random history EMA 15k,e10deg-t10cm,80.2
+Random history EMA 15k,e15deg-t15cm,81.8
+Random history EMA 15k,e20deg-t20cm,79.6
+Random history EMA 15k,e30deg-t30cm,80.2
+Random history EMA 15k,e40deg-t40cm,76.8
+Random history EMA 15k,e50deg-t50cm,75.3
+Random history EMA 15k,e60deg-t60cm,76.5
+No delta_M EMA 15k,calibrated,77.8
+No delta_M EMA 15k,e10deg-t10cm,77.5
+No delta_M EMA 15k,e15deg-t15cm,76.7
+No delta_M EMA 15k,e20deg-t20cm,76.6
+No delta_M EMA 15k,e30deg-t30cm,75.3
+No delta_M EMA 15k,e40deg-t40cm,72.8
+No delta_M EMA 15k,e50deg-t50cm,70.7
+No delta_M EMA 15k,e60deg-t60cm,71.5
+Base EMA 20k,calibrated,75.5
+Base EMA 20k,e10deg-t10cm,73.3
+Base EMA 20k,e15deg-t15cm,68.9
+Base EMA 20k,e20deg-t20cm,63.3
+Base EMA 20k,e30deg-t30cm,62.4
+Base EMA 20k,e40deg-t40cm,56.6
+Base EMA 20k,e50deg-t50cm,47.7
+Base EMA 20k,e60deg-t60cm,38.8
