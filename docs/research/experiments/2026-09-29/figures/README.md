@@ -42,3 +42,4 @@ Supports [../g7-viewpoint-sweep.md](../g7-viewpoint-sweep.md). 78 MB of renders,
 | `captures/<task>/<group>.{npz,png}` | Rendered views at each of the 11 sweep poses | `scripts/capture_g7_sweep_views.py` |
 | `g7_viewpoint_sweep.rrd` | All sweep poses with renders | `scripts/viz_g7_sweep_rerun.py` |
 | `g7_vs_train_groups.rrd` | G7 against G1–G6 only | `scripts/viz_g7_sweep_rerun.py --no-sweep` |
+| `../g7_sweep_pick_laptop.png` | pick_laptop external renders at all 11 poses with Base / VideoPooled / FullPatch success (committed; reads the gitignored captures) | `scripts/plot_g7_sweep_pick_laptop.py` |
