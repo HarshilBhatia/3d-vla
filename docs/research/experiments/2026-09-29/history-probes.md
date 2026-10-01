@@ -57,7 +57,7 @@ campaigns, which is within noise.
 
 ## Current-frame-only on SBRS, EMA checkpoints (submitted 1 Oct)
 
-Random history EMA 15k and A (no delta_M + random history) EMA 20k, SBRS (trained bias + 3/1, 6 tasks × 20),
+Random history EMA 15k and random history (no delta_M) EMA 20k, SBRS (trained bias + 3/1, 6 tasks × 20),
 `eval_history_probe: current_only`. Pairs with the EMA ladder cells at the same steps. Plan
 `instructions/eval_plans/sbrs_hist_current_only_ema_v01.json` from `scripts/eval/create_sbrs_current_only_ema_plan.py`; array 3984479.
 
@@ -66,6 +66,6 @@ Results (6 tasks × 20, % — handover / lift_ball / pick_laptop / pick_plate / 
 | Model | Normal | Current-only |
 |---|---|---|
 | Random history EMA 15k | 100 / 100 / 75 / 65 / 95 / 60 — **82.5** | 100 / 100 / 10 / 70 / 95 / 50 — **70.8** |
-| A EMA 20k | 95 / 100 / 65 / 45 / 95 / 35 — **72.5** | 85 / 100 / 50 / 50 / 90 / 45 — **70.0** |
+| Random history (no delta_M) EMA 20k | 95 / 100 / 65 / 45 / 95 / 35 — **72.5** | 85 / 100 / 50 / 50 / 90 / 45 — **70.0** |
 
-Random history loses 12 points, nearly all on `pick_laptop` (75 → 10); A is unchanged within noise.
+Random history loses 12 points, nearly all on `pick_laptop` (75 → 10); random history (no delta_M) is unchanged within noise.
