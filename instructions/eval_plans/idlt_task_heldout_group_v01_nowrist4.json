@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "campaign_id": "idlt_task_heldout_group_fixed_v03_video_k5",
+  "description": "In-Distribution Lab Transfer: external-camera-only calibration robustness. The selected camera group was seen in training for other tasks, but not this target task.",
+  "calibration_registry": "instructions/eval_calibrations_idlt_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {
+      "id": "nowrist4_base_s50k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_nowrist4_base/interm_step_50000.pth"
+    },
+    {
+      "id": "nowrist4_vid_pooled_s40k",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_nowrist4_vid_pooled/interm_step_40000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_sweep_to_dustpan": {
+      "id": "g1_task_heldout_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_take_tray_out_of_oven": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_sweep_to_dustpan": [
+      "calibrated",
+      "seen-g1-medium-unknown-e10deg-t10cm-v01"
+    ],
+    "bimanual_take_tray_out_of_oven": [
+      "calibrated",
+      "seen-g4-medium-unknown-e10deg-t10cm-v01"
+    ]
+  },
+  "calibrations": [
+    "calibrated",
+    "unknown-e10deg-t10cm"
+  ],
+  "tasks": [
+    "bimanual_sweep_to_dustpan",
+    "bimanual_take_tray_out_of_oven"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 100
+  }
+}
