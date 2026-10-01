@@ -70,3 +70,11 @@ all. The camera slicing in the no-wrist eval path works.
 - At 100k steps each record is seen about 2.6× as often as in the 13-task runs.
 - There are no with-wrist 4-task controls, so the comparison is against the
   13-task models on these 4 tasks. **Open: are those controls needed?**
+
+## Robustness without wrists (submitted 1 Oct)
+
+IDLT task-heldout, calibrated and 10/10 → 60/60, 100 rollouts, on `sweep_to_dustpan` (held-out G1) and
+`take_tray_out_of_oven` (held-out G4) only — the two tasks the no-wrist models solve. Checkpoints: Base 50k,
+VideoPooled 40k (best on the ladder). Plans `instructions/eval_plans/*_nowrist4.json` from
+`scripts/eval/create_nowrist_idlt_plans.py`; arrays 3984443–3984446 (32 cells). Compare against the 13-task
+with-wrist models on the same two tasks.
