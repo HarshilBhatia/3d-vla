@@ -78,3 +78,17 @@ IDLT task-heldout, calibrated and 10/10 → 60/60, 100 rollouts, on `sweep_to_du
 VideoPooled 40k (best on the ladder). Plans `instructions/eval_plans/*_nowrist4.json` from
 `scripts/eval/create_nowrist_idlt_plans.py`; arrays 3984443–3984446 (32 cells). Compare against the 13-task
 with-wrist models on the same two tasks.
+
+Results (% of 100 rollouts; calibrated, 10, 15, 20, 30, 40, 50, 60):
+
+| Model | sweep (held-out G1) | oven (held-out G4) |
+|---|---|---|
+| Base 160k, with wrists (13 tasks) | 99 98 98 98 99 98 98 98 | 42 23 42 22 18 15 3 0 |
+| VideoPooled 84k, with wrists (13 tasks) | 69 76 71 81 78 69 64 67 | 78 81 74 75 76 76 75 79 |
+| Base 50k, no wrists | 69 0 0 1 0 0 0 0 | 20 16 0 16 12 5 0 0 |
+| VideoPooled 40k, no wrists | 0 70 0 0 0 0 0 0 | 19 19 11 3 1 0 0 0 |
+
+Without wrists both models fail on held-out camera groups and collapse under miscalibration; the sweep cells are
+all-or-nothing per calibration realization (configs verified in the logs). With clean wrists VideoPooled is flat.
+So on these tasks the robustness depends on the clean wrist cameras — confounded by 4-task training and no
+with-wrist 4-task control.
