@@ -56,9 +56,16 @@ Two orthogonal axes. Keeping them straight is the main source of confusion:
 | **what it sees** | `video_deltam_full_image` | `false` = 1 pooled token per (t, cam); `true` = that image's full patch grid |
 
 **`role=refine`** — the extractor's refined current-frame features *replace* the
-encoder's per-camera summaries inside `fps_scene_feats`, and a global history
-register is added to the trajectory queries. The policy head still predicts
-$\Delta M$ from those summaries, re-predicting per self-attention block.
+encoder's per-camera summaries inside `fps_scene_feats`. The policy head still
+predicts $\Delta M$ from those summaries, re-predicting per self-attention block.
+
+**History register** (`video_deltam_history_register`, **default `false` since
+1 Oct 2026**). When `true`, a global token cross-attends over every (frame,
+camera) token at each extractor depth, and the result is added to the
+trajectory queries. Every checkpoint from before October was trained with it
+on: `utils/config_migrations.py` restores `true` for checkpoints saved without
+the key, and the pre-October experiment configs pin `true`. When `false`, the
+readout is never built.
 
 **`role=predict_delta_m`** ("Direct") — the extractor emits $\Delta M$ and nothing
 else. Scene tokens and trajectory queries are untouched, so the policy sees
@@ -73,6 +80,26 @@ in place.
 
 See `docs/handbook/model/terminology.md` for the 2×2 table and naming rules.
 
+## Optional: C-token adaLN (`camera_adaln`)
+
+`none` by default. It conditions the head's adaLN on the per-camera summary
+tokens (C-tokens), instead of using them to predict $\Delta M$. It requires
+`view_align_mode=none`. Every attention/FFN layer in the head already has an
+adaLN block driven by `time_embs` (denoising timestep + proprio). This mode
+changes that signal to `time_embs + MLP_c(C)`, where `MLP_c`
+(`camera_adaln_proj`) is one Linear–ReLU–Linear shared by all layers.
+
+| `camera_adaln` | C used | Changes per SA layer? | Modulates |
+|---|---|---|---|
+| `per_camera` | $C_j$ for camera $j$'s tokens (FPS tokens and its own C-token); traj/register tokens get `time_embs` only | yes, C-tokens as the previous SA layer left them | SA layers and output heads. Cross-attn only modulates traj queries, so it gets `time_embs` |
+| `pooled` | mean over cameras | yes | every token in cross-attn, SA and output heads |
+| `static_pooled` | mean of the C-tokens entering the head | no | every token in every layer |
+
+Code: `TransformerHead._forward_camera_adaln` and `_camera_adaln_signal` in
+`modeling/policy/base_denoise_actor.py`. `AdaLN` accepts a per-token `(B, S, C)`
+signal for `per_camera`. The module is built last, so `none` keeps the old
+from-scratch initialisation.
+
 ## Non-Obvious Design Details
 
 **3D RoPE + $\Delta M$**: `RotaryPositionEncoding3D` encodes xyz coordinates as RoPE. A learned 6×6 (or full D×D) orthogonal matrix performs per-camera view alignment by correcting representation-space sin/cos bases. It is not an estimate of a physical extrinsic.
@@ -86,6 +113,8 @@ See `docs/handbook/model/terminology.md` for the 2×2 table and naming rules.
 **Val metric for `best.pth`**: `traj_pos_acc_001` — fraction of trajectory points within 1 mm of ground truth.
 
 **Workspace normalizer**: On first run (no checkpoint), the trainer scans all training data to compute action min/max for normalization. Saved in the checkpoint and reused on resume.
+
+**EMA**: `use_ema` defaults to `true` since 1 Oct 2026; the pre-October experiment configs pin `false`. Eval picks raw or EMA weights with the eval-owned `eval_weights: raw|ema`. Decay warms up as `1 − (1+step)^(−2/3)`, capped at 0.9999 (≈0.9997 at 200k).
 
 **Checkpoint format**: `{"weight": ..., "ema_weight": ..., "optimizer": ..., "iter": int, "best_loss": float}`. Loading is non-strict (`strict=False`) to support architectural changes.
 

@@ -15,9 +15,11 @@ launcher, and a page here. Never a pile of CLI overrides.
 
 | Experiment | Question | Status | Headline |
 |---|---|---|---|
+| [camera-adaln](2026-10-06/camera-adaln.md) | Can C-token adaLN (1a per camera, 1b pooled, 1c static) replace delta_M and the register? | ready | — |
+| [direct-randhist](2026-10-06/direct-randhist.md) | Is Direct delta_M from random history enough on its own? | ready | — |
 | [pooled-no-view-align](2026-09-29/pooled-no-view-align.md) | Is view alignment needed if you have history? | stopped at 281k | **No.** Matches VideoPooled on every robustness suite |
 | [random-history-no-time](2026-09-29/random-history-no-time.md) | Does history need order and recency? | active | **No.** Matches robustness while barely using history |
-| [from-scratch-noalign-randhist](2026-09-29/from-scratch-noalign-randhist.md) | Does that survive random init — and is the history register the channel? | active, A 178k/200k | No in-distribution gap yet; 430 robustness cells pending |
+| [from-scratch-noalign-randhist](2026-09-29/from-scratch-noalign-randhist.md) | Does that survive random init — and is the history register the channel? | done | **Register not needed:** C ≈ A everywhere (IDLT 60/60 61.6 vs 62.8); from scratch is about 10 below warm start at 60/60 |
 | [camframe-rope6d](2026-09-29/camframe-rope6d.md) | Can delta_M bridge camera frame → robot frame with no extrinsics? | active | SBRS 53.3 at 200k; fine tasks ~20 |
 | [ema-finetunes](2026-09-29/ema-finetunes.md) | Does EMA lift the ablations and damp ladder noise? | done | Yes for history models: random history 67.8 → 79.0 |
 | [history-probes](2026-09-29/history-probes.md) | Which input channel carries the robustness? | done | External cameras essential; history is a task-progress cue |

@@ -40,8 +40,9 @@ It has two independent axes, and confusing them is the most common error.
 `video_deltam_role` -- **what it hands the policy**:
 
 - `refine`: it emits history-refined camera summaries (which replace the
-  encoder's, inside `fps_scene_feats`) plus a global history register added to
-  the trajectory queries. The policy head still predicts $\Delta M_j$ from those
+  encoder's, inside `fps_scene_feats`), plus a global history register added to
+  the trajectory queries when `video_deltam_history_register=true` (off by
+  default since Oct 2026). The policy head still predicts $\Delta M_j$ from those
   summaries, layer-wise.
 - `predict_delta_m`: it emits $\Delta M_j$ and nothing else. The policy's scene
   tokens and trajectory queries are untouched -- byte-identical to a model with
