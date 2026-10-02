@@ -19,13 +19,15 @@ class AdaLN(nn.Module):
         """
         Args:
             x: tensor (B, S, C)
-            t: tensor (B, C)
+            t: tensor (B, C), or (B, S, C) for a per-token signal
 
         Returns:
             tensor (B, S, C)
         """
-        scale, shift = self.modulation(t).chunk(2, dim=-1)  # (B, C), (B, C)
-        return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
+        scale, shift = self.modulation(t).chunk(2, dim=-1)
+        if t.ndim == 2:
+            scale, shift = scale.unsqueeze(1), shift.unsqueeze(1)
+        return x * (1 + scale) + shift
 
 
 class DummyLayer(nn.Module):

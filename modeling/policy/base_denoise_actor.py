@@ -26,6 +26,9 @@ VIEW_ALIGN_MODES = {
     "physical_se3": (True, "rt"),
 }
 
+# none | per_camera (camera j's C-token modulates camera j's tokens, per SA layer) | pooled (mean C-token, per SA layer) | static_pooled (mean of the head-input C-tokens, every layer).
+CAMERA_ADALN_MODES = ("none", "per_camera", "pooled", "static_pooled")
+
 HEAD_POSITIONAL_ENCODINGS = {
     "rope3d":         ("standard", False),
     "rope3d_proprio": ("standard", True),
@@ -586,10 +589,18 @@ class TransformerHead(nn.Module):
                  video_deltam_time_embedding=True,
                  video_deltam_history_register=True,
                  video_deltam_role='refine',
+                 camera_adaln='none',
                  ee_aux=False,
                  ee_aux_weight=1.0,
                  ee_aux_cameras=(0, 1)):
         super().__init__()
+
+        if camera_adaln not in CAMERA_ADALN_MODES:
+            raise ValueError(f"camera_adaln must be one of {CAMERA_ADALN_MODES}, got {camera_adaln!r}")
+        if camera_adaln != 'none' and (VIEW_ALIGN_MODES.get(view_align_mode, (False,))[0]
+                                       or head_positional_encoding not in ('rope3d', 'rope3d_proprio')):
+            raise ValueError("camera_adaln replaces view alignment: needs view_align_mode=none and a rope3d* head")
+        self.camera_adaln = camera_adaln
 
         if view_align_mode not in VIEW_ALIGN_MODES:
             raise ValueError(f"view_align_mode must be one of {sorted(VIEW_ALIGN_MODES)}, got {view_align_mode!r}")
@@ -848,6 +859,14 @@ class TransformerHead(nn.Module):
             self, head_owns_delta_m, self.extrinsics_prediction_mode
         )
 
+        # Built last so camera_adaln=none keeps the existing from-scratch init.
+        if camera_adaln != 'none':
+            self.camera_adaln_proj = nn.Sequential(
+                nn.Linear(embedding_dim, embedding_dim),
+                nn.ReLU(),
+                nn.Linear(embedding_dim, embedding_dim)
+            )
+
     def _predict_from_cam_feat(self, cam_feat):
         """
         Predict delta_M or (R,T) from an arbitrary camera feature tensor.
@@ -1026,7 +1045,21 @@ class TransformerHead(nn.Module):
                 batch_size, device, fps_scene_feats=fps_scene_feats, fps_cam_ids=fps_cam_ids
             )
 
-        if self.layerwise_view_align and self._rope_mode == "standard" and self.predict_extrinsics \
+        if self.camera_adaln != 'none':
+            rel_traj_pos, rel_scene_pos, rel_pos, _ = self.get_positional_embeddings(
+                traj_xyz, traj_feats,
+                rgb3d_pos, rgb3d_feats, rgb2d_feats, rgb2d_pos,
+                timesteps, proprio_feats,
+                fps_scene_feats, fps_scene_pos,
+                instr_feats, instr_pos,
+                delta_M=delta_M,
+                cam_params_rt=cam_params_rt,
+                fps_cam_ids=fps_cam_ids,
+            )
+            rotation, position, position_features = self._forward_camera_adaln(
+                traj_feats, rgb3d_feats, rgb2d_feats, instr_feats, fps_scene_feats, fps_cam_ids,
+                rel_traj_pos, rel_scene_pos, rel_pos, time_embs)
+        elif self.layerwise_view_align and self._rope_mode == "standard" and self.predict_extrinsics \
                 and history_view_align is None:
             # Re-predict delta_M before every block. The camera summaries live in
             # the SA sequence, so each SA block sees a refined delta_M. Originals
@@ -1208,6 +1241,48 @@ class TransformerHead(nn.Module):
         proprio_feats = proprio_feats.flatten(1)
         curr_gripper_feats = self.curr_gripper_emb(proprio_feats)
         return time_feats + curr_gripper_feats
+
+    def _camera_adaln_signal(self, time_embs, camera_summaries, fps_cam_ids, traj_seq_len):
+        """adaLN signal from C-tokens (B, ncam, C): (B, C) when pooled, (B, S, C) per SA token when per-camera."""
+        if self.camera_adaln != 'per_camera':
+            return time_embs + self.camera_adaln_proj(camera_summaries.mean(1))
+        batch_size, ncam = camera_summaries.shape[:2]
+        cam_sig = self.camera_adaln_proj(camera_summaries)
+        token_cams = torch.cat([fps_cam_ids, torch.arange(ncam, device=fps_cam_ids.device)
+                                .expand(batch_size, -1)], 1)
+        scene_sig = cam_sig[torch.arange(batch_size, device=cam_sig.device)[:, None], token_cams]
+        extra = F.pad(scene_sig, (0, 0, traj_seq_len, self.register_tokens.shape[0] + 1))
+        return time_embs[:, None] + extra
+
+    def _forward_camera_adaln(self, traj_feats, rgb3d_feats, rgb2d_feats, instr_feats,
+                              fps_scene_feats, fps_cam_ids, rel_traj_pos, rel_scene_pos,
+                              rel_pos, time_embs):
+        """Head trunk with C-token adaLN conditioning in place of delta_M; returns (rotation, position, position_features)."""
+        assert fps_cam_ids is not None, "camera_adaln requires fps_cam_ids"
+        M = fps_cam_ids.shape[1]
+        ncam = fps_scene_feats.shape[1] - M
+        traj_seq_len = traj_feats.shape[1]
+        camera_summaries = fps_scene_feats[:, M:]
+        signal = self._camera_adaln_signal(time_embs, camera_summaries, fps_cam_ids, traj_seq_len)
+        # Cross-attention adaLN touches only the trajectory queries, which carry no camera.
+        ca_signal = time_embs if self.camera_adaln == 'per_camera' else signal
+        traj_feats = self.cross_attn(
+            seq1=traj_feats, seq2=rgb3d_feats,
+            seq1_pos=rel_traj_pos, seq2_pos=rel_scene_pos, ada_sgnl=ca_signal
+        )[-1]
+        features = self.get_sa_feature_sequence(
+            traj_feats, fps_scene_feats, rgb3d_feats, rgb2d_feats, instr_feats
+        )
+        for i in range(self.self_attn.num_layers):
+            features = self.self_attn.attn_layers[i](
+                features, features, seq1_pos=rel_pos, seq2_pos=rel_pos, ada_sgnl=signal)
+            features = self.self_attn.ffw_layers[i](features, signal)
+            if self.camera_adaln != 'static_pooled':
+                camera_summaries = features[:, traj_seq_len + M:traj_seq_len + M + ncam]
+                signal = self._camera_adaln_signal(time_embs, camera_summaries, fps_cam_ids, traj_seq_len)
+        rotation = self.predict_rot(features, rel_pos, signal, traj_seq_len)
+        position, position_features = self.predict_pos(features, rel_pos, signal, traj_seq_len)
+        return rotation, position, position_features
 
     def get_positional_embeddings(
         self,
