@@ -16,6 +16,7 @@ launcher, and a page here. Never a pile of CLI overrides.
 | Experiment | Question | Status | Headline |
 |---|---|---|---|
 | [camera-adaln](2026-10-06/camera-adaln.md) | Can C-token adaLN (1a per camera, 1b pooled, 1c static) replace delta_M and the register? | ready | — |
+| [randhist-deltam](2026-10-06/randhist-deltam.md) | Layer-wise delta_M on random history from scratch: geometry vs adaLN features from the same C-tokens | queued | — |
 | [direct-randhist](2026-10-06/direct-randhist.md) | Is Direct delta_M from random history enough on its own? | ready | — |
 | [pooled-no-view-align](2026-09-29/pooled-no-view-align.md) | Is view alignment needed if you have history? | stopped at 281k | **No.** Matches VideoPooled on every robustness suite |
 | [random-history-no-time](2026-09-29/random-history-no-time.md) | Does history need order and recency? | active | **No.** Matches robustness while barely using history |
