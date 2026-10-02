@@ -31,6 +31,7 @@ miscal_group_level: null
 miscal_cameras: null
 perturbation_noise_rot_deg: null
 perturbation_noise_trans_m: null
+use_ema: false
 checkpoint_evals:
   - recipe: instructions/eval_plans/sbrs_checkpoint_ladder_v01.json
     method_id: camframe-rope6d

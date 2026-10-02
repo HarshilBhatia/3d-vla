@@ -26,6 +26,7 @@ view_align_mode: none
 miscal_cameras: [0, 1]
 layerwise_view_align: false
 interm_ckpt_interval_steps: 10000
+use_ema: false
 checkpoint_evals:
   - recipe: instructions/eval_plans/nowrist4_base_checkpoint_ladder_v01.json
     method_id: nowrist4-base

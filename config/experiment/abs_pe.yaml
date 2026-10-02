@@ -4,3 +4,4 @@
 view_align_mode: none
 layerwise_view_align: false
 head_positional_encoding: learned_abs
+use_ema: false

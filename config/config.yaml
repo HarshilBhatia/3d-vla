@@ -75,7 +75,7 @@ train_epochs: null
 # auto | float32 | bfloat16. fp32 keeps SDPA on the mem-efficient kernel (head_dim 20 blocks bf16 there).
 amp_dtype: auto
 use_compile: true  # torch.compile on compute_loss (faster, sometimes unstable)
-use_ema: false      # exponential moving average of weights for eval
+use_ema: true       # exponential moving average of weights; configs from before Oct 2026 pin false
 lv2_batch_size: 1
 
 # === Model: policy type ===
@@ -135,7 +135,7 @@ video_deltam_full_image: false
 video_deltam_patch_rope3d: false
 # false: no time embedding or causal mask on history, only a learned current-frame vector. Pooled only.
 video_deltam_time_embedding: true
-video_deltam_history_register: true  # false: no global history register added to the trajectory queries (pooled refine only)
+video_deltam_history_register: false  # true: global history register added to the trajectory queries (refine only); checkpoints without the key migrate to true
 # What the Video-DeltaM stack is for:
 #   refine          — it hands the decoder history-refined camera summaries and a
 #                     global history register; the head still predicts delta_M
@@ -143,6 +143,8 @@ video_deltam_history_register: true  # false: no global history register added t
 #                     Scene tokens and trajectory queries are left untouched and
 #                     the head predicts nothing.
 video_deltam_role: refine
+# C-token adaLN in place of delta_M: none | per_camera | pooled | static_pooled (needs view_align_mode=none)
+camera_adaln: none
 relative_action: false
 rotation_format: quat_xyzw
 denoise_timesteps: 5

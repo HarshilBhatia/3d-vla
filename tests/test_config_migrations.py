@@ -31,7 +31,8 @@ def test_retired_keys_are_dropped():
 
 def test_current_config_is_unchanged():
     """A checkpoint already in the current vocabulary must pass through untouched."""
-    cur = dict(head_positional_encoding="learned_abs", embedding_dim=120, bimanual=True)
+    cur = dict(head_positional_encoding="learned_abs", embedding_dim=120, bimanual=True,
+               video_deltam_history_register=False)
     assert migrate_config(cur) == cur
 
 
@@ -85,3 +86,8 @@ def test_every_retired_key_is_migrated():
                image_space_sampling=False, rope_type="normal")
     out = migrate_config(cfg)
     assert not (RETIRED_KEYS & set(out)), sorted(RETIRED_KEYS & set(out))
+
+
+def test_history_register_stays_on_for_checkpoints_saved_without_the_key():
+    assert migrate_config(dict(video_deltam=True))["video_deltam_history_register"] is True
+    assert migrate_config(dict(video_deltam_history_register=False))["video_deltam_history_register"] is False

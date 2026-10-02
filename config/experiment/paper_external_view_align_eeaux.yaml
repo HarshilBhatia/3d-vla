@@ -11,3 +11,4 @@ miscal_mode: group
 miscal_group_level: medium
 perturbation_noise_rot_deg: 3.0
 perturbation_noise_trans_m: 0.01
+use_ema: false

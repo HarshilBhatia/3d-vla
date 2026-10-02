@@ -3,4 +3,4 @@
 
 
 view_align_mode: physical_se3
-
+use_ema: false

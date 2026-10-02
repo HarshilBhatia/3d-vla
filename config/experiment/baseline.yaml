@@ -6,3 +6,4 @@
 view_align_mode: none
 
 head_positional_encoding: none
+use_ema: false

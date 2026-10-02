@@ -27,3 +27,4 @@ view_align_mode: none
 # experiment to match its name and the paper formulation.
 miscal_cameras: [0, 1]
 layerwise_view_align: false
+use_ema: false

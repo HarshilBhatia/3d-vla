@@ -4,3 +4,4 @@
 
 view_align_mode: rope_6d
 layerwise_view_align: true
+use_ema: false

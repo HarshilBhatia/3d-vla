@@ -28,3 +28,4 @@ layerwise_view_align: true
 # Keep wrist/on-robot camera geometry calibrated; DeltaM masking alone does not
 # constrain the training miscalibration augmentation.
 miscal_cameras: [0, 1]
+use_ema: false

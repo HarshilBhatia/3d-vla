@@ -3,5 +3,4 @@
 
 view_align_mode: none
 head_positional_encoding: rope3d
-
-
+use_ema: false

@@ -196,6 +196,12 @@ def _clarify_training_names(cfg: dict[str, Any]) -> None:
         cfg.pop(key, None)
 
 
+@migration
+def _history_register_default_off(cfg: dict[str, Any]) -> None:
+    """2026-10: video_deltam_history_register defaults to false; every earlier checkpoint was trained with it on."""
+    cfg.setdefault("video_deltam_history_register", True)
+
+
 def migrate_config(config: Mapping[str, Any]) -> dict[str, Any]:
     """Return ``config`` translated into the current key vocabulary."""
     out = dict(config)

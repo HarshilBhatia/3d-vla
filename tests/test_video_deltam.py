@@ -150,3 +150,20 @@ def test_patch_rope3d_requires_frame_pcd():
     model = _rope_model(True)
     with pytest.raises(ValueError, match="frame_pcd"):
         model(torch.randn(2, 5, 3, 7, 12), torch.randn(2, 1, 12))
+
+
+@pytest.mark.parametrize("full_image", [False, True])
+def test_no_register_builds_no_readout_and_returns_no_register(full_image):
+    model = HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0, full_image=full_image,
+                                    use_register=False).eval()
+    assert not hasattr(model, "camera_readout")
+    frames = torch.randn(2, 5, 3, 7, 12) if full_image else torch.randn(2, 5, 3, 12)
+    refined, register, delta_m = model(frames, torch.randn(2, 1, 12))
+    assert refined.shape == (2, 5, 3, 12) and register is None and delta_m is None
+
+
+def test_predict_delta_m_accepts_register_off():
+    model = HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0, predict_delta_m=True,
+                                    use_register=False).eval()
+    _, register, delta_m = model(torch.randn(2, 5, 3, 12), torch.randn(2, 1, 12))
+    assert register is None and delta_m.shape == (2, 3, 6, 6)

@@ -7,3 +7,4 @@ head_positional_encoding: rope3d
 
 use_compile: false 
 wandb_project: debug
+use_ema: false

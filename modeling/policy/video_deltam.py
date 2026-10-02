@@ -78,8 +78,6 @@ class HistoryFeatureExtractor(nn.Module):
                 "video_deltam_time_embedding=False is only supported on the pooled path "
                 "(video_deltam_full_image=False)"
             )
-        if not use_register and (full_image or predict_delta_m):
-            raise ValueError("video_deltam_history_register=False is only supported on the pooled refine path")
         if patch_rope3d and not full_image:
             raise ValueError(
                 "video_deltam_patch_rope3d requires video_deltam_full_image=True: "
@@ -306,6 +304,8 @@ class HistoryFeatureExtractor(nn.Module):
                     # Current frame only: delta_M is (B, ncam, 6, 6), as pooled does.
                     self._delta_m_from(refined[:, -1]) if self.predict_delta_m else None
                 )
+            if not hasattr(self, "camera_readout"):
+                return refined, None, None
             cam = fixed_camera_token
             for readout in self.camera_readout:
                 cam = readout(cam, refined[:, -1])

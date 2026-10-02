@@ -39,6 +39,7 @@ video_deltam_max_cameras: 4
 video_deltam_full_image: false
 video_deltam_role: predict_delta_m
 interm_ckpt_interval_steps: 10000
+use_ema: false
 checkpoint_evals:
   - recipe: instructions/eval_plans/vid_deltam_direct_checkpoint_ladder_v01.json
     method_id: vid-deltaM-direct

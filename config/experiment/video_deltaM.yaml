@@ -3,5 +3,7 @@
 view_align_mode: rope_6d
 layerwise_view_align: true
 video_deltam: true
+video_deltam_history_register: true
 video_deltam_depth: 4
 video_deltam_full_image: true
+use_ema: false

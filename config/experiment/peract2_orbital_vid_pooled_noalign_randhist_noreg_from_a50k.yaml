@@ -33,6 +33,7 @@ video_deltam_max_cameras: 4
 video_deltam_full_image: false
 video_deltam_time_embedding: false
 video_deltam_history_register: false
+use_ema: false
 checkpoint_evals:
   - recipe: instructions/eval_plans/video_deltam_checkpoint_ladder_v01.json
     method_id: vid-pooled-noalign-randhist-noreg-from-a50k

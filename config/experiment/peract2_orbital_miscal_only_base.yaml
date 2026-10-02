@@ -17,3 +17,4 @@ view_align_mode: none
 layerwise_view_align: false
 perturbation_noise_rot_deg: null
 perturbation_noise_trans_m: null
+use_ema: false
