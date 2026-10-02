@@ -37,3 +37,11 @@ def test_standard_peract2_plan_has_no_orbital_camera_plumbing():
     assert not any(argument.startswith("spawn_camera_group=") for argument in command)
     assert "model_type=denoise2d" in command
     assert output.parts[-3:] == ("standard_front_wrist", "calibrated", "results_bimanual_push_box.json")
+
+
+def test_eval_weights_is_only_set_where_the_evaluator_reads_it():
+    import glob
+    import json
+    for path in glob.glob("instructions/eval_plans/*.json"):
+        runtime = json.load(open(path)).get("runtime", {})
+        assert "eval_weights" not in runtime, f"{path}: eval_weights must go in runtime.overrides"

@@ -49,8 +49,8 @@
     "overrides": {
       "scene_sampling": "fps",
       "eval_proprio_history_order": "past_to_current",
-      "visual_num_history": 5
-    },
-    "eval_weights": "ema"
+      "visual_num_history": 5,
+      "eval_weights": "ema"
+    }
   }
 }
