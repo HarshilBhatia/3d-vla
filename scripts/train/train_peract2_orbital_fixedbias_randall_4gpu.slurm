@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -143,6 +143,30 @@ case "$ARM" in
     # 20k EMA fine-tune; the experiment config owns use_ema and the raw/EMA ladders.
     DEFAULT_PRETRAINED=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base_200k/interm_step_160000.pth
     ;;
+  exp1a_adaln_percam)
+    EXPERIMENT=peract2_orbital_vid_pooled_randhist_adaln_percam_scratch
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_pooled_randhist_adaln_percam_scratch
+    # Each camera's evolving C-token adaLN-modulates that camera's tokens in place of delta_M.
+    FROM_SCRATCH=1
+    ;;
+  exp1b_adaln_pooled)
+    EXPERIMENT=peract2_orbital_vid_pooled_randhist_adaln_pooled_scratch
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_pooled_randhist_adaln_pooled_scratch
+    # Mean of the evolving C-tokens adaLN-modulates every token in place of delta_M.
+    FROM_SCRATCH=1
+    ;;
+  exp1c_adaln_static)
+    EXPERIMENT=peract2_orbital_vid_pooled_randhist_adaln_static_scratch
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_pooled_randhist_adaln_static_scratch
+    # Mean of the head-input C-tokens, never updated, adaLN-modulates every token in every layer.
+    FROM_SCRATCH=1
+    ;;
+  exp2_direct_randhist)
+    EXPERIMENT=peract2_orbital_vid_direct_randhist_scratch
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_direct_randhist_scratch
+    # History stack predicts delta_M directly from the current C-tokens; applied to the RoPE.
+    FROM_SCRATCH=1
+    ;;
   camframe_rope6d)
     EXPERIMENT=peract2_orbital_camframe_rope6d
     DEFAULT_RUN_LOG_DIR=peract2_orbital_camframe_rope6d
@@ -151,7 +175,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist" >&2
     exit 2
     ;;
 esac
