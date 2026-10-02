@@ -1,6 +1,6 @@
 # Layer-wise delta_M on random history, from scratch (Exp 3)
 
-**Status:** submitted 2 Oct; queued
+**Status:** training since 2 Oct 19:11 (grogu-1-5, 1.45 it/s, about 38 h)
 **Week introduced:** [30 Sept – 6 Oct](../../weekly_logs/2026-10-06.md)
 
 ## Main idea
@@ -25,7 +25,7 @@ warm-started from VideoPooled 84k, had the register on, used no EMA, and ran
 | Training | from scratch, 200k, batch 128, EMA on, register off |
 | delta_M | `rope_6d`, layer-wise, cameras [0, 1] |
 | Ladders | SBRS every 10k from 50k, EMA weights, K=5 |
-| Jobs | chain 3985398 → 3985399 → 3985400; 4×1 twin 3985401 (racing) |
+| Jobs | chain 3985398 → 3985399 → 3985400 (the single-node job won the race; twins cancelled) |
 
 ## What we are checking
 
