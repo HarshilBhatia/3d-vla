@@ -1,13 +1,49 @@
 {
   "schema_version": 1,
-  "campaign_id": "idlt_scaled_extreme_task_heldout_group_v01",
+  "campaign_id": "idlt_task_heldout_group_fixed_v03_video_k5",
   "description": "In-Distribution Lab Transfer: external-camera-only calibration robustness. The selected camera group was seen in training for other tasks, but not this target task.",
-  "calibration_registry": "instructions/eval_calibrations_idlt_scaled_extreme_v01.json",
+  "calibration_registry": "instructions/eval_calibrations_idlt_v01.json",
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
   "methods": [
     {
-      "id": "exp2_direct_randhist_s200k_ema",
-      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_direct_randhist_scratch/interm_step_200000.pth",
+      "id": "exp1a_adaln_percam_s80k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_adaln_percam_scratch/interm_step_80000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    },
+    {
+      "id": "exp1b_adaln_pooled_s200k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_adaln_pooled_scratch/interm_step_200000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    },
+    {
+      "id": "exp1c_adaln_static_s120k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_adaln_static_scratch/interm_step_120000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    },
+    {
+      "id": "exp2_direct_randhist_s70k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_direct_randhist_scratch/interm_step_70000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    },
+    {
+      "id": "exp3_randhist_deltam_s110k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_deltam_scratch/interm_step_110000.pth",
       "overrides": {
         "visual_num_history": 5,
         "eval_proprio_history_order": "past_to_current",
@@ -97,61 +133,103 @@
   },
   "task_calibrations": {
     "bimanual_push_box": [
-      "seen-g4-medium-unknown-e30deg-t30cm-v01",
-      "seen-g4-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g4-medium-known-v01",
+      "seen-g4-medium-supported-e3deg-t1cm-v01",
+      "seen-g4-medium-unknown-e5deg-t5cm-v01",
+      "seen-g4-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_lift_ball": [
-      "seen-g5-medium-unknown-e30deg-t30cm-v01",
-      "seen-g5-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g5-medium-known-v01",
+      "seen-g5-medium-supported-e3deg-t1cm-v01",
+      "seen-g5-medium-unknown-e5deg-t5cm-v01",
+      "seen-g5-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_dual_push_buttons": [
-      "seen-g6-medium-unknown-e30deg-t30cm-v01",
-      "seen-g6-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g6-medium-known-v01",
+      "seen-g6-medium-supported-e3deg-t1cm-v01",
+      "seen-g6-medium-unknown-e5deg-t5cm-v01",
+      "seen-g6-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_pick_plate": [
-      "seen-g1-medium-unknown-e30deg-t30cm-v01",
-      "seen-g1-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g1-medium-known-v01",
+      "seen-g1-medium-supported-e3deg-t1cm-v01",
+      "seen-g1-medium-unknown-e5deg-t5cm-v01",
+      "seen-g1-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_put_item_in_drawer": [
-      "seen-g2-medium-unknown-e30deg-t30cm-v01",
-      "seen-g2-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g2-medium-known-v01",
+      "seen-g2-medium-supported-e3deg-t1cm-v01",
+      "seen-g2-medium-unknown-e5deg-t5cm-v01",
+      "seen-g2-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_put_bottle_in_fridge": [
-      "seen-g3-medium-unknown-e30deg-t30cm-v01",
-      "seen-g3-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g3-medium-known-v01",
+      "seen-g3-medium-supported-e3deg-t1cm-v01",
+      "seen-g3-medium-unknown-e5deg-t5cm-v01",
+      "seen-g3-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_handover_item": [
-      "seen-g4-medium-unknown-e30deg-t30cm-v01",
-      "seen-g4-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g4-medium-known-v01",
+      "seen-g4-medium-supported-e3deg-t1cm-v01",
+      "seen-g4-medium-unknown-e5deg-t5cm-v01",
+      "seen-g4-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_pick_laptop": [
-      "seen-g5-medium-unknown-e30deg-t30cm-v01",
-      "seen-g5-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g5-medium-known-v01",
+      "seen-g5-medium-supported-e3deg-t1cm-v01",
+      "seen-g5-medium-unknown-e5deg-t5cm-v01",
+      "seen-g5-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_straighten_rope": [
-      "seen-g6-medium-unknown-e30deg-t30cm-v01",
-      "seen-g6-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g6-medium-known-v01",
+      "seen-g6-medium-supported-e3deg-t1cm-v01",
+      "seen-g6-medium-unknown-e5deg-t5cm-v01",
+      "seen-g6-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_sweep_to_dustpan": [
-      "seen-g1-medium-unknown-e30deg-t30cm-v01",
-      "seen-g1-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g1-medium-known-v01",
+      "seen-g1-medium-supported-e3deg-t1cm-v01",
+      "seen-g1-medium-unknown-e5deg-t5cm-v01",
+      "seen-g1-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_lift_tray": [
-      "seen-g2-medium-unknown-e30deg-t30cm-v01",
-      "seen-g2-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g2-medium-known-v01",
+      "seen-g2-medium-supported-e3deg-t1cm-v01",
+      "seen-g2-medium-unknown-e5deg-t5cm-v01",
+      "seen-g2-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_handover_item_easy": [
-      "seen-g3-medium-unknown-e30deg-t30cm-v01",
-      "seen-g3-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g3-medium-known-v01",
+      "seen-g3-medium-supported-e3deg-t1cm-v01",
+      "seen-g3-medium-unknown-e5deg-t5cm-v01",
+      "seen-g3-medium-unknown-e10deg-t10cm-v01"
     ],
     "bimanual_take_tray_out_of_oven": [
-      "seen-g4-medium-unknown-e30deg-t30cm-v01",
-      "seen-g4-medium-unknown-e40deg-t40cm-v01"
+      "calibrated",
+      "seen-g4-medium-known-v01",
+      "seen-g4-medium-supported-e3deg-t1cm-v01",
+      "seen-g4-medium-unknown-e5deg-t5cm-v01",
+      "seen-g4-medium-unknown-e10deg-t10cm-v01"
     ]
   },
   "calibrations": [
-    "unknown-e30deg-t30cm",
-    "unknown-e40deg-t40cm"
+    "calibrated",
+    "known",
+    "supported-e3deg-t1cm",
+    "unknown-e5deg-t5cm",
+    "unknown-e10deg-t10cm"
   ],
   "tasks": [
     "bimanual_push_box",

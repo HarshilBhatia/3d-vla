@@ -6,8 +6,44 @@
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
   "methods": [
     {
-      "id": "exp3_randhist_deltam_s200k_ema",
-      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_deltam_scratch/interm_step_200000.pth",
+      "id": "exp1a_adaln_percam_s80k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_adaln_percam_scratch/interm_step_80000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    },
+    {
+      "id": "exp1b_adaln_pooled_s200k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_adaln_pooled_scratch/interm_step_200000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    },
+    {
+      "id": "exp1c_adaln_static_s120k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_adaln_static_scratch/interm_step_120000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    },
+    {
+      "id": "exp2_direct_randhist_s70k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_direct_randhist_scratch/interm_step_70000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    },
+    {
+      "id": "exp3_randhist_deltam_s110k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_deltam_scratch/interm_step_110000.pth",
       "overrides": {
         "visual_num_history": 5,
         "eval_proprio_history_order": "past_to_current",
