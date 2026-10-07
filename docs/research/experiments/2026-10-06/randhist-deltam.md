@@ -38,4 +38,4 @@ warm-started from VideoPooled 84k, had the register on, used no EMA, and ran
 
 ## Results (6 Oct)
 
-IDLT 60/60 **55.9** (A 62.8, C 61.6; 1b 70.4); IDLT calibrated 71.8; G7 opposite 500 cm collapses to 46.7. From scratch, layer-wise delta_M does not help on random history. Full table: [camera-adaln](camera-adaln.md#results-6-oct).
+At 110k IDLT 60/60 55.9, **but 71.6 at 200k** (50k→200k: 48.4, 53.8, 55.9, 62.5, 65.7, 71.6). Originally reported: IDLT 60/60 **55.9** (A 62.8, C 61.6; 1b 70.4); IDLT calibrated 71.8; G7 opposite 500 cm collapses to 46.7. From scratch, layer-wise delta_M does not help on random history. Full table: [camera-adaln](camera-adaln.md#results-6-oct).

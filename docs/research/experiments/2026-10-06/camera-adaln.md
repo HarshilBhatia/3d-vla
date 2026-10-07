@@ -128,10 +128,22 @@ the mean of the C-tokens entering the head.
 
 IDLT cells are 13 tasks × 100 rollouts (about ±1.3 points); G7 cells are 6 tasks × 20 (about ±4). A and C are raw weights at their best ladder points (160k, 100k); the new models are EMA weights at their best EMA ladder points (1a 80k, 1b 200k, 1c 120k, exp 2 70k, exp 3 110k). \* = one of 13 tasks missing (timed-out cell, resubmitted as 3990347).
 
-## Reading
+## Reading (corrected 7 Oct: the first reading was a checkpoint-step artifact)
 
-**1b (pooled, layer-wise C-token adaLN) is the only arm that beats the controls, and it does so at every IDLT level:** about +6 calibrated and **+8 at 60/60 (70.4 vs 62.8 / 61.6)**. From scratch, it nearly matches the warm-started VideoPooled (71.5 at 60/60) and random-history (71.9) models. On G7 it is level with A.
+The table above compares checkpoints picked by best SBRS, which spanned 70k to 200k. The step sweep shows robustness keeps climbing with training while SBRS stays flat, so that table mostly ranks training length. At equal training (200k, EMA):
 
-Every other arm is at or below the controls. 1c (static) collapses at the extremes (IDLT 60/60 48.2; G7 100–500 cm about 54). 1a (per camera) is about 10 points below A even when calibrated. Exp 2 and exp 3 (delta_M, direct and layer-wise) land at about 56 at 60/60, below the no-delta_M controls.
+| Model (200k) | IDLT calibrated | IDLT 60/60 |
+|---|---|---|
+| exp 3, layer-wise delta_M | 77.5 | **71.6** |
+| 1b, pooled adaLN | **80.8** | 70.4 |
+| exp 2, Direct delta_M | 78.8 | 68.8 |
+| 1a, per-camera adaLN | 74.3 | 68.5 |
+| 1c, static adaLN | 77.3 | 56.6 |
 
-Caveat: 1b's checkpoint is EMA, and A/C's are raw. EMA gave A/C only about +7 SBRS in the fine-tunes and about 0 on G7, and 1a/1c/2/3 are also EMA, yet sit below A. So EMA alone does not explain 1b's lead.
+exp 3 by step (calibrated / 60/60): 50k 64.3/48.4, 80k 65.0/53.8, 110k 71.8/55.9, 140k 73.2/62.5, 170k 72.7/65.7, 200k 77.5/71.6. SBRS at the same steps: 69, 68, 74, 63, 65, 72.
+
+- **3, 1b, 2 and 1a are within about 3 points of each other at 60/60.** Only 1c (static signal) is clearly worse.
+- **Fair control pending.** A (62.8) and C (61.6) were also evaluated at SBRS-picked steps (160k, 100k); A at 200k is being evaluated.
+- **The SBRS ladder is retired for checkpoint selection** (see the weekly log).
+
+**delta_M diagnostic** (`scripts/eval/diagnose_delta_m.py`, `results/diagnose_delta_m/wk1006.json`): in every pooled model — VideoPooled, the warm-started random-history models and exp 2/3 — delta_M does not respond to miscalibration. It is predicted from appearance-only C-tokens, so the delta_M before cross-attention is identical under clean and 60/60 cameras, and later layers barely move it. It acts as a learned fixed re-mixing of the RoPE basis: about 0.35–0.38 (Frobenius distance from identity) in the warm models, 0.77 → 0.89 in exp 3.

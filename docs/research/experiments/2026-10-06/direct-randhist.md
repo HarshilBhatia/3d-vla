@@ -42,4 +42,4 @@ register. Its scene tokens are exactly those of a model without history.
 
 ## Results (6 Oct)
 
-IDLT 60/60 **56.6** (A 62.8, C 61.6); IDLT calibrated 68.8; G7 holds 64–78 including 500 cm (70.0). Below the no-delta_M controls under heavy miscalibration. Full table: [camera-adaln](camera-adaln.md#results-6-oct).
+At 70k IDLT 60/60 56.6, **68.8 at 200k** (calibrated 78.8). Originally reported: IDLT 60/60 **56.6** (A 62.8, C 61.6); IDLT calibrated 68.8; G7 holds 64–78 including 500 cm (70.0). Below the no-delta_M controls under heavy miscalibration. Full table: [camera-adaln](camera-adaln.md#results-6-oct).
