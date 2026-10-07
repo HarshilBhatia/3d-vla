@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "eval"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
 import torch
@@ -18,6 +19,7 @@ from data.geometry import fetch_depth2cloud
 from data.preprocessing.rlbench import RLBenchDataPreprocessor
 from datasets import fetch_dataset_class
 from diagnose_delta_m import CONDITIONS, VAL, load
+from eval_faithful_load import load as faithful_load, parse_spec
 from modeling.encoder.text import fetch_tokenizers
 
 FIELDS = ("query_trajectory", "rgb3d_feats", "pcd", "rgb2d_feats", "rgb2d_pos", "instr_feats", "instr_pos",
@@ -36,8 +38,10 @@ PARTS = {
     "every_input": [(f, "all") for f in FIELDS],
 }
 FORWARD = ["none", "pos_dense", "pos_fps", "pos_ctok", "pos_all", "feats_scene", "ctok_feats", "proprio_feats",
-           "lang_query", "pos_all+proprio", "every_input", "mech", "pos_all+mech", "proprio+mech"]
-REVERSE = ["pos_dense", "pos_fps", "pos_ctok", "pos_all", "proprio_feats", "pos_all+proprio", "mech"]
+           "lang_query", "pos_all+proprio", "every_input", "mech", "pos_all+mech", "proprio+mech", "pos_dense+pos_fps",
+           "pos_ctok+proprio", "pos_ctok+mech"]
+REVERSE = ["pos_dense", "pos_fps", "pos_ctok", "pos_all", "proprio_feats", "pos_all+proprio", "mech",
+           "pos_dense+pos_fps", "pos_ctok+proprio"]
 
 
 class Mech:
@@ -190,13 +194,18 @@ def main():
     p.add_argument("--model", action="append", required=True, help="label=checkpoint:raw|ema")
     p.add_argument("--batches", type=int, default=1000)
     p.add_argument("--out-dir", default="results/analysis/activation_patching")
+    p.add_argument("--faithful", action="store_true", help="load as online eval does; spec may end in :K or :ckpt for visual history")
     a = p.parse_args()
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     for spec in a.model:
-        label, rest = spec.split("=", 1)
-        path, weights = rest.rsplit(":", 1)
-        model, args = load(path, weights)
+        if a.faithful:
+            label, path, weights, k = parse_spec(spec)
+            model, args = faithful_load(path, weights, k)
+        else:
+            label, rest = spec.split("=", 1)
+            path, weights = rest.rsplit(":", 1)
+            model, args = load(path, weights)
         tokenizer = fetch_tokenizers(getattr(args, "text_backbone", None) or args.backbone)
         ds = fetch_dataset_class(args.dataset)(
             root=VAL, instructions=args.val_instructions, copies=1, relative_action=args.relative_action,

@@ -818,7 +818,7 @@ Figures (`figures/README.md`):
 
 ## TODO 9: activation patching on the non-history models (Base 160k, DeltaM 140k)
 
-**Status:** in progress (intervention agent)
+**Status:** done
 
 **Why:** every history model's extractor is dead within 10k–30k steps:
 
@@ -847,7 +847,79 @@ Check that positions plus proprio recover 100%. Report each component's share of
 
 **Results:**
 
+Scripts: `scripts/analysis/activation_patching.py` with a new `--faithful` option, which loads via TODO 8's `eval_faithful_load.py` (spec `label=ckpt:raw|ema:K|ckpt`), and three new combinations (below). Launcher: `scripts/analysis/activation_patching_todo9.slurm` (job 3994003). Plotting: `scripts/analysis/plot_activation_patching.py --in-dir results/analysis/todo9/activation_patching --fig-stem todo9_patch_fraction_recovered`. Raw per-sample metrics: `results/analysis/todo9/activation_patching/<model>.pt`. Aggregates: `summary.json` and `summary_table.txt`. Figure: `figures/todo9_patch_fraction_recovered.png`.
+
+Setup: the same 853 val samples, seeds and protocol as TODO 7: shared history draw, one flow noise per batch, heavy60 on cameras [0, 1].
+- **DeltaM 140k and Base 160k:** raw weights, K=1. DeltaM 140k uses the legacy all-camera delta_M (`[load] ... legacy_all_cams=True view_align_cameras=None`).
+- **exp 3, 1b and A:** re-run in the same job at their saved K=5. They reproduce TODO 7's fractions exactly, so the five models sit on one footing.
+- **Exactness:** patch-nothing = heavy and patch-every-input = clean, max |Δ| = **0.0** for all five models.
+- **Inputs that differ between clean and heavy60:** in all five models only the dense xyz, the FPS and C-token xyz, and `proprio_feats` differ. Scene, C-token and language features are bit-identical. The relative change in `proprio_feats` is 0.14 for DeltaM, 0.19 for Base and 0.07–0.09 for the history models at K=5 on the smoke batches.
+
+New combinations:
+- `pos_dense+pos_fps`: scene-token positions without the C-tokens.
+- `pos_ctok+proprio`.
+- `pos_ctok+mech`.
+
+**Clean → heavy60 (pos L2 cm / acc < 1 cm / rot L1).** The last column counts samples that get more than 1 cm worse.
+
+| Model | clean | heavy60 | samples >1 cm worse |
+|---|---|---|---|
+| DeltaM 140k | 1.32 / 67.5% / 0.0465 | 2.69 / 50.8% / 0.0641 | **244** |
+| Base 160k | 1.49 / 65.6% / 0.0482 | 3.30 / 48.2% / 0.0865 | **264** |
+| exp 3 200k | 1.04 / 85.5% / 0.0415 | 1.41 / 78.1% / 0.0488 | 55 |
+| 1b 200k | 1.00 / 85.4% / 0.0402 | 1.54 / 78.3% / 0.0618 | 67 |
+| A 200k | 1.20 / 79.9% / 0.0482 | 2.05 / 74.7% / 0.0715 | 66 |
+
+**Share of the position-L2 degradation, clean into heavy (fraction recovered).** The 95% paired bootstrap CI is in brackets.
+
+| Patch | **DeltaM 140k** | **Base 160k** | exp 3 | 1b | A |
+|---|---|---|---|---|---|
+| C-token xyz | **0.00** [0.00, 0.00] | **−0.00** [0.00, 0.00] | 0.19 [0.12, 0.33] | 0.01 | 0.00 |
+| FPS scene xyz | 0.26 [0.21, 0.31] | 0.20 [0.16, 0.25] | 0.28 | 0.12 | 0.06 |
+| dense xyz (CA keys) | 0.27 [0.21, 0.34] | 0.17 [0.13, 0.22] | 0.16 | 0.09 | 0.10 |
+| dense + FPS | 0.32 | 0.23 | 0.38 | 0.17 | 0.13 |
+| all positions | 0.32 [0.24, 0.41] | 0.23 [0.17, 0.29] | 0.51 | 0.18 | 0.13 |
+| proprio_feats | 0.17 [0.04, 0.28] | 0.49 [0.40, 0.57] | 0.45 | 0.79 | 0.88 |
+| C-token xyz + proprio | 0.17 | 0.49 | 0.63 | 0.80 | 0.89 |
+| all positions + proprio | **1.00** | **1.00** | 1.00 | 1.00 | 1.00 |
+| delta_M replay | 0.02 [0.00, 0.04] | – | −0.00 | −0.00 (adaLN) | – |
+| all positions + delta_M | 0.34 | – | 0.51 | 0.17 | – |
+
+**Reverse, heavy into clean (fraction caused), pos L2:**
+
+| Patch | DeltaM 140k | Base 160k | exp 3 | 1b | A |
+|---|---|---|---|---|---|
+| C-token xyz | −0.00 | −0.00 | 0.13 | 0.00 | 0.00 |
+| FPS scene xyz | 0.32 | 0.19 | 0.20 | 0.11 | 0.03 |
+| dense xyz | 0.34 | 0.22 | 0.11 | 0.06 | 0.05 |
+| all positions | **0.83** [0.73, 0.96] | **0.51** [0.43, 0.61] | 0.55 | 0.21 | 0.12 |
+| proprio_feats | 0.68 [0.60, 0.76] | 0.77 [0.70, 0.82] | 0.49 | 0.82 | 0.87 |
+| delta_M | 0.01 | – | −0.01 | 0.01 | – |
+
+**Rotation L1:**
+- Proprio recovers 0.95 (DeltaM) and 0.97 (Base) of the rotation damage, and causes 1.01 and 0.97 of it.
+- Positions recover ≤ 0.03.
+- C-token xyz recovers 0.00 for both. exp 3 is the only model where it matters for rotation (0.43).
+
+**Accuracy within 1 cm** behaves oddly in DeltaM: patching only clean proprio into heavy *lowers* it further (−0.36 of the gap), and heavy positions alone cause 1.36 of it. The paths interact strongly here (next section).
+
+**Additivity.**
+- In the history models, the forward shares of positions and proprio add up to about 1: 0.51+0.45 for exp 3, 0.18+0.79 for 1b, 0.13+0.88 for A.
+- In the non-history models they don't. Forward: 0.32+0.17 = 0.49 for DeltaM and 0.23+0.49 = 0.72 for Base. Reverse: 0.83+0.68 = 1.51 and 0.51+0.77 = 1.28.
+- So each path alone causes most of the damage, and fixing either alone leaves most of it. Damage happens when *either* the head's scene geometry *or* the proprio summary is corrupted. Only the joint patch gives 100%.
+
 **Reading:**
+- **No: C-token positions carry none of the damage in the non-history models.** The share is 0.00 [0.00, 0.00] in both directions for DeltaM 140k and Base 160k. Among the history models, C-token positions matter only for exp 3 (0.19 of pos L2, 0.43 of rot), whose delta_M re-mixes the C-tokens' RoPE; they matter for neither 1b nor A. TODO 8 found external C-tokens draw only about 1% of SA attention in every model, consistent with this. The hypothesis that per-camera C-tokens at miscalibrated mean xyz explain the history/non-history gap is ruled out.
+- **What differs is how much of the damage comes through scene-token geometry, and that the paths are redundant.**
+  - Non-history models are damaged far more often: 244–264 samples more than 1 cm worse, against 55–67.
+  - Their heavy60 positions alone cause 0.51–0.83 of the position damage, against 0.12–0.21 for 1b and A. The dense and FPS tokens contribute about equally.
+  - The FPS share fits TODO 8's 30–32% external FPS tokens (against 10–19%). The dense CA-key share (0.17–0.27 recovered, 0.22–0.34 caused, against 0.05–0.16) also implicates the cross-attention keys, which every model sees at the same 50% external share. So the non-history heads are more geometry-sensitive per token as well, not only more exposed.
+- **Proprio is a shared failure route.** It carries about 100% of the rotation damage in all four non-exp-3 models, 1b and A as well as DeltaM and Base. In Base it is also about half the position damage. The `gripper_context_head` point from TODO 7 applies to the non-robust models too.
+- **DeltaM's delta_M carries nothing:** 0.02 recovered, 0.01 caused. This matches TODO 8, where its delta_M varies per sample but barely responds to 60/60.
+- **Caveats.**
+  - The two groups differ in many training factors (TODO 8 caveat), so this localises the damage; it does not identify a cause.
+  - The non-additivity means single-component shares for DeltaM and Base depend on direction. Read the forward and reverse columns together.
+  - Offline, keypose only, one heavy60 draw per sample.
 
 ---
 

@@ -79,3 +79,11 @@ The data comes from `scripts/analysis/activation_patching.py` (GPU, via `scripts
 | Figure | Shows | Script |
 |---|---|---|
 | `patch_fraction_recovered.{png,svg}` | Per patched component: the fraction of the clean → heavy60 degradation recovered (clean into heavy) or caused (heavy into clean), for position L2 and rotation L1, models side by side, 95% paired bootstrap CI | `scripts/analysis/plot_activation_patching.py` |
+
+## Activation patching on non-history models ([TODOs.md](../TODOs.md), TODO 9)
+
+The data comes from `scripts/analysis/activation_patching.py --faithful` (GPU, via `scripts/analysis/activation_patching_todo9.slurm`), which writes `results/analysis/todo9/activation_patching/<model>.pt`. The figure, `summary.json` and `summary_table.txt` come from `scripts/analysis/plot_activation_patching.py --in-dir results/analysis/todo9/activation_patching --fig-stem todo9_patch_fraction_recovered`. Models: DeltaM 140k and Base 160k (raw, K=1, legacy all-camera delta_M), plus exp 3, 1b and A at their saved K=5.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `todo9_patch_fraction_recovered.{png,svg}` | Per patched component (C-token, FPS and dense positions, proprio, delta_M/adaLN replay, and combinations): the fraction of the clean → heavy60 degradation recovered (clean into heavy) and caused (heavy into clean), for position L2 and rotation L1, five models, 95% paired bootstrap CI | `scripts/analysis/plot_activation_patching.py` |
