@@ -102,6 +102,31 @@ are archival artifacts: do not rename, move, or overwrite them. Plot scripts
 may map canonical labels to those legacy paths, but captions and generated
 tables use the canonical vocabulary.
 
+## Checkpoint ladders and checkpoint selection
+
+**Checkpoints are not selected by SBRS.** The SBRS ladder (6 tasks × 20,
+seen group + medium bias + 3deg/1cm) is in-distribution, saturates by about
+100k and moves ±4–5 points between neighbouring checkpoints, while
+miscalibration robustness keeps climbing with training (exp 3, week of 6 Oct:
+IDLT 60/60 48 → 72 from 50k to 200k, SBRS flat). Report a model at its
+**final checkpoint**, or at the best checkpoint of the **robustness ladder**.
+
+Standard ladders for every new video experiment (`checkpoint_evals`, see
+[checkpoint-triggered-evals.md](checkpoint-triggered-evals.md)):
+
+| Recipe | What | Cadence | Cells / checkpoint |
+|---|---|---|---|
+| `robustness_ladder_ema_v01.json` | IDLT task-heldout `calibrated` + `unknown-e60deg-t60cm`, 13 tasks × 20 rollouts, K=5 history, EMA | every 20k from 100k | 26 (two arrays of 13) |
+| `sbrs_sanity_ladder_ema_v01.json` | SBRS 3deg/1cm, 6 tasks × 20, EMA; a sanity check only | every 50k | 6 |
+
+`robustness_ladder_raw_v01.json` is the raw-weight twin for runs trained
+without EMA. Both robustness recipes share protocol id `robustness_ladder_v01`
+and write to `/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts/robustness_ladder_v01_<method>_s<step>/`,
+so 20-rollout ladder points never mix with the 100-rollout IDLT campaign
+folders. Put the weights in the `method_id` (e.g. `exp3_ema`). A 20-rollout
+point is a ladder reading; numbers that are cited come from the full
+100-rollout IDLT campaigns.
+
 ## Launching
 
 Print a resolved cell without running it:
