@@ -250,3 +250,60 @@ The largest of these is about 1°, against 60° of injected rotation.
 **Results:**
 
 **Reading:**
+
+---
+
+## TODO 6: under heavy miscalibration, does the model follow the miscalibrated cameras or ignore them?
+
+**Status:** claimed (intervention agent)
+
+**Why:** a miscalibration error N_j on external camera j (observed extrinsics = N_j · true, camera-to-world) moves every world point that camera sees by the rigid transform N_j: x → N_j x. If a model trusts camera j's geometry, its predicted keypose should move the same way. If it relies on the wrist cameras (always calibrated), proprioception or appearance, the prediction should stay at the true target. This splits the 60/60 error into "followed the wrong geometry" and "other". Check `data/preprocessing/rlbench.py` (`apply_miscalibration`) and confirm the direction of the composition.
+
+**Do (offline):** use exp 3 at 200k, 1b at 200k and control A at 200k (raw), plus exp 3 at 110k to see whether following decreases with training. Use the same validation samples and seeds as TODO 1. For each sample, hand and keypose, take:
+- the prediction p̂ (robot/world frame, after unnormalisation);
+- the ground truth p;
+- the "followed" targets N_0 p and N_1 p.
+
+Conditions:
+- heavy, both external cameras;
+- **only camera 0** perturbed;
+- **only camera 1** perturbed;
+- a magnitude sweep: 10/10, 20/20, 40/40 and 60/60, fixed magnitude and random direction.
+
+**Report:**
+1. Following coefficient α_j: the least-squares fit of (p̂ − p) ≈ α_j (N_j p − p), per model, condition and magnitude. α = 0 means ignore; α = 1 means follow fully. With both cameras perturbed, fit α_0 and α_1 jointly.
+2. Distances |p̂ − p|, |p̂ − N_0 p| and |p̂ − N_1 p| (cm) and the share of samples closest to each.
+3. The same for rotation, if cheap: does the predicted gripper orientation rotate with N_j's rotation?
+4. Per task, where the sample count allows.
+5. Clean-condition error as the floor.
+
+Offline action error is reliable for exp 3, 1b and A. It is not for the older warm checkpoints (see Context), so leave those out.
+
+**Results:**
+
+**Reading:**
+
+---
+
+## TODO 7: activation patching — which path carries the damage from miscalibration?
+
+**Status:** claimed (intervention agent)
+
+**Why:** under 60/60, offline action error rises. Patching one component from a **clean** run into the **heavy** run of the *same* sample, with the same seeds and the same flow noise, shows how much of the damage flows through that component.
+
+**Do (offline):** use exp 3 at 200k, 1b at 200k and control A at 200k (raw), with the same validation samples and seeds as TODO 1. Run `encode_inputs` for clean and heavy60 (cameras [0, 1]), then assemble mixed inputs and run `conditional_sample` with identical initial noise. Components to patch, clean into heavy, one at a time and then in useful combinations:
+- **(a) Scene-token positions** in the head: `pcd` / `rgb3d_pos`, `fps_scene_pos`, `camera_summary_pos`. Geometry is restored, features stay heavy.
+- **(b) Scene-token features:** `rgb3d_feats`, plus the FPS features without C-tokens. The encoder may already mix positions into these through its own 3D RoPE; check `modeling/encoder/multimodal/encoder3d.py` and say so.
+- **(c) The C-tokens entering the head:** the camera-summary part of `fps_scene_feats`. These should be about identical clean vs heavy; it's a sanity check.
+- **(d) The mechanism's outputs:**
+  - **exp 3:** replay the clean delta_M at every layer call (hook `_predict_from_cam_feat` and replay the recorded values in call order);
+  - **1b:** replay the clean adaLN camera term per layer (hook `_camera_adaln_signal`).
+- **(e) Proprio and language:** these should be identical; a sanity check.
+
+Also run the **reverse** direction (heavy into clean) for (a), (b) and (d): how much damage each component causes on its own.
+
+**Report** per model: clean error, heavy error, and for each patch the patched error and the **fraction of the degradation recovered**, (heavy − patched) / (heavy − clean), using position L2, accuracy within 1 cm and rotation L1. A figure: bars per component, models side by side. Note that (a) and (b) together should recover close to 100%; check it as a consistency test.
+
+**Results:**
+
+**Reading:**
