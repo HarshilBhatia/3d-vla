@@ -138,7 +138,7 @@ The largest of these is about 1°, against 60° of injected rotation.
 
 ## TODO 2: what the 1b adaLN signal encodes
 
-**Status:** open
+**Status:** in progress (agent)
 
 **Why:** 1b conditions every head layer on `signal = time_embs + MLP_c(mean of C-tokens)`, re-read after each SA layer (`camera_adaln: pooled`). We don't know whether it carries sample-specific information (task, scene, progress, miscalibration) or settles into a learned near-constant, as delta_M appears to.
 
