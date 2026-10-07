@@ -39,8 +39,16 @@ CONDITIONS = {
 def load(path, weights):
     ckpt = torch.load(path, map_location="cpu", weights_only=False)
     args = get_config(overrides=["data=orbital_peract2_nfs"], config_name="config", config_path=get_config_path())
-    overlay_checkpoint_config(args, migrate_config(ckpt["config"]))
+    cfg = ckpt["config"]
+    legacy_cameras = "dynamic_rope_from_camtoken" in cfg and "delta_m_camera_ids" in cfg
+    overlay_checkpoint_config(args, migrate_config(cfg))
     normalize_public_vocabulary_args(args)
+    # visual_num_history is eval-owned, so the overlay skips it; online plans pass the trained K explicitly.
+    args.visual_num_history = cfg.get("visual_num_history", cfg.get("num_history", args.visual_num_history))
+    # Same legacy rule as load_model_for_evaluation: old-schema checkpoints corrected every camera.
+    if legacy_cameras and getattr(args, "view_align_mode", "none") != "none":
+        args.view_align_cameras = None
+    print(f"[load] {path}: visual_num_history={args.visual_num_history} view_align_cameras={args.view_align_cameras}", flush=True)
     cls = fetch_model_class(args.model_type)
     model = cls(**build_model_kwargs(args, cls))
     key = {"raw": "weight", "ema": "ema_weight"}[weights]
