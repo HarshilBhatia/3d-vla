@@ -87,3 +87,11 @@ The data comes from `scripts/analysis/activation_patching.py --faithful` (GPU, v
 | Figure | Shows | Script |
 |---|---|---|
 | `todo9_patch_fraction_recovered.{png,svg}` | Per patched component (C-token, FPS and dense positions, proprio, delta_M/adaLN replay, and combinations): the fraction of the clean → heavy60 degradation recovered (clean into heavy) and caused (heavy into clean), for position L2 and rotation L1, five models, 95% paired bootstrap CI | `scripts/analysis/plot_activation_patching.py` |
+
+## C-token behaviour ([TODOs.md](../TODOs.md), TODO 10)
+
+The data comes from `scripts/analysis/ctoken_behaviour.py` (GPU, via `scripts/analysis/ctoken_behaviour.slurm`), which writes `results/analysis/ctoken_behaviour/<model>.pt`. The figure, `summary.json` and `summary_table.txt` come from `scripts/analysis/plot_ctoken_behaviour.py` (CPU). Models: Base 160k and DeltaM 140k (raw, K=1), 1b 200k and exp 3 200k (EMA, K=5). Data: all 853 val samples, clean vs heavy60.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `ctoken_rel_change.{png,svg}` | ‖h_heavy60 − h_clean‖/‖h_clean‖ per layer for each C-token (cams 0–3), external and wrist FPS tokens, and trajectory tokens; one panel per model | `scripts/analysis/plot_ctoken_behaviour.py` |

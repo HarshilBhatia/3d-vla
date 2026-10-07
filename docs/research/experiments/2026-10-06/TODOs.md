@@ -925,7 +925,7 @@ New combinations:
 
 ## TODO 10: what the C-tokens do in the non-history models (Base 160k, DeltaM 140k), with 1b as contrast
 
-**Status:** in progress (attention agent)
+**Status:** done
 
 **Why:** in Base and DeltaM, each C-token is camera j's real mean appearance feature, placed at camera j's mean point-cloud xyz (`camera_summary_pos`), which is miscalibrated for cameras 0 and 1 under heavy miscalibration. In the history models it is one learned constant, copied to all four cameras, placed at the same kind of miscalibrated position. We want to see how these tokens behave and whether they are a route for miscalibration into the head.
 
@@ -951,4 +951,66 @@ One summary table comparing Base, DeltaM and 1b, plus a figure of item 3 per lay
 
 **Results:**
 
+**Setup.** Script `scripts/analysis/ctoken_behaviour.py` (job 3994034 via `scripts/analysis/ctoken_behaviour.slurm`); summary and figure from `scripts/analysis/plot_ctoken_behaviour.py`. Data in `results/analysis/ctoken_behaviour/`: `<model>.pt`, `summary.json`, `summary_table.txt`.
+- Models and loading: Base 160k and DeltaM 140k raw at K=1 with TODO 8's `--faithful` settings (legacy all-camera delta_M for DeltaM); 1b 200k and exp 3 200k EMA at their saved K=5.
+- Samples: the same 853 val samples, with seeds per batch as in TODOs 1/3/8. Offline pos_l2 reproduces TODO 8 to ≤0.03 cm.
+- Each batch runs clean, train, heavy60 and the ablations back-to-back on the same sample and the same flow noise.
+- The FPS selection is asserted identical across conditions, so relative changes are per token.
+- Attention is recomputed in fp32 as in TODO 3, for the trajectory rows and the four C-token rows of every SA and output-head layer.
+- Two ablations: `mask` removes the C-token slots as attention keys in every SA and output-head layer; `mean` replaces the C-token content at head input with the dataset mean per camera.
+  - I checked that masking cuts every route. With the mask on, also zeroing the C-tokens changes the prediction by exactly 0.0 (Base, one batch).
+  - The C-tokens can still act outside attention: through delta_M in DeltaM and exp 3, and through the adaLN signal in 1b. `mean` tests those routes.
+
+**Summary table.** "ext" = cameras 0/1, "wr" = cameras 2/3. Relative change = ‖h_heavy60 − h_clean‖/‖h_clean‖ on the same sample, averaged over samples and the 5 flow steps.
+
+| | **Base 160k** | **DeltaM 140k** | 1b 200k (collapsed) | exp 3 200k (collapsed) |
+|---|---|---|---|---|
+| **1. Content at head input** | | | | |
+| spread across samples (per-channel std), ext / wr | 0.104, 0.106 / 0.144, 0.135 | 0.109, 0.112 / 0.156, 0.154 | ≤1e-4 | ≤2e-4 |
+| token norm | 1.7–2.0 | 1.8–2.4 | 11.3 | 9.6 |
+| distance between cameras, 0–1 / 0–2 / 2–3 | 0.88 / 2.95 / 1.65 | 0.83 / 2.84 / 1.73 | 0.000 / 0.002 / 0.002 | 0.003 / 0.002 / 0.003 |
+| η² task, ext / wr | 0.82, 0.89 / 0.46, 0.46 | 0.76, 0.75 / 0.51, 0.58 | ≈0 (no spread) | ≈0 (no spread) |
+| η² camera group (G1–G6), ext / wr | 0.13, 0.16 / 0.04, 0.04 | 0.13, 0.14 / 0.06, 0.06 | ≈0 | ≈0 |
+| clean vs heavy60 content at head input | identical (max diff 0) | identical | identical | identical |
+| after sa3: spread ext; η² task ext; distance cam 0–1 | 0.35; 0.74–0.82; 2.1 | 0.44; 0.77–0.78; 3.3 | 0.18; 0.48; 0.38 (copies stay alike) | 0.28; 0.46–0.47; 0.81 |
+| **2. C-token position shift** (cm), cams 0 / 1 / 2 / 3 | heavy60: 98.1 / 93.7 / 0 / 0; train: 13.6 / 12.8 / 0 / 0 (same data for all models) | same | same | same |
+| **3. Relative change under heavy60** | | | | |
+| at sa3: C ext / C wr / FPS ext / FPS wr / traj | 0.057 / 0.059 / 0.109 / 0.054 / 0.087 | 0.054 / 0.064 / 0.080 / 0.051 / 0.076 | **0.072** / 0.031 / 0.128 / 0.036 / 0.035 | **0.123** / 0.035 / 0.096 / 0.063 / 0.038 |
+| at pos1 (position head output): C ext / C wr / FPS ext / FPS wr / traj | 0.117 / 0.062 / 0.146 / 0.063 / 0.048 | 0.154 / 0.085 / 0.201 / 0.079 / 0.066 | **0.31** / 0.033 / 0.311 / 0.039 / 0.027 | **0.25** / 0.036 / 0.257 / 0.066 / 0.034 |
+| **4. Attention involving C-tokens** (clean; heavy60 moves every entry ≤0.2 pp unless noted) | | | | |
+| traj → all 4 C-tokens, per layer (SA / pos / rot) | 1.6–2.0% / 2.3–2.7% / 2.0% | 1.7–2.1% / 2.1–2.2% / 1.9% | 2.7–4.4% / 1.8–4.5% / 2.1–3.9% | 2.6–4.4% / 1.2–2.8% / 2.1–2.2%; sa2 rises 2.7 → 4.0% under heavy60 |
+| C0/C1 rows → ext FPS / wr FPS | 0.31–0.34 / 0.61–0.64 | 0.27–0.31 / 0.64–0.68 | 0.05–0.12 / 0.82–0.92 | 0.14–0.25 / 0.68–0.81 |
+| C2/C3 rows → ext FPS | 0.25–0.31 | 0.27–0.31 | 0.05–0.12 | 0.16–0.25 |
+| external share of FPS tokens (for reference) | 32% | 30% | 10% | 19% |
+| C rows → other C / registers / traj | 1.3–2.3% / 1.1–1.9% / ≈1% | 1.3–1.9% / 1.5–1.9% / ≈1% | 0.9–6.6% / 1.5–2.5% / ≈1% | 1.4–2.7% / 1.3–2.2% / ≈1% |
+| **5. Ablations, offline pos_l2** (cm) | | | | |
+| clean | 1.49 | 1.32 | 1.00 | 1.04 |
+| clean, mask all C / mask external C | 1.50 / 1.49 | 1.33 / 1.32 | 1.04 / 1.02 | 1.07 / 1.04 |
+| clean, mean C / zero C | 1.68 / 1.83 | **2.06 / 6.12** | 1.00 / 2.48 | 1.04 / 1.07 |
+| heavy60 | 3.30 | 2.69 | 1.54 | 1.41 |
+| heavy60, mask all C / mask external C | 3.32 / 3.30 | 2.70 / 2.69 | 1.57 / 1.54 | 1.36 / **1.34** |
+| heavy60, mean C | 3.42 | 3.26 | 1.53 | 1.41 |
+
+Figure: `figures/ctoken_rel_change.{png,svg}`. Item 3 per layer, one panel per model, for the C-tokens per camera, external and wrist FPS tokens, and trajectory tokens.
+
 **Reading:**
+- **In Base and DeltaM the C-tokens carry real content; in the history models they don't.** Base and DeltaM have per-camera appearance tokens: external C-tokens are 75–89% explained by task and 13–16% by camera group, and external differs strongly from wrist (distance ≈ 3). In 1b and exp 3 the four C-tokens are one constant at head input. Self-attention makes them sample-specific (about half explained by task), but in 1b the four copies stay nearly identical even after sa3.
+- **The miscalibration enters the C-tokens only through their position.** Content at head input is bit-identical clean vs heavy60. The external C-tokens' positions jump about 1 m (98 / 94 cm) under 60°/60 cm; train-style noise moves them about 13 cm; wrist positions don't move.
+- **Base and DeltaM's C-tokens barely react to that 1 m jump; the robust models' react more.**
+  - Base/DeltaM: in self-attention the external C-tokens change no more than the wrist ones (≈0.05–0.06 relative at sa3), and less than the external FPS tokens. Their content dominates their position.
+  - 1b and exp 3: the external C-tokens change 2–4× more than the wrist C-tokens, and as much as the external FPS tokens, peaking at 0.25–0.33 in the position head. With no content to tell them apart, position is the only thing that distinguishes the external copies.
+- **Yet the C-tokens are not a route for the damage.**
+  - Trajectory queries put only about 2% of their attention on all four C-tokens in Base and DeltaM, and 2–4.5% in the history models. Heavy60 doesn't change that.
+  - Removing the C-tokens as keys everywhere changes heavy60 error by ≤0.02 cm in Base/DeltaM, out of 1.8 and 1.4 cm of damage.
+  - The one exception is exp 3: masking the external C-tokens cuts its (small) heavy60 damage from 0.37 to 0.30 cm, about a fifth.
+- **The C-tokens act as generic pooling tokens, not camera-specific summaries.** Each C-token row attends to external vs wrist FPS tokens roughly in proportion to how many of each the sampler kept (Base 31–34% vs 32% of tokens; 1b 5–12% vs 10%). C0 reads its own camera no more than C2 does, and none of this moves under heavy60.
+- **Reliance on content.**
+  - DeltaM needs its C-token content, through delta_M: mean-ablation costs +0.74 cm clean and +0.57 cm at heavy60; zero-ablation costs +4.8 cm, which is out of distribution.
+  - Base is mildly sensitive to *wrong* content (+0.19 cm for the mean), but not to removing it (+0.01 cm). A mismatched C-token perturbs the tokens that read it; an absent one is renormalised away.
+  - 1b only reacts to zeroing (+1.5 cm, via the adaLN signal); exp 3 doesn't react at all.
+- **What this rules out.** The non-history models' weakness at 60/60 does not come from their per-camera C-tokens or from those tokens' miscalibrated positions. That leaves the scene-token positions, i.e. the FPS and dense keys, and the larger external FPS share (TODO 8) as the main candidates. TODO 9's patching is the direct test.
+- **Caveats.**
+  - Masking removes C-tokens as attention keys only. In DeltaM and exp 3 their content still drives delta_M; in 1b it still drives the adaLN signal.
+  - "Relative change" mixes direct position effects with downstream mixing.
+  - The η² values for 1b and exp 3 at head input are over an essentially zero spread and mean nothing.
+  - Ablation effects ≤0.03 cm are at noise level (offline pos_l2 matches TODO 8 to 0.03 cm).
