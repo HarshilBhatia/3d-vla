@@ -493,7 +493,7 @@ The total change is identical for every delta_M, and **this holds exactly, not a
 
 ## TODO 6: under heavy miscalibration, does the model follow the miscalibrated cameras or ignore them?
 
-**Status:** in progress (intervention agent)
+**Status:** done
 
 **Why:** a miscalibration error N_j on external camera j (observed extrinsics = N_j · true, camera-to-world) moves every world point that camera sees by the rigid transform N_j: x → N_j x. If a model trusts camera j's geometry, its predicted keypose should move the same way. If it relies on the wrist cameras (always calibrated), proprioception or appearance, the prediction should stay at the true target. This splits the 60/60 error into "followed the wrong geometry" and "other". Check `data/preprocessing/rlbench.py` (`apply_miscalibration`) and confirm the direction of the composition.
 
@@ -519,7 +519,60 @@ Offline action error is reliable for exp 3, 1b and A. It is not for the older wa
 
 **Results:**
 
+Scripts: `scripts/analysis/follow_miscal.py` (records predictions, GT and the applied N per camera; Slurm job 3993363 via `follow_miscal.slurm`) and `scripts/analysis/plot_follow_miscal.py` (fits and figures, CPU). Raw outputs: `results/analysis/follow_miscal/<model>.pt`. Fits with 95% bootstrap CIs over samples: `summary.json`. Printed table: `summary_table.txt`. Figures: `figures/follow_alpha_pos.png`, `figures/follow_beta_rot.png`, `figures/follow_closest_share.png`.
+
+Setup: all 853 val samples, K = 5 history (run after `5ef5cf3`; the `[load]` line shows `visual_num_history=5` for every model). Seeds are as in TODO 1: torch reseeded per batch before preprocessing (1000+i) and again before sampling (5000+i). Every condition therefore shares the same history draw, the same flow noise, and the same N direction for a given camera. The camera-0-only and camera-1-only N are exactly the corresponding N from the both-cameras run.
+
+Checks:
+- **Frame and units.** Actions are absolute (`relative_action=False`), keypose only, quat xyzw. `compute_trajectory` unnormalises to world-frame metres, and `process_actions` passes the GT through unchanged in the same frame.
+- **Composition direction.** `apply_miscalibration` does T_new = N · T (camera-to-world), so a world point x → N x. Checked on the first batch at 60/60: median |pcd_heavy − N x| is 1.2 / 1.3 cm for cameras 0 / 1 (bf16 unprojection), against 207 / 214 cm for N⁻¹x and 117 / 121 cm for x. Wrist cameras: 0.
+- **Offset scale.** N rotates about the **world origin**, which is about 1 m from the workspace. So even 10°/10 cm moves the targets a lot: mean |N_j p − p| is 17.5 cm at 10/10, 34.8 at 20/20, 68.9 at 40/40 and 101.7 at 60/60.
+
+Clean floor (pos L2 cm / rotation error °): exp 3 200k 1.03 / 3.1; exp 3 110k 1.15 / 3.5; 1b 1.00 / 3.0; A 1.20 / 3.6.
+
+1. Following coefficient α, from (p̂ − p) ≈ α (N_j p − p), pooled over samples, hands and xyz. With both cameras perturbed it is a joint fit; 95% CI in brackets.
+
+| Model | both 60: α₀ | both 60: α₁ | only cam 0 60: α₀ | only cam 1 60: α₁ | both 10: α₀ | **all 4 cams, same N, 10/10** | **all 4 cams, 60/60** |
+|---|---|---|---|---|---|---|---|
+| exp 3 200k | 0.0028 [0.0014, 0.0042] | 0.0016 [0.0004, 0.0029] | 0.0025 | 0.0018 | 0.0067 [0.002, 0.012] | **0.63** [0.61, 0.65] | **0.41** [0.40, 0.43] |
+| exp 3 110k | 0.0037 | 0.0029 | 0.0034 | 0.0035 | 0.0066 | 0.62 | 0.41 |
+| 1b 200k | 0.0020 | 0.0007 [−0.0005, 0.0021] | 0.0018 | 0.0003 | 0.0068 | 0.59 | 0.39 |
+| A 200k | 0.0036 | 0.0003 [−0.0012, 0.0021] | 0.0035 | 0.0002 | 0.0062 | 0.68 | 0.39 |
+
+The last two columns are an extra control I added: every camera, wrists included, gets the same N (camera 0's draw). This moves the whole scene rigidly while proprioception stays in the true frame. Over the sweep, α for this control is 0.63 → 0.56 → 0.48 → 0.41 for exp 3 200k, and similar for the other models (`summary.json`). Fitting against the prediction shift from the clean prediction (p̂_heavy − p̂_clean), instead of against the GT, gives the same α to within 0.002.
+
+2. Distances at 60/60 with both cameras perturbed, in cm: |p̂ − p|, then |p̂ − N₀p| and |p̂ − N₁p|. The last column is the share of (sample, hand) pairs closest to the true p.
+
+| Model | \|p̂ − p\| | \|p̂ − N₀p\| | \|p̂ − N₁p\| | mean shift from the clean prediction | closest to true p |
+|---|---|---|---|---|---|
+| exp 3 200k | 1.41 | 101.7 | 101.0 | 0.77 | 99.9% |
+| exp 3 110k | 1.73 | 101.6 | 100.9 | 1.09 | 100% |
+| 1b 200k | 1.54 | 101.8 | 101.1 | 0.87 | 99.9% |
+| A 200k | 2.05 | 101.7 | 101.2 | 1.21 | 99.7% |
+
+At 10/10 the share closest to the true p is still ≥ 98.4% for every model. Single-camera 60/60 pos L2 (camera 0 only / camera 1 only): exp 3 200k 1.24 / 1.23; 110k 1.44 / 1.51; 1b 1.34 / 1.27; **A 2.01 / 1.21**. Control A is hurt almost only through camera 0; exp 3 and 1b are symmetric.
+
+3. Rotation following β, from log(R̂ Rᵀ) ≈ β log(R_Nj):
+- External cameras only: |β| ≤ 0.005 at 60/60 in every model and condition, and every CI includes 0. At 10/10, |β| ≤ 0.04 with CIs of about ±0.05.
+- All four cameras, same N: β is only 0.02–0.08. Even when the whole scene rotates, the predicted gripper orientation barely rotates with it.
+
+4. Per task, α against the clean prediction at both-60: every task is below 0.011 for exp 3 200k. The largest is push_box, which has only 18 samples. Across all models the maximum is 0.023 (exp 3 110k push_box). Full table in `summary.json` (`per_task_alpha_vs_clean_pred`).
+
+5. Clean floor: listed above. Degradation at 60/60 relative to clean: +0.38 cm for exp 3 200k, +0.58 for 110k, +0.54 for 1b and +0.85 for A.
+
 **Reading:**
+- **None of the models follow miscalibrated external cameras.** α ≤ 0.004 at 60/60 and ≤ 0.007 at 10/10. The prediction stays at the true target in more than 99.7% of cases, even though N_j p is 17–100 cm away.
+  - The small positive α is real (the CIs exclude 0 for camera 0) but tiny. The directed component α·|N p − p| is about 0.3 cm of the 0.8–1.2 cm shift.
+  - Most of the 60/60 degradation is therefore not "following the wrong geometry" but undirected error. TODO 7 traces where it comes from.
+- **This is not because the models are blind to geometry.** When all four cameras agree on the wrong frame, the models do move: α ≈ 0.6 at 10/10, falling to 0.4 at 60/60, and 1b and A follow about as much as exp 3. So scene geometry matters when it is consistent. When the two external cameras disagree with the wrist cameras and with proprioception, all models take the calibrated side.
+  - The rigid α < 1 is itself a compromise with proprioception, which stays in the true frame (see TODO 7: proprioception features are built by attending to scene xyz).
+- **Orientation is anchored.** β ≈ 0 for external-only and ≤ 0.08 even for a rigid whole-scene rotation. Gripper orientation comes almost entirely from proprioception and the task prior, not from scene geometry.
+- **Following does not separate the models, and changes little with training.** exp 3 110k → 200k: α 0.0037 → 0.0028, against a larger drop in the undirected shift (1.09 → 0.77 cm). exp 3's robustness edge over A is not "ignoring the cameras better"; all three ignore them. It is a smaller undirected error, plus A's lopsided dependence on camera 0.
+- **Caveats.**
+  - N rotates about the world origin, so the "followed" target for large rotations sits far outside the workspace. A model trained only on in-workspace targets could not follow fully even if it wanted to; the 10/10 column is the cleanest test.
+  - The rigid control conflicts with proprioception by construction, so its α measures a trade-off, not pure trust in the scene.
+  - Offline, one N draw per sample, keypose only.
+  - Slurm note: `grogu-4-23` (RTX PRO 6000 Blackwell, sm_120) is not supported by the env's torch build, and `grogu-1-20` gave "CUDA device busy" twice. I excluded both in my launchers.
 
 ---
 
