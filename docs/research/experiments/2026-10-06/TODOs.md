@@ -149,7 +149,7 @@ Save the raw tensors (`results/analysis/delta_m_per_layer/<model>.pt`) and one f
 
 ## TODO 5 (larger experiment): linear probes — do the C-tokens know the true camera pose, and the injected miscalibration?
 
-**Status:** claimed (probing agent)
+**Status:** in progress (probing agent)
 
 **Why:** delta_M was designed to correct camera error, and 1b's adaLN reads the same C-tokens. If the representation never encodes where the camera is or how wrong its extrinsics are, then neither mechanism can be correcting geometry, and robustness must come from somewhere else. Two targets only:
 - **(A)** true camera pose with respect to the robot (world) frame;
