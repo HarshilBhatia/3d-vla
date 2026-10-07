@@ -818,7 +818,7 @@ Figures (`figures/README.md`):
 
 ## TODO 9: activation patching on the non-history models (Base 160k, DeltaM 140k)
 
-**Status:** claimed (intervention agent)
+**Status:** in progress (intervention agent)
 
 **Why:** every history model's extractor is dead within 10k–30k steps:
 
