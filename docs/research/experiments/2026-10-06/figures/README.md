@@ -71,3 +71,11 @@ The data comes from `scripts/analysis/follow_miscal.py` (GPU, via `scripts/analy
 | `follow_alpha_pos.{png,svg}` | Position following α, from (p̂ − p) ≈ α (N_j p − p), against miscalibration magnitude. Panels: both external cameras (joint fit), camera 0 only, camera 1 only (shared zoomed axis), and all 4 cameras with the same N (0–1 axis). 95% bootstrap CI | `scripts/analysis/plot_follow_miscal.py` |
 | `follow_beta_rot.{png,svg}` | Orientation following β, from log(R̂ Rᵀ) ≈ β log(R_Nj), same panels | same |
 | `follow_closest_share.{png,svg}` | Share of (sample, hand) pairs whose 60/60 prediction is closest to the true p, N₀p or N₁p | same |
+
+## Activation patching ([TODOs.md](../TODOs.md), TODO 7)
+
+The data comes from `scripts/analysis/activation_patching.py` (GPU, via `scripts/analysis/activation_patching.slurm`), which writes `results/analysis/activation_patching/<model>.pt`. The figure, `summary.json` and `summary_table.txt` come from `scripts/analysis/plot_activation_patching.py` (CPU). Models: exp 3 200k (EMA), 1b 200k (EMA), control A 200k (raw). Data: all 853 val samples, K = 5, clean vs heavy60 on cameras 0+1, with identical flow noise.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `patch_fraction_recovered.{png,svg}` | Per patched component: the fraction of the clean → heavy60 degradation recovered (clean into heavy) or caused (heavy into clean), for position L2 and rotation L1, models side by side, 95% paired bootstrap CI | `scripts/analysis/plot_activation_patching.py` |

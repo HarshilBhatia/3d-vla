@@ -578,7 +578,7 @@ At 10/10 the share closest to the true p is still ≥ 98.4% for every model. Sin
 
 ## TODO 7: activation patching — which path carries the damage from miscalibration?
 
-**Status:** in progress (intervention agent)
+**Status:** done
 
 **Why:** under 60/60, offline action error rises. Patching one component from a **clean** run into the **heavy** run of the *same* sample, with the same seeds and the same flow noise, shows how much of the damage flows through that component.
 
@@ -597,7 +597,74 @@ Also run the **reverse** direction (heavy into clean) for (a), (b) and (d): how 
 
 **Results:**
 
+Scripts: `scripts/analysis/activation_patching.py` (Slurm job 3993425 via `activation_patching.slurm`) and `scripts/analysis/plot_activation_patching.py` (fractions, bootstrap CIs, figure). Raw per-sample metrics for every patch: `results/analysis/activation_patching/<model>.pt`. Aggregates: `summary.json` and `summary_table.txt`. Figure: `figures/patch_fraction_recovered.png`.
+
+Setup:
+- **Samples and preprocessing.** All 853 val samples at K = 5 (`[load]` shows 5 for exp 3, 1b and A). Each loaded sample is preprocessed twice, clean and heavy60 on cameras [0, 1], with the same torch seed, so the history draw is shared.
+- **Encoding.** `encode_inputs` runs once per condition under bf16 autocast.
+- **Flow noise.** One initial noise per batch from a dedicated generator (seed 5000+i). Every run calls `conditional_sample` on a copy of that same noise.
+- **Mechanism replay.** Hooks record or replay, in call order:
+  - exp 3: every `_predict_from_cam_feat` output, 6 calls × 5 steps;
+  - 1b: every `camera_adaln_proj` output, i.e. the camera term of `_camera_adaln_signal`, 5 calls × 5 steps.
+- **Exactness passed for all three models.** Max |Δ prediction| is **0.0** for patch-nothing vs the heavy run and for patch-every-input vs the clean run.
+
+**Which encoded inputs actually differ, clean vs heavy60.** Max abs / relative L2 difference over all batches:
+
+| fixed input | exp 3 | 1b | A |
+|---|---|---|---|
+| `rgb3d_feats`, `fps_scene_feats` (FPS tokens **and** C-tokens), `fps_cam_ids`, `instr_*`, `query_trajectory` | 0 | 0 | 0 |
+| `pcd` (dense scene xyz, CA keys) | 4.96 m / 0.69 | same | same |
+| `fps_scene_pos` (FPS xyz + C-token xyz) | 4.59 / 0.44 | 4.01 / 0.30 | 4.55 / 0.34 |
+| **`proprio_feats`** | 1.39 / **0.14** | 1.39 / **0.17** | 1.51 / **0.14** |
+
+Reading the code:
+- **(b) and (c) are zero by construction.** The CLIP features and `vl_attention` take no positions. FPS is the feature-density sampler (`scene_sampling='fps'`, not `fps_xyz`), so the same tokens are selected. The HistoryFeatureExtractor runs with `patch_rope3d=False`.
+- **(e) is not a sanity check: proprioception carries miscalibration.** The encoder's `gripper_context_head` (`encoder3d.encode_proprio`) builds `proprio_feats` from 3 RoPE attention layers. The query is the gripper xyz (true frame); the keys are the current-frame scene tokens, at miscalibrated xyz for cameras 0 and 1. In the head, `proprio_feats` enters only through `time_embs = time_emb(t) + curr_gripper_emb(proprio_feats)`, which is the adaLN signal of every CA, SA, FFW and output-head layer.
+
+**Clean → heavy60** (pos L2 cm / acc < 1 cm / rot L1):
+- exp 3: 1.04 / 85.5% / 0.0415 → 1.41 / 78.1% / 0.0488
+- 1b: 1.00 / 85.4% / 0.0402 → 1.54 / 78.3% / 0.0618
+- A: 1.20 / 79.9% / 0.0482 → 2.05 / 74.7% / 0.0715
+
+**Fraction of the degradation recovered, patching clean into heavy.** Each cell is pos L2 / acc < 1 cm / rot L1; the 95% paired bootstrap CI on pos L2 is in brackets.
+
+| Patch | exp 3 | 1b | A |
+|---|---|---|---|
+| (a) dense xyz `pcd` | 0.16 / 0.17 / 0.02 | 0.09 / 0.22 / 0.01 | 0.10 / 0.30 / 0.00 |
+| (a) FPS xyz | 0.28 / 0.38 / 0.09 | 0.12 / 0.23 / −0.02 | 0.06 / 0.27 / 0.02 |
+| (a) C-token xyz | 0.19 / 0.33 / **0.43** | 0.01 / 0.00 / 0.00 | 0.00 / 0.08 / 0.00 |
+| **(a) all positions** | **0.51** [0.34, 0.77] / 0.82 / 0.51 | 0.18 [0.11, 0.27] / 0.40 / −0.01 | 0.13 [0.08, 0.20] / 0.27 / 0.02 |
+| **proprio_feats** | **0.45** [0.14, 0.64] / 0.08 / 0.52 | **0.79** [0.66, 0.86] / 0.43 / **1.00** | **0.88** [0.81, 0.93] / 0.75 / **1.00** |
+| all positions + proprio | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 | 1.00 / 1.00 / 1.00 |
+| (d) mechanism replay | −0.00 [−0.01, 0.01] / −0.02 / −0.01 | −0.00 [−0.01, 0.01] / −0.02 / 0.01 | – |
+| all positions + mechanism | 0.51 / 0.83 / 0.51 | 0.17 / 0.35 / 0.00 | – |
+| (b) scene features, (c) C-token features, language + query | 0 (exact) | 0 | 0 |
+
+**Reverse: heavy into clean, fraction of the degradation caused**, same metric order:
+
+| Patch | exp 3 | 1b | A |
+|---|---|---|---|
+| all positions | 0.55 / 0.92 / 0.48 | 0.21 / 0.57 / 0.00 | 0.12 / 0.25 / 0.00 |
+| proprio_feats | 0.49 / 0.18 / 0.49 | 0.82 / 0.60 / 1.01 | 0.87 / 0.73 / 0.98 |
+| mechanism | −0.01 / 0.02 / 0.00 | 0.01 / 0.03 / 0.03 | – |
+
+The individual position pieces in reverse are close to their forward values (`summary_table.txt`).
+
+**Where the damage is.** It is concentrated in a few samples. Only 55 / 67 / 66 samples (exp 3 / 1b / A) get more than 1 cm worse. On those, pos L2 goes 2.3 → 7.6, 1.4 → 7.6 and 2.1 → 13.0 cm. On this subset the pos-L2 recovery is 0.36 (positions) and 0.61 (proprio) for exp 3, 0.11 and 0.87 for 1b, and 0.11 and 0.91 for A.
+
+**Consistency test.** The item asked for (a) + (b) ≈ 100%. Since (b) is identically zero, the real test is (a) + proprio = 100%, which holds exactly by construction (they are all the inputs that differ). The single components are close to additive: 0.51 + 0.45, 0.18 + 0.79 and 0.13 + 0.88.
+
 **Reading:**
+- **In 1b and control A, the damage flows mainly through proprioception, not the head's scene geometry.** Patching only `proprio_feats` recovers 79–88% of the position degradation and about 100% of the rotation degradation. All scene-token positions together recover only 13–18%.
+  - The path: the miscalibrated external tokens corrupt the encoder's gripper-context summary. That summary is broadcast through `time_embs` into the adaLN of every head layer.
+  - This fits TODO 6's undirected error. A corrupted conditioning vector shifts predictions, but not along N_j.
+- **exp 3 splits the damage about evenly**: positions 0.51 and proprio 0.45 for pos L2. The C-token positions alone account for 0.43 of exp 3's rotation degradation; they matter for neither 1b nor A. exp 3's head is therefore more sensitive to scene positions (through its RoPE kernel; see TODO 4). Its total degradation is nevertheless the smallest (+0.38 cm vs +0.54 and +0.85), so exp 3 is less damaged on the proprio route, not more robust on the position route.
+- **The mechanisms carry none of the damage.** Replaying the clean delta_M (exp 3) or the clean adaLN camera term (1b) into the heavy run recovers 0 ± 0.01. Replaying the heavy values into the clean run causes 0 ± 0.03. Whatever these outputs do, it is not the channel through which miscalibration reaches the actions, and they do not correct it either. This is measured directly at K = 5, so it does not depend on TODO 1's K = 1 collapse finding.
+- **Implication.** The cheapest robustness lever these runs point to is the proprioception encoder: it attends to scene tokens at their miscalibrated xyz. Candidates: let `gripper_context_head` attend only to wrist-camera tokens, or drop its RoPE on external tokens. Then re-test 60/60 and IDLT. This is a hypothesis; it is not tested here.
+- **Caveats.**
+  - The gaps are small in absolute terms (0.4–0.9 cm of mean pos L2), so the fractions have wide CIs (for example exp 3 proprio 0.45 [0.14, 0.64]).
+  - The damaged-subset numbers rest on 55–67 samples.
+  - Offline, keypose only, one heavy60 draw per sample. The fractions say nothing directly about online success.
 
 ---
 
