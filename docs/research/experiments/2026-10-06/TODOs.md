@@ -102,7 +102,7 @@ Save the raw tensors (`results/analysis/delta_m_per_layer/<model>.pt`) and one f
 
 ## TODO 3: where trajectory queries attend (external vs wrist cameras), clean vs 60/60
 
-**Status:** claimed (attention agent)
+**Status:** in progress (attention agent)
 
 **Why:** hypothesis: robust models move attention away from the miscalibrated external cameras (0, 1) onto the wrist cameras (2, 3, always calibrated) when geometry is inconsistent. Last week's probe showed blacking out the external cameras is catastrophic (VideoPooled 17), so they still matter; this measures how the balance shifts.
 
