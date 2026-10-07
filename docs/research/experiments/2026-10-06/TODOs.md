@@ -162,7 +162,7 @@ The largest of these is about 1°, against 60° of injected rotation.
 
 ## TODO 3: where trajectory queries attend (external vs wrist cameras), clean vs 60/60
 
-**Status:** in progress (attention agent)
+**Status:** done
 
 **Why:** hypothesis: robust models move attention away from the miscalibrated external cameras (0, 1) onto the wrist cameras (2, 3, always calibrated) when geometry is inconsistent. Last week's probe showed blacking out the external cameras is catastrophic (VideoPooled 17), so they still matter; this measures how the balance shifts.
 
@@ -180,7 +180,55 @@ The largest of these is about 1°, against 60° of injected rotation.
 
 **Results:**
 
+Script `scripts/analysis/camera_attention.py` (GPU, `scripts/analysis/camera_attention.slurm`, job 3993279); summary and figures from `scripts/analysis/plot_camera_attention.py`. Raw per-(sample, step, layer, head, query, key-group) masses: `results/analysis/camera_attention/<model>.pt`; aggregates in `summary.json` and `summary_table.txt` there. No model code changed: the script wraps `multi_head_attention_forward` and recomputes softmax(QKᵀ/√d) with the same RoPE in fp32 for the trajectory-query rows. Check: the recomputed layer output matches the module's own fp32 output to ≤1.5e-6 relative on every layer and model (≈1–3% against the bf16 autocast output, which is bf16 rounding).
+
+Data: all 853 val samples, same seeds as TODO 1 (seed 1000+i before preprocessing, 5000+i after), so FPS draws and flow noise are identical across conditions. Averaged over 5 flow steps, 6 heads and the 2 trajectory queries (one per arm). Weights: exp 3 and 1b EMA, control A raw, ema20k_randhist EMA. "External share" = attention on cam 0+1 scene tokens / attention on all scene tokens (cams 0–3). In cross-attention that is all of the attention; in SA and the output heads scene tokens get 88–97% of the trajectory-query mass (C-tokens 1–4%, registers 1–4%, camera token and other trajectory tokens <1%).
+
+**FPS keys are mostly wrist tokens.** Of the 204 FPS scene tokens in SA, only these come from cameras 0+1 (identical clean vs heavy60, since `scene_sampling: fps` samples by feature distance):
+
+| Model | cam0 / cam1 / cam2 / cam3 FPS tokens | ext token share | samples with 0 external FPS tokens |
+|---|---|---|---|
+| exp 3 200k | 20.1 / 18.3 / 90.3 / 75.3 | 18.8% | 0% |
+| 1b 200k | 12.5 / 7.9 / 101.3 / 82.4 | 10.0% | 4.6% |
+| control A 200k | 12.4 / 8.5 / 105.2 / 77.8 | 10.3% | 2.8% |
+| ema20k_randhist 15k | 15.0 / 10.4 / 98.9 / 79.6 | 12.5% | 0.8% |
+
+**External share, clean → heavy60, Δ in percentage points (± SE over the 853 paired samples):**
+
+| Layer | exp 3 | 1b | control A | ema20k_randhist |
+|---|---|---|---|---|
+| ca0 (dense) | 54.5 → 54.8, **+0.32** ±0.04 | 51.7 → 51.8, +0.07 ±0.06 | 49.3 → 50.0, **+0.70** ±0.10 | 47.9 → 48.3, +0.45 ±0.06 |
+| ca1 (dense) | 52.7 → 53.2, +0.58 ±0.05 | 49.6 → 49.7, +0.12 ±0.06 | 49.1 → 50.8, **+1.73** ±0.11 | 44.2 → 44.8, +0.64 ±0.07 |
+| sa0 | 26.4 → 26.6, +0.25 | 11.9 → 12.2, +0.33 | 11.4 → 11.5, +0.09 | 15.4 → 15.4, +0.06 |
+| sa1 | 29.6 → 29.6, −0.01 | 14.1 → 14.1, +0.01 | 10.9 → 11.0, +0.07 | 16.6 → 16.6, +0.03 |
+| sa2 | 30.3 → 29.8, −0.44 | 11.7 → 11.9, +0.23 | 12.8 → 12.7, −0.08 | 14.3 → 13.2, **−1.11** |
+| sa3 | 25.0 → 24.6, −0.47 | 11.3 → 10.8, −0.51 | 13.2 → 12.9, −0.30 | 12.6 → 11.6, −0.99 |
+| pos0 | 19.9 → 18.6, **−1.25** | 8.7 → 7.7, −1.06 | 5.8 → 4.7, −1.11 | 8.8 → 7.3, −1.45 |
+| pos1 | 13.4 → 11.7, **−1.72** | 4.4 → 3.2, −1.12 | 4.4 → 3.2, −1.23 | 7.0 → 5.0, **−1.94** |
+| rot0 | 20.5 → 20.5, −0.01 | 10.3 → 10.3, +0.05 | 9.6 → 9.6, +0.04 | 13.1 → 13.1, −0.08 |
+| rot1 | 21.6 → 21.6, +0.05 | 10.4 → 10.4, −0.01 | 9.8 → 9.6, −0.16 | 11.9 → 12.0, +0.03 |
+
+SE is 0.02–0.11 pp everywhere, so every |Δ| ≥ 0.3 pp is well resolved. Train-style noise (medium bias + 3°/1 cm) moves every entry by ≤0.13 pp.
+
+Other measurements (all in `summary_table.txt`):
+- **Attention per external key, relative to uniform** (share ÷ token share), clean: exp 3 attends to external FPS tokens 1.3–1.6× their count in SA, against 1.0–1.4× for the others. In pos1 every model under-weights them (0.43–0.71×), and heavy60 lowers that further (exp 3 0.71 → 0.62; 1b 0.44 → 0.32; A 0.43 → 0.31; ema20k 0.56 → 0.41).
+- **Entropy** (nats; clean CA ≈6.1–6.6, SA ≈5.0–5.2, pos1 ≈4.0–4.4): heavy60 makes attention slightly *more focused*, never more diffuse: Δ −0.02 to −0.07 nats in CA, ≤ −0.06 in SA, −0.02 to −0.05 in the position head, ≈0 in the rotation head. The largest drops are exp 3 sa2 (−0.063) and control A ca1 (−0.065).
+- **C-tokens, registers and camera token** together get 3–8% of the mass and barely move (|Δ| ≤ 0.6 pp everywhere except exp 3 sa2, where C-tokens 0+1 go 1.0% → 2.4%, and ema20k sa2 +0.5 pp).
+- **Per head:** the shift lives in the even heads (0, 2, 4), up to −4.9 pp in the position head and up to +4.3 pp in control A's ca1. Heads 1, 3 and 5 move ≤1.2 pp in every model and layer. With `rope3d`, head h of 20 dims covers one axis (x, x, y, y, z, z) and the odd heads hold the lower-frequency half of the RoPE bands, so a 60 cm shift barely changes their logits.
+- **Across flow steps:** the CA increase grows from the first step to the last, e.g. control A ca1 +1.2 → +2.4 pp and exp 3 ca1 +0.35 → +0.90 pp. Position-head drops are roughly constant across steps.
+- Offline pos_l2 clean → heavy60 (cm): exp 3 1.03 → 1.38, 1b 1.00 → 1.53, A 1.37 → 2.22, ema20k 2.95 → 3.48. ema20k's clean error is 3× the scratch models', probably the same old-checkpoint offline issue noted in Context, so treat it as suspect. Its attention numbers don't depend on it.
+
+Figures (`figures/README.md`): `cam_attn_external_share.{png,svg}` shows external share per layer (clean solid, heavy60 dashed, dotted = token share), Δ ± SE, and Δ entropy, with the 4 models overlaid. `cam_attn_sa_mass_breakdown.{png,svg}` stacks trajectory-query mass by key group for the SA and output-head layers, clean vs heavy60.
+
 **Reading:**
+- **The hypothesis does not hold at the level of attention mass.** No model moves meaningful attention from the external to the wrist cameras under 60°/60 cm. Shifts are ≤2 pp absolute everywhere. In cross-attention they go the *wrong* way (slightly more attention to the miscalibrated cameras), and the largest of those is in control A, the least robust model offline. The only consistent move towards the wrist cameras is in the position head (−1.1 to −1.9 pp, i.e. 15–30% relative of an already small external share). It is the same size in control A, which has neither delta_M nor adaLN, so it is generic RoPE-geometry behaviour, not something exp 3's or 1b's mechanism learned. Exp 3 and 1b don't reweight more than A, and robustness rankings are not explained by attention balance.
+- **The trajectory queries already mostly see wrist cameras, by construction rather than in reaction to miscalibration.** The FPS sampler keeps only 10–19% of its 204 tokens from cameras 0+1, and in up to 4.6% of samples none at all. So in SA and the output heads, 80–95% of the scene attention is on wrist tokens under clean cameras too. Only the two cross-attention layers see the external cameras at 50%. That is a structural source of robustness that all four models share. Combined with last week's blackout result (external cameras still matter), the external information that matters most likely enters through cross-attention and the C-tokens, not through the SA trunk's attention to external FPS tokens.
+- **Exp 3 does differ, but in the clean condition, not in its response.** Its SA and output heads put about twice the share on external tokens (26–30% vs 11–17% in SA; 21% vs 10–13% in the rotation head). That is mostly because its sampler keeps more external tokens (18.8% vs 10–12.5%); per token it attends to them only a little more (1.3–1.6× vs 1.0–1.4×). That fits a model whose layer-wise delta_M rewrites the external cameras' RoPE kernel (TODO 4) and so leans on those tokens more. Its clean-to-heavy60 shift is still no larger than control A's.
+- **Rules out:** "robustness via re-routing attention to calibrated cameras" as the mechanism separating exp 3 / 1b from control A. Heavy miscalibration makes attention slightly sharper, not more diffuse, and only in the high-frequency RoPE heads, which suggests the 60 cm shift moves external keys out of the high-frequency kernel's peak rather than the model deciding to ignore them.
+- **Caveats:**
+  - Attention mass is not influence. Attention × ‖value‖ or activation patching (TODO on patching) is needed to say how much the external tokens contribute to the output.
+  - The SA external share is confounded by how many external tokens the FPS sampler keeps, which differs per model. The per-token enrichment controls for that.
+  - Averaging over heads hides the larger even-head effects (up to ±5 pp).
 
 ---
 
