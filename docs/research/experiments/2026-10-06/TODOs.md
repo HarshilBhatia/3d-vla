@@ -286,7 +286,7 @@ Figures (`figures/README.md`): `cam_attn_external_share.{png,svg}` shows externa
 
 ## TODO 4: what exp 3's delta_M does to the RoPE kernel
 
-**Status:** open
+**Status:** in progress (agent)
 
 **Why:** delta_M is a 6×6 orthogonal matrix that mixes the sin/cos RoPE basis of a camera's scene tokens (`RotaryPositionEncoding3D._finalize_from_base`). It doesn't track miscalibration (see Context), so its effect is mostly a learned transform of how attention depends on 3D position. We want to know what that transform is.
 
