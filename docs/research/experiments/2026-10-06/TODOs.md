@@ -407,3 +407,36 @@ Also run the **reverse** direction (heavy into clean) for (a), (b) and (d): how 
 **Results:**
 
 **Reading:**
+
+---
+
+## TODO 8: redo TODOs 1 and 3 on the non-history models (DeltaM 140k, Base 160k)
+
+**Status:** claimed (attention agent)
+
+**Why:** the history models reach about 70 at IDLT 60/60, the non-history ones far less. TODO 1 found that in every *history* model the C-tokens reaching the head are collapsed by the history extractor, so delta_M is a per-layer constant. TODO 3 found no attention rerouting. The non-history delta_M model predicts delta_M from the **encoder's** per-camera C-tokens directly, with no extractor. So its delta_M *can* vary per scene and per camera. Does it, and does that explain why it is less robust?
+
+**Models** (raw weights; neither was trained with EMA; K=1 visual history, which is these models' own setting — check the saved config):
+- **DeltaM 140k:** `train_logs/PerAct2/peract2_orbital_new_external_only_miscal_deltam_external_200k/interm_step_140000.pth`. Layer-wise `rope_6d` delta_M from the encoder C-tokens, cameras [0,1], no history. IDLT 60/60 = 37.2.
+- **Base 160k:** `train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base_200k/interm_step_160000.pth`. No delta_M, no history. IDLT 60/60 = 27.1.
+
+**Do:** the same samples, seeds and conditions as TODOs 1 and 3; reuse their scripts (`scripts/analysis/delta_m_per_layer.py`, `delta_m_trunk_activity.py`, `camera_attention.py` and the plotting scripts).
+1. **TODO 1 metrics on DeltaM 140k:**
+   - ‖ΔM − I‖ per layer;
+   - change between layers;
+   - spread across samples, with task η²;
+   - clean vs 60/60 per layer;
+   - change across flow steps;
+   - camera 0 vs 1;
+   - C-token spread entering the head and live trunk units.
+
+   The key contrast: are its C-tokens and delta_M **non-collapsed**? Does its delta_M **respond to the miscalibration**? (It might, since the encoder's C-tokens see the point cloud through the encoder's 3D RoPE; check `encoder3d.py` to see whether that is true.)
+2. **TODO 3 metrics on DeltaM 140k and Base 160k:**
+   - external vs wrist attention share per layer, clean vs 60/60;
+   - FPS external-token share;
+   - per-token ratio and entropy.
+3. **Comparison tables** placing these next to the history models' numbers already in TODOs 1 and 3.
+
+**Results:**
+
+**Reading:**
