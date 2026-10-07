@@ -853,7 +853,7 @@ Check that positions plus proprio recover 100%. Report each component's share of
 
 ## TODO 10: what the C-tokens do in the non-history models (Base 160k, DeltaM 140k), with 1b as contrast
 
-**Status:** claimed (attention agent)
+**Status:** in progress (attention agent)
 
 **Why:** in Base and DeltaM, each C-token is camera j's real mean appearance feature, placed at camera j's mean point-cloud xyz (`camera_summary_pos`), which is miscalibrated for cameras 0 and 1 under heavy miscalibration. In the history models it is one learned constant, copied to all four cameras, placed at the same kind of miscalibrated position. We want to see how these tokens behave and whether they are a route for miscalibration into the head.
 
