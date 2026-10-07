@@ -16,6 +16,8 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
+from evaluation.planning.run_plan import cells
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 INTERM_RE = re.compile(r"interm_step_(\d+)\.pth$")
@@ -29,6 +31,8 @@ def repo_path(value: str | Path) -> Path:
 def load_config(path: str | Path) -> dict[str, Any]:
     with repo_path(path).open() as handle:
         config = json.load(handle)
+    if "source_plans" in config:
+        return _check_source_config(config)
     required = {"protocol_id", "calibration_registry", "output_root", "tasks", "runtime"}
     missing = required - set(config)
     if config.get("schema_version") != 1 or missing:
@@ -36,6 +40,65 @@ def load_config(path: str | Path) -> dict[str, Any]:
     if not config["tasks"] or not config["residual_conditions"]:
         raise ValueError("tasks and residual_conditions must be non-empty")
     return config
+
+
+def _check_source_config(config: dict[str, Any]) -> dict[str, Any]:
+    missing = {"protocol_id", "output_root", "source_plans", "tasks", "runtime", "min_step", "step_interval"} - set(config)
+    if config.get("schema_version") != 1 or missing or not config["source_plans"]:
+        raise ValueError(f"Invalid source-plan checkpoint-ladder config: missing={sorted(missing)}")
+    names = [source.get("name") for source in config["source_plans"]]
+    if None in names or len(set(names)) != len(names):
+        raise ValueError("Each source_plans entry needs a unique name")
+    if "eval_weights" in config["runtime"]:
+        raise ValueError("eval_weights must go in runtime.overrides; the evaluator ignores it at runtime level")
+    for source in config["source_plans"]:
+        if not source.get("plan") or not source.get("calibrations"):
+            raise ValueError(f"source_plans entry {source['name']} needs plan and calibrations")
+    return config
+
+
+def _keeps(calibration_id: str, levels: list[str]) -> bool:
+    return any(calibration_id == level or f"-{level}-" in calibration_id for level in levels)
+
+
+def build_source_plan(config: dict[str, Any], source: dict[str, Any], checkpoint: Path, method_id: str, step: int) -> dict[str, Any]:
+    with repo_path(source["plan"]).open() as handle:
+        base = json.load(handle)
+    if base["tasks"] != config["tasks"]:
+        raise ValueError(f"{source['plan']} tasks differ from the recipe's tasks")
+    levels = source["calibrations"]
+    unknown = set(levels) - set(base["calibrations"])
+    if unknown:
+        raise ValueError(f"{source['plan']} has no calibration levels {sorted(unknown)}")
+    task_calibrations = {task: [c for c in ids if _keeps(c, levels)] for task, ids in base["task_calibrations"].items()}
+    empty = [task for task, ids in task_calibrations.items() if not ids]
+    if empty:
+        raise ValueError(f"{source['plan']}: no kept calibration for tasks {empty}")
+    return {
+        "schema_version": 1,
+        "campaign_id": f"{config['protocol_id']}_{method_id}_s{step:06d}",
+        "description": f"{config['description']} Source {source['name']} ({source['plan']}, levels {levels}). Checkpoint step {step}: {checkpoint}.",
+        "calibration_registry": base["calibration_registry"],
+        "output_root": config["output_root"],
+        "methods": [{"id": method_id, "checkpoint": str(checkpoint.resolve())}],
+        "task_viewpoints": base["task_viewpoints"],
+        "task_calibrations": task_calibrations,
+        "calibrations": [c for c in base["calibrations"] if c in levels],
+        "tasks": base["tasks"],
+        "runtime": config["runtime"],
+    }
+
+
+def build_plans(config: dict[str, Any], checkpoint: Path, method_id: str, step: int) -> list[tuple[str, str, dict[str, Any]]]:
+    key = f"{method_id}:s{step:06d}"
+    if "source_plans" not in config:
+        plan = build_plan(config, checkpoint, method_id, step)
+        return [(key, plan["campaign_id"], plan)]
+    built = []
+    for source in config["source_plans"]:
+        plan = build_source_plan(config, source, checkpoint, method_id, step)
+        built.append((f"{key}:{source['name']}", f"{plan['campaign_id']}_{source['name']}", plan))
+    return built
 
 
 def checkpoint_steps(checkpoint_dir: Path, min_step: int, interval: int, max_step: int | None = None) -> list[tuple[int, Path]]:
@@ -109,10 +172,10 @@ def write_plan(path: Path, plan: dict[str, Any]) -> None:
 
 
 def submit_plan(plan_path: Path, plan: dict[str, Any]) -> str:
-    cell_count = len(plan["tasks"]) * len(plan["residual_conditions"] if "residual_conditions" in plan else plan["calibrations"])
+    cell_count = len(cells(plan))
     # The generated plan always contains one method.  Do not append %N here:
     # every task cell should be schedulable immediately.
-    job_name = plan["campaign_id"][:120]
+    job_name = plan_path.stem[:120]
     command = [
         "sbatch", "--partition=all", f"--job-name={job_name}",
         f"--array=0-{cell_count - 1}",
@@ -137,23 +200,22 @@ def process_directory(
     ledger = load_ledger(ledger_path)
     submitted = []
     for step, checkpoint in checkpoint_steps(checkpoint_dir, min_step, config["step_interval"], max_step):
-        key = f"{method_id}:s{step:06d}"
-        plan = build_plan(config, checkpoint, method_id, step)
-        plan_path = checkpoint_dir / "checkpoint_ladder_plans" / f"{plan['campaign_id']}.json"
-        write_plan(plan_path, plan)
-        if key in ledger["submissions"] and not force:
-            print(f"[skip] {key}: already submitted as job {ledger['submissions'][key]['job_id']}", flush=True)
-            continue
-        if not submit:
-            print(f"[plan] {key}: {plan_path}", flush=True)
-            submitted.append(step)
-            continue
-        job_id = submit_plan(plan_path, plan)
-        ledger["submissions"][key] = {
-            "job_id": job_id, "checkpoint": str(checkpoint.resolve()), "plan": str(plan_path.resolve()),
-        }
-        save_ledger(ledger_path, ledger)
-        submitted.append(step)
+        for key, plan_name, plan in build_plans(config, checkpoint, method_id, step):
+            plan_path = checkpoint_dir / "checkpoint_ladder_plans" / f"{plan_name}.json"
+            write_plan(plan_path, plan)
+            if key in ledger["submissions"] and not force:
+                print(f"[skip] {key}: already submitted as job {ledger['submissions'][key]['job_id']}", flush=True)
+                continue
+            if not submit:
+                print(f"[plan] {key}: {plan_path}", flush=True)
+            else:
+                job_id = submit_plan(plan_path, plan)
+                ledger["submissions"][key] = {
+                    "job_id": job_id, "checkpoint": str(checkpoint.resolve()), "plan": str(plan_path.resolve()),
+                }
+                save_ledger(ledger_path, ledger)
+            if not submitted or submitted[-1] != step:
+                submitted.append(step)
     return submitted
 
 
