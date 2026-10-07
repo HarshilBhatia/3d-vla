@@ -43,6 +43,14 @@ The week's runs ([camera-adaln](camera-adaln.md), [randhist-deltam](randhist-del
   - Source: `results/diagnose_delta_m/wk1006.json`.
 - **Offline action error is unreliable for the older warm checkpoints.** VideoPooled shows 7 cm, probably a proprio-order mismatch. Treat those models' action errors as invalid until fixed, but their delta_M values are fine.
 
+**⚠ Loader bug, fixed 7 Oct in `5ef5cf3`.** `load()` in `scripts/eval/diagnose_delta_m.py`, which most analysis scripts import or copy, ran every history model at **K=1** instead of its trained K=5. `visual_num_history` is eval-owned, so the checkpoint overlay skipped it. The loader also kept `view_align_cameras=[0,1]` for old-schema checkpoints (VideoPooled 84k, DeltaM 140k), which online eval runs on all cameras. **Every offline result produced before the fix is suspect**:
+- TODO 1, including the "history extractor collapses the C-tokens" finding;
+- TODO 3's history-model numbers;
+- `results/diagnose_delta_m/wk1006.json`;
+- any in-progress run.
+
+Re-run with the fixed loader. If you copied `load()`, apply the same two fixes. Check the `[load] ... visual_num_history=` line it now prints.
+
 **Code pointers:**
 - delta_M: `TransformerHead._predict_from_cam_feat` (head) and `HistoryFeatureExtractor._delta_m_from` (Direct), plus the layer-wise loop in `TransformerHead.forward` (`modeling/policy/base_denoise_actor.py`).
 - adaLN: `_forward_camera_adaln` and `_camera_adaln_signal`.
