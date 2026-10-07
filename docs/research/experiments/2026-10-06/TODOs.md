@@ -828,7 +828,7 @@ Figures (`figures/README.md`):
 | A, C, 1b | 10k |
 | exp 3 | 30k |
 
-(`$CLAUDE_JOB_DIR`-style check, `HistoryFeatureExtractor` on random inputs, all checkpoints.) Yet history models reach about 60–72 at IDLT 60/60 and non-history models 27–37. The gap can't come from history content. Candidates:
+(CPU check: each checkpoint's `HistoryFeatureExtractor` fed random 5-frame inputs; output spread across samples and cameras is 0.) Yet history models reach about 60–72 at IDLT 60/60 and non-history models 27–37. The gap can't come from history content. Candidates:
 - **The C-tokens:** non-history models have per-camera appearance tokens placed at each camera's **miscalibrated** mean xyz; history models have one learned constant.
 - **The FPS sampler's external share:** 30% vs 10–19%.
 - **The proprio encoder.**
