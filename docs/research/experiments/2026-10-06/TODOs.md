@@ -813,3 +813,38 @@ Figures (`figures/README.md`):
   - The FPS-share explanation is a hypothesis. A direct test is to evaluate a history model with `scene_sampling: image_space`, which forces 50% external tokens, or a non-history model with external FPS tokens capped. Activation patching (TODO 7) would also test it.
   - Attention mass is not influence (see TODO 3).
 - **Loader bug found on the way (fixed centrally in 5ef5cf3).** `visual_num_history` is an eval-runtime key, so the offline `load()` had run every history model at K=1. Legacy delta_M checkpoints (DeltaM 140k, VideoPooled) also lost their all-camera rule. At K=5, TODO 1's delta_M numbers and the extractor collapse are unchanged, and TODO 3 changes by ≤1.4 pp. The earlier "suspect" offline errors were this bug: ema20k drops 2.95 → 1.06 cm, and VideoPooled reads 1.19 cm, not 7 cm.
+
+---
+
+## TODO 9: activation patching on the non-history models (Base 160k, DeltaM 140k)
+
+**Status:** claimed (intervention agent)
+
+**Why:** every history model's extractor is dead within 10k–30k steps:
+
+| Model | Extractor dead by |
+|---|---|
+| VideoPooled stage 1 (from scratch, ordered history) | 20k |
+| A, C, 1b | 10k |
+| exp 3 | 30k |
+
+(`$CLAUDE_JOB_DIR`-style check, `HistoryFeatureExtractor` on random inputs, all checkpoints.) Yet history models reach about 60–72 at IDLT 60/60 and non-history models 27–37. The gap can't come from history content. Candidates:
+- **The C-tokens:** non-history models have per-camera appearance tokens placed at each camera's **miscalibrated** mean xyz; history models have one learned constant.
+- **The FPS sampler's external share:** 30% vs 10–19%.
+- **The proprio encoder.**
+
+TODO 7 measured where the damage enters for exp 3, 1b and A; this does the same for the models that are *not* robust.
+
+**Do:** run TODO 7's activation patching (`scripts/analysis/activation_patching.py`), clean into heavy60 and the reverse, on **Base 160k** (`train_logs/PerAct2/peract2_orbital_new_external_only_miscal_base_200k/interm_step_160000.pth`) and **DeltaM 140k** (`train_logs/PerAct2/peract2_orbital_new_external_only_miscal_deltam_external_200k/interm_step_140000.pth`). Raw weights, with the load settings TODO 8 used (`--faithful`, legacy all-camera rule for DeltaM). Same samples and seeds. Patch separately:
+1. **C-token positions only** (`camera_summary_pos`, i.e. the last ncam entries of `fps_scene_pos`);
+2. **FPS scene-token positions only;**
+3. **dense scene-token positions** (cross-attention keys);
+4. **proprio features;**
+5. **DeltaM's delta_M**, replayed per call;
+6. useful combinations.
+
+Check that positions plus proprio recover 100%. Report each component's share of the damage next to TODO 7's numbers for exp 3, 1b and A. The key question: does C-token position carry a large share in Base/DeltaM but not in the history models?
+
+**Results:**
+
+**Reading:**
