@@ -59,7 +59,7 @@ Re-run with the fixed loader. If you copied `load()`, apply the same two fixes. 
 
 ## TODO 1: delta_M per layer and per sample (exp 3, with VideoPooled and warm random history as references)
 
-**Status:** in progress (agent): re-running at K=5 after `5ef5cf3`; the results below are from the K=1 loader and are superseded
+**Status:** done (re-run at K=5 after `5ef5cf3`)
 
 **Why:** we reported delta_M as roughly constant, but we only measured an average over every call. It is re-predicted before each SA layer, from C-tokens that change layer to layer, so it can vary with depth and across scenes.
 
@@ -80,11 +80,13 @@ Save the raw tensors (`results/analysis/delta_m_per_layer/<model>.pt`) and one f
 
 **Results:**
 
-Scripts: `scripts/analysis/delta_m_per_layer.py` (records, Slurm job 3993242), `scripts/analysis/plot_delta_m_per_layer.py` (stats and figures), `scripts/analysis/delta_m_trunk_activity.py` (C-token spread and live trunk units, job 3993253). Raw tensors: `results/analysis/delta_m_per_layer/<model>.pt`, shaped (853 samples, 5 flow steps, 6 calls, 4 cams, 6, 6), with tasks and per-batch pos_l2. Stats: `results/analysis/delta_m_per_layer/summary.json` and `trunk_activity.json`. Figures: `figures/dm_layer_*.png` (see `figures/README.md`).
+**Re-run at K=5 with the fixed loader (`5ef5cf3`); every `[load]` line reads `visual_num_history=5`, and the extractor saw 5 frames.** Every delta_M statistic below matches the earlier K=1 run to within 1e-3, which is expected if the C-tokens are collapsed (see below). Three things did change. (a) VideoPooled now applies its delta_M to all 4 cameras, as online eval does; its wrist cameras get the same constant as cameras 0 and 1 (0.68 from identity at CA). (b) Offline pos_l2 is now sane for the old warm checkpoints: VideoPooled 0.065 → 0.012 and warm random history 0.033 → 0.013 (clean), so the "7 cm VideoPooled" action error in Context was this loader bug. (c) The C-token collapse is slightly less extreme (see below).
+
+Scripts: `scripts/analysis/delta_m_per_layer.py` (records, Slurm job 3993409), `scripts/analysis/plot_delta_m_per_layer.py` (stats and figures), `scripts/analysis/delta_m_trunk_activity.py` (C-token spread and live trunk units, job 3993434). Raw tensors: `results/analysis/delta_m_per_layer/<model>.pt`, shaped (853 samples, 5 flow steps, 6 calls, 4 cams, 6, 6), with tasks and per-batch pos_l2. Stats: `results/analysis/delta_m_per_layer/summary.json` and `trunk_activity.json`. Figures: `figures/dm_layer_*.png` (see `figures/README.md`).
 
 Setup: all 853 val samples (13 tasks), clean and heavy60 on cameras [0,1]. The first 320 samples are the old script's 20 batches; on those, the mean over all calls reproduces `wk1006.json` exactly (exp 3 200k 0.886, 110k 0.765, VideoPooled 0.381, warm 0.354). One deviation from the old script: I reseed after preprocessing, because heavy60 draws its rotation axes from the torch RNG. In `diagnose_delta_m.py` that means **clean and heavy60 did not share flow noise**, so its action-error comparison carries noise mismatch. Its pre-CA delta_M comparison is unaffected.
 
-**Call structure (all four models are layer-wise "refine").** Each flow step makes 6 head calls: `init` (from `view_align_predictor`, computed but unused in the layer-wise branch), CA, then SA0–SA3. init, CA and SA0 read the same C-tokens and are bit-identical. The old "average over every call" therefore triple-counted the CA value and included one unused prediction. Wrist cameras are exactly identity.
+**Call structure (all four models are layer-wise "refine").** Each flow step makes 6 head calls: `init` (from `view_align_predictor`, computed but unused in the layer-wise branch), CA, then SA0–SA3. init, CA and SA0 read the same C-tokens and are bit-identical. The old "average over every call" therefore triple-counted the CA value and included one unused prediction. Wrist cameras are exactly identity, except in VideoPooled, whose old-schema config corrects all cameras.
 
 1. ‖ΔM − I‖_F per layer, camera 0, mean (std over samples). Camera 1 agrees within 0.01.
 
@@ -133,7 +135,7 @@ The largest of these is about 1°, against 60° of injected rotation.
 6. Camera 0 vs camera 1, ‖log(ΔM_0 ΔM_1ᵀ)‖_F: exactly 0 at CA and SA0 in every model. At SA1 and SA2 it is ≤ 0.017 (≤ 0.6°); at SA3 it is 0.
 
 **Why delta_M is this static** (`trunk_activity.json`, 5 clean batches):
-- **The C-tokens entering the head are collapsed.** The HistoryFeatureExtractor's current-frame input varies across samples (per-channel std 0.025–0.048; camera 0 vs 1 distance 0.4–0.8). Its output, the head's C-tokens, has per-channel std about 2e-5 to 8e-5, and cameras 0 and 1 are equal to within 1e-3, in all four models. The pre-CA delta_M is therefore one learned constant matrix, shared by both cameras and every sample.
+- **The C-tokens entering the head are collapsed.** The HistoryFeatureExtractor's current-frame input varies across samples (per-channel std 0.025–0.048; camera 0 vs 1 distance 0.4–0.8). Its output, the head's C-tokens, has per-channel std about 1e-5 to 2e-4, and cameras 0 and 1 are equal to within 4e-3, in all four models, at K=5 as at K=1. The pre-CA delta_M is therefore one learned constant matrix, shared by both cameras and every sample.
 - **The delta_M trunk (Linear + ReLU, 120 units) is almost dead.** About 1 unit is ever active at CA/SA0, 2 at SA1, fewer than 1 at SA2, and none at SA3. At SA3 delta_M equals exp(skew(bias)) of `camera_predictor` exactly (difference 0.0). Each layer's delta_M is thus confined to a family with at most two parameters around a bias rotation.
 
 **Reading:**
@@ -146,7 +148,7 @@ The largest of these is about 1°, against 60° of injected rotation.
 
 ## TODO 2: what the 1b adaLN signal encodes
 
-**Status:** in progress (agent): re-running at K=5 after `5ef5cf3`; the results below are from the K=1 loader and are superseded
+**Status:** done (re-run at K=5 after `5ef5cf3`)
 
 **Why:** 1b conditions every head layer on `signal = time_embs + MLP_c(mean of C-tokens)`, re-read after each SA layer (`camera_adaln: pooled`). We don't know whether it carries sample-specific information (task, scene, progress, miscalibration) or settles into a learned near-constant, as delta_M appears to.
 
@@ -164,9 +166,11 @@ The largest of these is about 1°, against 60° of injected rotation.
 
 **Results:**
 
-Scripts: `scripts/analysis/adaln_signal.py` (records, Slurm job 3993301), `scripts/analysis/plot_adaln_signal.py` (stats and figures). Raw: `results/analysis/adaln_signal/exp1b_200k.pt`, holding the camera term, time_embs and mean C-token per (sample, step, signal), plus per-AdaLN scale/shift norms. Stats: `results/analysis/adaln_signal/exp1b_200k.json`. Figures: `figures/adaln_1b_*.png`.
+**Re-run at K=5 with the fixed loader (`5ef5cf3`, `[load] visual_num_history=5`).** Every number below matches the earlier K=1 run to within about 1e-3, which is expected because the C-tokens entering the head are collapsed.
 
-Setup: 1b at 200k (EMA), all 853 val samples (13 tasks), clean / train / heavy60 on cameras [0,1], with flow noise reseeded so it matches across conditions. Offline pos_l2: clean 0.0100, train 0.0099, heavy60 0.0153. Each flow step computes 5 signals: one before CA (used by both CA layers and SA0), one after each of SA0–SA2 (used by SA1–SA3), and one after SA3 (used by the position and rotation heads). Every one of the 20 AdaLN calls received exactly the recorded signal (0 mismatches).
+Scripts: `scripts/analysis/adaln_signal.py` (records, Slurm job 3993408), `scripts/analysis/plot_adaln_signal.py` (stats and figures). Raw: `results/analysis/adaln_signal/exp1b_200k.pt`, holding the camera term, time_embs and mean C-token per (sample, step, signal), plus per-AdaLN scale/shift norms. Stats: `results/analysis/adaln_signal/exp1b_200k.json`. Figures: `figures/adaln_1b_*.png`.
+
+Setup: 1b at 200k (EMA), all 853 val samples (13 tasks), clean / train / heavy60 on cameras [0,1], with flow noise reseeded so it matches across conditions. Offline pos_l2: clean 0.0100, train 0.0099, heavy60 0.0152. Each flow step computes 5 signals: one before CA (used by both CA layers and SA0), one after each of SA0–SA2 (used by SA1–SA3), and one after SA3 (used by the position and rotation heads). Every one of the 20 AdaLN calls received exactly the recorded signal (0 mismatches).
 
 The camera term is recomputed in fp32. A first pass took it as `full − time_embs` from bf16 tensors, and the rounding error on time_embs (norm 10–16) appeared as a fake step dependence and miscalibration response at layer 0.
 
