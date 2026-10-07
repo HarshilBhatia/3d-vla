@@ -395,7 +395,7 @@ Offline action error is reliable for exp 3, 1b and A. It is not for the older wa
 
 ## TODO 7: activation patching — which path carries the damage from miscalibration?
 
-**Status:** claimed (intervention agent)
+**Status:** in progress (intervention agent)
 
 **Why:** under 60/60, offline action error rises. Patching one component from a **clean** run into the **heavy** run of the *same* sample, with the same seeds and the same flow noise, shows how much of the damage flows through that component.
 
