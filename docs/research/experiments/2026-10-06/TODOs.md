@@ -9,6 +9,9 @@ A working queue of analyses. A subagent works through it top to bottom; new item
 3. When done: write **Results** (numbers in tables, where files and figures live) and a short **Reading** (what it means, what it rules out) under the item. Set status to `done`, then commit.
 4. If an item is blocked or ambiguous, set it to `blocked: <reason>`, write what you tried, and move on to the next one.
 5. When no `open` items remain, stop and report.
+6. **Several agents work this file at once.** Only take an item whose status is exactly `open`. Items reserved for another agent say `claimed (<name>)` or `in progress (<name>)`; skip them.
+   - Edit **only your own item's section**, and re-read the file immediately before every edit, so you never overwrite another agent's text.
+   - Commit only your own files (`git add <paths>`, never `git add -A`). If `git commit` hits an index lock, wait a few seconds and retry.
 
 **Rules**
 - Follow `CLAUDE.md`: one-line comments, docs are canonical, and figures go in `figures/` next to this file with a README entry naming the script.
@@ -99,6 +102,8 @@ Save the raw tensors (`results/analysis/delta_m_per_layer/<model>.pt`) and one f
 
 ## TODO 3: where trajectory queries attend (external vs wrist cameras), clean vs 60/60
 
+**Status:** claimed (attention agent)
+
 **Why:** hypothesis: robust models move attention away from the miscalibrated external cameras (0, 1) onto the wrist cameras (2, 3, always calibrated) when geometry is inconsistent. Last week's probe showed blacking out the external cameras is catastrophic (VideoPooled 17), so they still matter; this measures how the balance shifts.
 
 **Status:** open
@@ -137,6 +142,52 @@ Save the raw tensors (`results/analysis/delta_m_per_layer/<model>.pt`) and one f
 2. Which basis components delta_M mixes: rotation angles and invariant subspaces of the 6×6 (eigen-decomposition), and whether it swaps or mixes x/y/z or sin/cos.
 3. What a rigid miscalibration of 60°/60 cm does to that kernel for a fixed scene point, with and without delta_M. Does the learned delta_M make the logits less sensitive to the miscalibration?
 4. Figures: kernel curves per axis, and the 6×6 matrices as heatmaps.
+
+**Results:**
+
+**Reading:**
+
+---
+
+## TODO 5 (larger experiment): linear probes — do the C-tokens know the true camera pose, and the injected miscalibration?
+
+**Status:** claimed (probing agent)
+
+**Why:** delta_M was designed to correct camera error, and 1b's adaLN reads the same C-tokens. If the representation never encodes where the camera is or how wrong its extrinsics are, then neither mechanism can be correcting geometry, and robustness must come from somewhere else. Two targets only:
+- **(A)** true camera pose with respect to the robot (world) frame;
+- **(B)** the injected miscalibration.
+
+**Features** (per external camera 0 and 1; the wrist cameras 2 and 3 serve as a control):
+1. Encoder C-tokens: mean-pooled appearance, `camera_summaries` before the history extractor.
+2. C-tokens after the history extractor (`refined_frames[:, -1]`).
+3. C-tokens after each of the 4 head SA layers, read from the feature sequence at `traj_len + M : traj_len + M + ncam`. Use denoising step 0 and the last step, since they may differ.
+4. What each model actually uses:
+   - **exp 3:** delta_M per layer (the 6×6, flattened, or its skew generator).
+   - **1b:** the adaLN camera term `MLP_c(mean C)` per layer. It is global, so probe it against both external cameras' targets concatenated.
+
+**Models:** exp 3 at 200k (EMA), 1b at 200k (EMA), control A at 200k (raw), and the warm random history + EMA model (`ema20k_randhist` 15k). Add a **randomly initialised** copy of the exp 3 architecture as the floor.
+
+**Targets:**
+- **(A) True camera pose,** from the **clean** stored extrinsics (camera-to-world; see `docs/handbook/data/camera-extrinsics.md` for the convention and what "robot frame" means here):
+  - camera position xyz;
+  - viewing direction (unit forward axis);
+  - azimuth, elevation and distance about the workspace centre (≈ (0.25, 0, 0.95); verify).
+  - Also report camera-group (G1–G6) classification.
+  - **Check first how many distinct poses the data contains.** If it is a handful of fixed groups, pose regression collapses into group classification. In that case also run a **leave-one-group-out** probe: train on 5 groups, test on the 6th. That measures whether pose is encoded continuously or just memorised per group.
+- **(B) Injected miscalibration:** hook the preprocessor's `_get_miscal_noise` to record the applied (B, ncam, 4, 4) error per camera. Targets:
+  - rotation error as axis-angle (3 values) and its magnitude in degrees;
+  - translation error (3 values) and its magnitude in cm;
+  - clean vs miscalibrated (binary).
+  - Training-style noise (medium bias + 3°/1 cm) has too little spread for regression. Add a **probe-only sweep**: fixed-magnitude random directions with rotation uniform in [0°, 60°] and translation in [0, 60 cm], drawn independently per sample, on cameras [0, 1].
+  - **Expectation:** (B) is impossible at depths 1–2 and for the first delta_M or adaLN term, because those inputs are appearance-only. The real question is whether it becomes decodable at head depth 3, where C-tokens attend to scene tokens placed at miscalibrated 3D positions.
+
+**Protocol:**
+- Fit on **training-split** samples (several thousand, spread across tasks and episodes) and test on the **validation split**. Never let a probe see test episodes.
+- Standardise features. Use ridge regression for continuous targets (pick α by CV on the training set) and logistic regression for classes.
+- Baselines: shuffled labels, the random-init model, and a "mean C-token of the wrist cameras" feature for the external-camera pose (should be weak).
+- Report per model and depth: test R² (and position error in cm, angle error in degrees, for the pose and miscalibration regressions) and classification accuracy.
+- One figure per target: probe score against depth, models overlaid.
+- Save features and labels under `results/analysis/probes/` so new probes can be fit without re-running the GPU.
 
 **Results:**
 
