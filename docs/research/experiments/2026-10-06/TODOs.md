@@ -59,7 +59,7 @@ Re-run with the fixed loader. If you copied `load()`, apply the same two fixes. 
 
 ## TODO 1: delta_M per layer and per sample (exp 3, with VideoPooled and warm random history as references)
 
-**Status:** done
+**Status:** in progress (agent): re-running at K=5 after `5ef5cf3`; the results below are from the K=1 loader and are superseded
 
 **Why:** we reported delta_M as roughly constant, but we only measured an average over every call. It is re-predicted before each SA layer, from C-tokens that change layer to layer, so it can vary with depth and across scenes.
 
@@ -146,7 +146,7 @@ The largest of these is about 1°, against 60° of injected rotation.
 
 ## TODO 2: what the 1b adaLN signal encodes
 
-**Status:** done
+**Status:** in progress (agent): re-running at K=5 after `5ef5cf3`; the results below are from the K=1 loader and are superseded
 
 **Why:** 1b conditions every head layer on `signal = time_embs + MLP_c(mean of C-tokens)`, re-read after each SA layer (`camera_adaln: pooled`). We don't know whether it carries sample-specific information (task, scene, progress, miscalibration) or settles into a learned near-constant, as delta_M appears to.
 
