@@ -412,7 +412,7 @@ Also run the **reverse** direction (heavy into clean) for (a), (b) and (d): how 
 
 ## TODO 8: redo TODOs 1 and 3 on the non-history models (DeltaM 140k, Base 160k)
 
-**Status:** claimed (attention agent)
+**Status:** in progress (attention agent)
 
 **Why:** the history models reach about 70 at IDLT 60/60, the non-history ones far less. TODO 1 found that in every *history* model the C-tokens reaching the head are collapsed by the history extractor, so delta_M is a per-layer constant. TODO 3 found no attention rerouting. The non-history delta_M model predicts delta_M from the **encoder's** per-camera C-tokens directly, with no extractor. So its delta_M *can* vary per scene and per camera. Does it, and does that explain why it is less robust?
 
