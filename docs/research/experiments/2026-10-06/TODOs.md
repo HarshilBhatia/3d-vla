@@ -51,7 +51,7 @@ The week's runs ([camera-adaln](camera-adaln.md), [randhist-deltam](randhist-del
 
 ## TODO 1: delta_M per layer and per sample (exp 3, with VideoPooled and warm random history as references)
 
-**Status:** in progress (agent)
+**Status:** done
 
 **Why:** we reported delta_M as roughly constant, but we only measured an average over every call. It is re-predicted before each SA layer, from C-tokens that change layer to layer, so it can vary with depth and across scenes.
 
@@ -72,7 +72,67 @@ Save the raw tensors (`results/analysis/delta_m_per_layer/<model>.pt`) and one f
 
 **Results:**
 
+Scripts: `scripts/analysis/delta_m_per_layer.py` (records, Slurm job 3993242), `scripts/analysis/plot_delta_m_per_layer.py` (stats and figures), `scripts/analysis/delta_m_trunk_activity.py` (C-token spread and live trunk units, job 3993253). Raw tensors: `results/analysis/delta_m_per_layer/<model>.pt`, shaped (853 samples, 5 flow steps, 6 calls, 4 cams, 6, 6), with tasks and per-batch pos_l2. Stats: `results/analysis/delta_m_per_layer/summary.json` and `trunk_activity.json`. Figures: `figures/dm_layer_*.png` (see `figures/README.md`).
+
+Setup: all 853 val samples (13 tasks), clean and heavy60 on cameras [0,1]. The first 320 samples are the old script's 20 batches; on those, the mean over all calls reproduces `wk1006.json` exactly (exp 3 200k 0.886, 110k 0.765, VideoPooled 0.381, warm 0.354). One deviation from the old script: I reseed after preprocessing, because heavy60 draws its rotation axes from the torch RNG. In `diagnose_delta_m.py` that means **clean and heavy60 did not share flow noise**, so its action-error comparison carries noise mismatch. Its pre-CA delta_M comparison is unaffected.
+
+**Call structure (all four models are layer-wise "refine").** Each flow step makes 6 head calls: `init` (from `view_align_predictor`, computed but unused in the layer-wise branch), CA, then SA0–SA3. init, CA and SA0 read the same C-tokens and are bit-identical. The old "average over every call" therefore triple-counted the CA value and included one unused prediction. Wrist cameras are exactly identity.
+
+1. ‖ΔM − I‖_F per layer, camera 0, mean (std over samples). Camera 1 agrees within 0.01.
+
+| Model | CA = SA0 | SA1 | SA2 | SA3 |
+|---|---|---|---|---|
+| exp 3 200k | 0.701 (0) | **2.662** (0.0007) | 0.288 (0.037) | 0.276 (0) |
+| exp 3 110k | 0.673 (0) | 2.096 (0.121) | 0.245 (0.039) | 0.231 (0) |
+| VideoPooled 84k | 0.681 (0) | 0.078 (0.006) | 0.082 (0) | 0.082 (0) |
+| warm randhist 50k | 0.258 (0) | 1.162 (0.104) | 0.068 (0.006) | 0.067 (0) |
+
+At SA1 in exp 3 200k, ‖log ΔM‖_F = 3.000 for every sample. That is the predictor's clamp (`max_norm=3.0` on the skew generator), so the SA1 delta_M is pinned at the maximum allowed rotation. The 110k → 200k growth (0.76 → 0.89 averaged) comes almost entirely from SA1 running into this clamp.
+
+2. Depth change, ‖log(ΔM_l ΔM_{l−1}ᵀ)‖_F in radians, with the largest principal angle (camera 0). Frobenius differences are in summary.json.
+
+| Model | CA→SA0 | SA0→SA1 | SA1→SA2 | SA2→SA3 |
+|---|---|---|---|---|
+| exp 3 200k | 0 | 2.52 (91°) | 2.95 (106°) | 0.02 (0.7°) |
+| exp 3 110k | 0 | 1.71 (63°) | 2.17 (79°) | 0.02 (0.9°) |
+| VideoPooled | 0 | 0.63 (25°) | 0.02 (0.7°) | 0.0001 |
+| warm randhist | 0 | 1.26 (47°) | 1.21 (46°) | 0.002 |
+
+3. Across-sample RMS spread of the step-mean delta_M (Frobenius), with task η² in brackets. All 853 samples; chance η² ≈ 0.014.
+
+| Model | CA = SA0 | SA1 | SA2 | SA3 |
+|---|---|---|---|---|
+| exp 3 200k | 0.0000 [–] | 0.026 [0.52] | 0.060 [0.39] | 0.0000 [–] |
+| exp 3 110k | 0.0000 [–] | 0.154 [0.68] | 0.061 [0.44] | 0.0006 [–] |
+| VideoPooled | 0.0000 [–] | 0.025 [0.84] | 0.0004 [–] | 0.0000 [–] |
+| warm randhist | 0.0000 [–] | 0.112 [0.66] | 0.013 [0.09] | 0.0000 [–] |
+
+"–" means there is no spread (RMS < 1e-3), so η² is undefined. On the first-320 subset (6 tasks) the SA1 η² values are similar (0.38–0.77).
+
+4. ‖ΔM_clean − ΔM_60/60‖_F with the same sample and same flow noise, camera 0, mean (std).
+
+| Model | CA = SA0 | SA1 | SA2 | SA3 |
+|---|---|---|---|---|
+| exp 3 200k | 0 | 0.009 (0.004) | 0.010 (0.037) | 0.0001 |
+| exp 3 110k | 0 | 0.017 (0.021) | 0.026 (0.058) | 0.0005 |
+| VideoPooled | 0 | 0.0006 | 0.0000 | 0 |
+| warm randhist | 0 | 0.009 (0.013) | 0.0005 | 0 |
+
+The largest of these is about 1°, against 60° of injected rotation.
+
+5. Across the 5 flow steps: CA and SA0 are constant by construction. The RMS deviation from the step mean is 0.009 at SA1 and 0.002 at SA2 for exp 3 200k; 0.017 / 0.004 for 110k; 0.004 / 0.0001 for VideoPooled; 0.022 / 0.0006 for warm. SA3 is 0 for all four.
+
+6. Camera 0 vs camera 1, ‖log(ΔM_0 ΔM_1ᵀ)‖_F: exactly 0 at CA and SA0 in every model. At SA1 and SA2 it is ≤ 0.017 (≤ 0.6°); at SA3 it is 0.
+
+**Why delta_M is this static** (`trunk_activity.json`, 5 clean batches):
+- **The C-tokens entering the head are collapsed.** The HistoryFeatureExtractor's current-frame input varies across samples (per-channel std 0.025–0.048; camera 0 vs 1 distance 0.4–0.8). Its output, the head's C-tokens, has per-channel std about 2e-5 to 8e-5, and cameras 0 and 1 are equal to within 1e-3, in all four models. The pre-CA delta_M is therefore one learned constant matrix, shared by both cameras and every sample.
+- **The delta_M trunk (Linear + ReLU, 120 units) is almost dead.** About 1 unit is ever active at CA/SA0, 2 at SA1, fewer than 1 at SA2, and none at SA3. At SA3 delta_M equals exp(skew(bias)) of `camera_predictor` exactly (difference 0.0). Each layer's delta_M is thus confined to a family with at most two parameters around a bias rotation.
+
 **Reading:**
+- **delta_M is a learned, per-layer fixed basis change, not a per-scene or per-camera estimate.** It does vary with depth, and strongly: exp 3 applies a different large rotation of the RoPE basis at SA1 (the clamp-limited maximum) than at CA/SA0 and SA2/SA3. But at any given layer it is close to constant across samples, flow steps, cameras and calibration. This replaces the earlier "roughly constant": delta_M is constant within a layer, not across layers.
+- **The "C-tokens are appearance only" explanation was too generous.** The C-tokens reaching the head carry essentially no per-sample information at all; the HistoryFeatureExtractor collapses them in every pooled model checked. The only per-sample signal in delta_M enters through SA mixing into the C-token positions (SA1, SA2). It is small: at most 0.15 RMS against rotations of size 2–3. It is mostly task identity (η² 0.5–0.8), and it is close to blind to 60/60 miscalibration (≤ 1°).
+- **This rules out delta_M doing camera-specific geometric correction in any of these models.** exp 3's robustness gain over VideoPooled cannot come from delta_M tracking the miscalibration. If delta_M matters, it is as a learned RoPE re-mixing per layer; TODO 4 should look at the SA1 matrix in particular. Next checks: why the extractor output collapses (post-LN blocks with large shared camera/current-frame embeddings are a candidate), and whether the dead trunk is a training artifact.
+- **Caveat.** The η² values describe very small spreads at SA2 and are noisy there; read SA1 as the meaningful one. The offline pos_l2 values recorded with each model are not re-validated (see Context on the older warm checkpoints).
 
 ---
 
