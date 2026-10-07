@@ -369,7 +369,7 @@ The total change is identical for every delta_M, and **this holds exactly, not a
 
 ## TODO 5 (larger experiment): linear probes — do the C-tokens know the true camera pose, and the injected miscalibration?
 
-**Status:** in progress (probing agent)
+**Status:** done
 
 **Why:** delta_M was designed to correct camera error, and 1b's adaLN reads the same C-tokens. If the representation never encodes where the camera is or how wrong its extrinsics are, then neither mechanism can be correcting geometry, and robustness must come from somewhere else. Two targets only:
 - **(A)** true camera pose with respect to the robot (world) frame;
@@ -409,7 +409,85 @@ The total change is identical for every delta_M, and **this holds exactly, not a
 
 **Results:**
 
+*Setup.*
+- **Data.** 3000 random training-split rows (1053 episodes, all 13 tasks), seed 0, plus all 853 validation rows (117 episodes). Train and val episodes are disjoint. The α/C grid is picked by 5-fold CV grouped by episode on the training split.
+- **Inference.** Each model runs at its trained K = 5 with the fixed loader (`[load] … visual_num_history=5` for all five; extraction was redone after `5ef5cf3`). Flow noise and history draws are the same across conditions.
+- **Features.** Per camera, stored in fp16. Depths:
+  - `enc`: encoder `camera_summaries`;
+  - `hist`: `refined_frames[:, -1]`;
+  - `SA1`–`SA4`: C-tokens after each shared SA layer, at the first and last of the 5 flow steps;
+  - delta_M: the four distinct per-layer predictions (input depth hist, SA1, SA2, SA3), flattened `ΔM − I`;
+  - 1b: the adaLN camera term `MLP_c(mean C)`, five calls (hist, after SA1–SA4), global, probed against both external cameras' targets concatenated.
+- **Random-init floor.** The exp 3 config with seed-0 weights. The SigLIP2 vision and text towers are frozen pretrained weights in every model (they are not in the checkpoints), so the floor has those too.
+- **Probe-only sweep.** `_sample_random_perturbation` is replaced in a dedicated preprocessor by a sampler with angle ~ U[0°, 60°] and translation length ~ U[0, 60 cm], random directions, drawn independently per (sample, camera) on cameras [0, 1].
+  - Wrapping `_get_miscal_noise` records the applied 4×4 that left-multiplies the extrinsics. Targets are its world-frame rotation vector and translation.
+  - A third condition (training style: medium group bias + 3°/1 cm) is used only for the binary probe. Its draws are 7.5°/5.6 cm on average.
+- **Pose data check.**
+  - The external cameras take exactly **6 distinct poses** each (G1–G6, one per episode). The wrist cameras vary continuously (2830/2229 distinct positions).
+  - The workspace centre is the least-squares intersection of the 12 optical axes, **(0.248, 0.000, 0.954)** (every axis passes within 0.3 cm). Every G1–G6 camera sits **1.31 m** from it, so the distance target is constant and is dropped.
+  - Poses form 3 elevations (10°/35°/60°) × 2 azimuths per side. So within the training data, (A) is a 6-way classification, and the leave-one-group-out (LOGO) probe is the real test.
+  - LOGO: train on the 5 other groups (training split), test on the held-out group's val episodes, pooled over the 6 folds.
+- **Feature check (fp32).** The `hist` collapse was re-checked from fp32 features for exp 3 and control A (`results/analysis/probes/fp32/`). Relative std across samples is 3e-4 and 1.5e-4, the group probe is at chance (0.21, 0.20), and exp 3's first delta_M has relative std 2e-5. So the collapse is not fp16 quantisation.
+
+*(A) True camera pose.* Mean over cameras 0 and 1; C-tokens at the last flow step. Chance for the group probe is 0.17. A task one-hot gets 0.33, because each task uses 3 groups.
+
+| Model | Group acc: enc / hist / SA1 / SA2 / SA3 / SA4 | LOGO pos err (cm): enc / hist / SA4 | LOGO view-dir err (°): enc / SA4 | Wrist-mean `enc` → ext. group | Best delta_M / adaLN group acc |
+|---|---|---|---|---|---|
+| exp 3 | 0.93 / **0.18** / 0.69 / 0.69 / 0.69 / 0.68 | 25 / 50 / 41 | 10 / 18 | 0.35 | 0.24 (delta_M) |
+| 1b | 0.94 / **0.21** / 0.44 / 0.61 / 0.58 / 0.62 | 24 / 50 / 44 | 10 / 20 | 0.34 | 0.33 (adaLN) |
+| control A | 0.94 / **0.20** / 0.46 / 0.56 / 0.58 / 0.77 | 22 / 50 / 30 | 9 / 13 | 0.34 | – |
+| ema20k randhist | 0.95 / **0.23** / 0.59 / 0.61 / 0.71 / 0.77 | 21 / 50 / 32 | 9 / 14 | 0.33 | 0.23 (delta_M) |
+| random-init | 0.97 / 0.98 / 0.97 / 0.98 / 0.96 / 0.96 | 20 / 20 / 22 | 8 / 9 | 0.31 | 0.70 (delta_M) |
+
+- **LOGO references.** Predicting the mean of the 5 training poses: 50 cm / 22°. The nearest other training pose is 18 cm / 7.9° from the held-out one. LOGO R² for position at `enc` is 0.51–0.70; it is ≤ 0.31 everywhere past `hist` in trained models.
+- **iid regression just mirrors classification.** Position error on held-out episodes is 8–12 cm at `enc` and 41 cm at `hist`; azimuth/elevation at `enc` is 2.4–3.6° (R² 0.70–0.82).
+- **Wrist cameras' own pose (a continuous control).** Position R² is 0.72–0.74 at `enc` and 0.76–0.79 at SA4 (about 10–11 cm, 7–9°) in trained models, against 0.65/0.60 for random-init.
+- **Shuffled labels.** Max over all models and features: group acc 0.27, pose R² 0.03.
+
+*(B) Injected miscalibration* (probe-only sweep). Mean over cameras 0 and 1, last flow step. "Predict the mean" MAE: 15.5° for rotation magnitude, 15.3 cm for translation magnitude, 29.4° for the rotation vector and 29.7 cm for the translation vector.
+
+| Model | Rotation-vector R²: SA1 / SA2 / SA3 / SA4 | Translation-vector R², SA4 | Rotation-magnitude R², SA4 | Translation-magnitude R², SA4 | Clean vs sweep acc: hist / SA2 / SA4 | Clean vs train-style acc, SA4 | Wrist-mean SA4 → ext. rotation vector | Best delta_M / adaLN, rotation vector |
+|---|---|---|---|---|---|---|---|---|
+| exp 3 | 0.06 / 0.16 / 0.17 / 0.16 | 0.12 | 0.04 | 0.00 | 0.50 / 0.58 / 0.60 | 0.53 | 0.00 | 0.00 |
+| 1b | 0.01 / 0.06 / 0.08 / 0.11 | 0.06 | 0.00 | 0.00 | 0.50 / 0.57 / 0.56 | 0.52 | 0.00 | 0.00 |
+| control A | 0.04 / 0.11 / 0.13 / 0.22 | 0.19 | 0.11 | 0.01 | 0.50 / 0.54 / 0.62 | 0.57 | 0.00 | – |
+| ema20k randhist | 0.06 / 0.10 / 0.12 / 0.20 | 0.18 | 0.09 | 0.00 | 0.50 / 0.53 / 0.60 | 0.55 | 0.00 | 0.00 |
+| random-init | 0.00 / 0.00 / 0.00 / 0.00 | 0.00 | 0.00 | 0.00 | 0.50 / 0.51 / 0.51 | 0.50 | 0.00 | 0.00 |
+
+- **`enc` and `hist` are identical** under clean and miscalibrated cameras (max diff 0), so every (B) probe there is at chance by construction.
+- **Best SA errors are small.** The best rotation-vector MAE is 26.8° (control A, SA4) against 29.4° for the mean, and the best rotation-magnitude MAE is 14.3° against 15.5°.
+- **The first and last flow steps differ little** (dotted lines in the figures): within 0.06 in R² or accuracy.
+
+*Files.*
+- Scripts:
+  - `scripts/analysis/probe_features.py` (GPU, via `probe_features.slurm`; `--fp32` for full-precision features);
+  - `scripts/analysis/fit_probes.py` (CPU, via `fit_probes.slurm`);
+  - `scripts/analysis/plot_probes.py`.
+- Saved features and labels: `results/analysis/probes/<model>.pt` (train/val × clean/train/sweep features, noise transforms, extrinsics, task, demo, group, row).
+- All probe scores: `results/analysis/probes/fits/probe_results_<model>.json`. Full table: `results/analysis/probes/summary_table.md`.
+- Figures: [`figures/probe_pose.png`](figures/probe_pose.png) and [`figures/probe_miscal.png`](figures/probe_miscal.png).
+
 **Reading:**
+- **The C-tokens that delta_M and adaLN read from know neither the camera pose nor the miscalibration.** In every trained model the history extractor's output (`hist`) is a constant: the group probe is at chance (0.18–0.23) and position error equals the predict-the-mean baseline. This confirms TODO 1's collapse at K=5 and fp32 from a different angle. The random-init model at `hist` still gets 0.98, so the collapse is learned, not architectural.
+  - delta_M (exp 3, ema20k) and the 1b adaLN term are at or near chance for pose at every layer (≤ 0.24 and ≤ 0.33, the latter about task level), and at exactly 0 R² for miscalibration.
+  - So neither mechanism has the information it would need to correct geometry. Robustness must come from elsewhere.
+- **The encoder's C-tokens do encode pose. That comes from the frozen SigLIP features, and the model then discards it.**
+  - `enc` classifies the group at 0.93–0.95. The random-init floor (same frozen SigLIP, random projection) is *better* at 0.97, so training adds nothing here.
+  - Under LOGO, `enc` lands about 20–25 cm / 9–10° from the unseen pose: far better than the mean (50 cm / 22°), but no better than snapping to a neighbouring seen pose (18 cm / 8°). That is evidence of a smooth but coarse appearance-to-viewpoint map, not of interpolation to new poses.
+  - The wrist-camera control is weak, as expected (0.31–0.35, the task level). Wrist tokens do encode their *own* continuous pose (R² ≈ 0.75).
+- **Pose information partially returns in head SA, from attention to scene tokens.** C-tokens re-acquire camera identity (0.44–0.77 group acc by SA4) because they attend to FPS and scene tokens.
+  - That is still well below `enc`. Under LOGO it is near the mean baseline (exp 3: 41 cm), except at control A's and ema20k's SA4 (30–32 cm, R² ≈ 0.3).
+  - exp 3's delta_M is re-predicted from exactly these SA tokens, yet stays at chance: its predictor maps them to a near-constant.
+- **(B) is not decodable before SA and only weakly decodable inside it.** The expected pattern holds: zero through `hist`, and a rise from SA1, where C-tokens attend to scene tokens at miscalibrated positions.
+  - At its best (SA4), a linear probe explains 16–22% of the variance of the signed rotation and translation vectors in exp 3, control A and ema20k (11%/6% in 1b). The magnitude is essentially not linearly decodable (R² ≤ 0.11).
+  - Clean vs a 0–60° / 0–60 cm sweep is only 56–62% accurate, and clean vs training-style noise 52–57%.
+  - Control A, which has no delta_M and no adaLN, is the most decodable at SA4. So this signal is a passive side effect of RoPE attention over displaced points, not something either mechanism cultivates. Neither mechanism's own output carries any of it (R² 0.00).
+- **Ruled out:** delta_M or the 1b adaLN term acting as a camera-pose or miscalibration estimator (they have neither signal), and pose being encoded continuously enough to generalise beyond the six training viewpoints.
+- **Caveats.**
+  - Pose has only 6 values per external camera, confounded with task (3 groups per task). The iid scores are classification scores; only LOGO speaks to continuous encoding, and it has 6 folds.
+  - The probes are linear. A nonlinear probe could read the magnitude from the signed-vector components the linear probe finds (R² 0.16–0.22).
+  - The miscalibration target is the world-frame left-multiplied error. A rotation about the world origin also moves the camera centre, so "rotation" and "translation" are not separate camera-frame quantities.
+  - The random-init floor shares the frozen SigLIP towers, so it measures "SigLIP + random head", not a featureless model.
 
 ---
 

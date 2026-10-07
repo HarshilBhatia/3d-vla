@@ -52,3 +52,12 @@ The data comes from `scripts/analysis/todo8.slurm` (GPU). `PART=dm` runs `delta_
 | `todo8_dm_layer_{dist_from_identity,depth_change,task_share,clean_vs_heavy,across_steps,cam0_vs_cam1}.{png,svg}` | The six TODO 1 delta_M metrics with DeltaM 140k added | `scripts/analysis/plot_delta_m_per_layer.py --in-dir results/analysis/todo8/delta_m_per_layer --fig-prefix todo8_dm_layer` |
 | `todo8_cam_attn_external_share.{png,svg}` | External attention share per layer, clean vs heavy60, Δ ± SE and Δ entropy; DeltaM 140k and Base 160k overlaid on the four history models | `scripts/analysis/plot_camera_attention.py --in-dir results/analysis/todo8/camera_attention --fig-prefix todo8_cam_attn` |
 | `todo8_cam_attn_sa_mass_breakdown.{png,svg}` | Attention mass by key group per SA/output-head layer, six models | same |
+
+## Linear probes: camera pose and injected miscalibration ([TODOs.md](../TODOs.md), TODO 5)
+
+The data comes from `scripts/analysis/probe_features.py` (GPU, via `scripts/analysis/probe_features.slurm`, one model per job), which writes `results/analysis/probes/<model>.pt`. Probes are fit by `scripts/analysis/fit_probes.py` (CPU, via `scripts/analysis/fit_probes.slurm <model>`) into `results/analysis/probes/fits/`. The figures and `summary_table.md` come from `scripts/analysis/plot_probes.py` (CPU). Models: exp 3 200k (EMA), 1b 200k (EMA), control A 200k (raw), ema20k_randhist 15k (EMA) and random-init exp 3, all at K=5. Data: 3000 training-split rows to fit, all 853 val rows to test. Cameras 0+1 are averaged. Solid lines are C-tokens at the last flow step; dotted lines are the first step; hollow markers are delta_M / the adaLN term at their input depth.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `probe_pose.{png,svg}` | (A) True pose vs depth (enc, hist, SA1–SA4): G1–G6 accuracy, iid position error, leave-one-group-out position and viewing-direction error with mean and nearest-other-pose baselines | `scripts/analysis/plot_probes.py` |
+| `probe_miscal.{png,svg}` | (B) Probe-only sweep (0–60°, 0–60 cm) vs depth: R² for rotation magnitude, rotation vector and translation vector; clean vs miscalibrated accuracy | same |
