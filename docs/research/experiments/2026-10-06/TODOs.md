@@ -848,3 +848,35 @@ Check that positions plus proprio recover 100%. Report each component's share of
 **Results:**
 
 **Reading:**
+
+---
+
+## TODO 10: what the C-tokens do in the non-history models (Base 160k, DeltaM 140k), with 1b as contrast
+
+**Status:** claimed (attention agent)
+
+**Why:** in Base and DeltaM, each C-token is camera j's real mean appearance feature, placed at camera j's mean point-cloud xyz (`camera_summary_pos`), which is miscalibrated for cameras 0 and 1 under heavy miscalibration. In the history models it is one learned constant, copied to all four cameras, placed at the same kind of miscalibrated position. We want to see how these tokens behave and whether they are a route for miscalibration into the head.
+
+**Models:**
+- Base 160k and DeltaM 140k: raw weights, TODO 8's load settings.
+- 1b 200k (EMA) as the collapsed-C-token contrast. Add exp 3 200k if cheap.
+
+Same validation samples, seeds and conditions as before (clean, train, heavy60).
+
+**Measure** per camera (0 and 1 external, 2 and 3 wrist), at head input and after each SA layer, plus the output-head SA layers:
+1. **Content at head input:**
+   - spread across samples;
+   - distance between cameras (all pairs);
+   - share of variance explained by task, and by camera group.
+2. **Position shift:** ‖camera_summary_pos_heavy − camera_summary_pos_clean‖ in cm, per camera. External cameras should move; wrist cameras should not.
+3. **How each C-token changes under heavy, layer by layer:** ‖C_heavy − C_clean‖ / ‖C_clean‖ on the same sample. Compare with the same relative change for FPS scene tokens and trajectory tokens, so we see whether the C-tokens change more or less than the rest.
+4. **Attention involving the C-tokens, clean vs heavy:**
+   - how much the trajectory queries attend to each C-token, per layer;
+   - what each C-token attends to (share on external vs wrist FPS tokens, other C-tokens, registers).
+5. **How much the head relies on the C-tokens** (attention × value norm, or a quick zero-ablation of the C-token slots in the clean condition, with offline position error).
+
+One summary table comparing Base, DeltaM and 1b, plus a figure of item 3 per layer.
+
+**Results:**
+
+**Reading:**
