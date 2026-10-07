@@ -1,6 +1,6 @@
 # Layer-wise delta_M on random history, from scratch (Exp 3)
 
-**Status:** training since 2 Oct 19:11 (grogu-1-5, 1.45 it/s, about 38 h)
+**Status:** done (6 Oct)
 **Week introduced:** [30 Sept – 6 Oct](../../weekly_logs/2026-10-06.md)
 
 ## Main idea
@@ -36,6 +36,6 @@ warm-started from VideoPooled 84k, had the register on, used no EMA, and ran
   A/C, which have no delta_M. The warm-started random-history model matched
   VideoPooled; this run removes the inherited weights.
 
-## Results
+## Results (6 Oct)
 
-None yet.
+IDLT 60/60 **55.9** (A 62.8, C 61.6; 1b 70.4); IDLT calibrated 71.8; G7 opposite 500 cm collapses to 46.7. From scratch, layer-wise delta_M does not help on random history. Full table: [camera-adaln](camera-adaln.md#results-6-oct).

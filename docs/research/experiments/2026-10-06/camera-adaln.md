@@ -1,6 +1,6 @@
 # C-token adaLN conditioning (Exp 1a, 1b, 1c)
 
-**Status:** code, configs and ARMs ready (1 Oct); not yet submitted
+**Status:** done. Robustness evals complete (6 Oct)
 **Week introduced:** [30 Sept – 6 Oct](../../weekly_logs/2026-10-06.md)
 
 ## Main idea
@@ -111,6 +111,27 @@ the mean of the C-tokens entering the head.
 - Each adaLN Linear is zero-initialised, so every arm starts out identical to
   having no C-token conditioning.
 
-## Results
+## Results (6 Oct)
 
-None yet.
+| Condition | A | C | 1a | **1b** | 1c | 2 | 3 |
+|---|---|---|---|---|---|---|---|
+| IDLT calibrated | 75.3 | 74.1 | 65.5 | **80.8** | 74.6 | 68.8 | 71.8 |
+| IDLT 5/5 | 75.2 | 76.2 | 65.3 | **81.0** | 72.5 | 71.8 | 69.8 |
+| IDLT 10/10 | 73.8 | 75.2 | 64.8 | **81.3** | 72.8 | 69.7 | 71.8 |
+| IDLT 20/20 | 67.1 | 72.0 | 63.7 | **78.2** | 64.7* | 64.3 | 67.8 |
+| IDLT 30/30 | 68.1 | 69.1 | 61.0 | **74.0** | 65.3 | 62.0 | 67.4 |
+| IDLT 40/40 | 64.8 | 66.2 | 59.8 | **71.5** | 61.2 | 60.9 | 65.5 |
+| IDLT 50/50 | 63.2 | 64.9 | 58.8 | **70.7** | 55.1 | 58.8 | 62.2 |
+| **IDLT 60/60** | 62.8 | 61.6 | 55.5 | **70.4** | 48.2 | 56.6 | 55.9 |
+| G7 opposite 100 / 200 / 500 cm | 71.7 / 73.3 / 66.7 | 75.0 / 80.8 / 66.7 | 64.2 / 68.3 / 66.7 | 69.2 / 70.8 / 70.8 | 54.2 / 55.0 / 53.3 | 72.5 / 75.8 / 70.0 | 70.8 / 70.0 / 46.7 |
+| G7 rotation 20 / 90 / 180 / 270° | 78.3 / 75.0 / 71.7 / 74.2 | 80.0 / 72.5 / 65.8 / 70.8 | 65.8 / 65.8 / 63.3 / 71.7 | 72.5 / 67.5 / 75.0 / 75.0 | 75.8 / 67.5 / 60.8 / 59.2 | 78.3 / 74.2 / 65.8 / 64.2 | 69.2 / 61.7 / 60.8 / 65.8 |
+
+IDLT cells are 13 tasks × 100 rollouts (about ±1.3 points); G7 cells are 6 tasks × 20 (about ±4). A and C are raw weights at their best ladder points (160k, 100k); the new models are EMA weights at their best EMA ladder points (1a 80k, 1b 200k, 1c 120k, exp 2 70k, exp 3 110k). \* = one of 13 tasks missing (timed-out cell, resubmitted as 3990347).
+
+## Reading
+
+**1b (pooled, layer-wise C-token adaLN) is the only arm that beats the controls, and it does so at every IDLT level:** about +6 calibrated and **+8 at 60/60 (70.4 vs 62.8 / 61.6)**. From scratch, it nearly matches the warm-started VideoPooled (71.5 at 60/60) and random-history (71.9) models. On G7 it is level with A.
+
+Every other arm is at or below the controls. 1c (static) collapses at the extremes (IDLT 60/60 48.2; G7 100–500 cm about 54). 1a (per camera) is about 10 points below A even when calibrated. Exp 2 and exp 3 (delta_M, direct and layer-wise) land at about 56 at 60/60, below the no-delta_M controls.
+
+Caveat: 1b's checkpoint is EMA, and A/C's are raw. EMA gave A/C only about +7 SBRS in the fine-tunes and about 0 on G7, and 1a/1c/2/3 are also EMA, yet sit below A. So EMA alone does not explain 1b's lead.

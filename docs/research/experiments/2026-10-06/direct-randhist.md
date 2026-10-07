@@ -1,6 +1,6 @@
 # Direct delta_M on random history (Exp 2)
 
-**Status:** config and ARM ready (1 Oct); not yet submitted
+**Status:** done (6 Oct)
 **Week introduced:** [30 Sept – 6 Oct](../../weekly_logs/2026-10-06.md)
 
 ## Main idea
@@ -40,6 +40,6 @@ register. Its scene tokens are exactly those of a model without history.
   `visual_num_history: 5`, so they were evaluated with K=1. This run is laddered
   at K=5 from the start.
 
-## Results
+## Results (6 Oct)
 
-None yet.
+IDLT 60/60 **56.6** (A 62.8, C 61.6); IDLT calibrated 68.8; G7 holds 64–78 including 500 cm (70.0). Below the no-delta_M controls under heavy miscalibration. Full table: [camera-adaln](camera-adaln.md#results-6-oct).
