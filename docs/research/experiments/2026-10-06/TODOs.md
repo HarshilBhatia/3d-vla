@@ -48,7 +48,7 @@ The week's runs ([camera-adaln](camera-adaln.md), [randhist-deltam](randhist-del
 
 ## TODO 1: delta_M per layer and per sample (exp 3, with VideoPooled and warm random history as references)
 
-**Status:** open
+**Status:** in progress (agent)
 
 **Why:** we reported delta_M as roughly constant, but we only measured an average over every call. It is re-predicted before each SA layer, from C-tokens that change layer to layer, so it can vary with depth and across scenes.
 
