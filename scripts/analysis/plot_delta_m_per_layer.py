@@ -18,6 +18,7 @@ MODELS = {  # label -> (legend name, categorical slot colour), fixed order
     "exp3_110k": ("exp 3, 110k (EMA)", "#eb6834"),
     "videopooled84k": ("VideoPooled 84k", "#1baf7a"),
     "randhist_warm50k": ("warm random history 50k", "#eda100"),
+    "deltam140k": ("DeltaM 140k (no history)", "#e87ba4"),
 }
 CALLS = ["init", "CA", "SA0", "SA1", "SA2", "SA3"]  # head call order per denoising step; "init" is predicted but unused in the layer-wise path
 LAYERS = CALLS[1:]
@@ -125,6 +126,7 @@ def main():
     p.add_argument("--in-dir", default="results/analysis/delta_m_per_layer")
     p.add_argument("--fig-dir", default="docs/research/experiments/2026-10-06/figures")
     p.add_argument("--first", type=int, default=320)
+    p.add_argument("--fig-prefix", default="dm_layer")
     a = p.parse_args()
     stats = {}
     for label in MODELS:
@@ -135,22 +137,22 @@ def main():
     fd = Path(a.fig_dir)
     band = "line = mean over samples, band = +/- 1 std; clean cameras; CA and SA0 see the same C-tokens"
     panel_fig(stats, lambda s, k: list(s["dist_from_I"][f"cam{k}"].values()), "||ΔM − I||_F",
-              "delta_M distance from identity per layer", fd / "dm_layer_dist_from_identity", note=band)
+              "delta_M distance from identity per layer", fd / f"{a.fig_prefix}_dist_from_identity", note=band)
     tr = [f"{LAYERS[j]}→{LAYERS[j + 1]}" for j in range(len(LAYERS) - 1)]
     panel_fig(stats, lambda s, k: [v["log_fro"] for v in s["depth_change"][f"cam{k}"].values()],
               "||log(ΔM_l · ΔM_prevᵀ)||_F (rad)", "delta_M change between consecutive layers",
-              fd / "dm_layer_depth_change", xlabels=tr, note="Frobenius differences are in summary.json; " + band)
+              fd / f"{a.fig_prefix}_depth_change", xlabels=tr, note="Frobenius differences are in summary.json; " + band)
     panel_fig(stats, lambda s, k: [[v["task_share"], 0] for v in s["across_sample"]["full"][f"cam{k}"].values()],
               "share of across-sample variance\nexplained by task (η²)", "delta_M: how much of the per-sample variation is task",
-              fd / "dm_layer_task_share", note="all 853 val samples, 13 tasks, step-mean delta_M as a 36-vector; chance ≈ 0.014; no point = no spread (RMS < 1e-3), share undefined")
+              fd / f"{a.fig_prefix}_task_share", note="all 853 val samples, 13 tasks, step-mean delta_M as a 36-vector; chance ≈ 0.014; no point = no spread (RMS < 1e-3), share undefined")
     panel_fig(stats, lambda s, k: list(s["clean_vs_heavy"][f"cam{k}"].values()), "||ΔM_clean − ΔM_60/60||_F",
               "delta_M change under heavy 60°/60 cm miscalibration (same sample, same noise)",
-              fd / "dm_layer_clean_vs_heavy", note="cameras 0 and 1 miscalibrated; band = +/- 1 std over samples and steps")
+              fd / f"{a.fig_prefix}_clean_vs_heavy", note="cameras 0 and 1 miscalibrated; band = +/- 1 std over samples and steps")
     panel_fig(stats, lambda s, k: [v["rms_dev"] for v in s["across_steps"][f"cam{k}"].values()],
               "RMS over flow steps of\n||ΔM_step − ΔM_mean||_F", "delta_M variation across the 5 denoising steps",
-              fd / "dm_layer_across_steps", note=band)
+              fd / f"{a.fig_prefix}_across_steps", note=band)
     panel_fig(stats, lambda s, k: [v["log_fro"] for v in s["cam0_vs_cam1"].values()],
-              "||log(ΔM_cam0 ΔM_cam1ᵀ)||_F (rad)", "camera 0 vs camera 1 delta_M", fd / "dm_layer_cam0_vs_cam1",
+              "||log(ΔM_cam0 ΔM_cam1ᵀ)||_F (rad)", "camera 0 vs camera 1 delta_M", fd / f"{a.fig_prefix}_cam0_vs_cam1",
               per_cam=False, note=band)
     print(json.dumps({k: {"dist": v["dist_from_I"], "cvh": v["clean_vs_heavy"]} for k, v in stats.items()}, indent=1))
 

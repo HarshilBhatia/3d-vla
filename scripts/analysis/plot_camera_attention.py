@@ -12,8 +12,9 @@ import torch
 
 LAYERS = ["ca0", "ca1", "sa0", "sa1", "sa2", "sa3", "pos0", "pos1", "rot0", "rot1"]
 MODELS = [("exp3_200k", "exp 3 (delta_M) 200k"), ("adaln1b_200k", "1b (adaLN) 200k"),
-          ("controlA_200k", "control A 200k"), ("ema20k_randhist_15k", "warm randhist + EMA 15k")]
-COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100"]
+          ("controlA_200k", "control A 200k"), ("ema20k_randhist_15k", "warm randhist + EMA 15k"),
+          ("deltam140k", "DeltaM 140k (no history)"), ("base160k", "Base 160k (no history)")]
+COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"]
 
 
 def per_sample(d, layer):
@@ -68,7 +69,7 @@ def summarise(path):
     return res
 
 
-def plot(summ, out):
+def plot(summ, out, prefix="cam_attn"):
     x = np.arange(len(LAYERS))
     fig, axes = plt.subplots(1, 3, figsize=(16, 4.6))
     for (label, name), col in zip(MODELS, COLORS):
@@ -98,25 +99,24 @@ def plot(summ, out):
         ax.axvspan(1.5, 5.5, color="#f2f1ec", zorder=0)
     for ax in axes[1:]:
         ax.axhline(0, color="#52514e", lw=1)
-    axes[0].legend(fontsize=6.5, ncol=1, frameon=False, loc="upper right")
+    axes[0].legend(fontsize=7, ncol=2, frameon=False, loc="upper center", bbox_to_anchor=(0.5, -0.1))
     axes[1].legend(fontsize=8, frameon=False)
     n = next(iter(summ.values()))["n"]
-    fig.text(0.5, -0.02, "ca = cross-attention to dense tokens; sa = shared self-attention (shaded) over FPS tokens; "
+    fig.text(0.5, 1.02, "ca = cross-attention to dense tokens; sa = shared self-attention (shaded) over FPS tokens; "
              f"pos/rot = output heads. Averaged over {n} val samples, 5 flow steps, 6 heads, 2 trajectory queries.",
              ha="center", fontsize=8, color="#52514e")
     fig.tight_layout()
     for ext in ("png", "svg"):
-        fig.savefig(out / f"cam_attn_external_share.{ext}", dpi=150, bbox_inches="tight")
+        fig.savefig(out / f"{prefix}_external_share.{ext}", dpi=150, bbox_inches="tight")
     plt.close(fig)
 
-    fig, axes = plt.subplots(1, len(MODELS), figsize=(16, 4), sharey=True)
+    present = [(lb, nm) for lb, nm in MODELS if lb in summ]
+    fig, axes = plt.subplots(1, len(present), figsize=(4 * len(present), 4), sharey=True)
     groups = [("ext_abs", "scene cams 0+1", "#2a78d6"), ("wrist_abs", "scene cams 2+3", "#eb6834"),
               ("ctok_ext", "C-tokens 0+1", "#1baf7a"), ("ctok_wrist", "C-tokens 2+3", "#eda100"),
               ("registers", "registers", "#e87ba4"), ("camtoken", "camera token", "#4a3aa7"),
               ("traj", "trajectory tokens", "#888780")]
-    for ax, (label, name) in zip(axes, MODELS):
-        if label not in summ:
-            continue
+    for ax, (label, name) in zip(axes, present):
         L = summ[label]["layers"]
         sl = LAYERS[2:]
         for j, cond in enumerate(("clean", "heavy60")):
@@ -135,7 +135,7 @@ def plot(summ, out):
     axes[-1].legend(fontsize=7, frameon=False, bbox_to_anchor=(1.0, 1.0), loc="upper left")
     fig.tight_layout()
     for ext in ("png", "svg"):
-        fig.savefig(out / f"cam_attn_sa_mass_breakdown.{ext}", dpi=150, bbox_inches="tight")
+        fig.savefig(out / f"{prefix}_sa_mass_breakdown.{ext}", dpi=150, bbox_inches="tight")
     plt.close(fig)
 
 
@@ -143,6 +143,7 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("--in-dir", default="results/analysis/camera_attention")
     p.add_argument("--fig-dir", default="docs/research/experiments/2026-10-06/figures")
+    p.add_argument("--fig-prefix", default="cam_attn")
     a = p.parse_args()
     summ = {}
     for label, _ in MODELS:
@@ -167,7 +168,7 @@ def main():
     fig_dir = Path(a.fig_dir)
     fig_dir.mkdir(parents=True, exist_ok=True)
     if all("heavy60" in s["layers"]["ca0"] for s in summ.values()):
-        plot(summ, fig_dir)
+        plot(summ, fig_dir, a.fig_prefix)
 
 
 if __name__ == "__main__":

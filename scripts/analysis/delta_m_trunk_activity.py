@@ -8,6 +8,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "eval"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
 import torch
@@ -18,6 +19,7 @@ from data.geometry import fetch_depth2cloud
 from data.preprocessing.rlbench import RLBenchDataPreprocessor
 from datasets import fetch_dataset_class
 from diagnose_delta_m import CONDITIONS, VAL, load
+from eval_faithful_load import load as faithful_load, parse_spec
 from modeling.encoder.text import fetch_tokenizers
 
 CALLS = ["init", "CA", "SA0", "SA1", "SA2", "SA3"]
@@ -29,12 +31,17 @@ def main():
     p.add_argument("--model", action="append", required=True, help="label=checkpoint:raw|ema")
     p.add_argument("--batches", type=int, default=5)
     p.add_argument("--out", default="results/analysis/delta_m_per_layer/trunk_activity.json")
+    p.add_argument("--faithful", action="store_true", help="load as online eval does; spec may end in :K or :ckpt for visual history")
     a = p.parse_args()
     res = {}
     for spec in a.model:
-        label, rest = spec.split("=", 1)
-        path, weights = rest.rsplit(":", 1)
-        model, args = load(path, weights)
+        if a.faithful:
+            label, path, weights, k = parse_spec(spec)
+            model, args = faithful_load(path, weights, k)
+        else:
+            label, rest = spec.split("=", 1)
+            path, weights = rest.rsplit(":", 1)
+            model, args = load(path, weights)
         head = model.prediction_head
         log = []
 
@@ -45,11 +52,12 @@ def main():
             log[-1]["t"] = out.detach().float()
         h1 = head.camera_proj.register_forward_pre_hook(pre_hook)
         h2 = head.camera_trunk.register_forward_hook(trunk_hook)
-        vd = []
+        vd, hist_len = [], []
 
         def vd_hook(mod, inp, out):
             vd.append((inp[0][:, -1, :2].detach().float(), out[0][:, -1, :2].detach().float()))
-        h3 = head.video_deltam.register_forward_hook(vd_hook)
+            hist_len.append(inp[0].shape[1])
+        h3 = head.video_deltam.register_forward_hook(vd_hook) if getattr(head, "video_deltam", None) is not None else None
         b = head.camera_predictor.bias.detach().float().reshape(6, 6)
         a0 = b - b.T
         a0 = a0 * (a0.norm().clamp(max=3.0) / a0.norm().clamp(min=1e-8))
@@ -102,9 +110,12 @@ def main():
                 acc[c]["dm_minus_bias_dm"].append(float((dm - dm_bias.to(dm.device)).flatten(-2).norm(dim=-1).max()))
         res[label] = {c: {k: float(np.mean(v)) for k, v in d.items()} for c, d in acc.items()}
         res[label]["video_deltam_current_frame"] = {k: float(np.mean(v)) for k, v in acc_vd.items()}
+        res[label]["history_frames_seen"] = sorted(set(hist_len)) if h3 is not None else None
         res[label]["bias_dm_dist_from_I"] = float((dm_bias - torch.eye(6, device=dm_bias.device)).norm())
         print(label, json.dumps(res[label], indent=1), flush=True)
-        h1.remove(); h2.remove(); h3.remove()
+        h1.remove(); h2.remove()
+        if h3 is not None:
+            h3.remove()
         del model
         torch.cuda.empty_cache()
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)

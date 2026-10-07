@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "eval"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
 import torch
@@ -18,6 +19,7 @@ from data.geometry import fetch_depth2cloud
 from data.preprocessing.rlbench import RLBenchDataPreprocessor
 from datasets import fetch_dataset_class
 from diagnose_delta_m import CONDITIONS, VAL, load
+from eval_faithful_load import load as faithful_load, parse_spec
 from modeling.encoder.text import fetch_tokenizers
 
 
@@ -73,13 +75,18 @@ def main():
     p.add_argument("--batches", type=int, default=1000)
     p.add_argument("--conditions", nargs="+", default=["clean", "heavy60"])
     p.add_argument("--out-dir", default="results/analysis/delta_m_per_layer")
+    p.add_argument("--faithful", action="store_true", help="load as online eval does; spec may end in :K or :ckpt for visual history")
     a = p.parse_args()
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     for spec in a.model:
-        label, rest = spec.split("=", 1)
-        path, weights = rest.rsplit(":", 1)
-        model, args = load(path, weights)
+        if a.faithful:
+            label, path, weights, k = parse_spec(spec)
+            model, args = faithful_load(path, weights, k)
+        else:
+            label, rest = spec.split("=", 1)
+            path, weights = rest.rsplit(":", 1)
+            model, args = load(path, weights)
         seen = hook(model)
         tokenizer = fetch_tokenizers(getattr(args, "text_backbone", None) or args.backbone)
         ds = fetch_dataset_class(args.dataset)(

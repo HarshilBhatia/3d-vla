@@ -472,7 +472,7 @@ Also run the **reverse** direction (heavy into clean) for (a), (b) and (d): how 
 
 ## TODO 8: redo TODOs 1 and 3 on the non-history models (DeltaM 140k, Base 160k)
 
-**Status:** in progress (attention agent)
+**Status:** done
 
 **Why:** the history models reach about 70 at IDLT 60/60, the non-history ones far less. TODO 1 found that in every *history* model the C-tokens reaching the head are collapsed by the history extractor, so delta_M is a per-layer constant. TODO 3 found no attention rerouting. The non-history delta_M model predicts delta_M from the **encoder's** per-camera C-tokens directly, with no extractor. So its delta_M *can* vary per scene and per camera. Does it, and does that explain why it is less robust?
 
@@ -499,4 +499,119 @@ Also run the **reverse** direction (heavy into clean) for (a), (b) and (d): how 
 
 **Results:**
 
+**Setup.** Scripts: `scripts/analysis/todo8.slurm` runs two parts. `PART=dm` (job 3993369) runs `delta_m_per_layer.py` and `delta_m_trunk_activity.py`. `PART=attn` (job 3993406) runs `camera_attention.py`. All three run with a new `--faithful` option that loads through `scripts/analysis/eval_faithful_load.py`, a mirror of `load_model_for_evaluation`. Data: `results/analysis/todo8/{delta_m_per_layer,camera_attention}/`. Stats and figures come from `plot_delta_m_per_layer.py --fig-prefix todo8_dm_layer` and `plot_camera_attention.py --fig-prefix todo8_cam_attn`. Same 853 val samples, seeds and clean/train/heavy60 conditions as TODOs 1 and 3. History models are re-run at their saved K=5.
+
+**Load settings, checked against the saved configs:**
+- Both checkpoints are old-schema. They save `num_history: 3` (migrated to visual history 3), `video_deltam: False`, `proprio_num_history: 3`, `scene_sampling` → fps, and `head_positional_encoding` → rope3d.
+- Their IDLT plans pass no `visual_num_history`, so online eval ran them at K=1. I use K=1 too.
+- K doesn't matter for these models: without the video extractor only the current frame reaches the head. On one batch, K=1 vs K=3 gives the same pos_l2 and attention masses within bf16 noise.
+- **DeltaM 140k is a legacy checkpoint** (`dynamic_rope_from_camtoken` + `delta_m_camera_ids` saved). Online eval therefore applies its delta_M to **all four cameras** (`view_align_cameras=None`), and so does this analysis.
+- The encoder can't see the point cloud. `encode_siglip2` is SigLIP2 → projection → `vl_attention` (vision-to-language, no RoPE), and the pcd is only interpolated alongside. So the encoder's C-tokens are pure appearance, and the pre-CA delta_M can't respond to miscalibration.
+
+**1. delta_M, DeltaM 140k vs the history models.** Rows are the history models at K=5, numbers identical to TODO 1, plus DeltaM 140k at K=1. Camera 0 unless noted.
+
+‖ΔM − I‖_F per layer, mean (std over samples):
+
+| Model | CA = SA0 | SA1 | SA2 | SA3 |
+|---|---|---|---|---|
+| **DeltaM 140k**, cam 0 | 0.552 (0.033) | 0.550 (0.081) | 0.551 (0.151) | 0.566 (0.226) |
+| DeltaM 140k, cam 1 | 0.546 (0.033) | 0.528 (0.043) | 0.501 (0.056) | 0.481 (0.052) |
+| DeltaM 140k, wrist cams 2 / 3 | 0.53 / 0.55 | 0.58 / 0.67 | 0.59 / 0.66 | 0.62 / 0.68 |
+| exp 3 200k | 0.701 (0) | 2.662 (0.0007) | 0.288 (0.037) | 0.276 (0) |
+| VideoPooled 84k | 0.681 (0) | 0.077 (0.006) | 0.082 (0) | 0.082 (0) |
+| warm randhist 50k | 0.258 (0) | 1.162 (0.104) | 0.068 (0.006) | 0.067 (0) |
+
+Across-sample RMS spread of the step-mean delta_M, with task η² in brackets (chance ≈ 0.014):
+
+| Model | CA = SA0 | SA1 | SA2 | SA3 |
+|---|---|---|---|---|
+| **DeltaM 140k** | **0.077** [0.80] | **0.228** [0.64] | **0.296** [0.64] | **0.398** [0.77] |
+| exp 3 200k | 0 [–] | 0.026 [0.52] | 0.060 [0.39] | 0 [–] |
+| VideoPooled 84k | 0 [–] | 0.024 [0.85] | 0.0005 [–] | 0 [–] |
+| warm randhist 50k | 0 [–] | 0.112 [0.66] | 0.013 [0.09] | 0 [–] |
+
+Response to miscalibration, ‖ΔM_clean − ΔM_60/60‖_F on the same sample with the same noise:
+
+| Model | CA = SA0 | SA1 | SA2 | SA3 |
+|---|---|---|---|---|
+| **DeltaM 140k**, cam 0 | 0 | 0.013 | 0.020 | 0.018 |
+| DeltaM 140k, angle of ΔM_clean·ΔM_heavyᵀ: mean / p99 over samples and steps, cam 0 | 0° | 0.5° / 6.6° | 0.7° / 12° | 0.7° / 11° |
+| DeltaM 140k, same angle on wrist cam 3, which is not miscalibrated | 0° | 1.1° / 20° | 1.1° / 24° | 1.3° / 26° |
+| exp 3 200k | 0 | 0.009 | 0.010 | 0.0001 |
+
+Change with depth, across flow steps, and between cameras:
+
+| | DeltaM 140k | exp 3 200k |
+|---|---|---|
+| depth change ‖log(ΔM_l ΔM_{l−1}ᵀ)‖ (max angle), SA0→1 / 1→2 / 2→3 | 0.17 (6.3°) / 0.11 (3.9°) / 0.15 (5.5°) | 2.52 (91°) / 2.95 (106°) / 0.02 (0.7°) |
+| RMS change across the 5 flow steps, SA1 / SA2 / SA3 | 0.011 / 0.015 / 0.020 | 0.009 / 0.002 / 0 |
+| cam 0 vs cam 1, ‖log(ΔM_0 ΔM_1ᵀ)‖ (max angle), CA / SA1 / SA2 / SA3 | 0.063 (2.3°) / 0.16 (6.1°) / 0.19 (7.1°) / 0.18 (6.7°) | 0 / 0.009 / 0.010 / 0 |
+
+**C-tokens entering the head, and the delta_M trunk** (`trunk_activity.json`, 5 clean batches; per-channel std over samples of the external C-tokens fed to `camera_proj`):
+
+| Model | C-token spread at CA | live trunk units (of 120), CA / SA1 / SA2 / SA3 | ‖ΔM − exp(skew(bias))‖, CA / SA1 / SA2 / SA3 |
+|---|---|---|---|
+| **DeltaM 140k** (encoder C-tokens, no extractor) | **0.037** | 7.6 / 5.0 / 4.9 / 4.0 | 0.20 / 0.37 / 0.52 / 0.52 |
+| exp 3 200k, K=5 | 0.00015 (extractor input 0.025) | 1.0 / 2.0 / 0.6 / 0 | 0.56 / 2.63 / 0.05 / 0 |
+| exp 3 110k, K=5 | 0.00001 (input 0.048) | 1.0 / 2.0 / 0.8 / 0 | 0.56 / 2.20 / 0.05 / 0 |
+| VideoPooled 84k, K=5 | 0.00001 (input 0.039) | 1.0 / 1.2 / 0.4 / 0 | 0.61 / 0.05 / 0.003 / 0 |
+| warm randhist 50k, K=5 | 0.00005 (input 0.035) | 1.0 / 1.0 / 0.6 / 0 | 0.23 / 1.35 / 0.05 / 0 |
+
+So the C-token collapse in the history extractor is real at K=5, not a K=1 artifact. The extractor reduces a 0.025–0.048 input spread to ≤1.5e-4.
+
+**2. Attention.** External share = attention on cam 0+1 scene tokens / attention on all scene tokens. Values are clean → heavy60, Δ in pp ± SE over 853 paired samples. History models at K=5 are in TODO 3.
+
+| Layer | **DeltaM 140k** | **Base 160k** | exp 3 (K=5) Δ | 1b Δ | control A Δ | ema20k Δ |
+|---|---|---|---|---|---|---|
+| ca0 | 48.3 → 48.6, +0.34 ±0.07 | 48.8 → 49.8, +1.02 ±0.11 | +0.32 | +0.07 | +0.73 | +0.50 |
+| ca1 | 46.6 → 49.1, **+2.51** ±0.12 | 43.6 → 46.0, **+2.33** ±0.14 | +0.58 | +0.11 | +1.74 | +0.64 |
+| sa0 | 32.8 → 33.6, +0.76 ±0.06 | 34.6 → 34.5, −0.08 ±0.04 | +0.25 | +0.33 | +0.09 | +0.04 |
+| sa1 | 32.7 → 33.4, +0.71 ±0.07 | 35.8 → 36.0, +0.23 ±0.04 | −0.01 | +0.01 | +0.07 | +0.03 |
+| sa2 | 32.1 → 32.4, +0.34 ±0.05 | 35.0 → 35.5, +0.52 ±0.07 | −0.44 | +0.23 | −0.08 | −1.14 |
+| sa3 | 33.4 → 35.7, **+2.31** ±0.16 | 34.0 → 35.0, +0.95 ±0.11 | −0.47 | −0.52 | −0.31 | −1.01 |
+| pos0 | 32.4 → 34.6, **+2.18** ±0.15 | 32.1 → 30.3, −1.83 ±0.16 | −1.25 | −1.06 | −1.11 | −1.46 |
+| pos1 | 32.2 → 33.3, +1.13 ±0.14 | 31.1 → 27.8, **−3.21** ±0.16 | −1.73 | −1.14 | −1.24 | −1.76 |
+| rot0 | 31.6 → 31.7, +0.07 ±0.02 | 33.4 → 33.5, +0.13 ±0.05 | −0.01 | +0.05 | +0.04 | −0.07 |
+| rot1 | 31.7 → 31.7, +0.07 ±0.05 | 32.8 → 33.2, +0.37 ±0.07 | +0.05 | −0.00 | −0.16 | +0.02 |
+
+Other attention measurements:
+- **FPS token share** (204 tokens, cam 0 / 1 / 2 / 3), identical clean vs heavy60:
+  - DeltaM 140k: 30.9 / 30.4 / 72.2 / 70.5, so **30.0% external**.
+  - Base 160k: 36.0 / 29.8 / 69.1 / 69.0, so **32.3% external**.
+  - History models keep only 10–19% external, and 1b has no external FPS token at all in 4.8% of samples.
+- **Per-token ratio** (external share ÷ token share), clean → heavy60:
+  - DeltaM 140k: 1.07–1.11 in SA and the heads, rising under heavy60 (sa3 1.11 → 1.19, pos1 1.07 → 1.11).
+  - Base 160k: 1.05–1.11 in SA; pos1 0.96 → 0.86.
+  - History models: pos1 0.43–0.71, falling under heavy60.
+- **Entropy:** clean values are similar across all models (CA ≈ 6.5, SA ≈ 5.2 nats). The non-history models focus more under heavy60:
+  - DeltaM 140k: −0.11 (ca1), −0.12 (sa3), −0.09 (pos0/pos1).
+  - Base 160k: −0.10 (ca1), −0.07 (sa3), −0.09 (pos0).
+  - History models: at most −0.07 anywhere.
+- **Per head:** as in TODO 3, the shift sits in the high-frequency heads 0, 2 and 4. DeltaM's largest moves are +8.5 pp (ca1, head 2), +11.2 pp (sa3, head 2) and +9.8 pp (pos0, head 0). Base's are −8.1 pp (pos0, head 4) and −5.7 pp (pos1, head 4). The CA increase grows over the flow steps (DeltaM ca1 +1.9 → +3.1 pp; Base +1.6 → +3.1 pp).
+- **Offline pos_l2 clean → heavy60 (cm):**
+
+  | Model | clean → heavy60 | ratio |
+  |---|---|---|
+  | DeltaM 140k | 1.32 → 2.68 | ×2.0 |
+  | Base 160k | 1.49 → 3.33 | ×2.2 |
+  | exp 3 | 1.03 → 1.40 | ×1.4 |
+  | 1b | 0.99 → 1.53 | ×1.5 |
+  | ema20k | 1.06 → 1.57 | ×1.5 |
+  | control A | 1.19 → 2.03 | ×1.7 |
+
+  This ordering matches IDLT 60/60.
+
+Figures (`figures/README.md`):
+- `todo8_dm_layer_*.{png,svg}`: the six TODO 1 metrics with DeltaM 140k added. History models are at K=5, and VideoPooled's wrist cameras now carry delta_M under the legacy rule.
+- `todo8_cam_attn_external_share.{png,svg}` and `todo8_cam_attn_sa_mass_breakdown.{png,svg}`: the six models overlaid.
+
 **Reading:**
+- **DeltaM 140k's delta_M is not collapsed.** Its C-tokens come straight from the encoder and vary across samples (0.037 per-channel std, against ≤1.5e-4 after the history extractor). So its delta_M varies per sample from the first layer (RMS 0.08 at CA, up to 0.40 at SA3, 64–80% explained by task) and per camera (2–7° between cameras 0 and 1). It drifts gently with depth (4–6° per layer) instead of jumping between a few fixed rotations, and it keeps about 5–8 live trunk units against 1–2 in the history models. Its size, ‖ΔM − I‖ ≈ 0.55, is similar on all four cameras, including the wrist cameras that the legacy rule also rotates.
+- **It barely responds to the miscalibration.** The pre-CA delta_M is exactly unchanged under 60/60, because the encoder's C-tokens are appearance-only (no point cloud, no RoPE). In SA it changes by 0.5–0.7° on average against 60° injected, with a p99 of 7–12°. The non-miscalibrated wrist camera 3 changes *more* (1.1–1.3° mean, p99 20–26°). So these changes come from SA mixing, not from estimating camera 0/1 error. A delta_M that varies per scene is not a delta_M that corrects geometry.
+- **This doesn't explain the robustness gap; if anything it points the other way.** The less robust model has the richer, per-sample delta_M. The robust history models have a per-layer constant one. Delta_M's per-scene variation is mostly task identity, and robustness doesn't track it.
+- **The clearest structural difference is which tokens the head sees.** The non-history models keep 30–32% external FPS tokens against 10–19% in the history models. They spend about a third of SA and output-head attention on the external cameras, against 11–30%. Under 60/60 they shift attention *more* (CA +2.3–2.5 pp, against ≤1.7). DeltaM even pushes more attention onto the miscalibrated cameras in SA3 and the position head (+2.2–2.3 pp). Base pulls attention off them in the position head (−1.8/−3.2 pp) and is still the least robust. So, as in TODO 3, the direction of the attention shift doesn't track robustness. What separates the groups is how exposed the trunk is to external tokens in the first place. The history models' feature-density sampler may help simply by sampling few external tokens.
+- **Caveats.**
+  - The two groups differ in more than history: training recipe, scratch vs warm start, EMA, miscalibration curriculum, and when they were trained. These comparisons are correlations.
+  - The FPS-share explanation is a hypothesis. A direct test is to evaluate a history model with `scene_sampling: image_space`, which forces 50% external tokens, or a non-history model with external FPS tokens capped. Activation patching (TODO 7) would also test it.
+  - Attention mass is not influence (see TODO 3).
+- **Loader bug found on the way (fixed centrally in 5ef5cf3).** `visual_num_history` is an eval-runtime key, so the offline `load()` had run every history model at K=1. Legacy delta_M checkpoints (DeltaM 140k, VideoPooled) also lost their all-camera rule. At K=5, TODO 1's delta_M numbers and the extractor collapse are unchanged, and TODO 3 changes by ≤1.4 pp. The earlier "suspect" offline errors were this bug: ema20k drops 2.95 → 1.06 cm, and VideoPooled reads 1.19 cm, not 7 cm.

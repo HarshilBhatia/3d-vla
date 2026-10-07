@@ -7,6 +7,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
 import torch
@@ -18,6 +19,7 @@ from common.metrics import compute_metrics
 from data.batch import base_collate_fn
 from data.geometry import fetch_depth2cloud
 from data.preprocessing.rlbench import RLBenchDataPreprocessor
+from eval_faithful_load import load as faithful_load, parse_spec
 from datasets import fetch_dataset_class
 from evaluation.checkpoints import overlay_checkpoint_config
 from modeling.encoder.text import fetch_tokenizers
@@ -189,13 +191,18 @@ def main():
     p.add_argument("--batches", type=int, default=1000)
     p.add_argument("--conditions", nargs="+", default=["clean", "train", "heavy60"])
     p.add_argument("--out-dir", default="results/analysis/camera_attention")
+    p.add_argument("--faithful", action="store_true", help="load as online eval does; spec may end in :K or :ckpt for visual history")
     a = p.parse_args()
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     for spec in a.model:
-        label, rest = spec.split("=", 1)
-        path, weights = rest.rsplit(":", 1)
-        model, args = load(path, weights)
+        if a.faithful:
+            label, path, weights, k = parse_spec(spec)
+            model, args = faithful_load(path, weights, k)
+        else:
+            label, rest = spec.split("=", 1)
+            path, weights = rest.rsplit(":", 1)
+            model, args = load(path, weights)
         rec = Recorder(model)
         tokenizer = fetch_tokenizers(getattr(args, "text_backbone", None) or args.backbone)
         ds = fetch_dataset_class(args.dataset)(
@@ -206,6 +213,7 @@ def main():
         loader = DataLoader(ds, batch_size=max(1, 16 // args.chunk_size), shuffle=False, num_workers=0,
                             collate_fn=base_collate_fn)
         meta = {"checkpoint": path, "weights": weights, "groups": GROUPS, "n_steps": model.n_steps,
+                "visual_num_history": args.visual_num_history, "view_align_cameras": getattr(args, "view_align_cameras", None),
                 "camera_adaln": getattr(model.prediction_head, "camera_adaln", None),
                 "layerwise_view_align": getattr(model.prediction_head, "layerwise_view_align", None)}
         saved = {"meta": meta}

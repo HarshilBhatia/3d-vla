@@ -42,3 +42,13 @@ The data comes from `scripts/analysis/adaln_signal.py` (GPU), which writes `resu
 |---|---|---|
 | `rope_kernel_displacement.{png,svg}` | Even RoPE logit factor vs key displacement along x/y/z, plain basis vs exp 3's per-layer delta_M; query at the origin (top) and averaged over the workspace (bottom) | `scripts/analysis/rope_kernel.py` |
 | `rope_delta_m_heatmaps.{png,svg}` | Sample-mean 6×6 delta_M (camera 0) for exp 3 CA/SA1/SA2/SA3 and VideoPooled CA/SA1 | same |
+
+## Non-history models: delta_M and camera attention ([TODOs.md](../TODOs.md), TODO 8)
+
+The data comes from `scripts/analysis/todo8.slurm` (GPU). `PART=dm` runs `delta_m_per_layer.py` and `delta_m_trunk_activity.py`; `PART=attn` runs `camera_attention.py`. All use `--faithful` (`scripts/analysis/eval_faithful_load.py`) and write to `results/analysis/todo8/`. Models: DeltaM 140k (K=1, delta_M on all 4 cameras by the legacy rule) and Base 160k (K=1), next to the history models at their saved K=5. Data: all 853 val samples. The TODO 3 figures `cam_attn_*` were regenerated from the same K=5 run.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `todo8_dm_layer_{dist_from_identity,depth_change,task_share,clean_vs_heavy,across_steps,cam0_vs_cam1}.{png,svg}` | The six TODO 1 delta_M metrics with DeltaM 140k added | `scripts/analysis/plot_delta_m_per_layer.py --in-dir results/analysis/todo8/delta_m_per_layer --fig-prefix todo8_dm_layer` |
+| `todo8_cam_attn_external_share.{png,svg}` | External attention share per layer, clean vs heavy60, Δ ± SE and Δ entropy; DeltaM 140k and Base 160k overlaid on the four history models | `scripts/analysis/plot_camera_attention.py --in-dir results/analysis/todo8/camera_attention --fig-prefix todo8_cam_attn` |
+| `todo8_cam_attn_sa_mass_breakdown.{png,svg}` | Attention mass by key group per SA/output-head layer, six models | same |
