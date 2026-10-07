@@ -138,7 +138,7 @@ The largest of these is about 1°, against 60° of injected rotation.
 
 ## TODO 2: what the 1b adaLN signal encodes
 
-**Status:** in progress (agent)
+**Status:** done
 
 **Why:** 1b conditions every head layer on `signal = time_embs + MLP_c(mean of C-tokens)`, re-read after each SA layer (`camera_adaln: pooled`). We don't know whether it carries sample-specific information (task, scene, progress, miscalibration) or settles into a learned near-constant, as delta_M appears to.
 
@@ -156,7 +156,59 @@ The largest of these is about 1°, against 60° of injected rotation.
 
 **Results:**
 
+Scripts: `scripts/analysis/adaln_signal.py` (records, Slurm job 3993301), `scripts/analysis/plot_adaln_signal.py` (stats and figures). Raw: `results/analysis/adaln_signal/exp1b_200k.pt`, holding the camera term, time_embs and mean C-token per (sample, step, signal), plus per-AdaLN scale/shift norms. Stats: `results/analysis/adaln_signal/exp1b_200k.json`. Figures: `figures/adaln_1b_*.png`.
+
+Setup: 1b at 200k (EMA), all 853 val samples (13 tasks), clean / train / heavy60 on cameras [0,1], with flow noise reseeded so it matches across conditions. Offline pos_l2: clean 0.0100, train 0.0099, heavy60 0.0153. Each flow step computes 5 signals: one before CA (used by both CA layers and SA0), one after each of SA0–SA2 (used by SA1–SA3), and one after SA3 (used by the position and rotation heads). Every one of the 20 AdaLN calls received exactly the recorded signal (0 mismatches).
+
+The camera term is recomputed in fp32. A first pass took it as `full − time_embs` from bf16 tensors, and the rounding error on time_embs (norm 10–16) appeared as a fake step dependence and miscalibration response at layer 0.
+
+Note that `time_embs` is the denoising-time embedding **plus the current-gripper proprio embedding**. It is therefore sample-specific: its across-sample spread is 0.58 of its norm, with task η² 0.54. "time-only" below means "without the camera term", not "sample-independent".
+
+1. Strength of the camera conditioning, ‖full − time-only‖ / ‖time-only‖, mean over samples and steps:
+
+| AdaLN group (signal) | scale | shift |
+|---|---|---|
+| CA attn/ffw (pre-CA signal) | 0.07–0.08 | 0.09–0.14 |
+| SA0 attn / ffw (pre-CA signal) | 0.13 / 0.07 | 0.27 / 0.08 |
+| SA1–SA3 attn | 0.15–0.17 | 0.31–0.38 |
+| SA1–SA3 ffw | 0.12–0.14 | 0.18–0.21 |
+| rotation / position heads | 0.07–0.10 | 0.05–0.14 |
+
+The ratio grows over the flow steps, because time_embs shrinks from norm 15.9 at step 0 to 10.2 at step 4 while the camera term stays fixed. Example: SA1 ffw scale goes 0.09 → 0.29.
+
+2. Camera term MLP_c(mean C) per signal:
+
+| Signal | ‖term‖ | across-sample RMS / ‖term‖ | task η² | centred cosine, within / across task |
+|---|---|---|---|---|
+| pre-CA (CA, SA0) | 1.91 | **0.000** (spread 6e-6) | – | – |
+| after SA0 (SA1) | 3.95 | 0.16 | 0.71 | 0.53 / −0.02 |
+| after SA1 (SA2) | 3.78 | 0.21 | 0.61 | 0.45 / −0.02 |
+| after SA2 (SA3) | 3.24 | 0.35 | 0.44 | 0.56 / −0.03 |
+| after SA3 (heads) | 1.21 | 0.94 | 0.33 | 0.62 / 0.21 |
+
+Raw cosine between samples is 0.93–1.0 at SA1–SA3: a large shared component with a sample-specific part on top. The mean C-token entering the head has across-sample spread 1e-4 of its norm, the same collapse found for exp 3 and the delta_M models in TODO 1.
+
+3. Miscalibration: ‖term_clean − term_miscal‖ on the same sample, as a fraction of the term's norm [and of the across-sample spread]:
+
+| Signal | train | heavy60 |
+|---|---|---|
+| pre-CA | 0 (exact) | 0 (exact) |
+| SA1 | 0.002 [0.009] | 0.013 [0.08] |
+| SA2 | 0.003 [0.013] | 0.029 [0.13] |
+| SA3 | 0.005 [0.013] | 0.045 [0.12] |
+| heads | 0.006 [0.006] | 0.054 [0.05] |
+
+4. Depth, cosine between consecutive camera terms: pre-CA→SA1 0.50; SA1→SA2 0.99; SA2→SA3 0.98; SA3→heads 0.72.
+
+5. Flow steps: the pre-CA term is exactly constant across steps. At SA1–SA3 the RMS deviation across the 5 steps is 12–14% of the term's norm, and 7% at the heads; its norm does not trend with step. The camera term's share of the modulation does grow with step, as in item 1.
+
+6. PCA (`figures/adaln_1b_camera_term_pca.png`, SA1 and heads): tasks form separate clusters. At the heads, a few tasks (handover_item, handover_item_easy, push_box) sit far from a dense common cluster. Layer 0 is not plotted because it has no spread: its "PCA" is float noise of order 1e-6.
+
 **Reading:**
+- **1b's first camera signal is a learned constant bias, not conditioning.** The C-tokens entering the head are collapsed, as in exp 3, so the pre-CA term is identical for every sample, step and calibration. All sample-specific camera conditioning in 1b comes from the C-token slots *after* they have been rewritten by SA. By then they function as extra learned summary tokens of the whole SA sequence, not as camera descriptors.
+- **After SA, the term is a moderate, mostly-task signal.** It shifts the SA modulation by 15–38% of the non-camera part (more in shift than in scale). It varies across samples by 16–35% of its norm, and 45–70% of that variation is task identity; within-task samples also share direction (centred cosine about 0.5). It is a nudge on top of time+proprio, not the dominant part of the modulation.
+- **It barely sees miscalibration.** Heavy 60/60 moves the SA terms by 1–5% of their norm, about 8–13% of their across-sample spread. Training-level miscalibration moves them by about 1% of the spread. The reaction is real (the pre-CA term is exactly 0) and must come through SA attention to miscalibrated scene positions, but it is small. As with exp 3's delta_M, this argues against 1b's robustness coming from an explicit miscalibration signal in the adaLN path.
+- **Pattern shared with exp 3.** In both models the first conditioning is a constant, and the per-sample information enters at SA1 with a large change of direction (cosine 0.50 here; the delta_M rotation in TODO 1). Both point to the HistoryFeatureExtractor collapse as the common bottleneck worth checking next.
 
 ---
 

@@ -23,3 +23,13 @@ The data comes from `scripts/analysis/camera_attention.py` (GPU, via `scripts/an
 |---|---|---|
 | `cam_attn_external_share.{png,svg}` | Trajectory-query attention on cam 0+1 scene tokens as a share of all scene-token attention, per layer, clean vs heavy60 (dotted = token share); Δ heavy60 − clean ± SE; Δ attention entropy | `scripts/analysis/plot_camera_attention.py` |
 | `cam_attn_sa_mass_breakdown.{png,svg}` | Trajectory-query attention mass by key group (scene cams 0+1 / 2+3, C-tokens, registers, camera token, trajectory) per SA and output-head layer, clean vs heavy60 | same |
+
+## 1b camera-adaLN signal ([TODOs.md](../TODOs.md), TODO 2)
+
+The data comes from `scripts/analysis/adaln_signal.py` (GPU), which writes `results/analysis/adaln_signal/exp1b_200k.pt`. The figures and `exp1b_200k.json` come from `scripts/analysis/plot_adaln_signal.py` (CPU). Data: all 853 val samples, clean / train / heavy60 on cameras 0 and 1.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `adaln_1b_modulation_strength.{png,svg}` | Per AdaLN module: ‖scale_full − scale_time‖/‖scale_time‖ and the same for shift | `scripts/analysis/plot_adaln_signal.py` |
+| `adaln_1b_camera_term_layers.{png,svg}` | Camera term per signal: across-sample spread / norm (time_embs as reference), task η², clean-vs-miscal change / across-sample spread | same |
+| `adaln_1b_camera_term_pca.{png,svg}` | PCA of the per-sample camera term at SA1 and at the output heads, coloured by task | same |
