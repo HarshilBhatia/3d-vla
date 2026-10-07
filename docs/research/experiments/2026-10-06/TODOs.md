@@ -255,7 +255,7 @@ The largest of these is about 1°, against 60° of injected rotation.
 
 ## TODO 6: under heavy miscalibration, does the model follow the miscalibrated cameras or ignore them?
 
-**Status:** claimed (intervention agent)
+**Status:** in progress (intervention agent)
 
 **Why:** a miscalibration error N_j on external camera j (observed extrinsics = N_j · true, camera-to-world) moves every world point that camera sees by the rigid transform N_j: x → N_j x. If a model trusts camera j's geometry, its predicted keypose should move the same way. If it relies on the wrist cameras (always calibrated), proprioception or appearance, the prediction should stay at the true target. This splits the 60/60 error into "followed the wrong geometry" and "other". Check `data/preprocessing/rlbench.py` (`apply_miscalibration`) and confirm the direction of the composition.
 
