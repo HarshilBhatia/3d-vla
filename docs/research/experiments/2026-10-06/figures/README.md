@@ -33,3 +33,12 @@ The data comes from `scripts/analysis/adaln_signal.py` (GPU), which writes `resu
 | `adaln_1b_modulation_strength.{png,svg}` | Per AdaLN module: ‖scale_full − scale_time‖/‖scale_time‖ and the same for shift | `scripts/analysis/plot_adaln_signal.py` |
 | `adaln_1b_camera_term_layers.{png,svg}` | Camera term per signal: across-sample spread / norm (time_embs as reference), task η², clean-vs-miscal change / across-sample spread | same |
 | `adaln_1b_camera_term_pca.{png,svg}` | PCA of the per-sample camera term at SA1 and at the output heads, coloured by task | same |
+
+## delta_M and the RoPE kernel ([TODOs.md](../TODOs.md), TODO 4)
+
+`scripts/analysis/rope_kernel.py` (CPU) reads TODO 1's K=5 tensors and writes `results/analysis/rope_kernel/summary.json` plus these figures.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `rope_kernel_displacement.{png,svg}` | Even RoPE logit factor vs key displacement along x/y/z, plain basis vs exp 3's per-layer delta_M; query at the origin (top) and averaged over the workspace (bottom) | `scripts/analysis/rope_kernel.py` |
+| `rope_delta_m_heatmaps.{png,svg}` | Sample-mean 6×6 delta_M (camera 0) for exp 3 CA/SA1/SA2/SA3 and VideoPooled CA/SA1 | same |

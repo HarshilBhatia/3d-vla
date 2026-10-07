@@ -298,7 +298,7 @@ Figures (`figures/README.md`): `cam_attn_external_share.{png,svg}` shows externa
 
 ## TODO 4: what exp 3's delta_M does to the RoPE kernel
 
-**Status:** in progress (agent)
+**Status:** done
 
 **Why:** delta_M is a 6×6 orthogonal matrix that mixes the sin/cos RoPE basis of a camera's scene tokens (`RotaryPositionEncoding3D._finalize_from_base`). It doesn't track miscalibration (see Context), so its effect is mostly a learned transform of how attention depends on 3D position. We want to know what that transform is.
 
@@ -315,7 +315,53 @@ Figures (`figures/README.md`): `cam_attn_external_share.{png,svg}` shows externa
 
 **Results:**
 
+Script: `scripts/analysis/rope_kernel.py` (CPU, pure linear algebra). It reads TODO 1's K=5 tensors (`results/analysis/delta_m_per_layer/{exp3_200k,videopooled84k}.pt`, camera 0; camera 1 is identical) and takes, per layer, the sample-and-step mean delta_M projected back onto SO(6). Outputs: `results/analysis/rope_kernel/summary.json` and `kernels.pt`. Figures: `figures/rope_kernel_displacement.png` and `figures/rope_delta_m_heatmaps.png`.
+
+Model of the logit, from `RotaryPositionEncoding3D` and `_apply_delta_M`:
+- RoPE runs on the full 120-dim q/k before the head split: 40 dims (20 frequency bands) per axis.
+- The trajectory query uses the plain basis [cos, sin](ω·q). Each scene/FPS key uses delta_M·[cos x, cos y, cos z, sin x, sin y, sin z](ω·p), with the same 6×6 for all 20 bands.
+- Per band and axis block, the relative operator on a q/k channel pair is M(α, β) with α = c_q·c_k + s_q·s_k and β = c_q·s_k − s_q·c_k. "Kernel" below is the even part α, averaged over bands (and blocks where stated).
+
+**0. The frequencies matter more than delta_M.** Positions are in metres and ω_k = 10000^(−k/20) rad/m, so the highest band is 1 rad/m (wavelength 6.3 m) and the others go down to 1.6e-4 rad/m. Over the whole ±60 cm range, plain RoPE's kernel (all bands and blocks) moves only from 1.000 to 0.995 (0.9999 at 10 cm, 0.998 at 40 cm). Only the top ~3 bands rotate by more than 0.1 rad across the workspace. In this model RoPE is a very coarse, almost linear position signal, and most bands are effectively constant.
+
+1. Kernel vs displacement. Kernel at d = 0 and its change from 0 to ±60 cm, for a query at the origin (a query averaged over the workspace gives the same picture):
+
+| delta_M | K(0) | K(0) − K(±60 cm), x / y / z | top band (1 rad/m) at d=0: phase, gain |
+|---|---|---|---|
+| identity | 1.000 | 0.005 / 0.005 / 0.005 | 0, 1.00 |
+| exp 3 CA (= SA0) | 0.971 | 0.005 / 0.004 / 0.005 | −0.21 rad, 0.98 |
+| exp 3 SA1 | **0.541** | 0.003 / −0.000 / 0.005 (monotone ramp, no peak) | **−0.81 rad, 0.87** |
+| exp 3 SA2 / SA3 | 0.9997 / 0.9998 | 0.005 | −0.02 / −0.01 rad, 1.00 |
+| VideoPooled CA | 0.911 | 0.005 / 0.005 / 0.003 | −0.07 rad, 0.75 |
+| VideoPooled SA1 | 0.999 | 0.005 | 0.00, 0.98 |
+
+delta_M does not blur or sharpen the kernel in any meaningful way, because there is almost no kernel shape to change. What it does is add a **constant offset and attenuation**. The low bands of every scene key are about [1,1,1,0,0,0] at every position, and delta_M rotates that constant vector partly into the sin slots. Against a plain query this lowers α equally for all displacements: to 0.54 at exp 3's SA1, 0.97 at CA, 0.91 at VideoPooled CA.
+
+At SA1 the even kernel becomes a gentle linear ramp across ±60 cm (0.52 → 0.56 along x and y), not a shifted peak. The phase offset in the top band (−0.81 rad) would correspond to 81 cm in that band but to metres-to-kilometres in the lower bands. **It is not a coherent spatial offset**; it is a fixed relative rotation of each scene key's channel pairs. Sample-to-sample delta_M variation is irrelevant here: individual SA1 samples change the kernel by at most 0.002.
+
+2. Structure (`figures/rope_delta_m_heatmaps.png`; rotation planes and loadings are in summary.json):
+- **exp 3 CA** (‖ΔM−I‖ 0.70): two rotation planes, 25° and 13.5°. Mostly cos↔sin mixing (energy 0.62, vs 0.19 cos→cos and 0.26 sin→sin), with weak cross-axis terms (off-diagonal 2×2 axis blocks 0.19–0.30 vs 1.36–1.38 on the diagonal).
+- **exp 3 SA1** (2.66, clamp-saturated): planes of 106°, 58° and 14°. Cross-axis blocks (0.42–0.96) are as large as the diagonal ones (0.68–0.99), so it scrambles x/y/z and cos/sin together. Examples: cos x ← 0.82 sin y; cos y ← −0.69 sin z; sin z ← 0.63 cos y.
+- **exp 3 SA2/SA3** (0.28): planes of 11° and 3°, mainly cos z ↔ sin x and cos x ↔ sin x (entries ±0.12). Nearly identity.
+- **VideoPooled CA**: planes of 27.5° and 4°, loading on cos x, y, z ↔ sin z (cos y ← −0.31 sin z). **VideoPooled SA1–SA3** are close to identity (0.07–0.08).
+
+3. Rigid 60°/60 cm miscalibration, modelled as the preprocessor applies it (T·E, so world points move as P' = R·P + t; mean point displacement 1.15 m in this workspace). 128 scene points × 128 queries × 128 random perturbations:
+
+| delta_M | RoPE operator change, all blocks (RMS) | per block x / y / z | top-3-band change | even-kernel change, abs |
+|---|---|---|---|---|
+| identity | 0.340 | 0.207 / 0.200 / 0.182 | 0.849 | 0.017 |
+| exp 3 CA | 0.340 | 0.201 / 0.197 / 0.191 | 0.849 | 0.015 |
+| exp 3 SA1 | 0.340 | 0.218 / 0.212 / 0.153 | 0.849 | 0.029 |
+| exp 3 SA2/SA3 | 0.340 | 0.207 / 0.198 / 0.184 | 0.849 | 0.017 |
+| VideoPooled CA | 0.340 | 0.205 / 0.196 / 0.188 | 0.849 | 0.014 |
+
+The total change is identical for every delta_M, and **this holds exactly, not approximately.** delta_M is orthogonal and the same for both P and P', so ‖ΔM(f(P')) − ΔM(f(P))‖ = ‖f(P') − f(P)‖ for every point, query and perturbation. delta_M can only move the perturbation between axis blocks and between the α and β parts. It cannot shrink it.
+
 **Reading:**
+- **Its learned delta_M does not make exp 3's attention less sensitive to miscalibration.** By orthogonality it cannot reduce the total positional perturbation a scene key receives. At SA1 it even roughly doubles the change in the even (content-free) kernel term (0.029 vs 0.017). Any robustness from delta_M would have to come from where it routes the perturbation, relative to channels that q/k content then down-weights. That cannot be read from the 6×6 alone: it needs q/k content (TODO 7's patching is the right test).
+- **What delta_M actually does is content-like, not geometric.** Most RoPE bands are effectively constant over the workspace (wavelengths 6 m to 40 km). On those bands delta_M is a fixed per-camera rotation of each scene key's 120-dim channel pairs relative to the queries. That is a learned key-side linear map, the same for every scene token of a camera. At SA1 in exp 3 it is a large rotation that cuts the scene keys' content-free alignment with trajectory queries to 0.54 and mixes x/y/z. It acts more like a learned layer-specific key projection than a camera correction.
+- **The coarse RoPE frequencies are a finding in their own right.** With ω_max = 1 rad/m, plain 3D RoPE barely separates points 10 cm apart (kernel 0.9999 vs 1). A 60°/60 cm miscalibration, by contrast, moves the top bands by about 1 rad. Any precise geometric use of position has to happen through q/k content riding on the top 2–3 bands, which suggests checking higher-frequency RoPE as a model change.
+- **Caveat.** The "kernel" averages out content. The odd (β) part, which is roughly linear in displacement in the low-frequency regime and is what learned q/k can exploit, is summarised here only for the top band (in summary.json, `top_band_x`).
 
 ---
 
