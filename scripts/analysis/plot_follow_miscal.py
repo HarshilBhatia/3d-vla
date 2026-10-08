@@ -19,10 +19,15 @@ MODELS = {  # label -> (legend name, categorical slot colour), fixed order
     "exp3_110k": ("exp 3, 110k (EMA)", "#eb6834"),
     "adaln1b_200k": ("1b, 200k (EMA)", "#1baf7a"),
     "controlA_200k": ("control A, 200k (raw)", "#eda100"),
+    "fp": ("FP (full-patch, a6000_b64)", "#008300"),
+    "fp_d8": ("FP-d8", "#4a3aa7"),
+    "fp_r3d_refine": ("FP-R3D-refine", "#e34948"),
+    "fp_r3d_direct": ("FP-R3D-direct", "#606B75"),
 }
 MAGS = (10, 20, 40, 60)
 FIG = Path("docs/research/experiments/2026-10-06/figures")
 RNG = np.random.default_rng(0)
+PREFIX = ""
 
 
 def unpack(r):
@@ -125,7 +130,7 @@ def fig_alpha(S, key, title, stem, letter):
     axes[-1].legend(frameon=False, fontsize=8.5)
     fig.suptitle(title, fontweight="bold")
     fig.tight_layout()
-    save_figure(fig, FIG / stem)
+    save_figure(fig, FIG / f"{PREFIX}{stem}")
     plt.close(fig)
 
 
@@ -147,14 +152,17 @@ def fig_dist(S):
     axes[-1].legend(frameon=False, fontsize=8.5)
     fig.suptitle("Which target is the 60/60 prediction closest to?", fontweight="bold")
     fig.tight_layout()
-    save_figure(fig, FIG / "follow_closest_share")
+    save_figure(fig, FIG / f"{PREFIX}follow_closest_share")
     plt.close(fig)
 
 
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("--in-dir", default="results/analysis/follow_miscal")
+    p.add_argument("--fig-prefix", default="", help="prepended to figure file names")
     a = p.parse_args()
+    global PREFIX
+    PREFIX = a.fig_prefix
     S = {}
     for label in MODELS:
         f = Path(a.in_dir) / f"{label}.pt"

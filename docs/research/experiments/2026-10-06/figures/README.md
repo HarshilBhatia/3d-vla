@@ -113,3 +113,14 @@ The data comes from `scripts/analysis/probe_features.py --fp32 --out_dir results
 | Figure | Shows | Script |
 |---|---|---|
 | `probe_fullpatch_extractor.{png,svg}` | Group accuracy, LOGO position error, rotation/translation error-vector R² and clean-vs-sweep accuracy along enc → extractor blocks (ST/TP; solid = patch mean, dashed = per-image token; grey band) → extractor output → head SA1–SA4; Direct's delta_M as a square | `scripts/analysis/plot_probes_fullpatch.py` |
+
+## Full-patch models: following and activation patching ([TODOs.md](../TODOs.md), TODO 13)
+
+The data comes from `scripts/analysis/follow_miscal.py --eval-loader` and `scripts/analysis/activation_patching.py --eval-loader` (GPU, via `scripts/analysis/todo13.slurm` with `PART=follow|patch`), which write `results/analysis/todo13/{follow_miscal,activation_patching}/<model>.pt`. The figures come from `scripts/analysis/plot_follow_miscal.py --in-dir results/analysis/todo13/follow_miscal --fig-prefix todo13_` and `scripts/analysis/plot_activation_patching.py --in-dir results/analysis/todo13/activation_patching --fig-stem todo13_patch_fraction_recovered`. Models: FP, FP-d8, FP-R3D-refine, FP-R3D-direct (raw weights, K=5, loaded through `load_model_for_evaluation`).
+
+| Figure | Shows | Script |
+|---|---|---|
+| `todo13_follow_alpha_pos.{png,svg}` | Position following α against miscalibration magnitude. Panels: both external cameras, camera 0 only, camera 1 only, and all four cameras with the same N | `scripts/analysis/plot_follow_miscal.py` |
+| `todo13_follow_beta_rot.{png,svg}` | Orientation following β, same panels | same |
+| `todo13_follow_closest_share.{png,svg}` | Share of 60/60 predictions nearest the true p, N₀p or N₁p | same |
+| `todo13_patch_fraction_recovered.{png,svg}` | Activation patching: share of the clean → heavy60 degradation recovered or caused per component, including the extractor's patch xyz and the Direct delta_M. FP's bars are ill-posed because it has no offline gap | `scripts/analysis/plot_activation_patching.py` |

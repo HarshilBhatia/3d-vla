@@ -1281,7 +1281,7 @@ Figures (`figures/README.md`):
 
 ## TODO 13: full-patch models — following and activation patching (TODOs 6, 7 and 9 again)
 
-**Status:** in progress (intervention agent)
+**Status:** done
 
 **Do**, on the four models above, with the same samples and seeds:
 1. **Following** (TODO 6): the following coefficient α for external-only, camera-0-only and camera-1-only errors, plus the all-four-cameras rigid control, at 10/10, 20/20, 40/40 and 60/60; share of predictions nearest the true target; orientation β.
@@ -1297,4 +1297,98 @@ Figures (`figures/README.md`):
 
 **Results:**
 
+**Scripts.** My TODO 6 / 7 / 9 scripts with a new `--eval-loader` option. It loads through `evaluation.checkpoints.load_model_for_evaluation` itself, then sets `visual_num_history` from the saved config, as online plans do.
+- `scripts/analysis/follow_miscal.py` (job 3995125) and `scripts/analysis/activation_patching.py` (job 3995124), both via `scripts/analysis/todo13.slurm` with `PART=follow|patch`.
+- Patching additions:
+  - a `FramePcd` hook on `video_deltam.forward`, which records or overrides the extractor's `frame_pcd`;
+  - an `ext_xyz` patch: re-encode with the extractor alone seeing the other condition's patch xyz, then copy the extractor outputs (C-tokens, register, Direct delta_M);
+  - an `ext_out` patch: copy those outputs directly, as a cross-check;
+  - a `direct_dm` patch: Direct delta_M (`history_view_align`).
+- Plots: `plot_follow_miscal.py --fig-prefix todo13_` and `plot_activation_patching.py --fig-stem todo13_patch_fraction_recovered`.
+- Data: `results/analysis/todo13/{follow_miscal,activation_patching}/` (`summary.json`, `summary_table.txt`).
+- Figures: `figures/todo13_follow_alpha_pos.png`, `todo13_follow_beta_rot.png`, `todo13_follow_closest_share.png`, `todo13_patch_fraction_recovered.png`.
+
+**Loading and inputs match online eval** (`[load]` and `[checkpoint compat]` lines):
+- All four models: raw weights, K=5, `full_image=True`, `visual_history_sampling=consecutive`. Online uses the same causal window, left-padded with the first frame, which mirrors the dataset. Proprio is past→current with `proprio_num_history=3`, the eval default.
+- **FP** (a6000_b64) takes both compat paths, exactly as `load_model_for_evaluation` prints them:
+  - the legacy all-camera delta_M (`view_align_cameras=None`);
+  - the pre-readout full-image forward (`legacy_readout=True`).
+- FP-d8: `patch_rope3d=False`, refine.
+- FP-R3D-refine: `patch_rope3d=True`, refine.
+- FP-R3D-direct: `patch_rope3d=True`, `predict_delta_m`. The head builds no delta_M predictor, so "mechanism" is the Direct delta_M.
+- Miscalibration is applied to every history frame's extrinsics, as online.
+- Same 853 val samples and seeds as TODOs 6, 7 and 9.
+
+**Checks.**
+- Exactness passed for all four models: max |Δ| = 0.0 for patch-nothing = heavy and patch-everything = clean.
+- For the rope3d models, `ext_xyz` and `ext_out` give identical predictions (max |Δ| = 0.0).
+- **Positions + extractor xyz + proprio = 1.00** in both directions for FP-R3D-refine and FP-R3D-direct. Positions + proprio is 1.00 for FP and FP-d8, which have no xyz in the extractor. For FP-R3D-refine, positions + proprio *without* the extractor xyz is 0.99–1.00 (acc 1.03), because its extractor xyz moves the C-tokens slightly.
+
+**Which encoded inputs differ, clean vs heavy60** (relative L2):
+- dense xyz 0.76, FPS/C-token xyz 0.24–0.41;
+- **proprio_feats: FP 0.047, FP-d8 0.029, FP-R3D-refine 0.072, FP-R3D-direct 0.056.** For comparison, 0.07–0.17 in exp 3, 1b, A, Base and DeltaM;
+- FP-R3D-refine C-token features: 0.0014, through the extractor's RoPE on patch xyz;
+- history register: 0.0002;
+- FP-R3D-direct's Direct delta_M: **exactly 0**, because its extractor is constant (TODO 11);
+- scene and language features: 0.
+
+**Online robustness, for reference** (`docs/research/experiments/README.md`, `results/README.md`, weekly log 2026-09-22):
+- FP: IDLT held-out calibrated 69.7, 60/60 **64.8**; scaled-extreme 50/60° 66.3 (task-seen) / 64.9 (held-out).
+- Rope3D sweep, task-heldout G1–G6: direct 68.4, refine 66.9. G7 extreme rotation: direct 63–68, refine 60–64.
+- FP-d8: SBRS best 79.2 at 140k. I found no IDLT 60/60 number for it.
+
+**1. Following** (TODO 6 protocol). Following coefficient α with 95% CI where shown. Full sweep in `summary.json`.
+
+| Model | both 60: α₀ / α₁ | only cam 0 60: α₀ | only cam 1 60: α₁ | both 10: α₀ | rigid, all 4 cams, 10 / 20 / 40 / 60 | closest to true p, both 60 |
+|---|---|---|---|---|---|---|
+| FP | 0.0014 [0.0004, 0.0023] / 0.0006 | 0.0014 | 0.0007 | 0.0055 | **0.71 / 0.62 / 0.50 / 0.41** | 99.9% |
+| FP-d8 | 0.0010 / 0.0001 | 0.0011 | 0.0001 | 0.0058 | 0.71 / 0.62 / 0.50 / 0.41 | 99.8% |
+| FP-R3D-refine | 0.0023 [0.0009, 0.0039] / 0.0014 | 0.0025 | 0.0014 | 0.0054 | 0.74 / 0.65 / 0.52 / 0.43 | 99.5% |
+| FP-R3D-direct | 0.0031 [0.0016, 0.0048] / 0.0017 | 0.0030 | 0.0016 | 0.0056 | 0.73 / 0.64 / 0.52 / 0.43 | 99.6% |
+| *exp 3 / 1b / A (TODO 6)* | *0.0028 / 0.0020 / 0.0036 (α₀)* | | | *0.006–0.007* | *0.63, 0.59, 0.68 at 10 → 0.39–0.41 at 60* | *99.7–99.9%* |
+
+More on following:
+- **Orientation.** For external-only miscalibration, |β| ≤ 0.005 at 60/60 and every CI includes 0. With the rigid all-camera error, β = 0.05–0.13: slightly more than the pooled models' 0.02–0.08, but still small.
+- **Per task.** At both-60, α against the clean prediction is ≤ 0.012 for every task (largest: put_bottle_in_fridge, n=73, the rope3d models).
+- **Error and shift at 60/60** (pos L2 cm clean → both / cam 0 only / cam 1 only; mean shift from the clean prediction):
+
+  | Model | clean → both / cam 0 / cam 1 | shift (cm) |
+  |---|---|---|
+  | FP | 1.25 → 1.26 / 1.26 / 1.24 | 0.29 |
+  | FP-d8 | 1.25 → 1.95 / 1.88 / 1.71 | 0.97 |
+  | FP-R3D-refine | 1.26 → 1.89 / 1.80 / 1.70 | 0.97 |
+  | FP-R3D-direct | 1.19 → 1.83 / 1.70 / 1.59 | 0.94 |
+
+**2. Activation patching, share of the position-L2 degradation.** Forward recovered / reverse caused; 95% CI on forward in brackets. TODO 7 and TODO 9 columns are repeated for comparison.
+
+| Patch | FP-d8 | FP-R3D-refine | FP-R3D-direct | exp 3 | 1b | A | DeltaM 140k | Base 160k |
+|---|---|---|---|---|---|---|---|---|
+| clean → heavy pos L2 (cm) | 1.25 → 1.95 | 1.26 → 1.89 | 1.19 → 1.83 | 1.04 → 1.41 | 1.00 → 1.54 | 1.20 → 2.05 | 1.32 → 2.69 | 1.49 → 3.30 |
+| samples > 1 cm worse | 38 | 34 | 37 | 55 | 67 | 66 | 244 | 264 |
+| C-token xyz | −0.00 / 0.01 | 0.00 / −0.00 | 0.01 / −0.00 | 0.19 / 0.13 | 0.01 / 0.00 | 0.00 / 0.00 | 0.00 / 0.00 | 0.00 / 0.00 |
+| FPS xyz | 0.05 / 0.04 | 0.07 / 0.04 | 0.15 / 0.09 | 0.28 / 0.20 | 0.12 / 0.11 | 0.06 / 0.03 | 0.26 / 0.32 | 0.20 / 0.19 |
+| dense xyz | 0.03 / 0.01 | 0.04 / 0.01 | 0.06 / 0.01 | 0.16 / 0.11 | 0.09 / 0.06 | 0.10 / 0.05 | 0.27 / 0.34 | 0.17 / 0.22 |
+| all head positions | 0.06 [0.02, 0.13] / 0.07 | 0.08 [0.03, 0.15] / 0.06 | 0.16 [0.08, 0.29] / 0.14 | 0.51 / 0.55 | 0.18 / 0.21 | 0.13 / 0.12 | 0.32 / 0.83 | 0.23 / 0.51 |
+| extractor patch xyz | – | 0.00 / 0.00 | 0.00 / 0.00 | – | – | – | – | – |
+| **proprio_feats** | **0.93** [0.88, 0.97] / 0.94 | **0.93** [0.86, 0.98] / 0.92 | **0.86** [0.74, 0.93] / 0.84 | 0.45 / 0.49 | 0.79 / 0.82 | 0.88 / 0.87 | 0.17 / 0.68 | 0.49 / 0.77 |
+| delta_M replay (head) or Direct delta_M | 0.00 / 0.00 | 0.00 / −0.00 | 0.00 / 0.00 (Direct) | −0.00 / −0.01 | 0.00 / 0.01 (adaLN) | – | 0.02 / 0.01 | – |
+| positions (+ extractor xyz) + proprio | 1.00 / 1.00 | 1.00 / 1.00 | 1.00 / 1.00 | 1.00 | 1.00 | 1.00 | 1.00 | 1.00 |
+
+- **Rotation L1:** proprio recovers 0.96 (FP-d8), 1.06 (FP-R3D-refine) and 1.00 (FP-R3D-direct). Positions recover ≤ 0.03.
+- **Accuracy within 1 cm:** proprio recovers 0.60–0.64 and positions 0.25–0.50.
+- **Damaged subsets** (more than 1 cm worse): heavy errors 16–17 cm. Proprio still recovers 0.86–0.95 there.
+
+**FP (a6000_b64) is barely damaged offline,** so its shares are undefined. Heavy60 pos L2 is 1.26 cm against 1.25 clean, rotation L1 is 0.0472 against 0.0480, and only 9 samples get more than 1 cm worse. The fraction denominators are about zero (bootstrap CIs span ±20). On those 9 samples, heavy positions alone cause all the damage (reverse 0.99–1.00) and proprio none.
+
 **Reading:**
+- **The full-patch models don't follow miscalibrated external cameras either.** α is ≤ 0.003 at 60/60 and 0.005–0.006 at 10/10, the same as the pooled models; at least 99.5% of predictions stay nearest the true target. They do follow a rigid whole-scene shift, slightly more than the pooled models (α 0.71–0.74 at 10/10 against 0.59–0.68). Their orientation follows rigid rotation a little more too (β ≤ 0.13). So full-patch history makes the head no more trusting of inconsistent external geometry. If anything, it is a bit more geometric when the cameras agree.
+- **Three of the four models break the same way as 1b and A.** In FP-d8, FP-R3D-refine and FP-R3D-direct, proprio_feats carries 86–93% of the position damage and about all the rotation damage. Head positions carry 6–16%, and C-token positions carry none.
+- **The extractor carries none.** Feeding the rope3d extractor clean instead of miscalibrated patch xyz recovers exactly 0 (FP-R3D-direct) or less than 0.005 (refine). FP-R3D-direct's Direct delta_M is bit-identical clean vs heavy60, so the Direct mechanism cannot correct anything. This confirms, by intervention, TODO 11's finding that the extractors are constant.
+- **FP is the exception: offline almost undamaged.** Its proprio features move least under miscalibration (relative change 0.047, against 0.07–0.17 elsewhere), and the error barely moves (+0.01 cm). Yet its IDLT 60/60 is 64.8, below exp 3's 71.6. **Offline keypose error does not rank online robustness across model families.** Among the history models, the IDLT ordering (exp 3 > FP > others) does not match the offline degradation ordering (FP ≈ 0 < exp 3 < FP-d8 / R3D). FP's online failures must come from something this offline test doesn't see: rollout drift, closed-loop history, or non-keypose steps.
+- **Across all nine models, the per-model share through proprio** is one consistent axis: Base 0.49, exp 3 0.45, DeltaM 0.17 (forward), the rest 0.79–0.93. It does not track IDLT. The other axis, head-position sensitivity, is high only in the non-history models and exp 3. The `gripper_context_head` remains the most common single route for miscalibration into the action.
+- **Caveats.**
+  - The degradations are small (+0.6–0.7 cm), so the CIs are wide (for example FP-R3D-direct positions [0.08, 0.29]).
+  - FP's fractions are ill-posed: there is essentially no gap to explain.
+  - The rope3d extractors' xyz path would matter only if the extractor were alive.
+  - Offline, keypose only, one heavy60 draw per sample.
+  - The online numbers come from different protocols (IDLT, scaled-extreme, the Rope3D sweep) and are not strictly comparable across the four models.

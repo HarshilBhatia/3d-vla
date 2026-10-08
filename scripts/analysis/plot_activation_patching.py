@@ -19,14 +19,20 @@ MODELS = {  # label -> (legend name, categorical slot colour), fixed order share
     "controlA_200k": ("control A, 200k (raw)", "#eda100"),
     "deltam140k": ("DeltaM 140k, no history (raw)", "#eb6834"),
     "base160k": ("Base 160k, no history (raw)", "#e87ba4"),
+    "fp": ("FP (full-patch, a6000_b64)", "#008300"),
+    "fp_d8": ("FP-d8", "#4a3aa7"),
+    "fp_r3d_refine": ("FP-R3D-refine", "#e34948"),
+    "fp_r3d_direct": ("FP-R3D-direct", "#606B75"),
 }
 METRICS = {"pos_l2": ("position L2", 100.0, "cm"), "pos_acc_001": ("acc < 1 cm", 100.0, "%"),
            "rot_l1": ("rotation L1", 1.0, "")}
 FWD = ["pos_dense", "pos_fps", "pos_ctok", "pos_dense+pos_fps", "pos_all", "proprio_feats", "pos_ctok+proprio",
-       "pos_all+proprio", "mech", "pos_all+mech", "proprio+mech", "pos_ctok+mech", "feats_scene", "ctok_feats",
-       "lang_query"]
+       "pos_all+proprio", "mech", "pos_all+mech", "proprio+mech", "pos_ctok+mech", "ext_xyz", "ext_out",
+       "pos_all+ext_xyz", "ext_xyz+proprio", "pos_all+ext_xyz+proprio", "ctok_feats+proprio", "direct_dm",
+       "pos_all+direct_dm", "proprio+direct_dm", "feats_scene", "ctok_feats", "lang_query"]
 REV = ["pos_dense", "pos_fps", "pos_ctok", "pos_dense+pos_fps", "pos_all", "proprio_feats", "pos_ctok+proprio",
-       "pos_all+proprio", "mech"]
+       "pos_all+proprio", "mech", "ext_xyz", "pos_all+ext_xyz", "ext_xyz+proprio", "pos_all+ext_xyz+proprio",
+       "direct_dm"]
 FIG = Path("docs/research/experiments/2026-10-06/figures")
 RNG = np.random.default_rng(0)
 
@@ -69,7 +75,8 @@ def analyse(rec):
 
 def fig(S, stem, title):
     configure_theme()
-    fig, axes = plt.subplots(4, 1, figsize=(max(12, 0.32 * len(S) * len(FWD)), 15))
+    nf = sum(any(n in s["fwd"] for s in S.values()) for n in FWD)
+    fig, axes = plt.subplots(4, 1, figsize=(max(12, 0.32 * len(S) * nf), 15))
     for row, q in enumerate(("pos_l2", "rot_l1")):
         for col, (d, names) in enumerate((("fwd", FWD), ("rev", REV))):
             names = [n for n in names if any(n in s[d] for s in S.values())]

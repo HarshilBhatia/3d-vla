@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "scripts" / "eval"))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 import numpy as np
 import torch
@@ -124,6 +125,7 @@ def main():
     p.add_argument("--batches", type=int, default=1000)
     p.add_argument("--out-dir", default="results/analysis/follow_miscal")
     p.add_argument("--conditions", nargs="+", default=None, help="subset of condition names; default all")
+    p.add_argument("--eval-loader", action="store_true", help="load through load_model_for_evaluation; spec label=ckpt:raw|ema[:K|ckpt]")
     p.add_argument("--tag", default="", help="suffix for the output file name")
     a = p.parse_args()
     out = Path(a.out_dir)
@@ -131,9 +133,15 @@ def main():
     conds = conditions()
     run_conds = a.conditions or list(conds)
     for k, spec in enumerate(a.model):
-        label, rest = spec.split("=", 1)
-        path, weights = rest.rsplit(":", 1)
-        model, args = load(path, weights)
+        if a.eval_loader:
+            from activation_patching import eval_load
+            from eval_faithful_load import parse_spec
+            label, path, weights, kk = parse_spec(spec)
+            model, args = eval_load(path, weights, kk or "ckpt")
+        else:
+            label, rest = spec.split("=", 1)
+            path, weights = rest.rsplit(":", 1)
+            model, args = load(path, weights)
         tokenizer = fetch_tokenizers(getattr(args, "text_backbone", None) or args.backbone)
         ds = fetch_dataset_class(args.dataset)(
             root=VAL, instructions=args.val_instructions, copies=1, relative_action=args.relative_action,
