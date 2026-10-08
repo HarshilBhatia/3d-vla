@@ -1073,7 +1073,7 @@ The CPU check (TODO 11's Why) found every one of their extractors outputs a cons
 
 ## TODO 12: full-patch models — C-tokens, delta_M and attention (TODOs 1, 3, 8 and 10 again)
 
-**Status:** claimed (attention agent)
+**Status:** in progress (attention agent)
 
 **Do**, on the four models above, with the same samples, seeds and conditions as before:
 1. **C-tokens** (TODO 10):
