@@ -105,3 +105,11 @@ The data comes from `scripts/analysis/fullpatch_suite.slurm` (GPU; `PART=attn|dm
 | `todo12_dm_layer_{dist_from_identity,depth_change,task_share,clean_vs_heavy,across_steps,cam0_vs_cam1}.{png,svg}` | The six TODO 1 delta_M metrics for FP, FP-d8 and FP-R3D-refine (the Direct delta_M is one constant matrix; see `summarise_todo12.py`) | `scripts/analysis/plot_delta_m_per_layer.py --in-dir results/analysis/todo12/delta_m_per_layer --fig-prefix todo12_dm_layer` |
 | `todo12_cam_attn_external_share.{png,svg}`, `todo12_cam_attn_sa_mass_breakdown.{png,svg}` | External attention share per layer, clean vs heavy60, Δ and entropy; mass by key group | `scripts/analysis/plot_camera_attention.py --in-dir results/analysis/todo12/camera_attention --fig-prefix todo12_cam_attn` |
 | `todo12_ctoken_rel_change.{png,svg}` | Per-layer relative change under heavy60 of C-tokens, external/wrist FPS tokens and trajectory tokens | `scripts/analysis/plot_ctoken_behaviour.py --in-dir results/analysis/todo12/ctoken_behaviour --fig docs/research/experiments/2026-10-06/figures/todo12_ctoken_rel_change` |
+
+## Linear probes through the full-patch extractor ([TODOs.md](../TODOs.md), TODO 11)
+
+The data comes from `scripts/analysis/probe_features.py --fp32 --out_dir results/analysis/probes_fullpatch` (GPU, via `scripts/analysis/probe_features.slurm`), which writes `results/analysis/probes_fullpatch/<model>.pt`. Probes come from `scripts/analysis/fit_probes.slurm <model> results/analysis/probes_fullpatch`. The figure and `summary_table.md` come from `scripts/analysis/plot_probes_fullpatch.py` (CPU). Models: Refine FullPatch rope3d, Direct FullPatch rope3d, FullPatch a6000_b64, FullPatch d8 (all `best.pth`, raw) and random-init Refine rope3d, at K=5. Data and protocol are TODO 5's.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `probe_fullpatch_extractor.{png,svg}` | Group accuracy, LOGO position error, rotation/translation error-vector R² and clean-vs-sweep accuracy along enc → extractor blocks (ST/TP; solid = patch mean, dashed = per-image token; grey band) → extractor output → head SA1–SA4; Direct's delta_M as a square | `scripts/analysis/plot_probes_fullpatch.py` |

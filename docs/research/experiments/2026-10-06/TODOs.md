@@ -457,6 +457,7 @@ The total change is identical for every delta_M, and **this holds exactly, not a
 - **`enc` and `hist` are identical** under clean and miscalibrated cameras (max diff 0), so every (B) probe there is at chance by construction.
 - **Best SA errors are small.** The best rotation-vector MAE is 26.8° (control A, SA4) against 29.4° for the mean, and the best rotation-magnitude MAE is 14.3° against 15.5°.
 - **The first and last flow steps differ little** (dotted lines in the figures): within 0.06 in R² or accuracy.
+- **Refits on a different node** (8 Oct, same features) move individual cells by ≤ 0.02 in accuracy/R² and ≤ 1.2 cm/°. This is BLAS non-determinism, largest on the collapsed `hist`/delta_M features; the figures and tables above are from the 7 Oct fit.
 
 *Files.*
 - Scripts:
@@ -1019,7 +1020,7 @@ Figure: `figures/ctoken_rel_change.{png,svg}`. Item 3 per layer, one panel per m
 
 ## TODO 11: TODO 5's probes on the full-patch history models, including inside the extractor
 
-**Status:** in progress (probing agent)
+**Status:** done
 
 **Why:** a CPU check (random 5-frame patch grids and random per-sample xyz through each checkpoint's real extractor) shows every full-patch extractor outputs a constant too:
 - FullPatch (`fullpatch_finetune_300k_a6000_b64`, the "best" in the results tables): constant from 10k (warm-started); it loads with legacy compat.
@@ -1054,7 +1055,75 @@ Reuse `scripts/analysis/probe_features.py` and `fit_probes.py` (extend them with
 
 **Results:**
 
+*Setup.*
+- **Protocol and samples are TODO 5's:** 3000 training rows to fit and all 853 val rows to test, the same seeds, the same clean / train-style / 0–60° · 0–60 cm sweep conditions on cameras [0, 1], ridge/logistic with CV grouped by episode, and mean over cameras 0 and 1.
+- **Checkpoints:** `best.pth`, raw weights, for:
+  - Refine FullPatch rope3d (160k)
+  - Direct FullPatch rope3d (200k)
+  - FullPatch a6000_b64 (244k)
+  - FullPatch d8 (276k)
+  - random-init Refine rope3d (seed 0; frozen SigLIP towers as always)
+- **Loading.** Every `[load]` line reads `visual_num_history=5`. `[arch]` lines confirm `full_image=True`, `patch_rope3d` True/True/False/False, roles refine/predict_delta_m/refine/refine, depths 4/4/4/8, and consecutive history. a6000_b64 loads with both legacy rules from `load_model_for_evaluation`: delta_M on all cameras, and the pre-readout full-image forward (`[checkpoint compat] legacy full-image extractor forward`).
+- **Features are stored in fp32**, because the extractor's later blocks vary by about 1e-4 of their norm. For the current frame, per camera:
+  - the patch mean after every same-time (ST) and temporal (TP) block;
+  - the per-image token after every TP block;
+  - the extractor output (= image token after the last TP);
+  - the head's C-tokens after SA1–SA4;
+  - Direct's delta_M.
+- **Two scale columns.** *Spread* is across-sample std / mean norm (clean val). *Sweep shift* is mean ‖clean − sweep‖ / norm on the same sample.
+
+Selected rows (full table: `results/analysis/probes_fullpatch/summary_table.md`):
+
+| Model | Stage | Spread | Sweep shift | Group acc | LOGO pos (cm) | Rotation-vector R² | Translation-vector R² | Rotation-magnitude R² | Clean vs sweep acc |
+|---|---|---|---|---|---|---|---|---|---|
+| Refine rope3d | enc | 0.61 | 0 | 0.95 | 21 | 0.00 | 0.00 | 0.00 | 0.50 |
+| Refine rope3d | TP1 patch mean | 0.24 | 1e-2 | 0.63 | 35 | 0.03 | 0.00 | 0.06 | 0.58 |
+| Refine rope3d | TP3 patch mean | 2.3e-4 | 2.0e-4 | 0.92 | 27 | **0.30** | 0.00 | **0.47** | **0.81** |
+| Refine rope3d | TP4 patch mean | 2.6e-4 | 1.4e-3 | 0.71 | 63 | 0.06 | 0.00 | 0.13 | 0.80 |
+| Refine rope3d | extractor out (TP4 image token) | 2.6e-4 | 2.2e-3 | 0.27 | 47 | 0.05 | 0.00 | 0.09 | 0.60 |
+| Refine rope3d | SA4 | 0.30 | 6.5e-2 | 0.77 | 30 | 0.22 | 0.19 | 0.12 | 0.62 |
+| Direct rope3d | TP1 image token | 0.20 | 1.3e-2 | 0.83 | 29 | 0.19 | 0.02 | 0.14 | 0.61 |
+| Direct rope3d | ST3–ST4 patch mean | 4e-4–1e-3 | 3e-4 | 0.24–0.32 | 50 | 0.00 | 0.00 | 0.00 | 0.50 |
+| Direct rope3d | TP4 patch mean | 4.0e-4 | 2.9e-4 | 0.95 | 21 | **0.41** | 0.00 | **0.60** | **0.82** |
+| Direct rope3d | extractor out | 1.0e-3 | 1.0e-3 | 0.70 | 36 | 0.17 | 0.00 | 0.15 | 0.63 |
+| Direct rope3d | **delta_M** | **0** | **0** | 0.20 | 50 | 0.00 | 0.00 | 0.00 | 0.50 |
+| Direct rope3d | SA4 (C-tokens never refined) | 0.24 | 3.9e-2 | 0.81 | 29 | 0.15 | 0.12 | 0.05 | 0.59 |
+| a6000_b64 | TP2–extractor out | 3e-5–1e-3 | 0 | 0.20–0.23 | 50 | 0.00 | 0.00 | 0.00 | 0.50 |
+| a6000_b64 | SA4 | 0.32 | 6.2e-2 | 0.75 | 32 | 0.17 | 0.16 | 0.06 | 0.59 |
+| d8 | TP3–extractor out | 1e-6–4e-4 | 0 | 0.19–0.24 | 50 | 0.00 | 0.00 | 0.00 | 0.50 |
+| d8 | SA4 | 0.28 | 6.2e-2 | 0.78 | 31 | 0.23 | 0.18 | 0.08 | 0.61 |
+| random-init | TP1–TP4 image token | 0.03–0.08 | 2e-3–5e-3 | 0.97–0.98 | 19–20 | 0.28–0.36 | 0.04–0.07 | 0.15–0.21 | 0.61–0.62 |
+| random-init | TP1–TP4 patch mean | 0.12–0.15 | 8e-3–1e-2 | 0.97–0.98 | 20–21 | 0.16–0.24 | 0.10–0.14 | 0.02–0.11 | 0.57–0.61 |
+| random-init | SA4 | 0.15 | 7.7e-3 | 0.94 | 26 | 0.06 | 0.00 | 0.00 | 0.55 |
+
+- **LOGO references** as in TODO 5: 50 cm (mean of the 5 other poses) and 18 cm (nearest other pose). Chance for the group probe is 0.17.
+- **Non-geometric extractors are blind to the sweep.** In a6000_b64 and d8 the sweep shift inside the extractor is exactly 0, so every (B) probe there is at chance.
+- **A nonlinear check on the output.** Distance from the clean training mean, used as a 1-D detector, gives AUC 0.57–0.64 at TP4 and the output. Its Spearman ρ with rotation magnitude is ≤ 0.37, and with translation magnitude ≈ 0. So a quadratic readout does not recover more than the linear probes.
+- **Files.**
+  - Scripts: `scripts/analysis/probe_features.py` (new: full-image extractor hooks, `--fp32`, legacy full-patch compat, K from `num_history`) and `scripts/analysis/fit_probes.py` (new extractor and `xdm` feature sets), via `probe_features.slurm` and `fit_probes.slurm <label> results/analysis/probes_fullpatch`. Figure and table: `scripts/analysis/plot_probes_fullpatch.py`.
+  - Data: `results/analysis/probes_fullpatch/<model>.pt` and `fits/probe_results_<model>.json`.
+  - Figure: [`figures/probe_fullpatch_extractor.png`](figures/probe_fullpatch_extractor.png). The grey band is the extractor. d8's 16 blocks are interleaved on the depth-4 axis.
+
 **Reading:**
+1. **Yes, in the rope3d extractors the miscalibration is linearly decodable inside the extractor, but only as rotation, and only in a vanishingly small subspace.**
+   - Rotation magnitude and direction are best decodable in the patch tokens late in the stack: Refine TP3 R² 0.47 / 0.30, clean vs sweep 0.81; Direct TP4 0.60 / 0.41, 0.82.
+   - **Translation is never decodable inside a trained extractor** (R² ≤ 0.05), even though the wrist cameras and the other external camera are calibrated, so a translated camera is inconsistent with them.
+   - That fits RoPE being relative. A camera's own rigid translation is invisible within that camera. It shows up only through cross-camera consistency in the same-time blocks, which the trained extractors don't exploit; the random-init one does weakly (translation R² 0.10–0.14). A rotation about the world origin, by contrast, also rotates every within-camera displacement, so it is visible from one camera alone.
+   - **All of this lives at the collapsed scale.** By TP2–TP3, spread and sweep shift are 1e-4–1e-3 of the token norm. The probes are scale-free after standardisation; the model is not. The head runs under bf16 (relative step ≈ 4e-3), and SA mixes these tokens with O(1) scene features.
+2. **The rotation signal is lost at the readout to the per-image token, i.e. at the extractor output.**
+   - In Refine, TP3–TP4 patch means carry R² 0.13–0.47 for rotation magnitude, but the TP4 image token handed to the head carries 0.09 (vector 0.05, clean vs sweep 0.60).
+   - In Direct, the output token still carries 0.15 (vector 0.17). Then **delta_M is exactly constant** (spread 0 in fp32, sweep shift 0): the delta_M head maps that output to a single matrix, independent of both sample and miscalibration.
+   - **Camera pose goes the same way.** Group accuracy falls from 0.95 at `enc` to 0.20–0.37 in the middle blocks of every trained extractor. It sometimes reappears in late patch means (Refine TP3 0.92, Direct TP4 0.95, again at 1e-4 scale), and ends at 0.27 (Refine) / 0.70 (Direct) at the output.
+   - In a6000_b64 and d8 the extractor ends at chance (0.20–0.24), the same collapse as the pooled models in TODO 5.
+3. **Not an architectural ceiling: the untrained rope3d extractor carries both signals at full scale.**
+   - Random-init keeps pose at every block (0.97–0.98), with LOGO at the nearest-pose level.
+   - Its image tokens carry the rotation error (R² 0.28–0.36; magnitude 0.15–0.21) and its patch means the translation (0.10–0.14). It passes them to the output with a spread of 0.08 rather than 1e-4.
+   - So training actively removes both, with the same output collapse seen in the pooled models.
+- **Downstream, nothing is gained from seeing geometry in the extractor.** The head's C-tokens re-acquire pose and some miscalibration by attending to the scene tokens, exactly as in TODO 5: SA4 rotation-vector R² 0.15–0.23, translation 0.12–0.19, clean vs sweep 0.59–0.62. This is the same in the geometric (Refine, Direct) and non-geometric (a6000_b64, d8) models, and the same as pooled exp 3 / control A. So the rope3d path's in-extractor signal does not reach the policy, and Direct's delta_M cannot be a geometric correction.
+- **Caveats.**
+  - The in-extractor probes read variations of 1e-4 of the token norm in fp32. They show the information is *present*, not *usable*, and the jagged depth curves for the trained models reflect that low signal-to-scale.
+  - The same pose/task confound and linear-probe limits apply as in TODO 5.
+  - The random-init floor shares the frozen SigLIP towers.
 
 ---
 

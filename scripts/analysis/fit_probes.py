@@ -100,6 +100,11 @@ def feature_sets(F, last_slot=1):
         if "adaln" in F:
             for k in range(F["adaln"].shape[2]):
                 out[f"ad{k}@{sn}"] = (1 + k, sn, F["adaln"][:, s, k])
+    for k in sorted((k for k in F if k.startswith("x") and k != "xdm"), key=lambda k: (int(k[1:k.index("s" if "st" in k else "t")]), k)):
+        i = int(k[1:k.index("st" if "st" in k else "tp")])
+        out[k] = (100 + 2 * i + (0 if "st" in k else 1), None, F[k])
+    if "xdm" in F:
+        out["xdm"] = (99, None, (F["xdm"] - np.eye(6)).reshape(*F["xdm"].shape[:2], -1))
     return out
 
 
@@ -149,10 +154,10 @@ def probe_model(job):
         if fname != only:
             continue
         Xc_va = sets_c_va[fname][2]
-        kind = "ctok" if fname[:2] in ("en", "hi", "sa") else fname[:2]
+        kind = "ctok" if fname[:2] in ("en", "hi", "sa") else ("ext" if fname[0] == "x" and fname != "xdm" else fname[:2])
         glob = Xc_tr.ndim == 2
-        cams = ["global"] if glob else (EXT + ["wrist"] if kind == "ctok" else EXT)
-        if kind == "ctok":
+        cams = ["global"] if glob else (EXT + ["wrist"] if kind in ("ctok", "ext") else EXT)
+        if kind in ("ctok", "ext"):
             cams = cams + [2, 3]
         base = dict(feature=fname, kind=kind, depth=depth, step=step)
         for cam in cams:

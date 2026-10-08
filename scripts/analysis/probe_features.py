@@ -46,7 +46,7 @@ def load(path, weights):
     overlay_checkpoint_config(args, migrate_config(cfg))
     normalize_public_vocabulary_args(args)
     # visual_num_history is eval-owned, so the overlay skips it; same fixes as diagnose_delta_m.load (5ef5cf3).
-    args.visual_num_history = cfg.get("visual_num_history", cfg.get("num_history", args.visual_num_history))
+    args.visual_num_history = cfg.get("visual_num_history") or cfg.get("num_history") or args.visual_num_history
     if legacy_cameras and getattr(args, "view_align_mode", "none") != "none":
         args.view_align_cameras = None
     print(f"[load] {path}: visual_num_history={args.visual_num_history} view_align_cameras={args.view_align_cameras}", flush=True)
@@ -57,6 +57,17 @@ def load(path, weights):
         key = {"raw": "weight", "ema": "ema_weight"}[weights]
         missing, unexpected = model.load_state_dict({k[7:]: v for k, v in ckpt[key].items()}, strict=False)
         print("missing", len(missing), "non-backbone missing", [k for k in missing if "backbone" not in k][:10], "unexpected", len(unexpected), flush=True)
+        trained = [k for k in missing if not k.startswith(("encoder.text_encoder.", "encoder.backbone.", "encoder.normalize."))]
+        legacy = ("prediction_head.video_deltam.image_readout.", "prediction_head.video_deltam.camera_readout.")
+        # Same full-patch compat rule as evaluation.checkpoints.load_model_for_evaluation.
+        if getattr(args, "video_deltam_full_image", False) and trained and not unexpected and all(k.startswith(legacy) for k in trained):
+            model.prediction_head.video_deltam.enable_legacy_checkpoint_compat()
+            print("[checkpoint compat] legacy full-image extractor forward", flush=True)
+        elif trained or unexpected:
+            raise RuntimeError(f"architecture mismatch: missing {trained[:5]} unexpected {unexpected[:5]}")
+    print(f"[arch] full_image={getattr(args, 'video_deltam_full_image', False)} patch_rope3d={getattr(args, 'video_deltam_patch_rope3d', False)} "
+          f"role={getattr(args, 'video_deltam_role', None)} depth={getattr(args, 'video_deltam_depth', None)} "
+          f"history_sampling={args.visual_history_sampling}", flush=True)
     return model.cuda().eval(), args
 
 
@@ -104,8 +115,15 @@ class Recorder:
         self.nsa = head.self_attn.num_layers
         self.reset()
         model.encoder.register_forward_hook(self._enc)
-        if getattr(head, "video_deltam", None) is not None:
-            head.video_deltam.register_forward_hook(self._hist)
+        vd = getattr(head, "video_deltam", None)
+        self.full = vd is not None and vd.full_image
+        if vd is not None:
+            vd.register_forward_hook(self._hist)
+        if self.full:
+            vd.register_forward_pre_hook(self._xshape)
+            for i, (st, tp) in enumerate(zip(vd.same_time, vd.temporal)):
+                st.register_forward_hook(self._xblock(f"x{i}st"))
+                tp.register_forward_hook(self._xblock(f"x{i}tp"))
         for i, layer in enumerate(head.self_attn.ffw_layers):
             layer.register_forward_hook(self._sa(i))
         orig_fwd = head.forward
@@ -129,7 +147,7 @@ class Recorder:
             head.camera_adaln_proj.register_forward_hook(self._adaln)
 
     def reset(self):
-        self.step, self.enc, self.hist = -1, None, None
+        self.step, self.enc, self.hist, self.xdm, self.x = -1, None, None, None, {}
         self.sa = [[None] * 4 for _ in range(2)]
         self.dm, self.ad = [[], []], [[], []]
 
@@ -141,6 +159,24 @@ class Recorder:
 
     def _hist(self, mod, inp, out):
         self.hist = out[0][:, -1].detach().float().cpu()
+        if out[2] is not None:
+            self.xdm = out[2].detach().float().cpu()
+
+    def _xshape(self, mod, args):
+        self.xs = args[0].shape[:4]
+
+    def _xblock(self, name):
+        """Current-frame patch mean (and, after temporal blocks, the per-image token) per camera."""
+        def f(mod, inp, out):
+            B, K, ncam, P = self.xs
+            if name.endswith("st"):
+                x = out.reshape(B, K, ncam, P, -1)[:, -1]
+                self.x[name + "_pm"] = x.mean(2).detach().float().cpu()
+            else:
+                x = out.reshape(B, ncam, K, -1, out.shape[-1])[:, :, -1]
+                self.x[name + "_pm"] = x[:, :, :P].mean(2).detach().float().cpu()
+                self.x[name + "_img"] = x[:, :, P].detach().float().cpu()
+        return f
 
     def _sa(self, i):
         def f(mod, inp, out):
@@ -163,6 +199,10 @@ class Recorder:
             f["dm"] = torch.stack([torch.stack(self.dm[s], 1) for s in range(2)], 1)
         if self.has_adaln and self.ad[0]:
             f["adaln"] = torch.stack([torch.stack(self.ad[s], 1) for s in range(2)], 1)
+        if self.full:
+            f.update(self.x)
+        if self.xdm is not None:
+            f["xdm"] = self.xdm
         return f
 
 
