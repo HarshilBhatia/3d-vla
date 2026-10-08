@@ -6,6 +6,7 @@ import torch
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 from modeling.policy.video_deltam import HistoryFeatureExtractor
 from utils.config_migrations import migrate_config
+from scripts.analysis.extractor_delta_m_spread import measure as measure_head
 
 RUNS = sys.argv[1:]
 LOG = Path("logs/analysis/extractor_alive.log")
@@ -46,6 +47,7 @@ for run in RUNS:
             continue
         try:
             m = measure(f)
+            m["head_delta_m"] = measure_head(f)
         except Exception as e:
             m = {"error": str(e)[:200]}
         step = int(re.findall(r"(\d+)\.pth", f)[0])
