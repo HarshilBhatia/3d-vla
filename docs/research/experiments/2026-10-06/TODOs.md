@@ -1055,3 +1055,65 @@ Reuse `scripts/analysis/probe_features.py` and `fit_probes.py` (extend them with
 **Results:**
 
 **Reading:**
+
+---
+
+## Full-patch models: shared context for TODOs 12 and 13
+
+All four use raw weights and their saved configs: K = 5, `video_deltam_full_image: true`, `patch_rope3d` and role as saved. Use the fixed loader, and apply legacy compat exactly where `load_model_for_evaluation` would. The a6000_b64 checkpoint needs `enable_legacy_checkpoint_compat` for its missing `image_readout`/`camera_readout`. Check that the `[load]` line and the compat path match online eval.
+
+| Label | Checkpoint | Role | Sees patch xyz? |
+|---|---|---|---|
+| FP | `train_logs/PerAct2/peract2_orbital_vid_deltam_fullpatch_finetune_300k_a6000_b64/best.pth` | refine (head delta_M) | no |
+| FP-d8 | `train_logs/PerAct2/peract2_orbital_vid_deltam_fullpatch_d8/best.pth` | refine, depth 8 | no |
+| FP-R3D-refine | `train_logs/PerAct2/peract2_orbital_vid_deltam_refine_fullpatch_rope3d/best.pth` | refine | **yes** |
+| FP-R3D-direct | `train_logs/PerAct2/peract2_orbital_vid_deltam_direct_fullpatch_rope3d/best.pth` | predict_delta_m (Direct) | **yes** |
+
+The CPU check (TODO 11's Why) found every one of their extractors outputs a constant. Report each model's existing online IDLT numbers next to the results (`docs/research/results/README.md` and the IDLT campaign folders, method ids `video_fullpatch_best` etc.), so behaviour can be compared with robustness.
+
+## TODO 12: full-patch models — C-tokens, delta_M and attention (TODOs 1, 3, 8 and 10 again)
+
+**Status:** claimed (attention agent)
+
+**Do**, on the four models above, with the same samples, seeds and conditions as before:
+1. **C-tokens** (TODO 10):
+   - **at head input:** magnitude, spread across samples, distance between all camera pairs, share explained by task and camera group;
+   - position shift under heavy60, per camera;
+   - layer-by-layer relative change clean → heavy, compared with scene tokens and trajectory tokens;
+   - attention to and from them;
+   - the masking and mean-replacement reliance checks.
+2. **delta_M** (TODO 1), for FP, FP-d8 and FP-R3D-refine (head layer-wise) and FP-R3D-direct (one delta_M from the extractor):
+   - ‖ΔM − I‖ per layer;
+   - change between layers;
+   - spread across samples and the share explained by task;
+   - clean vs heavy;
+   - camera 0 vs camera 1;
+   - live predictor units.
+3. **Attention** (TODO 3): external vs wrist share per layer, clean vs heavy; the FPS sampler's external share; per-token ratio; entropy.
+4. One comparison table placing these four next to the pooled models (exp 3, 1b, VideoPooled) and the non-history models (DeltaM 140k, Base 160k) from TODOs 1, 3, 8 and 10.
+
+**Results:**
+
+**Reading:**
+
+---
+
+## TODO 13: full-patch models — following and activation patching (TODOs 6, 7 and 9 again)
+
+**Status:** claimed (intervention agent)
+
+**Do**, on the four models above, with the same samples and seeds:
+1. **Following** (TODO 6): the following coefficient α for external-only, camera-0-only and camera-1-only errors, plus the all-four-cameras rigid control, at 10/10, 20/20, 40/40 and 60/60; share of predictions nearest the true target; orientation β.
+2. **Activation patching** (TODOs 7 and 9), both directions:
+   - C-token positions, FPS positions and dense positions;
+   - **the extractor's patch xyz** (the `frame_pcd` it sees, for the rope3d variants);
+   - proprio features;
+   - delta_M replay (head per call, or the Direct delta_M);
+   - combinations.
+
+   Check that positions, extractor xyz and proprio together recover 100%.
+3. One comparison table next to TODOs 7 and 9 (exp 3, 1b, A, Base, DeltaM).
+
+**Results:**
+
+**Reading:**
