@@ -1100,7 +1100,7 @@ The CPU check (TODO 11's Why) found every one of their extractors outputs a cons
 
 ## TODO 13: full-patch models — following and activation patching (TODOs 6, 7 and 9 again)
 
-**Status:** claimed (intervention agent)
+**Status:** in progress (intervention agent)
 
 **Do**, on the four models above, with the same samples and seeds:
 1. **Following** (TODO 6): the following coefficient α for external-only, camera-0-only and camera-1-only errors, plus the all-four-cameras rigid control, at 10/10, 20/20, 40/40 and 60/60; share of predictions nearest the true target; orientation β.
