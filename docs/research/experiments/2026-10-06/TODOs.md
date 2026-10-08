@@ -1019,7 +1019,7 @@ Figure: `figures/ctoken_rel_change.{png,svg}`. Item 3 per layer, one panel per m
 
 ## TODO 11: TODO 5's probes on the full-patch history models, including inside the extractor
 
-**Status:** claimed (probing agent)
+**Status:** in progress (probing agent)
 
 **Why:** a CPU check (random 5-frame patch grids and random per-sample xyz through each checkpoint's real extractor) shows every full-patch extractor outputs a constant too:
 - FullPatch (`fullpatch_finetune_300k_a6000_b64`, the "best" in the results tables): constant from 10k (warm-started); it loads with legacy compat.
