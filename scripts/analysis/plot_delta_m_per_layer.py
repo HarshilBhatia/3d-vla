@@ -19,6 +19,9 @@ MODELS = {  # label -> (legend name, categorical slot colour), fixed order
     "videopooled84k": ("VideoPooled 84k", "#1baf7a"),
     "randhist_warm50k": ("warm random history 50k", "#eda100"),
     "deltam140k": ("DeltaM 140k (no history)", "#e87ba4"),
+    "fp": ("FP (full-patch)", "#2a78d6"),
+    "fp_d8": ("FP-d8", "#eb6834"),
+    "fp_r3d_refine": ("FP-R3D-refine", "#1baf7a"),
 }
 CALLS = ["init", "CA", "SA0", "SA1", "SA2", "SA3"]  # head call order per denoising step; "init" is predicted but unused in the layer-wise path
 LAYERS = CALLS[1:]

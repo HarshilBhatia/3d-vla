@@ -50,15 +50,22 @@ def main():
 
         def trunk_hook(mod, inp, out):
             log[-1]["t"] = out.detach().float()
-        h1 = head.camera_proj.register_forward_pre_hook(pre_hook)
-        h2 = head.camera_trunk.register_forward_hook(trunk_hook)
+        direct = not hasattr(head, "camera_proj")  # predict_delta_m role: the extractor's delta_m_head owns delta_M
+        if direct:
+            dmh = head.video_deltam.delta_m_head
+            h1, h2, predictor, calls = dmh.register_forward_pre_hook(pre_hook), dmh[1].register_forward_hook(trunk_hook), dmh[2], ["direct"]
+        else:
+            h1 = head.camera_proj.register_forward_pre_hook(pre_hook)
+            h2 = head.camera_trunk.register_forward_hook(trunk_hook)
+            predictor, calls = head.camera_predictor, CALLS
         vd, hist_len = [], []
 
         def vd_hook(mod, inp, out):
-            vd.append((inp[0][:, -1, :2].detach().float(), out[0][:, -1, :2].detach().float()))
+            x = inp[0][:, -1, :2].detach().float()
+            vd.append((x.mean(2) if x.ndim == 4 else x, out[0][:, -1, :2].detach().float()))  # full-image input is per patch: pool it
             hist_len.append(inp[0].shape[1])
         h3 = head.video_deltam.register_forward_hook(vd_hook) if getattr(head, "video_deltam", None) is not None else None
-        b = head.camera_predictor.bias.detach().float().reshape(6, 6)
+        b = predictor.bias.detach().float().reshape(6, 6)
         a0 = b - b.T
         a0 = a0 * (a0.norm().clamp(max=3.0) / a0.norm().clamp(min=1e-8))
         dm_bias = torch.linalg.matrix_exp(a0)
@@ -76,7 +83,7 @@ def main():
         torch.manual_seed(0); random.seed(0); np.random.seed(0)
         spread = lambda x: float(x.flatten(0, 1).std(0).mean())
         acc_vd = {"in_spread": [], "in_cam0_vs_cam1": [], "out_spread": [], "out_cam0_vs_cam1": []}
-        acc = {c: {"x_spread": [], "x_norm": [], "live_frac": [], "t_norm": [], "dm_minus_bias_dm": []} for c in CALLS}
+        acc = {c: {"x_spread": [], "x_norm": [], "live_frac": [], "t_norm": [], "dm_minus_bias_dm": []} for c in calls}
         for i, sample in enumerate(loader):
             if i >= a.batches:
                 break
@@ -97,13 +104,13 @@ def main():
                 acc_vd["out_cam0_vs_cam1"].append(float((y[:, 0] - y[:, 1]).norm(dim=-1).mean()))
             vd.clear()
             for j, e in enumerate(log):
-                c = CALLS[j % len(CALLS)]
+                c = calls[j % len(calls)]
                 x, t = e["x"][:, :2], e["t"][:, :2]  # external cameras only
                 acc[c]["x_spread"].append(float(x.flatten(0, 1).std(0).mean()))
                 acc[c]["x_norm"].append(float(x.norm(dim=-1).mean()))
                 acc[c]["live_frac"].append(float((t > 0).any(1).any(0).float().mean()))
                 acc[c]["t_norm"].append(float(t.norm(dim=-1).mean()))
-                at = head.camera_predictor(e["t"][:, :2].to(head.camera_predictor.weight.dtype)).float().reshape(-1, 2, 6, 6)
+                at = predictor(e["t"][:, :2].to(predictor.weight.dtype)).float().reshape(-1, 2, 6, 6)
                 aa = at - at.transpose(-1, -2)
                 n = aa.flatten(-2).norm(dim=-1)[..., None, None]
                 dm = torch.linalg.matrix_exp(aa * (n.clamp(max=3.0) / n.clamp(min=1e-8)))

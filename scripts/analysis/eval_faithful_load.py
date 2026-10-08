@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 import torch
 
-from evaluation.checkpoints import overlay_checkpoint_config
+from evaluation.checkpoints import _non_frozen_checkpoint_incompatibilities, overlay_checkpoint_config
 from modeling.policy import fetch_model_class
 from modeling.policy.construction import build_model_kwargs
 from utils.config_migrations import migrate_config
@@ -41,9 +41,16 @@ def load(path, weights, visual_num_history=None):
     cls = fetch_model_class(args.model_type)
     model = cls(**build_model_kwargs(args, cls))
     key = {"raw": "weight", "ema": "ema_weight"}[weights]
-    missing, unexpected = model.load_state_dict({k[7:]: v for k, v in ckpt[key].items()}, strict=False)
-    bad = [k for k in missing if not k.startswith(("encoder.text_encoder.", "encoder.backbone.", "encoder.normalize."))]
-    assert not bad and not unexpected, (bad[:5], unexpected[:5])
+    missing, unexpected = _non_frozen_checkpoint_incompatibilities(model, model.load_state_dict({k[7:]: v for k, v in ckpt[key].items()}, strict=False))
+    legacy_readout = False
+    prefixes = ("prediction_head.video_deltam.image_readout.", "prediction_head.video_deltam.camera_readout.")
+    if (getattr(args, "video_deltam_full_image", False) and missing and not unexpected and all(k.startswith(prefixes) for k in missing)
+            and hasattr(model.prediction_head.video_deltam, "enable_legacy_checkpoint_compat")):
+        model.prediction_head.video_deltam.enable_legacy_checkpoint_compat()  # same rule as load_model_for_evaluation
+        legacy_readout, missing = True, []
+    assert not missing and not unexpected, (missing[:5], unexpected[:5])
     print(f"[load] {path} {key} visual_num_history={args.visual_num_history} legacy_all_cams={legacy} "
-          f"view_align_cameras={getattr(args, 'view_align_cameras', None)} scene_sampling={args.scene_sampling}", flush=True)
+          f"view_align_cameras={getattr(args, 'view_align_cameras', None)} scene_sampling={args.scene_sampling} "
+          f"full_image={getattr(args, 'video_deltam_full_image', None)} patch_rope3d={getattr(args, 'video_deltam_patch_rope3d', None)} "
+          f"role={getattr(args, 'video_deltam_role', None)} legacy_readout={legacy_readout}", flush=True)
     return model.cuda().eval(), args

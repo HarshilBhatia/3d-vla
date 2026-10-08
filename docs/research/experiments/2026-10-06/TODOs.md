@@ -1073,7 +1073,7 @@ The CPU check (TODO 11's Why) found every one of their extractors outputs a cons
 
 ## TODO 12: full-patch models — C-tokens, delta_M and attention (TODOs 1, 3, 8 and 10 again)
 
-**Status:** in progress (attention agent)
+**Status:** done
 
 **Do**, on the four models above, with the same samples, seeds and conditions as before:
 1. **C-tokens** (TODO 10):
@@ -1094,7 +1094,119 @@ The CPU check (TODO 11's Why) found every one of their extractors outputs a cons
 
 **Results:**
 
+Scripts and data:
+- `scripts/analysis/fullpatch_suite.slurm` runs three parts:
+  - `PART=attn`: `camera_attention.py --faithful`, job 3995049.
+  - `PART=dm`: `delta_m_per_layer.py` and `delta_m_trunk_activity.py --faithful`, job 3995050.
+  - `PART=ctok`: `ctoken_behaviour.py`, job 3995051.
+- Summaries come from `plot_camera_attention.py`, `plot_delta_m_per_layer.py`, `plot_ctoken_behaviour.py` and `summarise_todo12.py` (the Direct delta_M). Data is in `results/analysis/todo12/{camera_attention,delta_m_per_layer,ctoken_behaviour}/`.
+- Same 853 val samples, seeds and clean/train/heavy60 conditions as TODOs 1, 3, 8 and 10.
+
+**Loading, matched to online eval.**
+- `scripts/analysis/eval_faithful_load.py` now applies the same `enable_legacy_checkpoint_compat` rule as `load_model_for_evaluation`, using the same key test.
+- All four run with raw weights, K=5 (the saved value, and what the IDLT plans pass), `full_image=True`, scene sampling `fps`, and consecutive history.
+- `[load]` lines:
+  - **FP:** legacy all-camera delta_M (`view_align_cameras=None`) **and** legacy readout. Its saved config is old-schema, so online eval applies both.
+  - **FP-d8:** cameras [0,1], role refine.
+  - **FP-R3D-refine:** `patch_rope3d=True`, role refine.
+  - **FP-R3D-direct:** `patch_rope3d=True`, role `predict_delta_m`.
+- The extractor gets per-patch tokens through the model's own `encode_inputs`. That includes `frame_pcd` from the miscalibrated point cloud for the rope3d variants. The miscalibration is drawn once per sample and shared by all 5 history frames, as on a fixed rig.
+- Two script changes, both opt-in or new behaviour only:
+  - `delta_m_per_layer.py` also records the Direct delta_M, which reaches the head as `history_view_align`.
+  - `delta_m_trunk_activity.py` reads the extractor's `delta_m_head` when the head owns no predictor, and pools per-patch extractor inputs before the spread statistic.
+- Recomputed attention matches the module output to ≤1.5e-6 relative (fp32).
+
+**1. delta_M: one fixed matrix per layer in every full-patch model**
+
+| | FP | FP-d8 | FP-R3D-refine | FP-R3D-direct |
+|---|---|---|---|---|
+| ‖ΔM − I‖, CA=SA0 / SA1 / SA2 / SA3 (cam 0 = cam 1) | 0.745 / 0.095 / 0.095 / 0.095 | 0.067 at every layer | 0.125 / **2.622** (clamp) / 0.125 / 0.125 | one delta_M: **0.115** |
+| wrist cameras | 0.745 / 0.095 (legacy all-camera rule) | identity | identity | identity |
+| spread across samples (RMS) | 0 at every layer | 0 | 0.004 at SA1 (task η² 0.26), else 0 | 0 |
+| clean vs heavy60 ‖ΔM_c − ΔM_h‖ | 0 | 0 | 0.0055 at SA1, else 0 | 0 |
+| cam 0 vs cam 1 | 0 | 0 | 0.005 (0.2°) at SA1 | 0 |
+| across the 5 flow steps | 0 | 0 | 0.005 at SA1 | 0 (identical) |
+| depth change, SA0→SA1 / SA1→SA2 | 0.71 (28°) / 0 | 0 / 0 | 3.05 (112°) / 3.05 (112°) | n/a |
+| live predictor units of 120, CA / SA1 / SA2 / SA3 | 1 / 0 / 0 / 0 | 0 / 0 / 0 / 0 | 0 / 1 / 0 / 0 | 0 (extractor `delta_m_head`) |
+| delta_M = exp(skew(bias)) where no unit is live | SA1–SA3 | every layer | CA, SA2, SA3 | yes |
+| extractor current-frame output spread (input spread) | 0.0000 (0.021) | 0.00001 (0.024) | 0.00002 (0.028) | 0.00013 (0.022) |
+
+**2. C-tokens**
+
+| | FP | FP-d8 | FP-R3D-refine | FP-R3D-direct |
+|---|---|---|---|---|
+| what reaches the head | extractor output | extractor output | extractor output | **encoder C-tokens** (Direct leaves them untouched) |
+| norm / spread across samples (ext) | 8.67 / 0 | 11.95 / 0 | 5.91 / ≤1e-4 | 1.3 / **0.051** |
+| distance between cameras, 0–1 / 0–2 | 0 / 0 (4 identical copies) | 0 / 0 | 0.002 / 0.002 | 0.52 / 2.05 |
+| η² task / camera group (ext) | n/a (no spread) | n/a | n/a | 0.72–0.79 / 0.17–0.18 |
+| content clean vs heavy60 at head input | identical | identical | **max diff 0.07, relative 0.4–0.6%** (patch xyz) | identical |
+| position shift, heavy60 (train) | 98 / 94 / 0 / 0 cm (14 / 13 cm) | same | same | same |
+| relative change at sa3, C ext / C wr / FPS ext / FPS wr / traj | 0.087 / 0.014 / 0.118 / 0.020 / 0.024 | 0.080 / 0.018 / 0.137 / 0.033 / 0.032 | 0.086 / 0.017 / 0.123 / 0.028 / 0.032 | 0.059 / 0.025 / 0.122 / 0.033 / 0.035 |
+| same at pos1 | 0.46 / 0.029 / 0.61 / 0.031 / 0.034 | 0.48 / 0.042 / 0.62 / 0.048 / 0.045 | 0.37 / 0.029 / 0.44 / 0.040 / 0.042 | 0.38 / 0.039 / 0.49 / 0.048 / 0.046 |
+| traj → all C, SA / pos / rot | 2.1–8.5% / 0.8–3.1% / 1.9–2.8% | 0.7–6.4% / 1.0–3.0% / 1.9–3.0% | 2.8–8.1% / 1.1–3.7% / 2.1–2.8% | 2.1–2.4% / 1.0–1.4% / 1.9–2.0% |
+| C rows → ext FPS (C0/1; C2/3) | 0.09–0.15; 0.09–0.15 | 0.10–0.17; 0.11–0.17 | 0.07–0.13; 0.07–0.13 | 0.09–0.12; 0.06–0.11 |
+| heavy60 change in any C-token attention entry | ≤0.3 pp | ≤0.2 pp | ≤0.5 pp | ≤0.1 pp |
+| pos_l2 (cm): clean → heavy60 | 1.25 → **1.26** | 1.25 → 1.95 | 1.26 → 1.89 | 1.19 → 1.83 |
+| mask all C (clean / heavy60) | 1.27 / 1.27 | 1.28 / 1.97 | 1.27 / 1.90 | 1.19 / 1.83 |
+| mask external C (clean / heavy60) | 1.26 / 1.27 | 1.26 / 1.95 | 1.26 / 1.89 | 1.19 / 1.83 |
+| mean C (clean / heavy60); zero C (clean) | 1.25 / 1.26; 1.29 | 1.26 / 1.95; 1.28 | 1.26 / 1.89; 1.26 | 1.19 / 1.83; 1.19 |
+
+**3. Attention.** External share = attention on cam 0+1 scene tokens / attention on all scene tokens. Values are clean → heavy60, Δ in pp; SE 0.02–0.09.
+
+| Layer | FP | FP-d8 | FP-R3D-refine | FP-R3D-direct |
+|---|---|---|---|---|
+| ca0 | 50.5 → 51.1, +0.61 | 48.9 → 49.7, +0.74 | 45.0 → 45.7, +0.60 | 46.6 → 47.4, +0.84 |
+| ca1 | 49.9 → 51.2, +1.30 | 50.8 → 50.7, −0.16 | 46.7 → 47.2, +0.50 | 47.6 → 48.7, +1.13 |
+| sa0 | 14.6 → 15.2, +0.60 | 17.2 → 17.4, +0.25 | 14.0 → 14.2, +0.20 | 14.0 → 14.1, +0.11 |
+| sa1 | 18.2 → 17.8, −0.45 | 19.0 → 18.8, −0.23 | 15.2 → 15.1, −0.06 | 15.0 → 14.9, −0.12 |
+| sa2 | 14.9 → 13.5, −1.48 | 15.0 → 13.5, −1.55 | 14.4 → 13.3, −1.06 | 14.2 → 13.1, −1.05 |
+| sa3 | 13.1 → 11.4, −1.62 | 14.3 → 12.6, −1.75 | 11.6 → 10.8, −0.88 | 11.1 → 10.2, −0.95 |
+| pos0 | 9.0 → 7.1, −1.93 | 8.8 → 7.1, −1.78 | 7.5 → 6.4, −1.12 | 8.0 → 6.6, −1.33 |
+| pos1 | 5.6 → 4.0, −1.60 | 6.2 → 4.2, −1.98 | 6.3 → 4.8, −1.54 | 6.1 → 4.7, −1.47 |
+| rot0 / rot1 | −0.35 / −0.17 | −0.25 / −0.16 | −0.06 / +0.03 | −0.03 / −0.05 |
+
+Other attention measurements:
+- **FPS external share** (cam 0 / 1 / 2 / 3 tokens of 204):
+
+  | Model | Tokens | External share |
+  |---|---|---|
+  | FP | 12.8 / 10.7 / 100.5 / 80.0 | 11.5% |
+  | FP-d8 | 13.5 / 13.3 / 95.9 / 81.4 | 13.1% |
+  | FP-R3D-refine | 14.1 / 8.4 / 99.9 / 81.7 | 11.0% |
+  | FP-R3D-direct | 12.3 / 9.1 / 102.2 / 80.4 | 10.5% |
+
+  Samples with no external FPS token: 0.6–1.5%.
+- **Per-token ratio** (external share ÷ token share): 1.1–1.6 in SA; pos1 falls under heavy60 (FP 0.48 → 0.34, d8 0.47 → 0.32, R3D-refine 0.57 → 0.43, R3D-direct 0.58 → 0.44).
+- **Entropy:** heavy60 lowers it by 0.02–0.06 nats in CA, SA and the position head, and by ≤0.006 in the rotation head.
+
+**4. Comparison with the pooled and non-history models.** Offline numbers are this week's runs: TODOs 1 and 8 for delta_M, TODO 3 (K=5) and TODO 8 for attention, TODO 10 for C-tokens. IDLT is task-heldout, 13 tasks × 100 rollouts, for the same checkpoint. Calibrated and 60/60 cells come from `idlt_task_heldout_group_fixed_v03_video_k5`, `idlt_scaled_extreme_task_heldout_group_v0{1,2}` and `vdm_rope3d_sweep_task_heldout_group_v01`, aggregated with `plot_ablation_per_task.load`.
+
+| Model | C-token spread at head input | ‖ΔM−I‖ CA / SA1 | delta_M spread (max over layers) | delta_M clean vs heavy | live trunk units (max) | FPS ext share | Δ ext share ca1 / pos1 (pp) | ext C-token rel. change pos1 | mask C, heavy60 Δ (cm) | offline pos_l2 clean → heavy60 (cm) | IDLT calibrated / 40-40 / 60-60 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| exp 3 200k (pooled, EMA) | ≤2e-4 | 0.70 / 2.66 | 0.06 | ≤0.010 | 2 | 18.8% | +0.58 / −1.73 | 0.25 | −0.05 | 1.03 → 1.40 | 77.5 / – / 71.6 |
+| 1b 200k (pooled, EMA) | ≤1e-4 | (adaLN) | – | – | – | 10.0% | +0.11 / −1.14 | 0.31 | +0.03 | 0.99 → 1.53 | 80.8 / 71.5 / 70.4 |
+| VideoPooled 84k (pooled) | 1e-5 | 0.68 / 0.08 | 0.024 | ≤0.0005 | 1.2 | – | – | – | – | 1.19 → 1.33 | 78.6 / 72.0 / 71.5 |
+| DeltaM 140k (no history) | **0.109** | 0.55 / 0.55 | **0.40** | ≤0.020 | **7.6** | **30.0%** | +2.51 / +1.13 | 0.15 | +0.01 | 1.32 → 2.68 | – / 40.5 / 37.2 |
+| Base 160k (no history) | **0.104** | (none) | – | – | – | **32.3%** | +2.33 / −3.21 | 0.12 | +0.02 | 1.49 → 3.33 | 70.8 / 49.8 / 27.1 |
+| **FP** | 0 | 0.745 / 0.095 | 0 | 0 | 1 | 11.5% | +1.30 / −1.60 | 0.46 | +0.01 | 1.24 → **1.25** | 69.7 / 66.8 / 64.8 |
+| **FP-d8** | 0 | 0.067 / 0.067 | 0 | 0 | 0 | 13.1% | −0.16 / −1.98 | 0.48 | +0.02 | 1.24 → 1.93 | no IDLT (SBRS best 79.2 at 140k) |
+| **FP-R3D-refine** | ≤1e-4 | 0.125 / 2.62 | 0.004 | 0.0055 | 1 | 11.0% | +0.50 / −1.54 | 0.37 | +0.01 | 1.25 → 1.88 | 69.9 / 62.9 / 61.5 |
+| **FP-R3D-direct** | 0.051 (encoder) | 0.115 (one) | 0 | 0 | 0 | 10.5% | +1.13 / −1.47 | 0.38 | 0.00 | 1.18 → 1.81 | 74.0 / 64.9 / 61.8 |
+
+Figures (`figures/README.md`):
+- `todo12_dm_layer_*.{png,svg}`: the six TODO 1 metrics for FP, FP-d8 and FP-R3D-refine.
+- `todo12_cam_attn_external_share.{png,svg}` and `todo12_cam_attn_sa_mass_breakdown.{png,svg}`.
+- `todo12_ctoken_rel_change.{png,svg}`.
+
 **Reading:**
+- **The full-patch models confirm TODO 11 from the inside.** Every one runs on constants. The three refine models hand the head a constant C-token, four identical copies. For FP-R3D-refine it is constant across samples but not quite across calibration: its patch xyz lets 60/60 move it by about 0.5%. Every head delta_M is one fixed matrix per layer, and the predictor trunks are fully dead (0–1 live units of 120). FP-d8's delta_M is exp(skew(bias)) at every layer. FP-R3D-refine reproduces exp 3's pattern exactly: a small constant everywhere except a clamp-limited 112° rotation at SA1. The Direct model's single extractor delta_M is one constant matrix (0.115 from I), identical for both cameras, every sample and both conditions. Seeing patch xyz (rope3d) does not make any of these delta_Ms respond to miscalibration.
+- **Their attention behaves like the pooled history models, not the non-history ones.** The FPS sampler keeps 10.5–13% external tokens, against 30–32% for Base and DeltaM. The shift under 60/60 is the generic one: about +0.5 to +1.3 pp toward the external cameras in CA, and −1.5 to −2 pp in the position head. The C-tokens are low-attention pooling tokens with no reliance: masking or mean-replacing them changes offline error by ≤0.03 cm. FP-R3D-direct's C-tokens are sample-specific, like Base/DeltaM. Its sampler still keeps only 10.5% external tokens, though, so the low external share goes with these models' encoders and training, not with C-token collapse.
+- **None of this separates the full-patch models from the pooled ones on robustness.** They sit below the pooled models on IDLT 60/60 (61.5–64.8 vs 70.4–71.6). They match them on every mechanism measured here: constant delta_M, constant or unused C-tokens, low external FPS share, the same attention shift. The robustness ordering is pooled > full-patch >> non-history. Only the last gap lines up with the attention and FPS-share difference, so whatever separates pooled from full-patch is elsewhere. Training length and recipe, and the scene tokens' own geometry (TODO 13's patching), are the candidates.
+- **One offline anomaly to flag: FP shows essentially no offline damage at 60/60** (1.24 → 1.25 cm), while FP-d8, R3D-refine and R3D-direct lose about 0.65 cm. FP is the only one with the legacy all-camera delta_M: a large constant rotation (0.745) at CA/SA0 on all four cameras, wrist included. Its online drop is also the smallest of the four (69.7 → 64.8, against 8–12 points for the rope3d pair), so this may be real. TODO 4's kernel analysis applied to FP's CA/SA0 matrix would tell whether that rotation makes the scene-token RoPE insensitive to large shifts. I didn't test it here.
+- **Caveats.**
+  - These are raw `best.pth` checkpoints at different steps and from different recipes (FP-d8 is warm-started from VideoPooled; the rope3d pair has 160k/200k steps), so the pooled vs full-patch comparisons are correlations.
+  - FP-d8 has no IDLT run.
+  - `docs/research/results/README.md` §7 says the rope3d sweep has only two cells. The campaign directory now has all 13 tasks for calibrated through 60/60 for both rope3d models, so that note looks stale. The numbers above are from the complete cells.
 
 ---
 

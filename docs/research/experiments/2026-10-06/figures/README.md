@@ -95,3 +95,13 @@ The data comes from `scripts/analysis/ctoken_behaviour.py` (GPU, via `scripts/an
 | Figure | Shows | Script |
 |---|---|---|
 | `ctoken_rel_change.{png,svg}` | ‖h_heavy60 − h_clean‖/‖h_clean‖ per layer for each C-token (cams 0–3), external and wrist FPS tokens, and trajectory tokens; one panel per model | `scripts/analysis/plot_ctoken_behaviour.py` |
+
+## Full-patch models: delta_M, attention and C-tokens ([TODOs.md](../TODOs.md), TODO 12)
+
+The data comes from `scripts/analysis/fullpatch_suite.slurm` (GPU; `PART=attn|dm|ctok`), which writes `results/analysis/todo12/`. Models: FP, FP-d8, FP-R3D-refine and FP-R3D-direct (raw, K=5, loaded as online eval does). Data: all 853 val samples, clean vs heavy60.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `todo12_dm_layer_{dist_from_identity,depth_change,task_share,clean_vs_heavy,across_steps,cam0_vs_cam1}.{png,svg}` | The six TODO 1 delta_M metrics for FP, FP-d8 and FP-R3D-refine (the Direct delta_M is one constant matrix; see `summarise_todo12.py`) | `scripts/analysis/plot_delta_m_per_layer.py --in-dir results/analysis/todo12/delta_m_per_layer --fig-prefix todo12_dm_layer` |
+| `todo12_cam_attn_external_share.{png,svg}`, `todo12_cam_attn_sa_mass_breakdown.{png,svg}` | External attention share per layer, clean vs heavy60, Δ and entropy; mass by key group | `scripts/analysis/plot_camera_attention.py --in-dir results/analysis/todo12/camera_attention --fig-prefix todo12_cam_attn` |
+| `todo12_ctoken_rel_change.{png,svg}` | Per-layer relative change under heavy60 of C-tokens, external/wrist FPS tokens and trajectory tokens | `scripts/analysis/plot_ctoken_behaviour.py --in-dir results/analysis/todo12/ctoken_behaviour --fig docs/research/experiments/2026-10-06/figures/todo12_ctoken_rel_change` |

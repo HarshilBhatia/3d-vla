@@ -13,7 +13,8 @@ import torch
 LAYERS = ["ca0", "ca1", "sa0", "sa1", "sa2", "sa3", "pos0", "pos1", "rot0", "rot1"]
 MODELS = [("exp3_200k", "exp 3 (delta_M) 200k"), ("adaln1b_200k", "1b (adaLN) 200k"),
           ("controlA_200k", "control A 200k"), ("ema20k_randhist_15k", "warm randhist + EMA 15k"),
-          ("deltam140k", "DeltaM 140k (no history)"), ("base160k", "Base 160k (no history)")]
+          ("deltam140k", "DeltaM 140k (no history)"), ("base160k", "Base 160k (no history)"),
+          ("fp", "FP (full-patch)"), ("fp_d8", "FP-d8"), ("fp_r3d_refine", "FP-R3D-refine"), ("fp_r3d_direct", "FP-R3D-direct")]
 COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"]
 
 
@@ -72,9 +73,7 @@ def summarise(path):
 def plot(summ, out, prefix="cam_attn"):
     x = np.arange(len(LAYERS))
     fig, axes = plt.subplots(1, 3, figsize=(16, 4.6))
-    for (label, name), col in zip(MODELS, COLORS):
-        if label not in summ:
-            continue
+    for (label, name), col in zip([m for m in MODELS if m[0] in summ], COLORS):
         L = summ[label]["layers"]
         clean = [L[l]["clean"]["ext_frac_scene"] for l in LAYERS]
         heavy = [L[l]["heavy60"]["ext_frac_scene"] for l in LAYERS]

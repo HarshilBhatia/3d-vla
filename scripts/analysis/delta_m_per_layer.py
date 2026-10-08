@@ -33,6 +33,10 @@ def hook(model):
         seen.append(dm.detach().float().cpu())
         return rt, dm
     head._predict_from_cam_feat = wrapped
+    if getattr(head, "video_deltam", None) is not None and getattr(head.video_deltam, "predict_delta_m", False):
+        def direct(mod, args, kwargs):  # Direct role: the extractor's delta_M reaches the head as history_view_align
+            seen.append(kwargs["history_view_align"].detach().float().cpu())
+        head.register_forward_pre_hook(direct, with_kwargs=True)
     return seen
 
 
