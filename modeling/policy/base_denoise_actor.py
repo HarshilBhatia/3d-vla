@@ -589,6 +589,8 @@ class TransformerHead(nn.Module):
                  video_deltam_time_embedding=True,
                  video_deltam_history_register=True,
                  video_deltam_role='refine',
+                 video_deltam_prenorm=False,
+                 video_deltam_input_skip=False,
                  camera_adaln='none',
                  ee_aux=False,
                  ee_aux_weight=1.0,
@@ -640,6 +642,8 @@ class TransformerHead(nn.Module):
                 use_time_embedding=video_deltam_time_embedding,
                 use_register=video_deltam_history_register,
                 predict_delta_m=(video_deltam_role == 'predict_delta_m'),
+                prenorm=video_deltam_prenorm,
+                input_skip=video_deltam_input_skip,
             ) if video_deltam else None
         )
         if video_deltam_role == 'predict_delta_m' and not video_deltam:

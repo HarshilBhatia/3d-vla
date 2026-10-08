@@ -26,8 +26,9 @@ from ..utils.position_encodings import RotaryPositionEncoding3D
 class _Block(nn.Module):
     """Attention + FFN, optionally with relative 3D RoPE. Param names match nn.MultiheadAttention."""
 
-    def __init__(self, dim, heads, dropout):
+    def __init__(self, dim, heads, dropout, prenorm=False):
         super().__init__()
+        self.prenorm = prenorm
         self.attn = MultiheadCustomAttention(dim, heads, dropout=dropout, batch_first=True)
         self.norm1 = nn.LayerNorm(dim)
         self.ffn = nn.Sequential(nn.Linear(dim, 4 * dim), nn.GELU(), nn.Dropout(dropout),
@@ -37,10 +38,16 @@ class _Block(nn.Module):
     def forward(self, query, key_value=None, attn_mask=None,
                 query_pos=None, key_pos=None):
         """query_pos/key_pos: rotary codes (B, S, C, 2), or None for no PE."""
-        key_value = query if key_value is None else key_value
         rotary_pe = None
         if query_pos is not None:
             rotary_pe = (query_pos, query_pos if key_pos is None else key_pos)
+        if self.prenorm:
+            # Pre-LN: the residual stream is never renormalised, so the input survives every block.
+            q = self.norm1(query)
+            kv = q if key_value is None else self.norm1(key_value)
+            x = query + self.attn(q, kv, kv, attn_mask=attn_mask, rotary_pe=rotary_pe)[0]
+            return x + self.ffn(self.norm2(x))
+        key_value = query if key_value is None else key_value
         out = self.attn(query, key_value, key_value, attn_mask=attn_mask,
                         rotary_pe=rotary_pe)[0]
         x = self.norm1(query + out)
@@ -69,8 +76,11 @@ class HistoryFeatureExtractor(nn.Module):
 
     def __init__(self, embedding_dim, num_heads, depth, max_history=32, max_cameras=8,
                  dropout=0.1, full_image=False, predict_delta_m=False,
-                 patch_rope3d=False, use_time_embedding=True, use_register=True):
+                 patch_rope3d=False, use_time_embedding=True, use_register=True,
+                 prenorm=False, input_skip=False):
         super().__init__()
+        if (prenorm or input_skip) and full_image:
+            raise ValueError("video_deltam_prenorm / video_deltam_input_skip are only supported on the pooled path")
         if depth < 1:
             raise ValueError("video_deltam_depth must be at least one")
         if not use_time_embedding and full_image:
@@ -105,8 +115,8 @@ class HistoryFeatureExtractor(nn.Module):
             self.image_token = nn.Parameter(torch.empty(1, 1, 1, 1, embedding_dim))
             nn.init.normal_(self.image_token, std=0.02)
             self.image_readout = _Block(embedding_dim, num_heads, dropout)
-        self.same_time = nn.ModuleList([_Block(embedding_dim, num_heads, dropout) for _ in range(depth)])
-        self.temporal = nn.ModuleList([_Block(embedding_dim, num_heads, dropout) for _ in range(depth)])
+        self.same_time = nn.ModuleList([_Block(embedding_dim, num_heads, dropout, prenorm) for _ in range(depth)])
+        self.temporal = nn.ModuleList([_Block(embedding_dim, num_heads, dropout, prenorm) for _ in range(depth)])
         # When this stack owns delta_M it has no other output, so the global
         # register readout is not built at all.
         self.predict_delta_m = predict_delta_m
@@ -121,8 +131,15 @@ class HistoryFeatureExtractor(nn.Module):
         elif use_register:
             # Legacy checkpoint-compatible global camera-register readout.
             self.camera_readout = nn.ModuleList(
-                [_Block(embedding_dim, num_heads, dropout) for _ in range(depth)]
+                [_Block(embedding_dim, num_heads, dropout, prenorm) for _ in range(depth)]
             )
+        # Built only when enabled so existing checkpoints keep their exact module set.
+        self.prenorm = prenorm
+        if prenorm:
+            self.out_norm = nn.LayerNorm(embedding_dim)
+        self.input_skip = input_skip
+        if input_skip:
+            self.input_skip_proj = nn.Linear(embedding_dim, embedding_dim)
         # Set by the checkpoint loader when evaluating a checkpoint written by
         # the pre-camera-readout implementation.  That implementation used the
         # learned image token directly (rather than image_readout) and returned
@@ -371,6 +388,11 @@ class HistoryFeatureExtractor(nn.Module):
                 # at this depth.  This intentionally has no temporal mask: the
                 # register is emitted only for the current action decision.
                 cam = readout(cam, frames.reshape(bsz, history * ncam, -1))
+        if self.prenorm:
+            frames = self.out_norm(frames)
+        if self.input_skip:
+            # Raw current-frame tokens bypass the stack, so the C-tokens always carry per-sample content.
+            frames = torch.cat([frames[:, :-1], frames[:, -1:] + self.input_skip_proj(frame_tokens[:, -1:])], dim=1)
         if self.predict_delta_m:
             # Sole output: one orthogonal correction per camera, from the
             # history-refined summary of the current frame.

@@ -144,6 +144,10 @@ video_deltam_history_register: false  # true: global history register added to t
 #                     Scene tokens and trajectory queries are left untouched and
 #                     the head predicts nothing.
 video_deltam_role: refine
+# Pre-LayerNorm extractor blocks (+ final norm) instead of post-LN; pooled path only.
+video_deltam_prenorm: false
+# Add a learned projection of the raw current-frame tokens to the extractor output; pooled path only.
+video_deltam_input_skip: false
 # C-token adaLN in place of delta_M: none | per_camera | pooled | static_pooled (needs view_align_mode=none)
 camera_adaln: none
 relative_action: false

@@ -167,3 +167,34 @@ def test_predict_delta_m_accepts_register_off():
                                     use_register=False).eval()
     _, register, delta_m = model(torch.randn(2, 5, 3, 12), torch.randn(2, 1, 12))
     assert register is None and delta_m.shape == (2, 3, 6, 6)
+
+
+def test_prenorm_and_input_skip_off_by_default_build_nothing_new():
+    model = HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0, use_time_embedding=False, use_register=False)
+    assert not hasattr(model, "out_norm") and not hasattr(model, "input_skip_proj")
+    assert not model.same_time[0].prenorm
+
+
+def test_prenorm_output_depends_on_input():
+    torch.manual_seed(0)
+    model = HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0, use_time_embedding=False,
+                                    use_register=False, prenorm=True).eval()
+    out, _, _ = model(torch.randn(4, 5, 3, 12), torch.zeros(4, 1, 12))
+    assert out[:, -1].std(0).mean() > 1e-3
+
+
+def test_input_skip_keeps_per_sample_content_when_the_stack_is_constant():
+    torch.manual_seed(0)
+    model = HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0, use_time_embedding=False,
+                                    use_register=False, input_skip=True).eval()
+    for block in list(model.same_time) + list(model.temporal):
+        for p in block.parameters():
+            torch.nn.init.zeros_(p)
+    out, _, _ = model(torch.randn(4, 5, 3, 12), torch.zeros(4, 1, 12))
+    assert out[:, -1].std(0).mean() > 1e-3
+    assert torch.allclose(out[:, 0], out[0:1, 0].expand(4, -1, -1))
+
+
+def test_prenorm_and_input_skip_reject_full_image():
+    with pytest.raises(ValueError):
+        HistoryFeatureExtractor(12, 3, depth=2, full_image=True, prenorm=True)
