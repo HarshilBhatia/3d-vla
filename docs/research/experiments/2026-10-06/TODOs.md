@@ -1014,3 +1014,44 @@ Figure: `figures/ctoken_rel_change.{png,svg}`. Item 3 per layer, one panel per m
   - "Relative change" mixes direct position effects with downstream mixing.
   - The η² values for 1b and exp 3 at head input are over an essentially zero spread and mean nothing.
   - Ablation effects ≤0.03 cm are at noise level (offline pos_l2 matches TODO 8 to 0.03 cm).
+
+---
+
+## TODO 11: TODO 5's probes on the full-patch history models, including inside the extractor
+
+**Status:** claimed (probing agent)
+
+**Why:** a CPU check (random 5-frame patch grids and random per-sample xyz through each checkpoint's real extractor) shows every full-patch extractor outputs a constant too:
+- FullPatch (`fullpatch_finetune_300k_a6000_b64`, the "best" in the results tables): constant from 10k (warm-started); it loads with legacy compat.
+- FullPatch depth 8: constant from 10k.
+- **Refine FullPatch rope3d**, whose patches carry miscalibrated xyz via 3D RoPE: spread 0.0003 at 10k, constant from 50k.
+- **Direct FullPatch rope3d:** delta_M identical for every sample; ‖ΔM − I‖ grows only 0.06 → 0.12 over training.
+
+The full-patch path keeps every patch and, in the rope3d variants, sees geometry, which is the information delta_M would need. We want to know whether that information exists **inside** the extractor before it collapses, and whether anything downstream keeps it.
+
+**Models:**
+- **Refine FullPatch rope3d** (best) and **Direct FullPatch rope3d** (best): these see geometry.
+- **FullPatch a6000_b64** (best): no geometry, the reference. Add depth 8 if cheap.
+- **Random-init** full-patch rope3d: the floor.
+
+Use each run's saved config (K = 5, `video_deltam_full_image`, `patch_rope3d`, role), the fixed loader (check the `[load]` line), and legacy compat where `load_model_for_evaluation` would apply it.
+
+**Features**, per external camera:
+- encoder per-image tokens (mean over patches) and the C-tokens entering the extractor;
+- **inside the extractor:** the per-image token, and the patch-mean, after each same-time and temporal block (hook `_forward_patch_rope3d` / `_forward_legacy`);
+- the extractor output;
+- delta_M (Direct);
+- the head's C-tokens after each SA layer (Refine).
+
+**Targets:** exactly TODO 5's: (A) true camera pose, including the leave-one-group-out probe; (B) the injected miscalibration, using TODO 5's probe-only 0–60° / 0–60 cm sweep.
+
+**Key questions:**
+1. In the rope3d variants, is the miscalibration decodable at any depth inside the extractor? It sees patch xyz, so cross-camera geometric inconsistency is in principle visible there.
+2. If yes, at which block is it lost?
+3. Does the random-init rope3d extractor carry it (an architecture ceiling vs a learned loss)?
+
+Reuse `scripts/analysis/probe_features.py` and `fit_probes.py` (extend them with options; keep TODO 5's defaults unchanged). Save features under `results/analysis/probes_fullpatch/`.
+
+**Results:**
+
+**Reading:**
