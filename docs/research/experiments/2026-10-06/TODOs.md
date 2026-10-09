@@ -1710,7 +1710,7 @@ Use EMA weights at K = 5, and check the `[load]` and `[arch]` lines (`input_skip
 
 ## TODO 16: online clean-proprio oracle (ceiling for exp 5)
 
-**Status:** claimed (intervention agent)
+**Status:** in progress (intervention agent)
 
 **Why:** offline patching (TODO 7) attributes 79% of 1b's 60/60 damage to the proprio features. Exp 5a/5b (`proprio_context: wrist / none`, training) test fixes that need retraining. This oracle measures the **ceiling** online, without retraining: during IDLT rollouts, compute `proprio_feats` from the **correctly calibrated** point cloud, while every other part of the model sees the miscalibrated one. The features stay in-distribution, because they are exactly what the model computes under clean cameras.
 
