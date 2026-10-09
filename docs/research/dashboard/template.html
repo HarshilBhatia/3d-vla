@@ -45,6 +45,12 @@ tr.fam td{background:var(--panel-2);color:var(--muted);font:500 .7rem var(--font
 .chip{font:500 .72rem var(--font-mono);padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted);background:transparent;cursor:pointer}
 .chip.on{color:var(--fg);border-color:currentColor}
 .chip.empty{opacity:.4;cursor:default}
+.legend{display:flex;flex-wrap:wrap;gap:6px}
+.lg{display:inline-flex;align-items:center;gap:6px;font:500 .75rem var(--font-body);padding:3px 9px 3px 4px;border-radius:99px;border:1px solid var(--line);background:var(--panel-2);color:var(--muted);cursor:pointer}
+.lg.on{color:var(--fg);border-color:var(--faint)}
+.lg.off .dot{opacity:.35}
+.dot{position:relative;width:16px;height:16px;border-radius:50%;flex:none;overflow:hidden;border:2px solid var(--panel)}
+.dot input{position:absolute;inset:-6px;width:28px;height:28px;opacity:0;cursor:pointer;border:0;padding:0}
 .pill{font:500 .68rem var(--font-mono);text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
 .pill.done{color:var(--good);border-color:#24502b} .pill.train{color:var(--warn);border-color:#5b4815} .pill.rej{color:var(--crit);border-color:#5a2a2a}
 .tabs{display:flex;gap:6px;flex-wrap:wrap}
@@ -80,6 +86,7 @@ footer{color:var(--muted);font-size:.78rem;border-top:1px solid var(--line);padd
     <button type="button" data-preset="week">This week only</button>
     <button type="button" data-preset="all">All</button>
     <button type="button" data-preset="none">None</button>
+    <button type="button" id="reset-colors">Reset colours</button>
   </div>
   <div class="tbl"><table id="runs">
     <thead><tr><th>Run</th><th>Mechanism</th><th>Init / steps</th><th>EMA</th><th>Status</th><th class="n">IDLT cal</th><th class="n">IDLT 60/60</th><th>Checkpoints in charts</th></tr></thead>
@@ -99,7 +106,8 @@ footer{color:var(--muted);font-size:.78rem;border-top:1px solid var(--line);padd
   </div>
   <div class="panel" id="p-idlt">
     <h2>IDLT success vs external-camera miscalibration</h2>
-    <p class="note">x: miscalibration level (degrees / cm on the two orbital cameras). Each line is one run at one checkpoint.</p>
+    <p class="note">Click a name to show or hide it; click its dot to change its colour. x: miscalibration level (degrees / cm on the two orbital cameras). Each line is one run at one checkpoint.</p>
+    <div class="legend" id="lg-idlt"></div>
     <div class="chart-box"><canvas id="c-idlt" aria-label="IDLT success by miscalibration level"></canvas></div>
     <details><summary>Table view</summary><div class="tbl" id="t-idlt"></div></details>
   </div>
@@ -109,12 +117,14 @@ footer{color:var(--muted);font-size:.78rem;border-top:1px solid var(--line);padd
       <select id="metric"><option value="e60">IDLT 60/60</option><option value="cal">IDLT calibrated</option><option value="sbrs">SBRS (training-style)</option></select>
     </div>
     <p class="note">Solid: full IDLT (13 × 100) at a checkpoint. Dashed: robustness ladder (13 × 20). Dotted: SBRS ladder (6 × 20). Fine-tunes without a step are left out.</p>
+    <div class="legend" id="lg-steps"></div>
     <div class="chart-box"><canvas id="c-steps" aria-label="Success over training steps"></canvas></div>
     <details><summary>Table view</summary><div class="tbl" id="t-steps"></div></details>
   </div>
   <div class="panel" id="p-g7" hidden>
     <h2>G7 unseen camera group: opposing translation and rotation</h2>
     <p class="note">6 tasks × 20 rollouts per bar, so differences under ~8 points are noise.</p>
+    <div class="legend" id="lg-g7"></div>
     <div class="chart-box"><canvas id="c-g7" aria-label="G7 success by condition"></canvas></div>
     <details><summary>Table view</summary><div class="tbl" id="t-g7"></div></details>
   </div>
@@ -138,9 +148,25 @@ const POINT = ["circle","rect","triangle","rectRot","star","crossRot","rectRound
 const runById = Object.fromEntries(DATA.runs.map(r => [r.id, r]));
 const famRuns = {}; DATA.runs.forEach(r => (famRuns[r.family] ||= []).push(r.id));
 const style = {};
-DATA.runs.forEach(r => { const i = famRuns[r.family].indexOf(r.id); style[r.id] = {color: css(FAM[r.family]), dash: DASH[i % DASH.length]}; });
+DATA.runs.forEach(r => { const i = famRuns[r.family].indexOf(r.id); style[r.id] = {dash: DASH[i % DASH.length]}; });
 const seriesByRun = {}; DATA.series.forEach(s => (seriesByRun[s.run] ||= []).push(s));
 DATA.series.forEach(s => s.point = POINT[seriesByRun[s.run].indexOf(s) % POINT.length]);
+// One hand-picked hue per run (readable on the dark surface); checkpoints are shades of it: earlier steps dimmer, EMA fine-tunes lighter.
+const RUN_COLOR = {"1a": "#60a5fa", "1b": "#f97316", "1c": "#c084fc", "2": "#facc15", "3": "#f43f5e", "4a": "#22c55e", "4b": "#2dd4bf",
+  "A": "#e5e7eb", "C": "#94a3b8", "VP": "#f472b6", "RH": "#a3e635", "NVA": "#818cf8", "FP": "#38bdf8", "R3Dr": "#fdba74",
+  "R3Dd": "#67e8f9", "Base": "#d6a36a", "DeltaM": "#fca5a5"};
+const mix = (a, b, t) => "#" + [1, 3, 5].map(i => Math.round(parseInt(a.substr(i, 2), 16) * (1 - t) + parseInt(b.substr(i, 2), 16) * t).toString(16).padStart(2, "0")).join("");
+const DEFAULT_COLOR = {};
+Object.entries(seriesByRun).forEach(([rid, ss]) => {
+  const base = RUN_COLOR[rid] || "#cccccc", stepped = ss.filter(s => s.step).sort((a, b) => a.step - b.step);
+  stepped.forEach((s, i) => DEFAULT_COLOR[s.key] = stepped.length > 1 ? mix(base, "#111418", 0.6 * (1 - i / (stepped.length - 1))) : base);
+  ss.filter(s => !s.step).forEach(s => DEFAULT_COLOR[s.key] = stepped.length ? mix(base, "#ffffff", 0.45) : base);
+});
+let custom = {};
+try { custom = JSON.parse(localStorage.getItem("runboard-colors")) || {}; } catch (e) {}
+const colorOf = k => custom[k] || DEFAULT_COLOR[k];
+const runColor = rid => { const lt = latest(rid) || (seriesByRun[rid] || [])[0]; return lt ? colorOf(lt.key) : "#888"; };
+const setColor = (k, c) => { custom[k] = c; try { localStorage.setItem("runboard-colors", JSON.stringify(custom)); } catch (e) {} refresh(); };
 const hasData = s => Object.keys(s.idlt).length || Object.keys(s.g7).length;
 
 const DEFAULT = ["1a@200k","1b@200k","1c@200k","2@200k","3@200k","4a@200k","4b@200k","A@160k","A@200k","VP@84k","RH+EMA","FP","Base@160k","DeltaM@140k"];
@@ -160,7 +186,7 @@ function renderRuns() {
   const tb = document.querySelector("#runs tbody"); tb.innerHTML = "";
   let fam = null;
   DATA.runs.forEach(r => {
-    if (r.family !== fam) { fam = r.family; tb.insertAdjacentHTML("beforeend", `<tr class="fam"><td colspan="8"><span class="sw" style="background:${style[r.id].color}"></span>${fam}</td></tr>`); }
+    if (r.family !== fam) { fam = r.family; tb.insertAdjacentHTML("beforeend", `<tr class="fam"><td colspan="8">${fam}</td></tr>`); }
     const ss = seriesByRun[r.id] || [];
     const anyOn = ss.some(s => sel.has(s.key));
     const lt = latest(r.id);
@@ -168,9 +194,9 @@ function renderRuns() {
     const e60 = lt && lt.idlt["60/60"] ? lt.idlt["60/60"][0].toFixed(1) : "–";
     const at = lt ? ` <span class="muted">@${lt.step ? lt.step + "k" : lt.key.split(/[@+]/).pop()}</span>` : "";
     const pc = r.status === "done" ? "done" : r.status === "training" ? "train" : "";
-    const chips = ss.map(s => `<button type="button" class="chip ${sel.has(s.key) ? "on" : ""} ${hasData(s) ? "" : "empty"}" data-key="${s.key}" style="${sel.has(s.key) ? "color:" + style[r.id].color : ""}" title="${s.label}">${s.key.replace(r.id, "").replace(/^@/, "") || s.key}</button>`).join("");
+    const chips = ss.map(s => `<button type="button" class="chip ${sel.has(s.key) ? "on" : ""} ${hasData(s) ? "" : "empty"}" data-key="${s.key}" style="${sel.has(s.key) ? "color:" + colorOf(s.key) : ""}" title="${s.label}">${s.key.replace(r.id, "").replace(/^@/, "") || s.key}</button>`).join("");
     tb.insertAdjacentHTML("beforeend", `<tr class="run-row ${anyOn ? "" : "off"}" data-run="${r.id}">
-      <td><span class="sw" style="background:${style[r.id].color}"></span><b>${r.name}</b><div class="note mono">${r.config}</div></td>
+      <td><span class="sw" style="background:${runColor(r.id)}"></span><b>${r.name}</b><div class="note mono">${r.config}</div></td>
       <td>${r.mech}</td><td>${r.init} · ${r.steps}</td><td>${r.ema}</td><td><span class="pill ${pc}">${r.status}</span></td>
       <td class="n">${cal}</td><td class="n">${e60}${at}</td><td><div class="chips">${chips}</div></td></tr>`);
   });
@@ -204,12 +230,13 @@ let cIdlt, cSteps, cG7;
 function drawIdlt() {
   const ds = selected().filter(s => Object.keys(s.idlt).length).map(s => ({
     label: s.label, data: DATA.levels.map(l => s.idlt[l] ? {x: l, y: s.idlt[l][0], n: s.idlt[l][1]} : {x: l, y: null}),
-    borderColor: style[s.run].color, backgroundColor: style[s.run].color, borderDash: style[s.run].dash, pointStyle: s.point,
+    borderColor: colorOf(s.key), backgroundColor: colorOf(s.key), borderDash: style[s.run].dash, pointStyle: s.point,
     borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, spanGaps: true, tension: 0}));
   cIdlt?.destroy();
   cIdlt = new Chart(document.getElementById("c-idlt"), {type: "line", data: {labels: DATA.levels, datasets: ds},
-    options: {responsive: true, maintainAspectRatio: false, interaction: {mode: "nearest", intersect: false}, plugins: {tooltip: tip, legend: {position: "bottom", labels: {usePointStyle: true, boxWidth: 8}}},
+    options: {responsive: true, maintainAspectRatio: false, interaction: {mode: "nearest", intersect: false}, plugins: {tooltip: tip, legend: {display: false}},
       scales: {x: {title: {display: true, text: "miscalibration (° / cm)"}, grid: {display: false}}, y: axisY}}});
+  legend("lg-idlt", DATA.series.filter(s => Object.keys(s.idlt).length).map(s => ({keys: [s.key], label: s.label, color: colorOf(s.key)})));
   table("t-idlt", ["run"].concat(DATA.levels), selected().filter(s => Object.keys(s.idlt).length).map(s => [s.label].concat(DATA.levels.map(l => s.idlt[l] ? s.idlt[l][0].toFixed(1) : "–"))));
 }
 
@@ -218,7 +245,7 @@ function drawSteps() {
   const runs = [...new Set(selected().map(s => s.run))];
   const ds = [], rows = [];
   runs.forEach(rid => {
-    const st = style[rid];
+    const st = {color: runColor(rid)};
     if (m !== "sbrs") {
       const pts = (seriesByRun[rid] || []).filter(s => s.step && s.idlt[lvl]).map(s => ({x: s.step, y: s.idlt[lvl][0], n: s.idlt[lvl][1]})).sort((a, b) => a.x - b.x);
       if (pts.length) { ds.push({label: `${runById[rid].name} · IDLT ×100`, data: pts, borderColor: st.color, backgroundColor: st.color, borderWidth: 2, pointRadius: 4, tension: 0}); pts.forEach(p => rows.push([runById[rid].name + " (×100)", p.x + "k", p.y.toFixed(1)])); }
@@ -231,21 +258,35 @@ function drawSteps() {
   });
   cSteps?.destroy();
   cSteps = new Chart(document.getElementById("c-steps"), {type: "line", data: {datasets: ds},
-    options: {responsive: true, maintainAspectRatio: false, interaction: {mode: "nearest", intersect: false}, plugins: {tooltip: tip, legend: {position: "bottom", labels: {usePointStyle: true, boxWidth: 8}}},
+    options: {responsive: true, maintainAspectRatio: false, interaction: {mode: "nearest", intersect: false}, plugins: {tooltip: tip, legend: {display: false}},
       scales: {x: {type: "linear", min: 40, max: 210, title: {display: true, text: "training step (k)"}, grid: {display: false}}, y: axisY}}});
+  const stepRuns = DATA.runs.filter(r => (seriesByRun[r.id] || []).some(s => s.step && (s.idlt.calibrated || s.idlt["60/60"])) || DATA.ladders.some(l => l.run === r.id && l.points.length));
+  legend("lg-steps", stepRuns.map(r => ({keys: (seriesByRun[r.id] || []).map(s => s.key), label: r.name, color: runColor(r.id), colorKey: (latest(r.id) || seriesByRun[r.id][0]).key})));
   table("t-steps", ["series", "step", "success"], rows);
 }
 
 function drawG7() {
   const ss = selected().filter(s => Object.keys(s.g7).length);
-  const ds = ss.map(s => ({label: s.label, data: DATA.g7.map(c => s.g7[c] ? s.g7[c][0] : null), backgroundColor: style[s.run].color,
+  const ds = ss.map(s => ({label: s.label, data: DATA.g7.map(c => s.g7[c] ? s.g7[c][0] : null), backgroundColor: colorOf(s.key),
     borderColor: css("--panel"), borderWidth: 1, borderRadius: 3, barPercentage: .9, categoryPercentage: .85}));
   cG7?.destroy();
   cG7 = new Chart(document.getElementById("c-g7"), {type: "bar", data: {labels: DATA.g7, datasets: ds},
-    options: {responsive: true, maintainAspectRatio: false, plugins: {tooltip: {...tip, mode: "nearest", intersect: true}, legend: {position: "bottom", labels: {boxWidth: 10}}},
+    options: {responsive: true, maintainAspectRatio: false, plugins: {tooltip: {...tip, mode: "nearest", intersect: true}, legend: {display: false}},
       scales: {x: {grid: {display: false}}, y: axisY}}});
+  legend("lg-g7", DATA.series.filter(s => Object.keys(s.g7).length).map(s => ({keys: [s.key], label: s.label, color: colorOf(s.key)})));
   table("t-g7", ["run"].concat(DATA.g7), ss.map(s => [s.label].concat(DATA.g7.map(c => s.g7[c] ? s.g7[c][0].toFixed(1) : "–"))));
 }
+
+function legend(id, items) {
+  const el = document.getElementById(id);
+  el.innerHTML = items.map((it, i) => { const on = it.keys.some(k => sel.has(k));
+    return `<span class="lg ${on ? "on" : "off"}" data-i="${i}" role="button" tabindex="0" aria-pressed="${on}"><span class="dot" style="background:${it.color}" title="Change colour"><input type="color" value="${it.color}" data-i="${i}" aria-label="Colour for ${it.label}"></span>${it.label}</span>`; }).join("");
+  el.onclick = e => { if (e.target.matches("input")) return; const lg = e.target.closest(".lg"); if (!lg) return;
+    const it = items[+lg.dataset.i], on = it.keys.some(k => sel.has(k)); it.keys.forEach(k => on ? sel.delete(k) : sel.add(k)); refresh(); };
+  el.onkeydown = e => { if ((e.key === "Enter" || e.key === " ") && e.target.matches(".lg")) { e.preventDefault(); e.target.click(); } };
+  el.onchange = e => { if (!e.target.matches("input[type=color]")) return; const it = items[+e.target.dataset.i]; setColor(it.colorKey || it.keys[0], e.target.value); };
+}
+document.getElementById("reset-colors").addEventListener("click", () => { custom = {}; try { localStorage.removeItem("runboard-colors"); } catch (e) {} refresh(); });
 
 function table(id, head, rows) {
   document.getElementById(id).innerHTML = rows.length ? `<table><thead><tr>${head.map((h, i) => `<th class="${i ? "n" : ""}">${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td class="${i ? "n" : ""}">${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : `<p class="note" style="padding:10px">No selected run has results here.</p>`;
