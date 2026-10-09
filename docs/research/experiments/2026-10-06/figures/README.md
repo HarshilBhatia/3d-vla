@@ -124,3 +124,11 @@ The data comes from `scripts/analysis/follow_miscal.py --eval-loader` and `scrip
 | `todo13_follow_beta_rot.{png,svg}` | Orientation following β, same panels | same |
 | `todo13_follow_closest_share.{png,svg}` | Share of 60/60 predictions nearest the true p, N₀p or N₁p | same |
 | `todo13_patch_fraction_recovered.{png,svg}` | Activation patching: share of the clean → heavy60 degradation recovered or caused per component, including the extractor's patch xyz and the Direct delta_M. FP's bars are ill-posed because it has no offline gap | `scripts/analysis/plot_activation_patching.py` |
+
+## exp 4a attention and C-tokens ([TODOs.md](../TODOs.md), TODO 14a)
+
+The data comes from `scripts/analysis/todo14a.slurm` (GPU; `PART=attn|ctok`, `STEP=120000|200000`), which writes `results/analysis/todo14a/`. Models: exp 4a (pre-LN extractor) and exp 3 at the same step, EMA, K=5. Data: all 853 val samples, clean vs heavy60.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `todo14a_ctoken_rel_change_120k.{png,svg}` | Per-layer relative change under heavy60 of C-tokens, external/wrist FPS tokens and trajectory tokens, exp 4a vs exp 3 at 120k | `scripts/analysis/plot_ctoken_behaviour.py --in-dir results/analysis/todo14a/ctoken_behaviour --fig docs/research/experiments/2026-10-06/figures/todo14a_ctoken_rel_change_120k` |

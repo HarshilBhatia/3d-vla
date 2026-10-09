@@ -12,7 +12,9 @@ import torch
 
 MODELS = [("base160k", "Base 160k (no history)"), ("deltam140k", "DeltaM 140k (no history)"),
           ("adaln1b_200k", "1b 200k (collapsed C)"), ("exp3_200k", "exp 3 200k (collapsed C)"),
-          ("fp", "FP (full-patch)"), ("fp_d8", "FP-d8"), ("fp_r3d_refine", "FP-R3D-refine"), ("fp_r3d_direct", "FP-R3D-direct")]
+          ("fp", "FP (full-patch)"), ("fp_d8", "FP-d8"), ("fp_r3d_refine", "FP-R3D-refine"), ("fp_r3d_direct", "FP-R3D-direct"),
+          ("exp4a_120000", "exp 4a 120k (pre-LN extractor)"), ("exp3_120000", "exp 3 120k"),
+          ("exp4a_200000", "exp 4a 200k (pre-LN extractor)"), ("exp3_200000", "exp 3 200k")]
 LAYERS = ["in", "ca0", "ca1", "sa0", "sa1", "sa2", "sa3", "pos0", "pos1", "rot0", "rot1"]
 PLOT_LAYERS = ["ca0", "ca1", "in", "sa0", "sa1", "sa2", "sa3", "pos0", "pos1", "", "rot0", "rot1"]
 SERIES = [(0, "C-token cam 0", "#2a78d6", "-"), (1, "C-token cam 1", "#2a78d6", "--"), (2, "C-token cam 2", "#eb6834", "-"),

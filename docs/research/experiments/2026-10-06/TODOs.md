@@ -1425,7 +1425,59 @@ TODO 3 and TODO 10 metrics:
 
 **Results:**
 
-**Reading:**
+**Setup.**
+- Scripts: `scripts/analysis/todo14a.slurm`, run as `PART=attn` (`camera_attention.py --faithful`) and `PART=ctok` (`ctoken_behaviour.py`), with `STEP=120000`. Jobs 3998722 and 3998723.
+- Data: `results/analysis/todo14a/{camera_attention,ctoken_behaviour}/`. Summaries come from `plot_camera_attention.py` and `plot_ctoken_behaviour.py`.
+- Both models load EMA weights with `:ema:ckpt`. The `[load]` lines show `visual_num_history=5`, cameras [0,1], role refine. 4a's saved config has `video_deltam_prenorm: true`.
+- Same 853 val samples, seeds and conditions as TODOs 3 and 10. Recomputed attention matches the module output to 1.1e-6.
+
+**120k: exp 4a vs exp 3**
+
+| | **exp 4a 120k** (pre-LN, live) | exp 3 120k (collapsed) |
+|---|---|---|
+| **C-token content at head input** | | |
+| spread across samples (per-channel std), cam 0 / 1 / 2 / 3 | **0.66 / 0.59 / 0.62 / 0.72** | 0 / 0 / 0 / 0 |
+| token norm | 11.2–11.9 | 11.1 |
+| distance between cameras, 0–1 / 0–2 / 2–3 | **5.95 / 9.64 / 10.68** | 0 / 0 / 0 |
+| η² task / camera group (per camera) | 0.47–0.53 / 0.05–0.07 | n/a (no spread) |
+| content clean vs heavy60 at head input | identical (appearance-only input) | identical |
+| **Attention** | | |
+| FPS external token share | 19.0% (cam 0–3: 21.3 / 17.4 / 88.1 / 77.1) | 21.3% (22.9 / 20.6 / 86.1 / 74.4) |
+| external share ca1, clean → heavy60 | 45.2 → 45.4 (+0.23) | 48.2 → 49.1 (+0.91) |
+| external share sa3 | 20.7 → 18.2 (**−2.51**) | 28.1 → 27.7 (−0.39) |
+| external share pos1 | 10.2 → 7.7 (**−2.53**) | 16.3 → 14.9 (−1.45) |
+| external share rot0 / rot1 | −0.08 / −0.14 | 0.00 / 0.00 |
+| largest entropy drop | −0.16 nats (sa2) | −0.065 (sa2) |
+| traj → all C-tokens, sa0 / sa1 / sa2 / sa3 | 3.8 / **8.0 / 8.2** / 3.6% | 3.1 / 4.3 / 3.6 / 2.4% |
+| traj → C-tokens, pos / rot | 2.4–4.0% / 2.4–3.0% | 1.5–3.0% / 2.1–2.2% |
+| which C-tokens the traj queries read (sa2, pos1) | wrist: sa2 cams 2/3 3.5/3.1% vs ext 0.7/0.8%; pos1 2.4/1.3% vs 0.2/0.2% | all four alike (0.3–1.1%) |
+| traj → C under heavy60 | sa2 8.2 → **11.2%** (the wrist C-tokens gain); elsewhere ≤0.3 pp | sa2 3.6 → 4.9%; elsewhere ≤0.1 pp |
+| C rows → ext FPS / wrist FPS / other C | 0.17–0.23 / 0.62–0.80 / 1.5–9.8% (sa1–sa2 up to 9.8%) | 0.16–0.27 / 0.65–0.79 / 1.2–2.8% |
+| **Relative change clean → heavy60** (C ext / C wr / FPS ext / FPS wr / traj) | | |
+| sa1 | 0.077 / 0.022 / 0.079 / 0.025 / 0.032 | 0.117 / 0.029 / 0.108 / 0.048 / 0.037 |
+| sa3 | **0.258** / 0.041 / 0.174 / 0.057 / 0.050 | 0.131 / 0.042 / 0.115 / 0.069 / 0.044 |
+| pos0 | 0.375 / 0.047 / 0.308 / 0.060 / 0.045 | 0.229 / 0.040 / 0.144 / 0.059 / 0.037 |
+| pos1 | 0.320 / 0.038 / 0.313 / 0.050 / 0.030 | 0.241 / 0.040 / 0.213 / 0.052 / 0.028 |
+| **Reliance: offline pos_l2 (cm)** | | |
+| clean / heavy60 | 1.14 / 1.57 | 1.14 / 1.81 |
+| clean: mask all C / mask external C | **1.76** / 1.14 | 1.18 / 1.14 |
+| clean: mean C / zero C | **2.07 / 2.41** | 1.14 / 1.18 |
+| heavy60: mask all C / mask external C / mean C | 2.30 / 1.53 / 2.74 | 1.76 / 1.73 / 1.81 |
+
+Figure: `figures/todo14a_ctoken_rel_change_120k.{png,svg}`, the item-3 per-layer relative change for both models.
+
+**200k:** pending until `interm_step_200000.pth` exists; rows go here.
+
+**Reading (120k):**
+- **Yes, the head now uses the C-tokens, and it relies on them, but mostly on the wrist ones.**
+  - 4a's C-tokens carry real per-scene, per-camera content: spread 0.6–0.7, about six times Base's, with large camera-to-camera distances. About half of it is explained by task, and almost none by camera group.
+  - The trajectory queries attend to them about twice as much as in exp 3 (8% at sa1–sa2).
+  - Removing them as keys costs +0.62 cm clean (exp 3: +0.04). Replacing their content with the mean costs +0.93 cm, because it also changes the live delta_M.
+  - Masking only the external C-tokens costs nothing (1.14 → 1.14). And the traj → C mass at sa2 and pos1 goes 4–10× more to cameras 2/3 than 0/1.
+  - So the reliance is on the **wrist-camera C-tokens**. I didn't run a wrist-only mask; this is inferred from all-minus-external, so it could also be an interaction.
+- **Under 60/60 the external C-tokens are the most-perturbed tokens again** (relative change 0.26 at sa3, twice exp 3's). Their content is unchanged; the change comes through their miscalibrated positions and the SA mixing. The head's response is to shift attention away from the external cameras somewhat more than exp 3 does (−2.5 pp at sa3 and pos1, against −0.4 and −1.45), and to lean further on the wrist C-tokens at sa2 (+3 pp).
+- **The C-tokens still aren't a route for the damage.** Masking the external C-tokens recovers only 0.04 of 4a's 0.43 cm heavy60 damage; exp 3's figure is 0.08 of 0.67. 4a's offline damage is smaller (0.43 vs 0.67 cm). 4a has no lever over the external cameras through C-token content, since that content can't see miscalibration. Its gain more plausibly comes from its stronger use of calibrated wrist information (C-tokens and attention), which TODO 14c's patching can test.
+- Caveat: one checkpoint step per model so far; the 200k comparison follows.
 
 ### TODO 14b: probes
 

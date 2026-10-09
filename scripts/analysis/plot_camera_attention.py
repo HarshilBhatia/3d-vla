@@ -14,7 +14,9 @@ LAYERS = ["ca0", "ca1", "sa0", "sa1", "sa2", "sa3", "pos0", "pos1", "rot0", "rot
 MODELS = [("exp3_200k", "exp 3 (delta_M) 200k"), ("adaln1b_200k", "1b (adaLN) 200k"),
           ("controlA_200k", "control A 200k"), ("ema20k_randhist_15k", "warm randhist + EMA 15k"),
           ("deltam140k", "DeltaM 140k (no history)"), ("base160k", "Base 160k (no history)"),
-          ("fp", "FP (full-patch)"), ("fp_d8", "FP-d8"), ("fp_r3d_refine", "FP-R3D-refine"), ("fp_r3d_direct", "FP-R3D-direct")]
+          ("fp", "FP (full-patch)"), ("fp_d8", "FP-d8"), ("fp_r3d_refine", "FP-R3D-refine"), ("fp_r3d_direct", "FP-R3D-direct"),
+          ("exp4a_120000", "exp 4a 120k (pre-LN extractor)"), ("exp3_120000", "exp 3 120k"),
+          ("exp4a_200000", "exp 4a 200k (pre-LN extractor)"), ("exp3_200000", "exp 3 200k")]
 COLORS = ["#2a78d6", "#eb6834", "#1baf7a", "#eda100", "#e87ba4", "#008300"]
 
 
