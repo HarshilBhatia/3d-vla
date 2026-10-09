@@ -1,0 +1,181 @@
+{
+  "schema_version": 1,
+  "campaign_id": "idlt_scaled_extreme_task_heldout_group_v02_5060",
+  "description": "In-Distribution Lab Transfer: external-camera-only calibration robustness. The selected camera group was seen in training for other tasks, but not this target task.",
+  "calibration_registry": "instructions/eval_calibrations_idlt_scaled_extreme_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {
+      "id": "exp4b_inputskip_s200k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_deltam_inputskip_scratch/interm_step_200000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_push_box": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_lift_ball": {
+      "id": "g5_task_heldout_group",
+      "spawn_camera_group": "G5",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_dual_push_buttons": {
+      "id": "g6_task_heldout_group",
+      "spawn_camera_group": "G6",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_plate": {
+      "id": "g1_task_heldout_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_put_item_in_drawer": {
+      "id": "g2_task_heldout_group",
+      "spawn_camera_group": "G2",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_put_bottle_in_fridge": {
+      "id": "g3_task_heldout_group",
+      "spawn_camera_group": "G3",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_handover_item": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_laptop": {
+      "id": "g5_task_heldout_group",
+      "spawn_camera_group": "G5",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_straighten_rope": {
+      "id": "g6_task_heldout_group",
+      "spawn_camera_group": "G6",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_sweep_to_dustpan": {
+      "id": "g1_task_heldout_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_lift_tray": {
+      "id": "g2_task_heldout_group",
+      "spawn_camera_group": "G2",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_handover_item_easy": {
+      "id": "g3_task_heldout_group",
+      "spawn_camera_group": "G3",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_take_tray_out_of_oven": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_push_box": [
+      "seen-g4-medium-unknown-e50deg-t50cm-v01",
+      "seen-g4-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_lift_ball": [
+      "seen-g5-medium-unknown-e50deg-t50cm-v01",
+      "seen-g5-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_dual_push_buttons": [
+      "seen-g6-medium-unknown-e50deg-t50cm-v01",
+      "seen-g6-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_pick_plate": [
+      "seen-g1-medium-unknown-e50deg-t50cm-v01",
+      "seen-g1-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_put_item_in_drawer": [
+      "seen-g2-medium-unknown-e50deg-t50cm-v01",
+      "seen-g2-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_put_bottle_in_fridge": [
+      "seen-g3-medium-unknown-e50deg-t50cm-v01",
+      "seen-g3-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_handover_item": [
+      "seen-g4-medium-unknown-e50deg-t50cm-v01",
+      "seen-g4-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_pick_laptop": [
+      "seen-g5-medium-unknown-e50deg-t50cm-v01",
+      "seen-g5-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_straighten_rope": [
+      "seen-g6-medium-unknown-e50deg-t50cm-v01",
+      "seen-g6-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_sweep_to_dustpan": [
+      "seen-g1-medium-unknown-e50deg-t50cm-v01",
+      "seen-g1-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_lift_tray": [
+      "seen-g2-medium-unknown-e50deg-t50cm-v01",
+      "seen-g2-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_handover_item_easy": [
+      "seen-g3-medium-unknown-e50deg-t50cm-v01",
+      "seen-g3-medium-unknown-e60deg-t60cm-v01"
+    ],
+    "bimanual_take_tray_out_of_oven": [
+      "seen-g4-medium-unknown-e50deg-t50cm-v01",
+      "seen-g4-medium-unknown-e60deg-t60cm-v01"
+    ]
+  },
+  "calibrations": [
+    "unknown-e50deg-t50cm",
+    "unknown-e60deg-t60cm"
+  ],
+  "tasks": [
+    "bimanual_push_box",
+    "bimanual_lift_ball",
+    "bimanual_dual_push_buttons",
+    "bimanual_pick_plate",
+    "bimanual_put_item_in_drawer",
+    "bimanual_put_bottle_in_fridge",
+    "bimanual_handover_item",
+    "bimanual_pick_laptop",
+    "bimanual_straighten_rope",
+    "bimanual_sweep_to_dustpan",
+    "bimanual_lift_tray",
+    "bimanual_handover_item_easy",
+    "bimanual_take_tray_out_of_oven"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 100
+  }
+}
