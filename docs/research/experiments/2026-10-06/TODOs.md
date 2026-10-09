@@ -1392,3 +1392,68 @@ More on following:
   - The rope3d extractors' xyz path would matter only if the extractor were alive.
   - Offline, keypose only, one heavy60 draw per sample.
   - The online numbers come from different protocols (IDLT, scaled-extreme, the Rope3D sweep) and are not strictly comparable across the four models.
+
+---
+
+## TODO 14: what does exp 4a's live extractor do? (pre-LN extractor, exp 3's recipe)
+
+**Context:** exp 4a (`train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_deltam_prenorm_scratch`, EMA, K = 5) uses a pre-LayerNorm history extractor (`video_deltam_prenorm: true`). Its extractor stays alive.
+
+On real data at 120k (`results/analysis/exp4_delta_m_120k/`), against exp 3 at 120k:
+- C-token spread into the head is 0.41 vs 0.0;
+- delta_M spread across samples is 0.74 / 0.74 / 0.20 / 0.20 at CA / SA1 / SA2 / SA3, vs 0 / 0.19 / 0.04 / 0.0007;
+- camera 0 and 1 differ, by 0.65–0.96 at CA and SA1;
+- clean vs 60/60 is 0 at CA (appearance-only input) and 0.03–0.06 later.
+
+Robustness ladder (13 × 20, EMA): 100k 71.9 / 58.5 and 120k 73.5 / 59.6 (calibrated / 60-60). Full 215-cell suites at 200k are queued on its training (arrays 3998707–13).
+
+**Run each part on 4a at 120k now, and again at 200k** (`interm_step_200000.pth`, due about 9 h after 8 Oct 20:30), with exp 3 at the same steps as the reference. Use `:ema:ckpt` load specs, check the `[load]` line shows `visual_num_history=5`, and use the same samples and seeds as before.
+
+### TODO 14a: attention and C-token behaviour
+
+**Status:** claimed (attention agent)
+
+TODO 3 and TODO 10 metrics:
+- external vs wrist share per layer, clean vs heavy;
+- FPS external share;
+- C-token content spread, camera-pair distance and task η²;
+- layer-by-layer relative change clean → heavy;
+- attention to and from the C-tokens;
+- masking and mean-replacement reliance.
+
+**Question:** now that the C-tokens carry per-scene content, does the head attend to them or rely on them more than in exp 3?
+
+**Results:**
+
+**Reading:**
+
+### TODO 14b: probes
+
+**Status:** claimed (probing agent)
+
+TODO 5 / TODO 11 probes on 4a: true camera pose (including leave-one-group-out) and the injected miscalibration (0–60° / 0–60 cm sweep), at every depth:
+- encoder C-tokens;
+- **inside the extractor**, after each block;
+- extractor output;
+- head SA layers;
+- delta_M per layer.
+
+**Question:** a live pooled extractor still sees appearance only. Does it at least keep camera pose, which exp 3 discards? Does any delta_M layer become decodable for pose or miscalibration?
+
+**Results:**
+
+**Reading:**
+
+### TODO 14c: following and activation patching
+
+**Status:** claimed (intervention agent)
+
+TODO 6 and TODO 7 on 4a:
+- following coefficients, with single-camera and rigid controls and the magnitude sweep;
+- patching: positions (C-token, FPS and dense), proprio, delta_M replay per call, combinations.
+
+**Question:** does 4a's per-scene delta_M carry or reduce any of the 60/60 damage, where exp 3's carried 0%?
+
+**Results:**
+
+**Reading:**
