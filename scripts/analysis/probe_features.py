@@ -67,7 +67,7 @@ def load(path, weights):
             raise RuntimeError(f"architecture mismatch: missing {trained[:5]} unexpected {unexpected[:5]}")
     print(f"[arch] full_image={getattr(args, 'video_deltam_full_image', False)} patch_rope3d={getattr(args, 'video_deltam_patch_rope3d', False)} "
           f"role={getattr(args, 'video_deltam_role', None)} depth={getattr(args, 'video_deltam_depth', None)} "
-          f"history_sampling={args.visual_history_sampling} prenorm={getattr(args, 'video_deltam_prenorm', False)}", flush=True)
+          f"history_sampling={args.visual_history_sampling} prenorm={getattr(args, 'video_deltam_prenorm', False)} input_skip={getattr(args, 'video_deltam_input_skip', False)}", flush=True)
     return model.cuda().eval(), args
 
 
@@ -121,6 +121,8 @@ class Recorder:
             vd.register_forward_hook(self._hist)
         if vd is not None and (self.full or extractor_blocks):
             vd.register_forward_pre_hook(self._xshape)
+            if getattr(vd, "input_skip", False):
+                vd.input_skip_proj.register_forward_hook(self._xskip)
             for i, (st, tp) in enumerate(zip(vd.same_time, vd.temporal)):
                 st.register_forward_hook(self._xblock(f"x{i}st"))
                 tp.register_forward_hook(self._xblock(f"x{i}tp"))
@@ -161,6 +163,9 @@ class Recorder:
         self.hist = out[0][:, -1].detach().float().cpu()
         if out[2] is not None:
             self.xdm = out[2].detach().float().cpu()
+
+    def _xskip(self, mod, inp, out):
+        self.x["xskip"] = out[:, -1].detach().float().cpu()
 
     def _xshape(self, mod, args):
         self.xs = args[0].shape[:4]

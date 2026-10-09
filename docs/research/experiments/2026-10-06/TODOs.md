@@ -1735,9 +1735,53 @@ Use EMA weights at K = 5, and check the `[load]` and `[arch]` lines (`input_skip
 
 **Report:** one table, task and camera-group accuracy at each depth, for 4b / 4a / exp 3. Does 4b carry the fingerprint at its extractor output and into delta_M? If 4b carries it as strongly as 4a but robustness is better, the shortcut hypothesis is in trouble.
 
-**Results:**
+**Results (160k, all EMA).**
 
-**Reading:**
+*Setup.*
+- **Load.** `[load]` shows `visual_num_history=5` for all three models. `[arch]` shows pooled, refine, depth 4, random history, with `input_skip=True` for 4b, `prenorm=True` for 4a, and both False for exp 3.
+- **Protocol: TODO 14b's** — fp32 features, TODO 5's samples, seeds and conditions, and the in-extractor blocks.
+- **New depths:**
+  - the skip term alone (`xskip`, the output of the `input_skip_proj` hook);
+  - a 13-way task probe at every depth (`fit_probes.py --task`), on clean features, per external camera.
+- **"Stack out"** is the last temporal block before the skip (4b, exp 3), or before `out_norm` (4a).
+- **References.** Task chance is 0.08 and camera-group chance 0.17; a task one-hot gives camera group at 0.33. The LOGO mean-pose baseline is 50 cm and the nearest-other-pose baseline 18 cm.
+
+Each cell is task acc / camera-group acc / LOGO position error (cm) / rotation-vector R² / clean-vs-sweep accuracy, averaged over cameras 0 and 1.
+
+| Stage | exp 4b (input skip) | exp 4a (pre-LN) | exp 3 |
+|---|---|---|---|
+| enc | 1.00 / 0.96 / 20 / 0.00 / 0.50 | 1.00 / 0.92 / 20 / 0.00 / 0.50 | 1.00 / 0.91 / 26 / 0.00 / 0.50 |
+| stack out (TP4) | 0.18 / 0.22 / 50 / 0.00 / 0.50 | 1.00 / 0.50 / 49 / 0.00 / 0.50 | 0.16 / 0.18 / 50 / 0.00 / 0.50 |
+| skip term | **1.00 / 0.94 / 20** / 0.00 / 0.50 | – | – |
+| extractor out | **1.00 / 0.94 / 20** / 0.00 / 0.50 | 1.00 / 0.49 / 49 / 0.00 / 0.50 | 0.16 / 0.18 / 50 / 0.00 / 0.50 |
+| SA1 | 1.00 / 0.92 / 22 / 0.07 / 0.56 | 1.00 / 0.49 / 48 / 0.04 / 0.52 | 1.00 / 0.67 / 44 / 0.10 / 0.55 |
+| SA2 | 1.00 / 0.90 / 23 / 0.08 / 0.56 | 1.00 / 0.53 / 48 / 0.06 / 0.53 | 1.00 / 0.67 / 43 / 0.19 / 0.59 |
+| SA3 | 1.00 / 0.86 / 24 / 0.07 / 0.57 | 1.00 / 0.75 / 35 / 0.23 / 0.61 | 1.00 / 0.69 / 41 / 0.19 / 0.59 |
+| SA4 | 1.00 / 0.83 / 25 / 0.13 / 0.58 | 1.00 / 0.78 / 30 / 0.26 / 0.63 | 1.00 / 0.66 / 41 / 0.17 / 0.60 |
+| delta_M (from ext out) | 0.57 / 0.38 / 46 / 0.00 / 0.50 | 0.62 / 0.27 / 50 / 0.00 / 0.50 | 0.16 / 0.20 / 50 / 0.00 / 0.50 |
+| delta_M (from SA1) | 0.54 / 0.36 / 46 / 0.00 / 0.51 | 0.76 / 0.32 / 51 / 0.00 / 0.50 | 0.58 / 0.26 / 50 / 0.00 / 0.51 |
+| delta_M (from SA2) | 0.50 / 0.29 / 50 / 0.00 / 0.50 | 0.31 / 0.24 / 50 / 0.00 / 0.50 | 0.22 / 0.22 / 49 / 0.00 / 0.50 |
+| delta_M (from SA3) | 0.16 / 0.20 / 50 / 0.00 / 0.50 | 0.29 / 0.21 / 49 / 0.00 / 0.51 | 0.16 / 0.20 / 50 / 0.00 / 0.50 |
+
+- **Inside 4b's stack**, task and group stay near the encoder level through TP2 (0.81–1.00), then collapse at ST3–TP4 (task 0.18, group 0.22), as in exp 3, which collapses earlier (from TP1).
+- **The miscalibration** is invisible up to the extractor output in all three models (zero sweep shift); no delta_M layer decodes it.
+- **Files.**
+  - Data: `results/analysis/probes_exp4b/{exp4b,exp4a,exp3}_160k.pt` and `fits/`.
+  - 200k refits with `--task` of TODO 14b's features: `fits/probe_results_{exp4a,exp3}_200k.json`.
+  - Table: `summary_table_160k.md`. Figure: [`figures/probe_exp4b_160k.png`](figures/probe_exp4b_160k.png).
+  - Scripts: `scripts/analysis/probe_features.py` (skip-term hook), `scripts/analysis/fit_probes.py --task`, `scripts/analysis/plot_probes_exp4b.py --step 160k`.
+
+**Reading (160k).**
+- **4b carries the task × camera fingerprint more strongly than 4a, everywhere downstream of the extractor.**
+  - The skip term alone reproduces the encoder's code: task 1.00, group 0.94, and LOGO 20 cm, which is the encoder level, not the 50 cm of 4a's or exp 3's output.
+  - It passes straight through the extractor output into the head: group 0.83–0.92 in SA1–SA4, against 0.49–0.78 (4a) and 0.66–0.69 (exp 3).
+  - It reaches delta_M more than in either other model: group 0.36–0.38 at the first two calls, task 0.50–0.57.
+- **Yet 4b is the most robust of the three** (ladder 160k: 80.4 / 65.8). So **the "task × camera-setup fingerprint shortcut" hypothesis for 4a's IDLT deficit is in trouble.** A stronger fingerprint in the C-tokens coexists with better calibrated and 60/60 robustness. Whatever hurts 4a is not simply the presence of that code. Candidates are how 4a's pre-LN stack transforms the code, or its effect on training dynamics.
+- **Task is decodable from every head SA C-token in all three models (1.00).** The C-tokens mix with the instruction tokens in shared SA, so "the head knows the task" is not a distinguishing feature. What differs is the camera-group code in the C-tokens and delta_M.
+- **Miscalibration conclusions are unchanged.** It appears only in head SA via attention to displaced scene tokens. It is somewhat weaker in 4b (SA4 rotation-vector R² 0.13 vs 0.26 / 0.17), consistent with the C-tokens being dominated by the appearance skip.
+- **Caveats.** These are probes, not interventions: they show the code is present, not that the head uses it. TODO 14a/14c-style reliance tests (mean-replacing the skip term, or patching it across groups) would test use directly.
+
+**200k:** pending (4b `interm_step_200000.pth` not yet written).
 
 ---
 

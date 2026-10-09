@@ -100,9 +100,12 @@ def feature_sets(F, last_slot=1):
         if "adaln" in F:
             for k in range(F["adaln"].shape[2]):
                 out[f"ad{k}@{sn}"] = (1 + k, sn, F["adaln"][:, s, k])
-    for k in sorted((k for k in F if k.startswith("x") and k != "xdm"), key=lambda k: (int(k[1:k.index("s" if "st" in k else "t")]), k)):
+    blocks = [k for k in F if k.startswith("x") and k not in ("xdm", "xskip")]
+    for k in sorted(blocks, key=lambda k: (int(k[1:k.index("st" if "st" in k else "tp")]), k)):
         i = int(k[1:k.index("st" if "st" in k else "tp")])
         out[k] = (100 + 2 * i + (0 if "st" in k else 1), None, F[k])
+    if "xskip" in F:
+        out["xskip"] = (98, None, F["xskip"])
     if "xdm" in F:
         out["xdm"] = (99, None, (F["xdm"] - np.eye(6)).reshape(*F["xdm"].shape[:2], -1))
     return out
@@ -127,7 +130,7 @@ def feature_names(path):
 
 def probe_model(job):
     """Fit every probe for one (feature file, feature set) pair."""
-    path, only = job
+    path, only, task = job
     if path not in _CACHE:
         _CACHE.clear()
         _CACHE[path] = torch.load(path, weights_only=False)
@@ -237,6 +240,16 @@ def probe_model(job):
                     yb_va = np.r_[np.zeros(len(xva)), np.ones(len(ova))].astype(int)
                     p = logistic(Xb_tr, yb_tr, Xb_va, np.r_[gtr, gtr])
                     add(**base, cam=cam_label, target=f"B_clean_vs_{other}", split="iid", shuffled=False, acc=float((p == yb_va).mean()))
+    # Optional 13-way task probe on clean features, per external camera (or global).
+    if task:
+        for fname, (depth, step, Xc_tr) in sets_c_tr.items():
+            if fname != only:
+                continue
+            for cam in (["global"] if Xc_tr.ndim == 2 else EXT):
+                xtr, xva = cam_feature(Xc_tr, cam), cam_feature(sets_c_va[fname][2], cam)
+                p = logistic(xtr, tr["labels"]["task_id"].astype(int), xva, gtr)
+                add(feature=fname, kind="task", depth=depth, step=step, cam=cam, target="task", split="iid", shuffled=False,
+                    acc=float((p == va["labels"]["task_id"].astype(int)).mean()))
     # Task-only baseline for the group probe: one-hot task id.
     if name.startswith("exp3") and only == "enc":
         oh = lambda t: np.eye(13)[t.astype(int)]
@@ -250,9 +263,10 @@ def main():
     p.add_argument("--features", nargs="+", required=True)
     p.add_argument("--out", default="results/analysis/probes/probe_results.json")
     p.add_argument("--workers", type=int, default=5)
+    p.add_argument("--task", action="store_true", help="also fit a 13-way task probe at every feature")
     a = p.parse_args()
     with ProcessPoolExecutor(a.workers) as ex:
-        jobs = [(f, n) for f in a.features for n in feature_names(f)]
+        jobs = [(f, n, a.task) for f in a.features for n in feature_names(f)]
         rows = [r for rs in ex.map(probe_model, jobs) for r in rs]
     Path(a.out).parent.mkdir(parents=True, exist_ok=True)
     Path(a.out).write_text(json.dumps(rows, indent=0))
