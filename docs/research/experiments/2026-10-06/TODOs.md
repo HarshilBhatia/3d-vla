@@ -1460,9 +1460,9 @@ TODO 3 and TODO 10 metrics:
 | pos1 | 0.320 / 0.038 / 0.313 / 0.050 / 0.030 | 0.241 / 0.040 / 0.213 / 0.052 / 0.028 |
 | **Reliance: offline pos_l2 (cm)** | | |
 | clean / heavy60 | 1.14 / 1.57 | 1.14 / 1.81 |
-| clean: mask all C / mask external C | **1.76** / 1.14 | 1.18 / 1.14 |
+| clean: mask all C / mask external C / mask wrist C | **1.76** / 1.14 / **1.45** | 1.18 / 1.14 / 1.16 |
 | clean: mean C / zero C | **2.07 / 2.41** | 1.14 / 1.18 |
-| heavy60: mask all C / mask external C / mean C | 2.30 / 1.53 / 2.74 | 1.76 / 1.73 / 1.81 |
+| heavy60: mask all C / mask external C / mask wrist C / mean C | 2.30 / 1.53 / 1.91 / 2.74 | 1.76 / 1.73 / 1.81 / 1.81 |
 
 Figure: `figures/todo14a_ctoken_rel_change_120k.{png,svg}`, the item-3 per-layer relative change for both models.
 
@@ -1474,7 +1474,8 @@ Figure: `figures/todo14a_ctoken_rel_change_120k.{png,svg}`, the item-3 per-layer
   - The trajectory queries attend to them about twice as much as in exp 3 (8% at sa1–sa2).
   - Removing them as keys costs +0.62 cm clean (exp 3: +0.04). Replacing their content with the mean costs +0.93 cm, because it also changes the live delta_M.
   - Masking only the external C-tokens costs nothing (1.14 → 1.14). And the traj → C mass at sa2 and pos1 goes 4–10× more to cameras 2/3 than 0/1.
-  - So the reliance is on the **wrist-camera C-tokens**. I didn't run a wrist-only mask; this is inferred from all-minus-external, so it could also be an interaction.
+  - So the reliance is mainly on the **wrist-camera C-tokens**. A wrist-only mask (job 3998766, `results/analysis/todo14a_v2/`, which reproduces every other number exactly) costs +0.31 cm clean and +0.34 cm at heavy60.
+  - The external C-tokens are redundant with the wrist ones rather than useless. Masking them alone costs nothing, but masking them on top of the wrist ones adds another +0.31 cm.
 - **Under 60/60 the external C-tokens are the most-perturbed tokens again** (relative change 0.26 at sa3, twice exp 3's). Their content is unchanged; the change comes through their miscalibrated positions and the SA mixing. The head's response is to shift attention away from the external cameras somewhat more than exp 3 does (−2.5 pp at sa3 and pos1, against −0.4 and −1.45), and to lean further on the wrist C-tokens at sa2 (+3 pp).
 - **The C-tokens still aren't a route for the damage.** Masking the external C-tokens recovers only 0.04 of 4a's 0.43 cm heavy60 damage; exp 3's figure is 0.08 of 0.67. 4a's offline damage is smaller (0.43 vs 0.67 cm). 4a has no lever over the external cameras through C-token content, since that content can't see miscalibration. Its gain more plausibly comes from its stronger use of calibrated wrist information (C-tokens and attention), which TODO 14c's patching can test.
 - Caveat: one checkpoint step per model so far; the 200k comparison follows.

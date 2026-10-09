@@ -24,8 +24,8 @@ from eval_faithful_load import load as faithful_load, parse_spec
 from modeling.encoder.text import fetch_tokenizers
 from modeling.utils.position_encodings import RotaryPositionEncoding
 
-ABLATIONS = [("clean", "zero_all"), ("clean", "mean_all"), ("clean", "mask_all"), ("clean", "mask_ext"),
-             ("heavy60", "mean_all"), ("heavy60", "mask_all"), ("heavy60", "mask_ext")]
+ABLATIONS = [("clean", "zero_all"), ("clean", "mean_all"), ("clean", "mask_all"), ("clean", "mask_ext"), ("clean", "mask_wrist"),
+             ("heavy60", "mean_all"), ("heavy60", "mask_all"), ("heavy60", "mask_ext"), ("heavy60", "mask_wrist")]
 
 
 class Probe:
@@ -92,11 +92,11 @@ class Probe:
                  training=True, attn_mask=None, force_math=False, rotary_pe=None, rotary_pe_module=None,
                  rope_lambda_reg=0.0, rotary_pe_mode=None):
         sa_like = self.name is not None and not self.name.startswith("ca")
-        if sa_like and self.ablate in ("mask_all", "mask_ext"):
+        if sa_like and self.ablate in ("mask_all", "mask_ext", "mask_wrist"):
             c = self.ctx
             keep = torch.ones(c["sa"].shape, dtype=torch.bool, device=c["sa"].device)
-            hi = c["ncam"] if self.ablate == "mask_all" else 2
-            keep[:, c["T"] + c["M"]:c["T"] + c["M"] + hi] = False
+            lo, hi = {"mask_all": (0, c["ncam"]), "mask_ext": (0, 2), "mask_wrist": (2, c["ncam"])}[self.ablate]
+            keep[:, c["T"] + c["M"] + lo:c["T"] + c["M"] + hi] = False
             attn_mask = keep[:, None, None, :]
         out = self.orig(query, key, value, embed_dim, num_heads, in_w, in_b, dropout_p, out_w, out_b,
                         training=training, attn_mask=attn_mask, force_math=force_math, rotary_pe=rotary_pe,
