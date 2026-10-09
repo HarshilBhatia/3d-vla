@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-08 23:08",
+ "generated": "2026-10-09 02:10",
  "levels": [
   "calibrated",
   "known",
@@ -111,6 +111,30 @@
    "status": "training",
    "mech": "raw current-frame tokens skipped onto the extractor output",
    "config": "peract2_orbital_vid_pooled_randhist_deltam_inputskip_scratch"
+  },
+  {
+   "id": "5a",
+   "name": "exp 5a \u00b7 1b + wrist-only proprio",
+   "family": "exp 5",
+   "week": "Week ending 13 Oct",
+   "init": "scratch",
+   "steps": "200k",
+   "ema": "yes",
+   "status": "training",
+   "mech": "proprio encoder reads only the wrist cameras",
+   "config": "peract2_orbital_vid_pooled_randhist_adaln_pooled_proprio_wrist_scratch"
+  },
+  {
+   "id": "5b",
+   "name": "exp 5b \u00b7 1b + no proprio scene context",
+   "family": "exp 5",
+   "week": "Week ending 13 Oct",
+   "init": "scratch",
+   "steps": "200k",
+   "ema": "yes",
+   "status": "training",
+   "mech": "proprio encoder is an MLP on the gripper state",
+   "config": "peract2_orbital_vid_pooled_randhist_adaln_pooled_proprio_none_scratch"
   },
   {
    "id": "A",
@@ -342,12 +366,65 @@
      74.3,
      13
     ],
+    "15/15": [
+     72.6,
+     13
+    ],
+    "20/20": [
+     71.8,
+     13
+    ],
     "60/60": [
      68.5,
      13
     ]
    },
-   "g7": {}
+   "g7": {
+    "opp 10cm": [
+     64.2,
+     6
+    ],
+    "opp 20cm": [
+     67.5,
+     6
+    ],
+    "opp 40cm": [
+     63.3,
+     6
+    ],
+    "opp 60cm": [
+     65.8,
+     6
+    ],
+    "opp 100cm": [
+     63.3,
+     6
+    ],
+    "opp 200cm": [
+     70.0,
+     6
+    ],
+    "opp 500cm": [
+     65.0,
+     6
+    ],
+    "rot 20\u00b0": [
+     70.8,
+     6
+    ],
+    "rot 90\u00b0": [
+     58.3,
+     6
+    ],
+    "rot 180\u00b0": [
+     62.5,
+     6
+    ],
+    "rot 270\u00b0": [
+     68.3,
+     6
+    ]
+   }
   },
   {
    "key": "1b@200k",
@@ -555,12 +632,65 @@
      77.3,
      13
     ],
+    "15/15": [
+     73.3,
+     13
+    ],
+    "20/20": [
+     74.1,
+     13
+    ],
     "60/60": [
      56.6,
      13
     ]
    },
-   "g7": {}
+   "g7": {
+    "opp 10cm": [
+     84.2,
+     6
+    ],
+    "opp 20cm": [
+     76.7,
+     6
+    ],
+    "opp 40cm": [
+     78.0,
+     5
+    ],
+    "opp 60cm": [
+     70.0,
+     6
+    ],
+    "opp 100cm": [
+     55.0,
+     6
+    ],
+    "opp 200cm": [
+     70.0,
+     6
+    ],
+    "opp 500cm": [
+     62.5,
+     6
+    ],
+    "rot 20\u00b0": [
+     75.8,
+     6
+    ],
+    "rot 90\u00b0": [
+     65.8,
+     6
+    ],
+    "rot 180\u00b0": [
+     67.5,
+     6
+    ],
+    "rot 270\u00b0": [
+     62.5,
+     6
+    ]
+   }
   },
   {
    "key": "2@70k",
@@ -670,12 +800,65 @@
      78.8,
      13
     ],
+    "15/15": [
+     80.8,
+     12
+    ],
+    "20/20": [
+     74.7,
+     12
+    ],
     "60/60": [
      68.8,
      13
     ]
    },
-   "g7": {}
+   "g7": {
+    "opp 10cm": [
+     75.0,
+     6
+    ],
+    "opp 20cm": [
+     78.3,
+     6
+    ],
+    "opp 40cm": [
+     75.8,
+     6
+    ],
+    "opp 60cm": [
+     73.3,
+     6
+    ],
+    "opp 100cm": [
+     69.2,
+     6
+    ],
+    "opp 200cm": [
+     76.0,
+     5
+    ],
+    "opp 500cm": [
+     65.0,
+     6
+    ],
+    "rot 20\u00b0": [
+     72.5,
+     6
+    ],
+    "rot 90\u00b0": [
+     71.7,
+     6
+    ],
+    "rot 180\u00b0": [
+     71.7,
+     6
+    ],
+    "rot 270\u00b0": [
+     69.2,
+     6
+    ]
+   }
   },
   {
    "key": "3@50k",
@@ -853,12 +1036,65 @@
      77.5,
      13
     ],
+    "15/15": [
+     90.1,
+     8
+    ],
+    "20/20": [
+     91.5,
+     8
+    ],
     "60/60": [
      71.6,
      13
     ]
    },
-   "g7": {}
+   "g7": {
+    "opp 10cm": [
+     62.5,
+     6
+    ],
+    "opp 20cm": [
+     69.2,
+     6
+    ],
+    "opp 40cm": [
+     65.8,
+     6
+    ],
+    "opp 60cm": [
+     64.2,
+     6
+    ],
+    "opp 100cm": [
+     60.0,
+     6
+    ],
+    "opp 200cm": [
+     68.3,
+     6
+    ],
+    "opp 500cm": [
+     55.0,
+     6
+    ],
+    "rot 20\u00b0": [
+     69.2,
+     6
+    ],
+    "rot 90\u00b0": [
+     66.7,
+     6
+    ],
+    "rot 180\u00b0": [
+     63.3,
+     6
+    ],
+    "rot 270\u00b0": [
+     60.8,
+     6
+    ]
+   }
   },
   {
    "key": "4a@200k",
@@ -872,6 +1108,22 @@
    "key": "4b@200k",
    "label": "exp 4b \u00b7 input skip \u00b7 200k",
    "run": "4b",
+   "step": 200,
+   "idlt": {},
+   "g7": {}
+  },
+  {
+   "key": "5a@200k",
+   "label": "exp 5a \u00b7 wrist-only proprio \u00b7 200k",
+   "run": "5a",
+   "step": 200,
+   "idlt": {},
+   "g7": {}
+  },
+  {
+   "key": "5b@200k",
+   "label": "exp 5b \u00b7 no proprio scene context \u00b7 200k",
+   "run": "5b",
    "step": 200,
    "idlt": {},
    "g7": {}
@@ -984,12 +1236,65 @@
      67.7,
      12
     ],
+    "15/15": [
+     88.7,
+     3
+    ],
+    "20/20": [
+     90.3,
+     3
+    ],
     "60/60": [
      57.1,
      13
     ]
    },
-   "g7": {}
+   "g7": {
+    "opp 10cm": [
+     68.3,
+     6
+    ],
+    "opp 20cm": [
+     65.8,
+     6
+    ],
+    "opp 40cm": [
+     68.3,
+     6
+    ],
+    "opp 60cm": [
+     63.3,
+     6
+    ],
+    "opp 100cm": [
+     72.0,
+     5
+    ],
+    "opp 200cm": [
+     65.8,
+     6
+    ],
+    "opp 500cm": [
+     56.7,
+     6
+    ],
+    "rot 20\u00b0": [
+     64.2,
+     6
+    ],
+    "rot 90\u00b0": [
+     69.2,
+     6
+    ],
+    "rot 180\u00b0": [
+     60.8,
+     6
+    ],
+    "rot 270\u00b0": [
+     64.2,
+     6
+    ]
+   }
   },
   {
    "key": "A+EMA",
@@ -2636,6 +2941,10 @@
     {
      "step": 100,
      "sbrs": 66.7
+    },
+    {
+     "step": 150,
+     "sbrs": 70.0
     }
    ]
   },
@@ -2649,6 +2958,30 @@
      "sbrs": 70.0
     }
    ]
+  },
+  {
+   "label": "exp 5a SBRS (EMA)",
+   "run": "5a",
+   "kind": "sbrs",
+   "points": []
+  },
+  {
+   "label": "exp 5b SBRS (EMA)",
+   "run": "5b",
+   "kind": "sbrs",
+   "points": []
+  },
+  {
+   "label": "exp 5a robustness ladder (EMA)",
+   "run": "5a",
+   "kind": "rob",
+   "points": []
+  },
+  {
+   "label": "exp 5b robustness ladder (EMA)",
+   "run": "5b",
+   "kind": "rob",
+   "points": []
   },
   {
    "label": "A SBRS (raw)",

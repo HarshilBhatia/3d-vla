@@ -15,6 +15,7 @@ launcher, and a page here. Never a pile of CLI overrides.
 
 | Experiment | Question | Status | Headline |
 |---|---|---|---|
+| [proprio-context](2026-10-13/proprio-context.md) | Does cutting miscalibrated cameras out of the proprio encoder (5a wrist-only, 5b none) improve robustness? | submitted 9 Oct | — |
 | [camera-adaln](2026-10-06/camera-adaln.md) | Can C-token adaLN (1a per camera, 1b pooled, 1c static) replace delta_M and the register? | done | At 200k, 1b (70.4), 1a (68.5) ≈ exp 3 (71.6); 1c (static) clearly worse (56.6). Earlier "1b wins" was a step artifact |
 | [randhist-deltam](2026-10-06/randhist-deltam.md) | Layer-wise delta_M on random history from scratch: geometry vs adaLN features from the same C-tokens | done | At 200k IDLT 60/60 **71.6**, the best of the week (55.9 at 110k was too early) |
 | [direct-randhist](2026-10-06/direct-randhist.md) | Is Direct delta_M from random history enough on its own? | done | At 200k IDLT 60/60 68.8 (56.6 at 70k) |

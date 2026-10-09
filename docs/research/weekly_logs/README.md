@@ -18,6 +18,7 @@ forward only what is still open.
 
 | Week ending | Theme |
 |---|---|
+| [2026-10-13](2026-10-13.md) | Fixing what the analysis found: live history extractor (exp 4), proprio encoder without miscalibrated context (exp 5) |
 | [2026-10-06](2026-10-06.md) | Conditioning week: C-token adaLN vs Direct delta_M on random history |
 | [2026-09-29](2026-09-29.md) | Ablation week: what VideoPooled's robustness actually needs |
 | [2026-09-22](2026-09-22.md) | Eval-run index: every campaign written that week |

@@ -152,7 +152,7 @@ DATA.runs.forEach(r => { const i = famRuns[r.family].indexOf(r.id); style[r.id] 
 const seriesByRun = {}; DATA.series.forEach(s => (seriesByRun[s.run] ||= []).push(s));
 DATA.series.forEach(s => s.point = POINT[seriesByRun[s.run].indexOf(s) % POINT.length]);
 // One hand-picked hue per run (readable on the dark surface); checkpoints are shades of it: earlier steps dimmer, EMA fine-tunes lighter.
-const RUN_COLOR = {"1a": "#60a5fa", "1b": "#f97316", "1c": "#c084fc", "2": "#facc15", "3": "#f43f5e", "4a": "#22c55e", "4b": "#2dd4bf",
+const RUN_COLOR = {"1a": "#60a5fa", "1b": "#f97316", "1c": "#c084fc", "2": "#facc15", "3": "#f43f5e", "4a": "#22c55e", "4b": "#2dd4bf", "5a": "#fb7185", "5b": "#a78bfa",
   "A": "#e5e7eb", "C": "#94a3b8", "VP": "#f472b6", "RH": "#a3e635", "NVA": "#818cf8", "FP": "#38bdf8", "R3Dr": "#fdba74",
   "R3Dd": "#67e8f9", "Base": "#d6a36a", "DeltaM": "#fca5a5"};
 const mix = (a, b, t) => "#" + [1, 3, 5].map(i => Math.round(parseInt(a.substr(i, 2), 16) * (1 - t) + parseInt(b.substr(i, 2), 16) * t).toString(16).padStart(2, "0")).join("");
@@ -169,7 +169,7 @@ const runColor = rid => { const lt = latest(rid) || (seriesByRun[rid] || [])[0];
 const setColor = (k, c) => { custom[k] = c; try { localStorage.setItem("runboard-colors", JSON.stringify(custom)); } catch (e) {} refresh(); };
 const hasData = s => Object.keys(s.idlt).length || Object.keys(s.g7).length;
 
-const DEFAULT = ["1a@200k","1b@200k","1c@200k","2@200k","3@200k","4a@200k","4b@200k","A@160k","A@200k","VP@84k","RH+EMA","FP","Base@160k","DeltaM@140k"];
+const DEFAULT = ["1a@200k","1b@200k","1c@200k","2@200k","3@200k","4a@200k","4b@200k","5a@200k","5b@200k","A@160k","A@200k","VP@84k","RH+EMA","FP","Base@160k","DeltaM@140k"];
 let sel;
 try { sel = new Set(JSON.parse(localStorage.getItem("runboard-sel")) || DEFAULT); } catch (e) { sel = new Set(DEFAULT); }
 const save = () => { try { localStorage.setItem("runboard-sel", JSON.stringify([...sel])); } catch (e) {} };
