@@ -1675,3 +1675,33 @@ Orientation β: |β| ≤ 0.007 at 60/60 for external-only errors in both models;
 #### 200k
 
 Pending: the 4a checkpoint `interm_step_200000.pth` doesn't exist yet. A background poll will launch the same two jobs on 4a 200k and exp 3 200k.
+
+---
+
+## TODO 15: does exp 4b's input skip carry the task / camera-group fingerprint too?
+
+**Status:** claimed (probing agent)
+
+**Why:** TODO 14b found that 4a's live extractor output identifies the task (100%) and partly the camera group (0.44–0.57). At 200k, 4a is about 6 points below exp 3 at IDLT 60/60 and about 4 below calibrated. Hypothesis: the head uses this "task × camera setup" fingerprint as a shortcut that doesn't transfer to IDLT's unseen task × group pairings.
+
+Exp 4b (`peract2_orbital_vid_pooled_randhist_deltam_inputskip_scratch`, EMA, K = 5, `video_deltam_input_skip: true`) has a collapsed stack plus a learned projection of the **raw** current-frame C-tokens (language-mixed encoder appearance) added onto its output. Its robustness ladder so far is the best of the exp 4 runs (160k: 80.4 calibrated / 65.8 at 60/60, 13 × 20).
+
+**Do:** TODO 14b's probes (task 13-way, camera group 6-way, leave-one-group-out position, injected-miscalibration sweep) on:
+- **4b at 160k**, now, and again at **200k** when `interm_step_200000.pth` exists (training due about 18:45 on 9 Oct);
+- **4a at 160k** and **exp 3 at 160k**, for a same-step comparison (reuse TODO 14b's 200k numbers for those two at 200k).
+
+Probe at:
+- encoder C-tokens;
+- the stack output (before the skip);
+- the skip term alone (`input_skip_proj(raw current-frame tokens)`);
+- the extractor output (stack + skip);
+- head SA C-tokens;
+- delta_M per layer.
+
+Use EMA weights at K = 5, and check the `[load]` and `[arch]` lines (`input_skip=True` for 4b).
+
+**Report:** one table, task and camera-group accuracy at each depth, for 4b / 4a / exp 3. Does 4b carry the fingerprint at its extractor output and into delta_M? If 4b carries it as strongly as 4a but robustness is better, the shortcut hypothesis is in trouble.
+
+**Results:**
+
+**Reading:**
