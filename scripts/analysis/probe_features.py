@@ -67,7 +67,7 @@ def load(path, weights):
             raise RuntimeError(f"architecture mismatch: missing {trained[:5]} unexpected {unexpected[:5]}")
     print(f"[arch] full_image={getattr(args, 'video_deltam_full_image', False)} patch_rope3d={getattr(args, 'video_deltam_patch_rope3d', False)} "
           f"role={getattr(args, 'video_deltam_role', None)} depth={getattr(args, 'video_deltam_depth', None)} "
-          f"history_sampling={args.visual_history_sampling}", flush=True)
+          f"history_sampling={args.visual_history_sampling} prenorm={getattr(args, 'video_deltam_prenorm', False)}", flush=True)
     return model.cuda().eval(), args
 
 
@@ -108,7 +108,7 @@ def make_preprocessor(args, cond, record):
 class Recorder:
     """Hooks the encoder, history extractor, head SA layers, delta_M predictor and adaLN projection."""
 
-    def __init__(self, model):
+    def __init__(self, model, extractor_blocks=False):
         self.model, head = model, model.prediction_head
         self.head, self.last = head, model.n_steps - 1
         self.nreg = head.register_tokens.shape[0]
@@ -119,7 +119,7 @@ class Recorder:
         self.full = vd is not None and vd.full_image
         if vd is not None:
             vd.register_forward_hook(self._hist)
-        if self.full:
+        if vd is not None and (self.full or extractor_blocks):
             vd.register_forward_pre_hook(self._xshape)
             for i, (st, tp) in enumerate(zip(vd.same_time, vd.temporal)):
                 st.register_forward_hook(self._xblock(f"x{i}st"))
@@ -168,6 +168,11 @@ class Recorder:
     def _xblock(self, name):
         """Current-frame patch mean (and, after temporal blocks, the per-image token) per camera."""
         def f(mod, inp, out):
+            if not self.full:
+                B, K, ncam = self.xs[:3]
+                x = out.reshape(B, K, ncam, -1)[:, -1] if name.endswith("st") else out.reshape(B, ncam, K, -1)[:, :, -1]
+                self.x[name + "_tok"] = x.detach().float().cpu()
+                return
             B, K, ncam, P = self.xs
             if name.endswith("st"):
                 x = out.reshape(B, K, ncam, P, -1)[:, -1]
@@ -199,8 +204,7 @@ class Recorder:
             f["dm"] = torch.stack([torch.stack(self.dm[s], 1) for s in range(2)], 1)
         if self.has_adaln and self.ad[0]:
             f["adaln"] = torch.stack([torch.stack(self.ad[s], 1) for s in range(2)], 1)
-        if self.full:
-            f.update(self.x)
+        f.update(self.x)
         if self.xdm is not None:
             f["xdm"] = self.xdm
         return f
@@ -279,6 +283,7 @@ def main():
     p.add_argument("--batch_size", type=int, default=16)
     p.add_argument("--out_dir", default="results/analysis/probes")
     p.add_argument("--fp32", action="store_true", help="store features in float32 instead of float16")
+    p.add_argument("--extractor_blocks", action="store_true", help="also record the pooled extractor's per-block tokens")
     a = p.parse_args()
     label, rest = a.model.split("=", 1)
     path, weights = rest.rsplit(":", 1)
@@ -289,7 +294,7 @@ def main():
     n_va = len(zarr.open(f"{ZARR}/val.zarr", "r")["task_id"])
     tr_rows = np.sort(rng.choice(n_tr, size=min(a.n_train, n_tr), replace=False)).tolist()
     va_rows = list(range(n_va)) if a.n_val == 0 else np.sort(rng.choice(n_va, size=a.n_val, replace=False)).tolist()
-    rec = Recorder(model)
+    rec = Recorder(model, a.extractor_blocks)
     res = {"model": label, "checkpoint": path, "weights": weights, "n_steps": model.n_steps,
            "visual_num_history": args.visual_num_history, "view_align_cameras": args.view_align_cameras,
            "train": extract(model, rec, args, "train", tr_rows, tokenizer, a.batch_size, a.fp32),

@@ -1492,9 +1492,57 @@ TODO 5 / TODO 11 probes on 4a: true camera pose (including leave-one-group-out) 
 
 **Question:** a live pooled extractor still sees appearance only. Does it at least keep camera pose, which exp 3 discards? Does any delta_M layer become decodable for pose or miscalibration?
 
-**Results:**
+**Results (120k, both EMA).**
 
-**Reading:**
+*Setup.*
+- **Load.** `[load]` shows `visual_num_history=5` for both models. `[arch]` shows pooled, refine, depth 4, random history, `prenorm=True` (4a) / `False` (exp 3).
+- **Protocol: TODO 5's** — the same 3000 training / 853 val rows and seeds, and the clean / train-style / 0–60° · 0–60 cm sweep conditions on cameras [0, 1].
+- **Features** are fp32. New: `--extractor_blocks` records the pooled extractor's current-frame token per camera after every same-time (ST) and temporal (TP) block. In 4a that is the residual stream, before `out_norm`.
+- **delta_M per layer** is probed as flattened ΔM − I. `dm0` is predicted from the extractor output, and `dm1`–`dm3` from the C-tokens after SA1–SA3.
+- **Columns.** "Spread" is across-sample std / mean norm. "Sweep shift" is ‖clean − sweep‖ / norm on the same sample. Both are on val, cameras 0+1.
+- **References.** Chance for the group probe is 0.17, and a task one-hot gets 0.33. The leave-one-group-out (LOGO) mean-pose baseline is 50 cm and the nearest-other-pose baseline 18 cm.
+
+| Stage | 4a spread | 4a group acc | 4a LOGO pos (cm) | exp 3 spread | exp 3 group acc | exp 3 LOGO pos (cm) |
+|---|---|---|---|---|---|---|
+| enc | 0.75 | 0.93 | 20 | 0.48 | 0.92 | 23 |
+| ST1 / TP1 | 0.83 / 0.70 | 0.81 / 0.74 | 31 / 38 | 2e-2 / 3e-3 | 0.82 / 0.37 | 29 / 48 |
+| TP2 / TP3 / TP4 | 0.84 / 1.0 / 1.1 | 0.62 / 0.59 / 0.57 | 45 / 47 / 47 | 6e-4 / 2e-4 / 5e-5 | 0.24 / 0.20 / 0.19 | 50 |
+| extractor out | 0.86 | **0.57** | 47 | 5e-5 | 0.19 | 50 |
+| SA1 / SA2 / SA3 / SA4 | 0.81 / 0.83 / 0.75 / 0.68 | 0.56 / 0.57 / 0.77 / 0.80 | 48 / 48 / 33 / 29 | 0.27–0.41 | 0.68–0.71 | 43 / 41 / 39 / 40 |
+| delta_M (from hist, SA1, SA2, SA3) | 0.25 / 0.28 / 0.07 / 0.06 | 0.28 / 0.34 / 0.29 / 0.25 | 48–51 | 0 / 0.09 / 0.02 / 1.5e-4 | 0.20–0.22 | 49–51 |
+
+*Injected miscalibration (sweep).* Values are 4a / exp 3.
+
+| Stage | Sweep shift | Rotation-vector R² | Translation-vector R² | Rotation-magnitude R² | Clean vs sweep acc |
+|---|---|---|---|---|---|
+| enc → extractor out | 0 / 0 | 0 / 0 | 0 / 0 | 0 / 0 | 0.50 / 0.50 |
+| SA2 | 0.06 / 0.07 | 0.07 / 0.20 | 0.03 / 0.13 | 0.00 / 0.06 | 0.54 / 0.60 |
+| SA4 | 0.21 / 0.08 | **0.27** / 0.19 | **0.21** / 0.12 | 0.13 / 0.05 | 0.65 / 0.61 |
+| delta_M, all layers | ≤ 0.014 / ≤ 0.005 | ≤ 0.004 / ≤ 0.01 | 0.00 / 0.00 | 0.00 / 0.00 | ≤ 0.52 / ≤ 0.51 |
+
+- **Task decodability**, 13-way, camera 0. 4a: enc 1.00, extractor out 1.00, delta_M from hist 0.67, delta_M from SA1 0.77. exp 3: 1.00, 0.15, 0.16, 0.40.
+- **Files.**
+  - Data: `results/analysis/probes_exp4a/{exp4a,exp3}_{120k,200k}.pt` and `fits/probe_results_*.json`. Table: `summary_table_120k.md`.
+  - Scripts: `scripts/analysis/probe_features.py --fp32 --extractor_blocks` and `scripts/analysis/plot_probes_exp4a.py --step 120k`.
+  - Figure: [`figures/probe_exp4a_120k.png`](figures/probe_exp4a_120k.png). The grey band is the extractor; hollow squares are delta_M at its input depth.
+
+**Reading (120k).**
+- **4a's extractor is alive and keeps part of the camera identity that exp 3 throws away.**
+  - Its spread stays at 0.7–1.1 through every block, against exp 3's fall to 5e-5.
+  - The output still classifies the camera group at 0.57 (exp 3: 0.19, chance), and the task perfectly.
+  - But identity decays steadily block by block (0.93 → 0.57), and LOGO position error at the output is 47 cm, near the 50 cm mean baseline. What survives is a group or scene label, not a continuous pose: the same per-viewpoint appearance code that TODO 5 found in the encoder, partly degraded.
+- **4a's delta_M varies per sample, but with task, not camera pose.**
+  - delta_M spread is 0.25–0.28 at hist/SA1, against 0 / 0.09 in exp 3. Task decodes at 0.67–0.77, but camera group only at 0.25–0.34 (task one-hot alone gives 0.33), and LOGO pose is at the mean baseline.
+  - So a live input to delta_M yields a scene/task-conditioned RoPE mixing, not a pose estimate.
+- **Miscalibration: as expected, invisible up to the extractor output in both models**, since the pooled extractor sees appearance only (zero sweep shift).
+  - It appears only in the head SA C-tokens, through attention to scene tokens at miscalibrated positions. There 4a ends somewhat higher at SA4 (rotation vector 0.27, translation 0.21, clean vs sweep 0.65; exp 3: 0.19 / 0.12 / 0.61), but lower at SA1–SA2.
+  - **No delta_M layer in either model decodes the miscalibration** (R² ≤ 0.01, accuracy ≤ 0.52). 4a's delta_M moves by only ≤ 1.4% under the sweep, and not in a decodable direction.
+- **Ruled out at 120k:** a live extractor making delta_M a pose or miscalibration estimator. Its new per-sample content is task and scene.
+- **Caveats.**
+  - The same pose/task confound and linear-probe limits apply as in TODO 5.
+  - The exp 3 numbers are at 120k. TODO 5's 200k fp16 features were not reused, because this protocol needs fp32 and the in-extractor blocks; exp 3 at 200k was re-extracted.
+
+**200k:** pending (`interm_step_200000.pth` not yet written).
 
 ### TODO 14c: following and activation patching
 
