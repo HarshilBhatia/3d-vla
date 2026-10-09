@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-08 23:04",
+ "generated": "2026-10-08 23:06",
  "levels": [
   "calibrated",
   "known",
@@ -30,7 +30,7 @@
  "runs": [
   {
    "id": "1a",
-   "name": "1a \u00b7 per-camera C-token adaLN",
+   "name": "exp 1a \u00b7 per-camera C-token adaLN",
    "family": "adaLN",
    "week": "this",
    "init": "scratch",
@@ -42,7 +42,7 @@
   },
   {
    "id": "1b",
-   "name": "1b \u00b7 pooled C-token adaLN",
+   "name": "exp 1b \u00b7 pooled C-token adaLN",
    "family": "adaLN",
    "week": "this",
    "init": "scratch",
@@ -54,7 +54,7 @@
   },
   {
    "id": "1c",
-   "name": "1c \u00b7 static pooled adaLN",
+   "name": "exp 1c \u00b7 static pooled adaLN",
    "family": "adaLN",
    "week": "this",
    "init": "scratch",
@@ -66,7 +66,7 @@
   },
   {
    "id": "2",
-   "name": "2 \u00b7 Direct \u03b4M",
+   "name": "exp 2 \u00b7 Direct \u03b4M",
    "family": "\u03b4M scratch",
    "week": "this",
    "init": "scratch",
@@ -78,7 +78,7 @@
   },
   {
    "id": "3",
-   "name": "3 \u00b7 layer-wise \u03b4M (refine)",
+   "name": "exp 3 \u00b7 layer-wise \u03b4M (refine)",
    "family": "\u03b4M scratch",
    "week": "this",
    "init": "scratch",
@@ -90,7 +90,7 @@
   },
   {
    "id": "4a",
-   "name": "4a \u00b7 exp 3 + pre-LN extractor",
+   "name": "exp 4a \u00b7 exp 3 + pre-LN extractor",
    "family": "exp 4",
    "week": "this",
    "init": "scratch",
@@ -102,7 +102,7 @@
   },
   {
    "id": "4b",
-   "name": "4b \u00b7 exp 3 + input skip",
+   "name": "exp 4b \u00b7 exp 3 + input skip",
    "family": "exp 4",
    "week": "this",
    "init": "scratch",
@@ -236,7 +236,7 @@
  "series": [
   {
    "key": "1a@80k",
-   "label": "1a per-camera adaLN \u00b7 80k",
+   "label": "exp 1a \u00b7 per-camera adaLN \u00b7 80k",
    "run": "1a",
    "step": 80,
    "idlt": {
@@ -334,7 +334,7 @@
   },
   {
    "key": "1a@200k",
-   "label": "1a per-camera adaLN \u00b7 200k",
+   "label": "exp 1a \u00b7 per-camera adaLN \u00b7 200k",
    "run": "1a",
    "step": 200,
    "idlt": {
@@ -351,7 +351,7 @@
   },
   {
    "key": "1b@200k",
-   "label": "1b pooled adaLN \u00b7 200k",
+   "label": "exp 1b \u00b7 pooled adaLN \u00b7 200k",
    "run": "1b",
    "step": 200,
    "idlt": {
@@ -449,7 +449,7 @@
   },
   {
    "key": "1c@120k",
-   "label": "1c static adaLN \u00b7 120k",
+   "label": "exp 1c \u00b7 static adaLN \u00b7 120k",
    "run": "1c",
    "step": 120,
    "idlt": {
@@ -547,7 +547,7 @@
   },
   {
    "key": "1c@200k",
-   "label": "1c static adaLN \u00b7 200k",
+   "label": "exp 1c \u00b7 static adaLN \u00b7 200k",
    "run": "1c",
    "step": 200,
    "idlt": {
@@ -564,7 +564,7 @@
   },
   {
    "key": "2@70k",
-   "label": "2 Direct \u03b4M \u00b7 70k",
+   "label": "exp 2 \u00b7 Direct \u03b4M \u00b7 70k",
    "run": "2",
    "step": 70,
    "idlt": {
@@ -662,7 +662,7 @@
   },
   {
    "key": "2@200k",
-   "label": "2 Direct \u03b4M \u00b7 200k",
+   "label": "exp 2 \u00b7 Direct \u03b4M \u00b7 200k",
    "run": "2",
    "step": 200,
    "idlt": {
@@ -679,7 +679,7 @@
   },
   {
    "key": "3@50k",
-   "label": "3 layer-wise \u03b4M \u00b7 50k",
+   "label": "exp 3 \u00b7 layer-wise \u03b4M \u00b7 50k",
    "run": "3",
    "step": 50,
    "idlt": {
@@ -696,7 +696,7 @@
   },
   {
    "key": "3@80k",
-   "label": "3 layer-wise \u03b4M \u00b7 80k",
+   "label": "exp 3 \u00b7 layer-wise \u03b4M \u00b7 80k",
    "run": "3",
    "step": 80,
    "idlt": {
@@ -713,7 +713,7 @@
   },
   {
    "key": "3@110k",
-   "label": "3 layer-wise \u03b4M \u00b7 110k",
+   "label": "exp 3 \u00b7 layer-wise \u03b4M \u00b7 110k",
    "run": "3",
    "step": 110,
    "idlt": {
@@ -811,7 +811,7 @@
   },
   {
    "key": "3@140k",
-   "label": "3 layer-wise \u03b4M \u00b7 140k",
+   "label": "exp 3 \u00b7 layer-wise \u03b4M \u00b7 140k",
    "run": "3",
    "step": 140,
    "idlt": {
@@ -828,7 +828,7 @@
   },
   {
    "key": "3@170k",
-   "label": "3 layer-wise \u03b4M \u00b7 170k",
+   "label": "exp 3 \u00b7 layer-wise \u03b4M \u00b7 170k",
    "run": "3",
    "step": 170,
    "idlt": {
@@ -845,7 +845,7 @@
   },
   {
    "key": "3@200k",
-   "label": "3 layer-wise \u03b4M \u00b7 200k",
+   "label": "exp 3 \u00b7 layer-wise \u03b4M \u00b7 200k",
    "run": "3",
    "step": 200,
    "idlt": {
@@ -862,7 +862,7 @@
   },
   {
    "key": "4a@200k",
-   "label": "4a pre-LN extractor \u00b7 200k",
+   "label": "exp 4a \u00b7 pre-LN extractor \u00b7 200k",
    "run": "4a",
    "step": 200,
    "idlt": {},
@@ -870,7 +870,7 @@
   },
   {
    "key": "4b@200k",
-   "label": "4b input skip \u00b7 200k",
+   "label": "exp 4b \u00b7 input skip \u00b7 200k",
    "run": "4b",
    "step": 200,
    "idlt": {},
@@ -2270,7 +2270,7 @@
  ],
  "ladders": [
   {
-   "label": "1a SBRS (EMA)",
+   "label": "exp 1a SBRS (EMA)",
    "run": "1a",
    "kind": "sbrs",
    "points": [
@@ -2341,7 +2341,7 @@
    ]
   },
   {
-   "label": "1b SBRS (EMA)",
+   "label": "exp 1b SBRS (EMA)",
    "run": "1b",
    "kind": "sbrs",
    "points": [
@@ -2412,7 +2412,7 @@
    ]
   },
   {
-   "label": "1c SBRS (EMA)",
+   "label": "exp 1c SBRS (EMA)",
    "run": "1c",
    "kind": "sbrs",
    "points": [
@@ -2483,7 +2483,7 @@
    ]
   },
   {
-   "label": "2 SBRS (EMA)",
+   "label": "exp 2 SBRS (EMA)",
    "run": "2",
    "kind": "sbrs",
    "points": [
@@ -2554,7 +2554,7 @@
    ]
   },
   {
-   "label": "3 SBRS (EMA)",
+   "label": "exp 3 SBRS (EMA)",
    "run": "3",
    "kind": "sbrs",
    "points": [
@@ -2625,7 +2625,7 @@
    ]
   },
   {
-   "label": "4a SBRS (EMA)",
+   "label": "exp 4a SBRS (EMA)",
    "run": "4a",
    "kind": "sbrs",
    "points": [
@@ -2640,7 +2640,7 @@
    ]
   },
   {
-   "label": "4b SBRS (EMA)",
+   "label": "exp 4b SBRS (EMA)",
    "run": "4b",
    "kind": "sbrs",
    "points": [
@@ -2771,7 +2771,7 @@
    ]
   },
   {
-   "label": "4a robustness ladder (EMA)",
+   "label": "exp 4a robustness ladder (EMA)",
    "run": "4a",
    "kind": "rob",
    "points": [
@@ -2799,7 +2799,7 @@
    ]
   },
   {
-   "label": "4b robustness ladder (EMA)",
+   "label": "exp 4b robustness ladder (EMA)",
    "run": "4b",
    "kind": "rob",
    "points": []
