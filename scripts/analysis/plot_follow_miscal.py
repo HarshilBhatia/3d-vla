@@ -23,6 +23,10 @@ MODELS = {  # label -> (legend name, categorical slot colour), fixed order
     "fp_d8": ("FP-d8", "#4a3aa7"),
     "fp_r3d_refine": ("FP-R3D-refine", "#e34948"),
     "fp_r3d_direct": ("FP-R3D-direct", "#606B75"),
+    "exp3_120000": ("exp 3, 120k (EMA)", "#2a78d6"),
+    "exp4a_120000": ("exp 4a (pre-LN extractor), 120k (EMA)", "#eb6834"),
+    "exp3_200000": ("exp 3, 200k (EMA)", "#2a78d6"),
+    "exp4a_200000": ("exp 4a (pre-LN extractor), 200k (EMA)", "#eb6834"),
 }
 MAGS = (10, 20, 40, 60)
 FIG = Path("docs/research/experiments/2026-10-06/figures")

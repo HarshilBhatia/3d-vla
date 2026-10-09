@@ -132,3 +132,14 @@ The data comes from `scripts/analysis/todo14a.slurm` (GPU; `PART=attn|ctok`, `ST
 | Figure | Shows | Script |
 |---|---|---|
 | `todo14a_ctoken_rel_change_120k.{png,svg}` | Per-layer relative change under heavy60 of C-tokens, external/wrist FPS tokens and trajectory tokens, exp 4a vs exp 3 at 120k | `scripts/analysis/plot_ctoken_behaviour.py --in-dir results/analysis/todo14a/ctoken_behaviour --fig docs/research/experiments/2026-10-06/figures/todo14a_ctoken_rel_change_120k` |
+
+## exp 4a vs exp 3: following and activation patching ([TODOs.md](../TODOs.md), TODO 14c)
+
+The data comes from `scripts/analysis/follow_miscal.py --eval-loader` and `scripts/analysis/activation_patching.py --eval-loader` (GPU, via `scripts/analysis/todo14c.slurm` with `PART=follow|patch` and `STEP=120000|200000`), which write `results/analysis/todo14c/{follow_miscal,activation_patching}/<model>_<step>.pt`. The figures come from `scripts/analysis/plot_follow_miscal.py --in-dir results/analysis/todo14c/follow_miscal --fig-prefix todo14c_` and `scripts/analysis/plot_activation_patching.py --in-dir results/analysis/todo14c/activation_patching --fig-stem todo14c_patch_fraction_recovered`. Models: exp 4a and exp 3, EMA, K=5, at every checkpoint present.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `todo14c_follow_alpha_pos.{png,svg}` | Position following α against magnitude: both external cameras, camera 0 only, camera 1 only, and the rigid all-camera control | `scripts/analysis/plot_follow_miscal.py` |
+| `todo14c_follow_beta_rot.{png,svg}` | Orientation following β, same panels | same |
+| `todo14c_follow_closest_share.{png,svg}` | Share of 60/60 predictions nearest the true p, N₀p or N₁p | same |
+| `todo14c_patch_fraction_recovered.{png,svg}` | Activation patching: share of the clean → heavy60 degradation recovered or caused per component, including the per-call delta_M replay | `scripts/analysis/plot_activation_patching.py` |

@@ -1556,4 +1556,66 @@ TODO 6 and TODO 7 on 4a:
 
 **Results:**
 
-**Reading:**
+**Scripts.** `scripts/analysis/follow_miscal.py` and `scripts/analysis/activation_patching.py` with `--eval-loader`, via `scripts/analysis/todo14c.slurm` (`PART=follow|patch`, `STEP=120000|200000`).
+- 120k jobs: 3998724 (patching) and 3998725 (following).
+- Data: `results/analysis/todo14c/{follow_miscal,activation_patching}/`, with `summary.json` and `summary_table.txt` in each.
+- Figures: `figures/todo14c_follow_alpha_pos.png`, `todo14c_follow_beta_rot.png`, `todo14c_follow_closest_share.png` and `todo14c_patch_fraction_recovered.png`. These are made from whatever checkpoints are present.
+
+**Setup.**
+- **Loading:** both models load through `load_model_for_evaluation`, EMA. The `[load]` lines show `visual_num_history=5`, `view_align_cameras=[0, 1]`, role refine and `history_sampling=random` for both.
+- **Data and seeds:** the same 853 val samples, seeds and heavy60 draws as TODOs 6 and 7.
+- **Exactness passes for both models.** Patching nothing reproduces heavy, and patching every input reproduces clean (max |Δ| = 0.0). Positions + proprio = 1.00 in both directions.
+- **Inputs that differ, clean vs heavy60:** only the dense xyz, the FPS/C-token xyz and `proprio_feats` (relative change 0.15 for 4a, 0.17 for exp 3).
+- **4a's extractor output does not change under miscalibration.** The C-tokens entering the head (`fps_scene_feats`) are bit-identical clean vs heavy60 in 4a too, because the live extractor still sees appearance only. So 4a's delta_M can differ between clean and heavy only through SA mixing in the head (TODO 14: 0.03–0.06).
+
+#### 120k
+
+**Following** (TODO 6 protocol). Following coefficient α with 95% CI. The last two columns are pos L2 at 60/60 in cm (clean → both / cam 0 / cam 1) and the mean shift from the clean prediction.
+
+| Model | both 60: α₀ / α₁ | only cam 0 60 | only cam 1 60 | both 10: α₀ | rigid 10 / 20 / 40 / 60 | closest to true p (both 60) | pos L2 60/60 (cm) | shift (cm) |
+|---|---|---|---|---|---|---|---|---|
+| **exp 4a 120k** | 0.0025 [0.0012, 0.0036] / 0.0017 | 0.0023 | 0.0012 | 0.0078 | 0.68 / 0.59 / 0.47 / 0.39 | 100% | 1.14 → 1.57 / 1.38 / 1.36 | 0.93 |
+| exp 3 120k | 0.0044 [0.0027, 0.0066] / 0.0032 | 0.0044 | 0.0034 | 0.0077 | 0.62 / 0.56 / 0.48 / 0.41 | 100% | 1.14 → 1.81 / 1.51 / 1.50 | 1.16 |
+
+Orientation β: |β| ≤ 0.007 at 60/60 for external-only errors in both models; with the rigid all-camera error, β = 0.04–0.08.
+
+**Activation patching, position L2.** Forward recovered / reverse caused; 95% CI on forward in brackets.
+
+| Patch | exp 4a 120k | exp 3 120k |
+|---|---|---|
+| clean → heavy pos L2 (cm) | 1.14 → 1.57 | 1.14 → 1.81 |
+| samples > 1 cm worse | 94 | 93 |
+| **delta_M replay, per call** | **−0.00** [−0.02, 0.01] / 0.00 | −0.01 [−0.01, −0.00] / −0.00 |
+| C-token xyz | 0.18 / 0.06 | 0.12 / 0.09 |
+| FPS xyz | 0.29 / 0.22 | 0.35 / 0.29 |
+| dense xyz | 0.15 / 0.08 | 0.14 / 0.09 |
+| all positions | 0.54 [0.42, 0.66] / 0.48 | 0.52 [0.38, 0.69] / 0.55 |
+| proprio_feats | 0.52 [0.37, 0.64] / 0.46 | 0.45 [0.25, 0.59] / 0.48 |
+| C-token xyz + proprio | 0.62 / 0.64 | 0.57 / 0.56 |
+| all positions + delta_M | 0.52 / – | 0.52 / – |
+| all positions + proprio | 1.00 / 1.00 | 1.00 / 1.00 |
+
+**Rotation L1** (forward / reverse):
+
+| Patch | exp 4a 120k | exp 3 120k |
+|---|---|---|
+| proprio | 0.89 / 0.81 | 0.60 / 0.47 |
+| all positions | 0.19 / 0.11 | 0.53 / 0.40 |
+| C-token xyz | 0.14 | 0.35 |
+| delta_M | 0.00 / −0.00 | −0.03 / −0.00 |
+
+**Reading (120k):**
+- **4a's live delta_M carries none of the 60/60 damage, and it doesn't reduce any either.**
+  - Replaying the clean delta_M into the heavy run, call by call, recovers −0.00 [−0.02, 0.01] of the position damage and 0.00 of the rotation damage. Replaying the heavy delta_M into the clean run causes 0.00.
+  - If delta_M were compensating the miscalibration, forcing the clean delta_M into the heavy run would *increase* the error (a negative share). It doesn't.
+  - So per-scene variation in delta_M (TODO 14: spread 0.74 at CA and SA1, cameras differing by 0.65–0.96) is not a geometric-correction channel. Its clean→heavy changes come from SA mixing and are inert for the action, as exp 3's were.
+- **4a is somewhat less damaged offline** (+0.43 cm against +0.67 cm), with the same split: about half through head positions and half through proprio.
+  - 4a shifts rotation damage further onto proprio (0.89 against 0.60). In exp 3, the C-token positions carry 0.35 of the rotation damage; in 4a only 0.14.
+  - 4a leans slightly less on the miscalibrated cameras: α 0.0025 against 0.0044 at 60/60, both negligible.
+  - It follows a rigid whole-scene shift slightly more at 10/10 (0.68 against 0.62).
+  - So the live extractor changes how much the head reacts to C-token positions, not whether delta_M matters.
+- **Caveat.** The online ladder at 120k (13 × 20) has 4a at 59.6 for 60/60; I found no exp 3 120k IDLT number to compare. Offline keypose error does not rank online robustness across families (TODO 13), so the smaller offline damage is only suggestive.
+
+#### 200k
+
+Pending: the 4a checkpoint `interm_step_200000.pth` doesn't exist yet. A background poll will launch the same two jobs on 4a 200k and exp 3 200k.
