@@ -1602,7 +1602,7 @@ TODO 5 / TODO 11 probes on 4a: true camera pose (including leave-one-group-out) 
 
 ### TODO 14c: following and activation patching
 
-**Status:** in progress (intervention agent)
+**Status:** done
 
 TODO 6 and TODO 7 on 4a:
 - following coefficients, with single-camera and rigid controls and the magnitude sweep;
@@ -1674,9 +1674,42 @@ Orientation β: |β| ≤ 0.007 at 60/60 for external-only errors in both models;
 
 #### 200k
 
-Pending: the 4a checkpoint `interm_step_200000.pth` doesn't exist yet. A background poll will launch the same two jobs on 4a 200k and exp 3 200k.
+The jobs (4001688 patching, 4001689 following) were launched automatically by the CPU watcher `scripts/analysis/todo14c_wait200k.slurm` (job 3999019) once the checkpoint existed. The `[load]` lines show `visual_num_history=5` and EMA for both models. Exactness passes for both (0.0), and positions + proprio = 1.00. exp 3 200k reproduces TODO 7's shares and TODO 6's α exactly under this loader, so the protocol matches.
 
----
+**Following:**
+
+| Model | both 60: α₀ / α₁ | only cam 0 / only cam 1 (60) | both 10: α₀ | rigid 10 / 20 / 40 / 60 | closest to true p (both 60) | pos L2 60/60 (cm): clean → both / cam 0 / cam 1 | shift (cm) |
+|---|---|---|---|---|---|---|---|
+| **exp 4a 200k** | 0.0018 [0.0006, 0.0029] / 0.0016 | 0.0016 / 0.0014 | 0.0064 | 0.68 / 0.59 / 0.46 / 0.37 | 99.9% | 1.02 → 1.26 / 1.12 / 1.15 | 0.62 |
+| exp 3 200k | 0.0028 [0.0017, 0.0042] / 0.0017 | 0.0025 / 0.0018 | 0.0069 | 0.63 / 0.56 / 0.48 / 0.41 | 99.9% | 1.04 → 1.41 / 1.24 / 1.24 | 0.78 |
+
+Orientation β: |β| ≤ 0.006 for external-only errors in both models; 0.04–0.08 with the rigid all-camera error.
+
+**Activation patching, position L2.** Forward recovered / reverse caused; 95% CI on forward in brackets.
+
+| Patch | exp 4a 200k | exp 3 200k |
+|---|---|---|
+| clean → heavy pos L2 (cm) | 1.02 → 1.26 | 1.04 → 1.41 |
+| samples > 1 cm worse | 50 | 56 |
+| **delta_M replay, per call** | **0.01** [−0.00, 0.02] / 0.01 [0.00, 0.03] | −0.00 [−0.01, 0.00] / 0.00 |
+| C-token xyz | 0.35 / 0.28 | 0.18 / 0.13 |
+| FPS xyz | 0.40 / 0.38 | 0.27 / 0.18 |
+| dense xyz | 0.22 / 0.20 | 0.16 / 0.13 |
+| all positions | **0.76** [0.61, 0.93] / 0.70 | 0.51 [0.34, 0.75] / 0.55 |
+| proprio_feats | **0.30** [0.11, 0.46] / 0.24 | 0.45 [0.16, 0.63] / 0.49 |
+| all positions + proprio | 1.00 / 1.00 | 1.00 / 1.00 |
+
+**Rotation.** 4a's rotation degradation is tiny (L1 0.0453 → 0.0494), so its rotation shares have very wide CIs (for example proprio 1.02 [0.52, 2.83]). Read them only as "mostly proprio". exp 3: proprio 0.51 and positions 0.50, as in TODO 7.
+
+**Reading (both checkpoints):**
+- **4a's live delta_M carries at most 1–2% of the 60/60 damage, and it reduces none of it.** At 120k it is 0 in both directions. At 200k it is 0.01 forward and 0.01 reverse; the reverse CI just excludes 0, but that is negligible. A delta_M that compensated the miscalibration would show a *negative* forward share; it never does.
+  - 4a's delta_M varies per scene, camera and layer (TODO 14), but its input C-tokens are bit-identical clean vs heavy60: the extractor sees appearance only. Its clean→heavy changes come only from SA mixing, and they are inert.
+  - The answer to the key question: no, the live extractor does not turn delta_M into a correction channel. It behaves like exp 3's, which carries 0%.
+- **What did change is where the damage enters.** With training, 4a moves the damage from proprio to head positions: proprio 0.52 → 0.30, positions 0.54 → 0.76, C-token positions 0.18 → 0.35. In exp 3 the split stays at about 50/50.
+- **Offline, 4a is the least damaged pooled model** (+0.24 cm at 200k, against +0.37 for exp 3), and it follows miscalibrated cameras least (α 0.0018). **Online it is worse:** IDLT 60/60 65.1 against exp 3's 71.6, and calibrated 73.8 against 77.5 (weekly log 2026-10-13). This is the third case (after FP in TODO 13) where offline keypose damage ranks models opposite to online robustness. The online gap must come from something this offline test can't see. TODO 14b's task × camera-group fingerprint (a shortcut on unseen pairings) is the current hypothesis, and task-heldout groups would also hurt calibrated performance, which is what happens.
+- **Caveats.**
+  - The degradations are small (+0.24–0.67 cm), so the CIs are wide.
+  - Offline, keypose only, on validation tasks and groups. This set does not separate task-seen from task-heldout groups the way IDLT does.
 
 ## TODO 15: does exp 4b's input skip carry the task / camera-group fingerprint too?
 
