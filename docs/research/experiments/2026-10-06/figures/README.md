@@ -132,6 +132,7 @@ The data comes from `scripts/analysis/todo14a.slurm` (GPU; `PART=attn|ctok`, `ST
 | Figure | Shows | Script |
 |---|---|---|
 | `todo14a_ctoken_rel_change_120k.{png,svg}` | Per-layer relative change under heavy60 of C-tokens, external/wrist FPS tokens and trajectory tokens, exp 4a vs exp 3 at 120k | `scripts/analysis/plot_ctoken_behaviour.py --in-dir results/analysis/todo14a/ctoken_behaviour --fig docs/research/experiments/2026-10-06/figures/todo14a_ctoken_rel_change_120k` |
+| `todo14a_ctoken_rel_change.{png,svg}` | The same for exp 4a and exp 3 at 120k and 200k (four panels; 120k from the rerun with the wrist-only mask) | `scripts/analysis/plot_ctoken_behaviour.py --in-dir results/analysis/todo14a/ctoken_behaviour --fig docs/research/experiments/2026-10-06/figures/todo14a_ctoken_rel_change` |
 
 ## exp 4a vs exp 3: following and activation patching ([TODOs.md](../TODOs.md), TODO 14c)
 
