@@ -148,6 +148,8 @@ video_deltam_role: refine
 video_deltam_prenorm: false
 # Add a learned projection of the raw current-frame tokens to the extractor output; pooled path only.
 video_deltam_input_skip: false
+# Proprio encoder scene context: all cameras (all), wrist cameras only (wrist), or none (an MLP on the gripper state). 3D models only.
+proprio_context: all
 # C-token adaLN in place of delta_M: none | per_camera | pooled | static_pooled (needs view_align_mode=none)
 camera_adaln: none
 relative_action: false

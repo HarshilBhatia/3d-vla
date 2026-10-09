@@ -128,13 +128,14 @@ class Encoder(nn.Module):
         # Use the current end-effector position as language 'position'
         instr_pos = proprio[:, -1:, :3].repeat(1, instr_feats.size(1), 1)
 
+        ncam = rgb3d.shape[-4]  # works for both 5D (B, ncam, ...) and 6D (B, nhist, ncam, ...)
+
         # Encode proprioception using current frame's scene context
         proprio_feats = self.encode_proprio(
-            proprio, rgb3d_feats_curr, pcd_curr
+            proprio, rgb3d_feats_curr, pcd_curr, ncam=ncam
         )
 
         # Build (B, Np) camera-index tensor from current frame
-        ncam = rgb3d.shape[-4]  # works for both 5D (B, ncam, ...) and 6D (B, nhist, ncam, ...)
         Np = rgb3d_feats_curr.shape[1]
         cam_ids_full = (
             torch.arange(ncam, device=rgb3d_feats_curr.device)
@@ -187,7 +188,7 @@ class Encoder(nn.Module):
             camera_summaries, camera_summary_pos,
         )
 
-    def encode_proprio(self, proprio, context_feats, context_pos):
+    def encode_proprio(self, proprio, context_feats, context_pos, ncam=None):
         """
         Compute proprioception features.
 

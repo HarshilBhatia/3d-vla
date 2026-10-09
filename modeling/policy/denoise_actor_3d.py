@@ -49,6 +49,7 @@ class DenoiseActor(BaseDenoiseActor):
                  video_deltam_max_cameras=8,
                  video_deltam_full_image=False,
                  video_deltam_role='refine',
+                 proprio_context='all',
                  video_deltam_prenorm=False,
                  video_deltam_input_skip=False,
                  camera_adaln='none',
@@ -87,6 +88,7 @@ class DenoiseActor(BaseDenoiseActor):
             finetune_text_encoder=finetune_text_encoder,
             lang_dropout_prob=lang_dropout_prob,
             video_deltam_full_image=video_deltam_full_image,
+            proprio_context=proprio_context,
         )
 
         # Action decoder, runs at every denoising timestep

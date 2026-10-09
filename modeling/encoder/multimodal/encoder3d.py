@@ -23,7 +23,10 @@ class Encoder(BaseEncoder):
                  finetune_backbone=False,
                  finetune_text_encoder=False,
                  lang_dropout_prob=0.0,
-                 video_deltam_full_image=False):
+                 video_deltam_full_image=False,
+                 proprio_context='all'):
+        if proprio_context not in ('all', 'wrist', 'none'):
+            raise ValueError(f"proprio_context must be 'all', 'wrist' or 'none', got {proprio_context!r}")
         super().__init__(
             backbone=backbone,
             text_backbone=text_backbone,
@@ -58,17 +61,25 @@ class Encoder(BaseEncoder):
 
         # Proprioception learnable encoding if 3D is used
         self.curr_gripper_embed = nn.Embedding(nhist, embedding_dim)
-        self.gripper_context_head = AttentionModule(
-            num_layers=3, d_model=embedding_dim, dim_fw=embedding_dim,
-            n_heads=num_attn_heads, rotary_pe=True, use_adaln=False,
-            pre_norm=False
-        )
+        self.proprio_context = proprio_context
+        if proprio_context != 'none':
+            self.gripper_context_head = AttentionModule(
+                num_layers=3, d_model=embedding_dim, dim_fw=embedding_dim,
+                n_heads=num_attn_heads, rotary_pe=True, use_adaln=False,
+                pre_norm=False
+            )
 
         # Camera IDs for the 2D cameras
         self.camera_ids = nn.Embedding(2, embedding_dim)
         self.pos_embed_2d = SinusoidalPosEmb(embedding_dim)
 
-    def encode_proprio(self, proprio, context_feats, context_pos):
+        # Built last so proprio_context='all' keeps the existing module set and init.
+        if proprio_context == 'none':
+            self.proprio_value_mlp = nn.Sequential(
+                nn.Linear(8, embedding_dim), nn.ReLU(), nn.Linear(embedding_dim, embedding_dim)
+            )
+
+    def encode_proprio(self, proprio, context_feats, context_pos, ncam=None):
         """
         Compute proprioception features.
 
@@ -84,6 +95,17 @@ class Encoder(BaseEncoder):
         proprio_feats = self.curr_gripper_embed.weight.unsqueeze(0).repeat(
             len(proprio), 1, 1
         )
+        if self.proprio_context == 'none':
+            # Gripper state enters through its own values only: no scene lookup, so no camera geometry.
+            if proprio.shape[-1] != 8:
+                raise ValueError(f"proprio_context='none' expects xyz+quat+gripper (8 values), got {proprio.shape[-1]}")
+            return proprio_feats + self.proprio_value_mlp(proprio)
+        if self.proprio_context == 'wrist':
+            # Wrist cameras (ids 2, 3) are never miscalibrated; scene tokens are camera-major.
+            if ncam != 4:
+                raise ValueError(f"proprio_context='wrist' needs the 4-camera layout, got ncam={ncam}")
+            per_cam = context_feats.shape[1] // ncam
+            context_feats, context_pos = context_feats[:, 2 * per_cam:], context_pos[:, 2 * per_cam:]
 
         # Rotary positional encoding
         proprio_pos = self.relative_pe_layer(proprio[..., :3])

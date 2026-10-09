@@ -49,7 +49,7 @@ class Encoder(BaseEncoder):
         self.rot_dim = rot_dim
         self.proprio_feat = nn.Linear(3 + rot_dim, embedding_dim)
 
-    def encode_proprio(self, proprio, context_feats, context_pos):
+    def encode_proprio(self, proprio, context_feats, context_pos, ncam=None):
         """
         Compute proprioception features.
 
