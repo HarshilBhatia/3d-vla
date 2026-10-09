@@ -1,0 +1,276 @@
+<title>3DFA Run Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: runs table first (it drives every chart), then charts in tabs, then the TODO results list. */
+:root{
+  --bg:#111418; --panel:#181d23; --panel-2:#1f262e; --line:#2a333d;
+  --fg:#e3e8ee; --muted:#8e9aa7; --faint:#5d6875; --accent:#7cc4e4;
+  --good:#0ca30c; --warn:#fab219; --crit:#d03b3b;
+  --f-adaln:#3987e5; --f-dm:#d95926; --f-exp4:#199e70; --f-control:#c98500;
+  --f-warm:#d55181; --f-fp:#008300; --f-nohist:#9085e9;
+  --font-body:"Instrument Sans","Segoe UI",system-ui,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:14px/1.55 var(--font-body);margin:0}
+.wrap{max-width:1180px;margin:0 auto;padding-inline:18px;padding-block:28px 72px;display:flex;flex-direction:column;gap:32px}
+h1,h2,h3{margin:0;line-height:1.2;text-wrap:balance}
+h1{font-size:1.7rem;font-weight:700}
+h2{font-size:1.15rem;font-weight:600}
+h3{font-size:.98rem;font-weight:600}
+p{margin:0;max-width:78ch}
+.eyebrow{font:500 .7rem/1 var(--font-mono);letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.muted{color:var(--muted)} .mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+header{display:flex;flex-direction:column;gap:8px}
+section{display:flex;flex-direction:column;gap:14px;min-width:0}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button,.btn{font:500 .8rem var(--font-body);color:var(--fg);background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:6px 11px;cursor:pointer}
+button:hover{border-color:var(--accent)} button[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;font-size:.84rem}
+th,td{padding:7px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-weight:600;color:var(--muted);font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+td.n{font-family:var(--font-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+tr:last-child td{border-bottom:none}
+tr.run-row{cursor:pointer} tr.run-row:hover td{background:var(--panel-2)}
+tr.off td{opacity:.45}
+tr.fam td{background:var(--panel-2);color:var(--muted);font:500 .7rem var(--font-mono);letter-spacing:.08em;text-transform:uppercase;padding:5px 10px;cursor:default}
+.sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:7px;vertical-align:middle}
+.chips{display:flex;flex-wrap:wrap;gap:5px}
+.chip{font:500 .72rem var(--font-mono);padding:2px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted);background:transparent;cursor:pointer}
+.chip.on{color:var(--fg);border-color:currentColor}
+.chip.empty{opacity:.4;cursor:default}
+.pill{font:500 .68rem var(--font-mono);text-transform:uppercase;letter-spacing:.05em;padding:1px 7px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.pill.done{color:var(--good);border-color:#24502b} .pill.train{color:var(--warn);border-color:#5b4815} .pill.rej{color:var(--crit);border-color:#5a2a2a}
+.tabs{display:flex;gap:6px;flex-wrap:wrap}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.chart-box{position:relative;height:400px;min-width:0}
+.note{font-size:.8rem;color:var(--muted)}
+details>summary{cursor:pointer;color:var(--accent);font-size:.82rem}
+.todos{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:12px}
+.todo{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.todo-h{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+.todo-id{font:600 .78rem var(--font-mono);color:var(--accent)}
+.todo .lbl{font:500 .66rem var(--font-mono);letter-spacing:.08em;text-transform:uppercase;color:var(--faint)}
+.todo p{font-size:.86rem}
+.verdict{border-left:2px solid var(--accent);padding-left:10px}
+select{font:500 .8rem var(--font-body);background:var(--panel-2);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:5px 8px}
+footer{color:var(--muted);font-size:.78rem;border-top:1px solid var(--line);padding-top:14px}
+@media (max-width:560px){.chart-box{height:320px} h1{font-size:1.4rem}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+
+<div class="wrap">
+<header>
+  <span class="eyebrow">3DFA · week of 6 Oct 2026 · exp/sept22-ablations</span>
+  <h1>Run board</h1>
+  <p class="muted">Every run this week and its references. Click a run row, or a checkpoint chip, to include or exclude it from all charts. IDLT is task-held-out, 13 tasks × 100 rollouts (about ±1.3 points); robustness ladders are 13 × 20 (about ±3); G7 and SBRS are 6 tasks × 20 (about ±4).</p>
+  <p class="note mono" id="gen"></p>
+</header>
+
+<section>
+  <div class="toolbar">
+    <span class="eyebrow">Runs</span>
+    <button type="button" data-preset="default">Default selection</button>
+    <button type="button" data-preset="week">This week only</button>
+    <button type="button" data-preset="all">All</button>
+    <button type="button" data-preset="none">None</button>
+  </div>
+  <div class="tbl"><table id="runs">
+    <thead><tr><th>Run</th><th>Mechanism</th><th>Init / steps</th><th>EMA</th><th>Status</th><th class="n">IDLT cal</th><th class="n">IDLT 60/60</th><th>Checkpoints in charts</th></tr></thead>
+    <tbody></tbody>
+  </table></div>
+  <p class="note">IDLT columns show the run's latest evaluated checkpoint. A dimmed chip has no results yet (4a and 4b at 200k fill in when their evals finish).</p>
+</section>
+
+<section>
+  <div class="toolbar">
+    <span class="eyebrow">Charts</span>
+    <div class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="idlt" aria-pressed="true">Robustness vs miscalibration</button>
+      <button type="button" role="tab" data-tab="steps" aria-pressed="false">Over training</button>
+      <button type="button" role="tab" data-tab="g7" aria-pressed="false">G7 unseen camera group</button>
+    </div>
+  </div>
+  <div class="panel" id="p-idlt">
+    <h2>IDLT success vs external-camera miscalibration</h2>
+    <p class="note">x: miscalibration level (degrees / cm on the two orbital cameras). Each line is one run at one checkpoint.</p>
+    <div class="chart-box"><canvas id="c-idlt" aria-label="IDLT success by miscalibration level"></canvas></div>
+    <details><summary>Table view</summary><div class="tbl" id="t-idlt"></div></details>
+  </div>
+  <div class="panel" id="p-steps" hidden>
+    <div class="toolbar"><h2>Performance over training steps</h2>
+      <label class="note" for="metric">Metric</label>
+      <select id="metric"><option value="e60">IDLT 60/60</option><option value="cal">IDLT calibrated</option><option value="sbrs">SBRS (training-style)</option></select>
+    </div>
+    <p class="note">Solid: full IDLT (13 × 100) at a checkpoint. Dashed: robustness ladder (13 × 20). Dotted: SBRS ladder (6 × 20). Fine-tunes without a step are left out.</p>
+    <div class="chart-box"><canvas id="c-steps" aria-label="Success over training steps"></canvas></div>
+    <details><summary>Table view</summary><div class="tbl" id="t-steps"></div></details>
+  </div>
+  <div class="panel" id="p-g7" hidden>
+    <h2>G7 unseen camera group: opposing translation and rotation</h2>
+    <p class="note">6 tasks × 20 rollouts per bar, so differences under ~8 points are noise.</p>
+    <div class="chart-box"><canvas id="c-g7" aria-label="G7 success by condition"></canvas></div>
+    <details><summary>Table view</summary><div class="tbl" id="t-g7"></div></details>
+  </div>
+</section>
+
+<section>
+  <div class="toolbar"><span class="eyebrow">Analysis</span><h2>TODO → result → conclusion</h2></div>
+  <p class="note">Full write-ups: <span class="mono">docs/research/experiments/2026-10-06/TODOs.md</span>. Offline analyses are on single next-keypose predictions (853 validation samples, K = 5), not online success.</p>
+  <div class="todos" id="todos"></div>
+</section>
+
+<footer>Built by <span class="mono">scripts/analysis/build_dashboard.py</span> from the eval folders and <span class="mono">docs/research/dashboard/todos.json</span>. Re-run it to refresh.</footer>
+</div>
+
+<script>
+const DATA = /*__DATA__*/null;
+const FAM = {"adaLN":"--f-adaln","δM scratch":"--f-dm","exp 4":"--f-exp4","control":"--f-control","warm-started":"--f-warm","full-patch":"--f-fp","no history":"--f-nohist"};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const DASH = [[], [7,4], [2,3], [10,3,2,3]];
+const POINT = ["circle","rect","triangle","rectRot","star","crossRot","rectRounded"];
+const runById = Object.fromEntries(DATA.runs.map(r => [r.id, r]));
+const famRuns = {}; DATA.runs.forEach(r => (famRuns[r.family] ||= []).push(r.id));
+const style = {};
+DATA.runs.forEach(r => { const i = famRuns[r.family].indexOf(r.id); style[r.id] = {color: css(FAM[r.family]), dash: DASH[i % DASH.length]}; });
+const seriesByRun = {}; DATA.series.forEach(s => (seriesByRun[s.run] ||= []).push(s));
+DATA.series.forEach(s => s.point = POINT[seriesByRun[s.run].indexOf(s) % POINT.length]);
+const hasData = s => Object.keys(s.idlt).length || Object.keys(s.g7).length;
+
+const DEFAULT = ["1a@200k","1b@200k","1c@200k","2@200k","3@200k","4a@200k","4b@200k","A@160k","A@200k","VP@84k","RH+EMA","FP","Base@160k","DeltaM@140k"];
+let sel;
+try { sel = new Set(JSON.parse(localStorage.getItem("runboard-sel")) || DEFAULT); } catch (e) { sel = new Set(DEFAULT); }
+const save = () => { try { localStorage.setItem("runboard-sel", JSON.stringify([...sel])); } catch (e) {} };
+
+document.getElementById("gen").textContent = "Data generated " + DATA.generated;
+
+function latest(runId) {
+  const ss = (seriesByRun[runId] || []).filter(s => s.idlt.calibrated || s.idlt["60/60"]);
+  ss.sort((a, b) => (b.step || 999) - (a.step || 999));
+  return ss[0];
+}
+
+function renderRuns() {
+  const tb = document.querySelector("#runs tbody"); tb.innerHTML = "";
+  let fam = null;
+  DATA.runs.forEach(r => {
+    if (r.family !== fam) { fam = r.family; tb.insertAdjacentHTML("beforeend", `<tr class="fam"><td colspan="8"><span class="sw" style="background:${style[r.id].color}"></span>${fam}</td></tr>`); }
+    const ss = seriesByRun[r.id] || [];
+    const anyOn = ss.some(s => sel.has(s.key));
+    const lt = latest(r.id);
+    const cal = lt && lt.idlt.calibrated ? lt.idlt.calibrated[0].toFixed(1) : "–";
+    const e60 = lt && lt.idlt["60/60"] ? lt.idlt["60/60"][0].toFixed(1) : "–";
+    const at = lt ? ` <span class="muted">@${lt.step ? lt.step + "k" : lt.key.split(/[@+]/).pop()}</span>` : "";
+    const pc = r.status === "done" ? "done" : r.status === "training" ? "train" : "";
+    const chips = ss.map(s => `<button type="button" class="chip ${sel.has(s.key) ? "on" : ""} ${hasData(s) ? "" : "empty"}" data-key="${s.key}" style="${sel.has(s.key) ? "color:" + style[r.id].color : ""}" title="${s.label}">${s.key.replace(r.id, "").replace(/^@/, "") || s.key}</button>`).join("");
+    tb.insertAdjacentHTML("beforeend", `<tr class="run-row ${anyOn ? "" : "off"}" data-run="${r.id}">
+      <td><span class="sw" style="background:${style[r.id].color}"></span><b>${r.name}</b><div class="note mono">${r.config}</div></td>
+      <td>${r.mech}</td><td>${r.init} · ${r.steps}</td><td>${r.ema}</td><td><span class="pill ${pc}">${r.status}</span></td>
+      <td class="n">${cal}</td><td class="n">${e60}${at}</td><td><div class="chips">${chips}</div></td></tr>`);
+  });
+}
+
+document.querySelector("#runs tbody").addEventListener("click", e => {
+  const chip = e.target.closest(".chip");
+  if (chip) { e.stopPropagation(); const k = chip.dataset.key; sel.has(k) ? sel.delete(k) : sel.add(k); return refresh(); }
+  const row = e.target.closest("tr.run-row"); if (!row) return;
+  const ss = seriesByRun[row.dataset.run] || [];
+  const anyOn = ss.some(s => sel.has(s.key));
+  ss.forEach(s => anyOn ? sel.delete(s.key) : sel.add(s.key));
+  refresh();
+});
+document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
+  const p = b.dataset.preset;
+  sel = new Set(p === "default" ? DEFAULT : p === "none" ? [] : DATA.series.filter(s => p === "all" || runById[s.run].week === "this").map(s => s.key));
+  refresh();
+}));
+
+Chart.defaults.color = css("--muted");
+Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+Chart.defaults.borderColor = css("--line");
+const tip = {mode: "nearest", intersect: false, backgroundColor: css("--panel-2"), borderColor: css("--line"), borderWidth: 1, titleColor: css("--fg"), bodyColor: css("--fg"),
+  callbacks: {label: c => `${c.dataset.label}: ${c.parsed.y?.toFixed(1)}${c.raw && c.raw.n ? "  (n=" + c.raw.n + ")" : ""}`}};
+const axisY = {min: 0, max: 100, title: {display: true, text: "success (%)"}, grid: {color: css("--line")}};
+
+function selected() { return DATA.series.filter(s => sel.has(s.key)); }
+
+let cIdlt, cSteps, cG7;
+function drawIdlt() {
+  const ds = selected().filter(s => Object.keys(s.idlt).length).map(s => ({
+    label: s.label, data: DATA.levels.map(l => s.idlt[l] ? {x: l, y: s.idlt[l][0], n: s.idlt[l][1]} : {x: l, y: null}),
+    borderColor: style[s.run].color, backgroundColor: style[s.run].color, borderDash: style[s.run].dash, pointStyle: s.point,
+    borderWidth: 2, pointRadius: 4, pointHoverRadius: 6, spanGaps: true, tension: 0}));
+  cIdlt?.destroy();
+  cIdlt = new Chart(document.getElementById("c-idlt"), {type: "line", data: {labels: DATA.levels, datasets: ds},
+    options: {responsive: true, maintainAspectRatio: false, interaction: {mode: "nearest", intersect: false}, plugins: {tooltip: tip, legend: {position: "bottom", labels: {usePointStyle: true, boxWidth: 8}}},
+      scales: {x: {title: {display: true, text: "miscalibration (° / cm)"}, grid: {display: false}}, y: axisY}}});
+  table("t-idlt", ["run"].concat(DATA.levels), selected().filter(s => Object.keys(s.idlt).length).map(s => [s.label].concat(DATA.levels.map(l => s.idlt[l] ? s.idlt[l][0].toFixed(1) : "–"))));
+}
+
+function drawSteps() {
+  const m = document.getElementById("metric").value, lvl = m === "e60" ? "60/60" : "calibrated";
+  const runs = [...new Set(selected().map(s => s.run))];
+  const ds = [], rows = [];
+  runs.forEach(rid => {
+    const st = style[rid];
+    if (m !== "sbrs") {
+      const pts = (seriesByRun[rid] || []).filter(s => s.step && s.idlt[lvl]).map(s => ({x: s.step, y: s.idlt[lvl][0], n: s.idlt[lvl][1]})).sort((a, b) => a.x - b.x);
+      if (pts.length) { ds.push({label: `${runById[rid].name} · IDLT ×100`, data: pts, borderColor: st.color, backgroundColor: st.color, borderWidth: 2, pointRadius: 4, tension: 0}); pts.forEach(p => rows.push([runById[rid].name + " (×100)", p.x + "k", p.y.toFixed(1)])); }
+    }
+    DATA.ladders.filter(l => l.run === rid && (m === "sbrs" ? l.kind === "sbrs" : l.kind === "rob")).forEach(l => {
+      const key = m === "sbrs" ? "sbrs" : m;
+      const pts = l.points.filter(p => p[key] != null).map(p => ({x: p.step, y: p[key]}));
+      if (pts.length) { ds.push({label: l.label, data: pts, borderColor: st.color, backgroundColor: st.color, borderDash: m === "sbrs" ? [2, 3] : [7, 4], borderWidth: 2, pointRadius: 3, tension: 0}); pts.forEach(p => rows.push([l.label, p.x + "k", p.y.toFixed(1)])); }
+    });
+  });
+  cSteps?.destroy();
+  cSteps = new Chart(document.getElementById("c-steps"), {type: "line", data: {datasets: ds},
+    options: {responsive: true, maintainAspectRatio: false, interaction: {mode: "nearest", intersect: false}, plugins: {tooltip: tip, legend: {position: "bottom", labels: {usePointStyle: true, boxWidth: 8}}},
+      scales: {x: {type: "linear", min: 40, max: 210, title: {display: true, text: "training step (k)"}, grid: {display: false}}, y: axisY}}});
+  table("t-steps", ["series", "step", "success"], rows);
+}
+
+function drawG7() {
+  const ss = selected().filter(s => Object.keys(s.g7).length);
+  const ds = ss.map(s => ({label: s.label, data: DATA.g7.map(c => s.g7[c] ? s.g7[c][0] : null), backgroundColor: style[s.run].color,
+    borderColor: css("--panel"), borderWidth: 1, borderRadius: 3, barPercentage: .9, categoryPercentage: .85}));
+  cG7?.destroy();
+  cG7 = new Chart(document.getElementById("c-g7"), {type: "bar", data: {labels: DATA.g7, datasets: ds},
+    options: {responsive: true, maintainAspectRatio: false, plugins: {tooltip: {...tip, mode: "nearest", intersect: true}, legend: {position: "bottom", labels: {boxWidth: 10}}},
+      scales: {x: {grid: {display: false}}, y: axisY}}});
+  table("t-g7", ["run"].concat(DATA.g7), ss.map(s => [s.label].concat(DATA.g7.map(c => s.g7[c] ? s.g7[c][0].toFixed(1) : "–"))));
+}
+
+function table(id, head, rows) {
+  document.getElementById(id).innerHTML = rows.length ? `<table><thead><tr>${head.map((h, i) => `<th class="${i ? "n" : ""}">${h}</th>`).join("")}</tr></thead><tbody>${rows.map(r => `<tr>${r.map((c, i) => `<td class="${i ? "n" : ""}">${c}</td>`).join("")}</tr>`).join("")}</tbody></table>` : `<p class="note" style="padding:10px">No selected run has results here.</p>`;
+}
+
+let tab = "idlt";
+document.querySelectorAll("[data-tab]").forEach(b => b.addEventListener("click", () => {
+  tab = b.dataset.tab;
+  document.querySelectorAll("[data-tab]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  ["idlt", "steps", "g7"].forEach(t => document.getElementById("p-" + t).hidden = t !== tab);
+  drawCurrent();
+}));
+document.getElementById("metric").addEventListener("change", drawSteps);
+function drawCurrent() { tab === "idlt" ? drawIdlt() : tab === "steps" ? drawSteps() : drawG7(); }
+
+function renderTodos() {
+  const pc = s => /rejected/.test(s) ? "rej" : /pending/.test(s) ? "train" : /done|decision|finding/.test(s) ? "done" : "";
+  document.getElementById("todos").innerHTML = DATA.todos.map(t => `<article class="todo">
+    <div class="todo-h"><span class="todo-id">${/^M/.test(t.id) ? "" : "TODO "}${t.id}</span><h3>${t.title}</h3><span class="pill ${pc(t.status)}">${t.status}</span></div>
+    <span class="note">${t.models}</span>
+    <span class="lbl">Question</span><p>${t.question}</p>
+    <span class="lbl">Result</span><p class="mono" style="font-size:.8rem">${t.result}</p>
+    <span class="lbl">Conclusion</span><p class="verdict">${t.conclusion}</p></article>`).join("");
+}
+
+function refresh() { save(); renderRuns(); drawCurrent(); }
+renderTodos(); refresh();
+</script>
