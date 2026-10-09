@@ -64,3 +64,22 @@ def test_camera_adaln_off_builds_nothing_and_rejects_delta_m():
     assert not hasattr(_head("none"), "camera_adaln_proj")
     with pytest.raises(ValueError):
         TransformerHead(embedding_dim=C, num_attn_heads=3, view_align_mode='rope_6d', camera_adaln='pooled')
+
+
+def test_eval_ablation_zero_camera_term_returns_time_signal():
+    head = _head("pooled")
+    head.eval_ablation = "camera_adaln_zero"
+    inputs = _inputs()
+    t = torch.randn(B, C)
+    assert torch.equal(head._camera_adaln_signal(t, inputs["fps_scene_feats"][:, M:], inputs["fps_cam_ids"], T * NHAND), t)
+
+
+def test_eval_ablation_identity_delta_m():
+    head = TransformerHead(embedding_dim=C, num_attn_heads=3, view_align_mode='rope_6d', view_align_cameras=[0, 1])
+    torch.nn.init.normal_(head.camera_predictor.weight, std=1.0)
+    feats = torch.randn(B, NCAM, C)
+    _, dm = head._predict_from_cam_feat(feats)
+    assert not torch.allclose(dm[:, 0], torch.eye(6).expand(B, 6, 6), atol=1e-3)
+    head.eval_ablation = "delta_m_identity"
+    _, dm = head._predict_from_cam_feat(feats)
+    assert torch.allclose(dm, torch.eye(6).expand_as(dm))

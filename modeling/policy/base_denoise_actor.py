@@ -603,6 +603,8 @@ class TransformerHead(nn.Module):
                                        or head_positional_encoding not in ('rope3d', 'rope3d_proprio')):
             raise ValueError("camera_adaln replaces view alignment: needs view_align_mode=none and a rope3d* head")
         self.camera_adaln = camera_adaln
+        # Eval-only switch set by the eval loader (none | delta_m_identity | camera_adaln_zero); never trained with.
+        self.eval_ablation = 'none'
 
         if view_align_mode not in VIEW_ALIGN_MODES:
             raise ValueError(f"view_align_mode must be one of {sorted(VIEW_ALIGN_MODES)}, got {view_align_mode!r}")
@@ -891,6 +893,8 @@ class TransformerHead(nn.Module):
             norm = torch.linalg.norm(A, ord='fro', dim=(-2, -1), keepdim=True).clamp(min=1e-8)
             A = A * (norm.clamp(max=max_norm) / norm)
             delta_M = self._mask_delta_m_camera_ids(torch.linalg.matrix_exp(A))
+            if self.eval_ablation == 'delta_m_identity':
+                delta_M = torch.eye(6, dtype=delta_M.dtype, device=delta_M.device).expand_as(delta_M)
             return None, delta_M
         elif self.extrinsics_prediction_mode == 'delta_m_full':
             D = self._delta_m_full_dim
@@ -1248,6 +1252,8 @@ class TransformerHead(nn.Module):
 
     def _camera_adaln_signal(self, time_embs, camera_summaries, fps_cam_ids, traj_seq_len):
         """adaLN signal from C-tokens (B, ncam, C): (B, C) when pooled, (B, S, C) per SA token when per-camera."""
+        if self.eval_ablation == 'camera_adaln_zero':
+            return time_embs
         if self.camera_adaln != 'per_camera':
             return time_embs + self.camera_adaln_proj(camera_summaries.mean(1))
         batch_size, ncam = camera_summaries.shape[:2]

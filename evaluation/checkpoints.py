@@ -21,6 +21,7 @@ EVALUATION_RUNTIME_KEYS = frozenset({
     "save_trajectory", "eval_use_depth2cloud", "image_size",
     "collision_checking", "cfg_scale", "prediction_len", "max_steps",
     "eval_proprio_history_order", "eval_history_probe", "eval_blackout_cameras", "eval_weights",
+    "eval_ablation",
     # Dataset/rollout input shape controls; these do not change model
     # architecture (proprio_num_history remains checkpoint-owned because it
     # determines decoder dimensions).
@@ -148,5 +149,16 @@ def load_model_for_evaluation(args: Any):
             "checkpoint/model architecture mismatch; refusing an invalid evaluation. "
             f"Missing trained keys: {missing}; unexpected checkpoint keys: {unexpected}"
         )
+    ablation = getattr(args, "eval_ablation", "none") or "none"
+    if ablation != "none":
+        head = model.prediction_head
+        if ablation == "delta_m_identity" and not (head.predict_extrinsics and head.extrinsics_prediction_mode == "delta_m"):
+            raise ValueError("eval_ablation=delta_m_identity needs a head that predicts 6x6 delta_M")
+        if ablation == "camera_adaln_zero" and getattr(head, "camera_adaln", "none") == "none":
+            raise ValueError("eval_ablation=camera_adaln_zero needs a camera_adaln model")
+        if ablation not in ("delta_m_identity", "camera_adaln_zero"):
+            raise ValueError(f"eval_ablation must be none, delta_m_identity or camera_adaln_zero, got {ablation!r}")
+        head.eval_ablation = ablation
+        print(f"[eval_ablation] {ablation}", flush=True)
     model.eval()
     return model.cuda()
