@@ -1429,7 +1429,7 @@ TODO 3 and TODO 10 metrics:
 
 ### TODO 14b: probes
 
-**Status:** claimed (probing agent)
+**Status:** in progress (probing agent)
 
 TODO 5 / TODO 11 probes on 4a: true camera pose (including leave-one-group-out) and the injected miscalibration (0–60° / 0–60 cm sweep), at every depth:
 - encoder C-tokens;
