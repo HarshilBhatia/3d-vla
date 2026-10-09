@@ -1705,3 +1705,29 @@ Use EMA weights at K = 5, and check the `[load]` and `[arch]` lines (`input_skip
 **Results:**
 
 **Reading:**
+
+---
+
+## TODO 16: online clean-proprio oracle (ceiling for exp 5)
+
+**Status:** claimed (intervention agent)
+
+**Why:** offline patching (TODO 7) attributes 79% of 1b's 60/60 damage to the proprio features. Exp 5a/5b (`proprio_context: wrist / none`, training) test fixes that need retraining. This oracle measures the **ceiling** online, without retraining: during IDLT rollouts, compute `proprio_feats` from the **correctly calibrated** point cloud, while every other part of the model sees the miscalibrated one. The features stay in-distribution, because they are exactly what the model computes under clean cameras.
+
+**Do:**
+1. Add an opt-in, eval-owned switch, e.g. `eval_clean_proprio: true`:
+   - the online backend also builds the point cloud with the **true** extrinsics (`build_pcd_from_obs` with `T_noise=None`) and threads it through the same history/batching path as the normal one;
+   - the model uses it **only** in `encode_proprio` (keys and positions), for example via a model or encoder attribute the eval loader sets.
+   - Off by default; add it to `EVALUATION_RUNTIME_KEYS` and `config/eval/default.yaml`.
+2. Before running, verify it does the right thing:
+   - with calibrated cameras, the output is bit-identical with the switch on and off;
+   - under 60/60, only `proprio_feats` changes (the scene positions stay miscalibrated);
+   - test with a unit test and a print-command / single-cell dry run.
+3. Run IDLT task-heldout **calibrated and 60/60** (13 tasks × 100, the same campaigns as before, new method ids) for **1b at 200k** and **A at 200k (raw)**. Add **exp 3 at 200k** if cheap; its proprio share was 45%.
+4. Report 60/60 with and without the oracle next to the existing numbers (1b 70.4, A 57.1, exp 3 71.6), plus calibrated as a sanity check (it should be unchanged).
+
+Keep `/home/harshilb/miniconda3/envs/3dfa/bin/python -m pytest -q tests` green.
+
+**Results:**
+
+**Reading:**
