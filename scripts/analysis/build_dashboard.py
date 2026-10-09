@@ -132,7 +132,7 @@ def level_of(cal_dir):
 
 
 def g7_of(cal_dir):
-    c = cal_dir.replace("g7-", "")
+    c = re.sub(r"-v\d+$", "", cal_dir.replace("g7-", ""))
     if c == "clean":
         return "clean"
     m = re.match(r"opposite-(\d+)cm", c)
