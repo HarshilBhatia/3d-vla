@@ -116,12 +116,15 @@ class DenoiseActor(nn.Module):
                 requires_grad=False
             )
         self.nrm_dim = int(self.workspace_normalizer.size(-1))
+        # Eval-only switch set by the eval loader: encode_proprio reads a separately supplied (true-extrinsics) point cloud.
+        self.eval_clean_proprio = False
 
-    def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio):
+    def encode_inputs(self, rgb3d, rgb2d, pcd, instruction, proprio, proprio_pcd=None):
+        extra = {} if proprio_pcd is None else {"proprio_pcd": proprio_pcd}
         (rgb3d_feats, pcd_out, rgb2d_feats, rgb2d_pos, instr_feats, instr_pos,
          proprio_feats, fps_scene_feats, fps_scene_pos, fps_cam_ids,
          video_frame_feats, camera_summaries, camera_summary_pos) = self.encoder(
-            rgb3d, rgb2d, pcd, instruction, proprio.flatten(1, 2),
+            rgb3d, rgb2d, pcd, instruction, proprio.flatten(1, 2), **extra,
         )
 
         # The HistoryFeatureExtractor runs here, not in the head: its inputs do
@@ -304,10 +307,10 @@ class DenoiseActor(nn.Module):
         return trajectory
 
     def compute_trajectory(self, trajectory_mask,
-                           rgb3d, rgb2d, pcd, instruction, proprio):
+                           rgb3d, rgb2d, pcd, instruction, proprio, proprio_pcd=None):
         # Encode observations, states, instructions
         fixed_inputs = self.encode_inputs(
-            rgb3d, rgb2d, pcd, instruction, proprio,
+            rgb3d, rgb2d, pcd, instruction, proprio, proprio_pcd=proprio_pcd,
         )
 
         # Sample from learned model starting from noise
@@ -502,6 +505,7 @@ class DenoiseActor(nn.Module):
         proprio,
         run_inference=False,
         cfg_scale=None,
+        proprio_pcd=None,
     ):
         """
         Arguments:
@@ -523,9 +527,14 @@ class DenoiseActor(nn.Module):
             - loss: scalar, if run_inference is False
             - trajectory: (B, trajectory_length, nhand, 3+rot+1), at inference
         """
+        # eval_clean_proprio (eval-only): proprio_pcd must be supplied exactly when the switch is on.
+        if (proprio_pcd is not None) != (run_inference and self.eval_clean_proprio):
+            raise ValueError("proprio_pcd is only accepted, and then required, at inference with eval_clean_proprio on")
         # Inference, don't use gt_trajectory
         if run_inference:
             if cfg_scale is not None:
+                if proprio_pcd is not None:
+                    raise ValueError("eval_clean_proprio does not support classifier-free guidance")
                 return self.compute_trajectory_cfg(
                     trajectory_mask,
                     rgb3d, rgb2d, pcd, instruction, proprio,
@@ -533,7 +542,7 @@ class DenoiseActor(nn.Module):
                 )
             return self.compute_trajectory(
                 trajectory_mask,
-                rgb3d, rgb2d, pcd, instruction, proprio,
+                rgb3d, rgb2d, pcd, instruction, proprio, proprio_pcd=proprio_pcd,
             )
 
         # Training, use gt_trajectory to compute loss

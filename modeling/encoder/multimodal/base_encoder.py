@@ -1,5 +1,6 @@
 import torch
 from torch import nn
+from torch.nn import functional as F
 
 from ...utils.layers import AttentionModule
 from ..vision import fetch_visual_encoders
@@ -13,6 +14,24 @@ SCENE_SAMPLING = {
     "image_space": (False, True, False),
     "none":        (True, False, False),
 }
+
+
+def pcd_to_tokens(pcd, feat_h, feat_w):
+    """(N, ncam, 3, H, W) point maps -> (N, ncam*feat_h*feat_w, 3) camera-major tokens on the visual feature grid."""
+    n, ncam, c = pcd.shape[:3]
+    pcd = F.interpolate(pcd.reshape(-1, *pcd.shape[2:]), (feat_h, feat_w), mode='bilinear')
+    return pcd.reshape(n, ncam, c, feat_h, feat_w).permute(0, 1, 3, 4, 2).reshape(n, ncam * feat_h * feat_w, c)
+
+
+def proprio_context_pos(proprio_pcd, pcd_curr):
+    """Current-frame tokens of an alternative point cloud (B, [K,] ncam, 3, H, W), on pcd_curr's (square) token grid."""
+    if proprio_pcd.ndim == 6:
+        proprio_pcd = proprio_pcd[:, -1]
+    ncam = proprio_pcd.shape[1]
+    side = int(round((pcd_curr.shape[1] // ncam) ** 0.5))
+    if ncam * side * side != pcd_curr.shape[1]:
+        raise ValueError(f"proprio_pcd needs a square feature grid; got {pcd_curr.shape[1]} tokens for {ncam} cameras")
+    return pcd_to_tokens(proprio_pcd.to(pcd_curr.dtype), side, side)
 
 
 class Encoder(nn.Module):
@@ -88,7 +107,7 @@ class Encoder(nn.Module):
             self.backbone.eval()
         return self
 
-    def forward(self, rgb3d, rgb2d, pcd, instruction, proprio):
+    def forward(self, rgb3d, rgb2d, pcd, instruction, proprio, proprio_pcd=None):
         """
         Encode different modalities, independent of denoising step.
 
@@ -96,6 +115,7 @@ class Encoder(nn.Module):
             - rgb3d: (B, ncam3d, 3, H, W) or (B, nhist, ncam3d, 3, H, W)
             - pcd:   same spatial shape as rgb3d
             - proprio: (B, nhist, 3+6+X)
+            - proprio_pcd: optional point cloud shaped like pcd, read only by encode_proprio (eval_clean_proprio)
 
         Returns:
             - rgb3d_feats: (B, Np, F) or (B, nhist, Np, F) when nhist > 1
@@ -131,8 +151,9 @@ class Encoder(nn.Module):
         ncam = rgb3d.shape[-4]  # works for both 5D (B, ncam, ...) and 6D (B, nhist, ncam, ...)
 
         # Encode proprioception using current frame's scene context
+        proprio_pos = pcd_curr if proprio_pcd is None else proprio_context_pos(proprio_pcd, pcd_curr)
         proprio_feats = self.encode_proprio(
-            proprio, rgb3d_feats_curr, pcd_curr, ncam=ncam
+            proprio, rgb3d_feats_curr, proprio_pos, ncam=ncam
         )
 
         # Build (B, Np) camera-index tensor from current frame

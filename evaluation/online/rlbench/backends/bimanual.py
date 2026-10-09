@@ -114,7 +114,7 @@ class Actioner:
         instr = [random.choice(descriptions)]
         self._instr = self.tokenizer(instr).cuda(non_blocking=True)
 
-    def predict(self, rgbs, pcds, gripper, prediction_len=1):
+    def predict(self, rgbs, pcds, gripper, prediction_len=1, proprio_pcds=None):
         """
         Args:
             rgbs: (1, nhist, ncam, 3, H, W) when ``nhist > 1``;
@@ -133,6 +133,8 @@ class Actioner:
         # passing cfg_scale=None is still an unsupported keyword for it.
         if self._cfg_scale is not None:
             policy_kwargs["cfg_scale"] = self._cfg_scale
+        if proprio_pcds is not None:
+            policy_kwargs["proprio_pcd"] = proprio_pcds
         return self._policy(
             None,
             torch.full([1, prediction_len, 2], False).cuda(non_blocking=True),
@@ -486,6 +488,10 @@ class RLBenchEnv:
             grippers = torch.Tensor([]).cuda(non_blocking=True)
             rgb_history = None
             pcd_history = None
+            clean_history = None
+            clean_proprio = getattr(self, "_clean_proprio", False)
+            if clean_proprio and history_probe != "none":
+                raise ValueError("eval_clean_proprio cannot be combined with eval_history_probe")
             descriptions, obs = task.reset_to_demo(demo)
             actioner.load_episode(descriptions)
             history_rng = random.Random(f"{history_seed}-{task_str}-{variation}-{demo_id}")
@@ -504,6 +510,9 @@ class RLBenchEnv:
                 rgb, pcd, gripper = self.get_rgb_pcd_gripper_from_obs(obs)
                 rgb_current = rgb.cuda(non_blocking=True)
                 pcd_current = pcd.cuda(non_blocking=True)
+                clean_input = None
+                if clean_proprio:
+                    clean_current = self._last_clean_pcd.cuda(non_blocking=True)
                 # Keep visual history at the policy replan cadence.  The
                 # returned windows are oldest→current, exactly matching the
                 # training loader's `_get_single_frame_hist` convention.
@@ -518,6 +527,12 @@ class RLBenchEnv:
                     hist_idx = _random_visual_history_indices(rgb_history.shape[1], visual_num_history, history_rng)
                     rgbs_input = rgb_history[:, hist_idx]
                     pcds_input = pcd_history[:, hist_idx]
+                    if clean_proprio:
+                        # The true-extrinsics cloud follows exactly the same history and indices as the normal one.
+                        clean_history = clean_current.unsqueeze(1) if clean_history is None else torch.cat(
+                            (clean_history, clean_current.unsqueeze(1)), dim=1
+                        )
+                        clean_input = clean_history[:, hist_idx]
                 else:
                     rgbs_input = _append_causal_visual_history(
                         rgb_history, rgb_current, visual_num_history
@@ -527,6 +542,9 @@ class RLBenchEnv:
                     )
                     rgb_history = rgbs_input
                     pcd_history = pcds_input
+                    if clean_proprio:
+                        clean_input = _append_causal_visual_history(clean_history, clean_current, visual_num_history)
+                        clean_history = clean_input
                 if history_probe != "none" and visual_num_history > 1:
                     episode_rgb.append(rgb_current)
                     episode_pcd.append(pcd_current)
@@ -537,6 +555,7 @@ class RLBenchEnv:
                 if visual_num_history == 1:
                     rgbs_input = rgbs_input[:, 0]
                     pcds_input = pcds_input[:, 0]
+                    clean_input = None if clean_input is None else clean_input[:, 0]
                 gripper = gripper.cuda(non_blocking=True)
                 grippers = torch.cat([grippers, gripper.unsqueeze(1)], 1)
 
@@ -553,7 +572,8 @@ class RLBenchEnv:
                     rgbs_input,
                     pcds_input,
                     gripper_input,
-                    prediction_len=prediction_len
+                    prediction_len=prediction_len,
+                    **({"proprio_pcds": clean_input} if clean_proprio else {}),
                 )
 
                 # Update the observation based on the predicted action

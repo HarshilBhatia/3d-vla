@@ -53,6 +53,7 @@ def build_environment_kwargs(args: Any) -> dict[str, Any]:
             "calibration_id": calibration_id,
             "scene_frame": getattr(args, "scene_frame", "world"),
             "blackout_cameras": list(getattr(args, "eval_blackout_cameras", None) or []),
+            **({"clean_proprio": True} if getattr(args, "eval_clean_proprio", False) else {}),
         }
     if "orbital" in dataset:
         return {

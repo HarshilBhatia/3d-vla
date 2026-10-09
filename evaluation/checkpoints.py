@@ -21,7 +21,7 @@ EVALUATION_RUNTIME_KEYS = frozenset({
     "save_trajectory", "eval_use_depth2cloud", "image_size",
     "collision_checking", "cfg_scale", "prediction_len", "max_steps",
     "eval_proprio_history_order", "eval_history_probe", "eval_blackout_cameras", "eval_weights",
-    "eval_ablation",
+    "eval_ablation", "eval_clean_proprio",
     # Dataset/rollout input shape controls; these do not change model
     # architecture (proprio_num_history remains checkpoint-owned because it
     # determines decoder dimensions).
@@ -160,5 +160,10 @@ def load_model_for_evaluation(args: Any):
             raise ValueError(f"eval_ablation must be none, delta_m_identity or camera_adaln_zero, got {ablation!r}")
         head.eval_ablation = ablation
         print(f"[eval_ablation] {ablation}", flush=True)
+    if getattr(args, "eval_clean_proprio", False):
+        if not hasattr(model.encoder, "gripper_context_head"):
+            raise ValueError("eval_clean_proprio needs a proprio encoder that reads scene positions")
+        model.eval_clean_proprio = True
+        print("[eval_clean_proprio] proprio encoder reads the true-extrinsics point cloud", flush=True)
     model.eval()
     return model.cuda()

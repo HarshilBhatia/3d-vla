@@ -1,0 +1,188 @@
+{
+  "schema_version": 1,
+  "campaign_id": "idlt_task_heldout_group_fixed_v03_video_k5",
+  "description": "In-Distribution Lab Transfer: external-camera-only calibration robustness. The selected camera group was seen in training for other tasks, but not this target task.",
+  "calibration_registry": "instructions/eval_calibrations_idlt_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {
+      "id": "exp1b_adaln_pooled_s200k_ema_clean_proprio",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_adaln_pooled_scratch/interm_step_200000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_clean_proprio": true,
+        "eval_weights": "ema"
+      }
+    },
+    {
+      "id": "regtest_a_register_s200k_clean_proprio",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_noalign_randhist_scratch/interm_step_200000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_clean_proprio": true,
+        "eval_weights": "raw"
+      }
+    },
+    {
+      "id": "exp3_randhist_deltam_s200k_ema_clean_proprio",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_deltam_scratch/interm_step_200000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_clean_proprio": true,
+        "eval_weights": "ema"
+      }
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_push_box": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_lift_ball": {
+      "id": "g5_task_heldout_group",
+      "spawn_camera_group": "G5",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_dual_push_buttons": {
+      "id": "g6_task_heldout_group",
+      "spawn_camera_group": "G6",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_plate": {
+      "id": "g1_task_heldout_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_put_item_in_drawer": {
+      "id": "g2_task_heldout_group",
+      "spawn_camera_group": "G2",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_put_bottle_in_fridge": {
+      "id": "g3_task_heldout_group",
+      "spawn_camera_group": "G3",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_handover_item": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_pick_laptop": {
+      "id": "g5_task_heldout_group",
+      "spawn_camera_group": "G5",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_straighten_rope": {
+      "id": "g6_task_heldout_group",
+      "spawn_camera_group": "G6",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_sweep_to_dustpan": {
+      "id": "g1_task_heldout_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_lift_tray": {
+      "id": "g2_task_heldout_group",
+      "spawn_camera_group": "G2",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_handover_item_easy": {
+      "id": "g3_task_heldout_group",
+      "spawn_camera_group": "G3",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    },
+    "bimanual_take_tray_out_of_oven": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_push_box": [
+      "calibrated"
+    ],
+    "bimanual_lift_ball": [
+      "calibrated"
+    ],
+    "bimanual_dual_push_buttons": [
+      "calibrated"
+    ],
+    "bimanual_pick_plate": [
+      "calibrated"
+    ],
+    "bimanual_put_item_in_drawer": [
+      "calibrated"
+    ],
+    "bimanual_put_bottle_in_fridge": [
+      "calibrated"
+    ],
+    "bimanual_handover_item": [
+      "calibrated"
+    ],
+    "bimanual_pick_laptop": [
+      "calibrated"
+    ],
+    "bimanual_straighten_rope": [
+      "calibrated"
+    ],
+    "bimanual_sweep_to_dustpan": [
+      "calibrated"
+    ],
+    "bimanual_lift_tray": [
+      "calibrated"
+    ],
+    "bimanual_handover_item_easy": [
+      "calibrated"
+    ],
+    "bimanual_take_tray_out_of_oven": [
+      "calibrated"
+    ]
+  },
+  "calibrations": [
+    "calibrated"
+  ],
+  "tasks": [
+    "bimanual_push_box",
+    "bimanual_lift_ball",
+    "bimanual_dual_push_buttons",
+    "bimanual_pick_plate",
+    "bimanual_put_item_in_drawer",
+    "bimanual_put_bottle_in_fridge",
+    "bimanual_handover_item",
+    "bimanual_pick_laptop",
+    "bimanual_straighten_rope",
+    "bimanual_sweep_to_dustpan",
+    "bimanual_lift_tray",
+    "bimanual_handover_item_easy",
+    "bimanual_take_tray_out_of_oven"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 100
+  }
+}

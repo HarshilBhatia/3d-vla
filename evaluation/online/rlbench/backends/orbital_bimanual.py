@@ -109,7 +109,11 @@ class RLBenchEnv(BimanualRLBenchEnv):
         scene_frame="world",
         model_camera_indices=None,
         blackout_cameras=None,
+        clean_proprio=False,
     ):
+        # eval_clean_proprio: also build a true-extrinsics point cloud that only the proprio encoder reads.
+        self._clean_proprio = bool(clean_proprio)
+        self._last_clean_pcd = None
         self._model_camera_indices = None if model_camera_indices is None else list(model_camera_indices)
         self._blackout_cameras = list(blackout_cameras or [])
         if cameras_file is None:
@@ -346,15 +350,19 @@ class RLBenchEnv(BimanualRLBenchEnv):
         extrinsics = torch.stack(exts).unsqueeze(0)   # (1, 4, 4, 4)
         intrinsics = torch.stack(ints).unsqueeze(0)   # (1, 4, 3, 3)
 
+        true_extrinsics = extrinsics
+
         # --- Miscalibration: corrupt only the extrinsics fed to depth→PCD ---
         if self._miscal_T is not None:
             extrinsics = apply_miscalibration(extrinsics, self._miscal_T)
 
-        pcd = self._depth2cloud(
+        unproject = lambda ext: self._depth2cloud(
             depth.cuda(non_blocking=True).to(torch.bfloat16),
-            extrinsics.cuda(non_blocking=True).to(torch.bfloat16),
+            ext.cuda(non_blocking=True).to(torch.bfloat16),
             intrinsics.cuda(non_blocking=True).to(torch.bfloat16),
         ).float()  # (1, 4, 3, H, W), keep GPU-resident for policy input
+        pcd = unproject(extrinsics)
+        clean_pcd = unproject(true_extrinsics) if self._clean_proprio else None
 
         gripper = torch.from_numpy(np.concatenate([
             obs.left.gripper_pose, [obs.left.gripper_open],
@@ -365,9 +373,17 @@ class RLBenchEnv(BimanualRLBenchEnv):
             # Eval-only probe: blinded cameras get black RGB and all their points parked 10 m below the table.
             rgb[:, self._blackout_cameras] = 0
             pcd[:, self._blackout_cameras] = torch.tensor([0.0, 0.0, -10.0], device=pcd.device).view(1, 1, 3, 1, 1)
+            if clean_pcd is not None:
+                clean_pcd[:, self._blackout_cameras] = pcd[:, self._blackout_cameras]
         if self._model_camera_indices is not None:
             # Miscalibration is applied in the full 4-camera order above; only the model's cameras are returned.
             rgb, pcd = rgb[:, self._model_camera_indices], pcd[:, self._model_camera_indices]
+            clean_pcd = None if clean_pcd is None else clean_pcd[:, self._model_camera_indices]
+        if clean_pcd is not None and not getattr(self, "_clean_logged", False):
+            self._clean_logged = True
+            diff = (clean_pcd - pcd).abs().flatten(2).amax(-1)[0].tolist()
+            print(f"[eval_clean_proprio] max |true - used| pcd per camera (m): {[round(d, 4) for d in diff]}", flush=True)
+        self._last_clean_pcd = clean_pcd
         return rgb, pcd, gripper
 
     def _extract_video_frame(self, obs):

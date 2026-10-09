@@ -6,7 +6,7 @@ from torchvision.ops import Conv2dNormActivation
 from ...utils.position_encodings import RotaryPositionEncoding3D, SinusoidalPosEmb
 from ...utils.layers import AttentionModule
 from ..vision.fpn import EfficientFeaturePyramidNetwork
-from .base_encoder import Encoder as BaseEncoder
+from .base_encoder import Encoder as BaseEncoder, pcd_to_tokens
 
 
 class Encoder(BaseEncoder):
@@ -168,14 +168,7 @@ class Encoder(BaseEncoder):
         rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_exp)[-1]
 
         # Point cloud
-        num_cameras_pcd = pcd.shape[1]
-        _c_pcd = pcd.shape[2]
-        pcd = F.interpolate(
-            pcd.reshape(-1, *pcd.shape[2:]),
-            (feat_h, feat_w),
-            mode='bilinear'
-        )
-        pcd = pcd.reshape(_bt, num_cameras_pcd, _c_pcd, feat_h, feat_w).permute(0, 1, 3, 4, 2).reshape(_bt, num_cameras_pcd * feat_h * feat_w, _c_pcd)
+        pcd = pcd_to_tokens(pcd, feat_h, feat_w)
 
         if has_hist:
             rgb3d_feats = rgb3d_feats.view(B, nhist, *rgb3d_feats.shape[1:])
@@ -224,14 +217,7 @@ class Encoder(BaseEncoder):
         rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_exp)[-1]
 
         # Point cloud: interpolate to ViT spatial resolution
-        num_cameras_pcd = pcd.shape[1]
-        _c_pcd = pcd.shape[2]
-        pcd = F.interpolate(
-            pcd.reshape(-1, *pcd.shape[2:]),
-            (feat_h, feat_w),
-            mode='bilinear'
-        )
-        pcd = pcd.reshape(_bt, num_cameras_pcd, _c_pcd, feat_h, feat_w).permute(0, 1, 3, 4, 2).reshape(_bt, num_cameras_pcd * feat_h * feat_w, _c_pcd)
+        pcd = pcd_to_tokens(pcd, feat_h, feat_w)
 
         if has_hist:
             rgb3d_feats = rgb3d_feats.view(B, nhist, *rgb3d_feats.shape[1:])
@@ -280,14 +266,7 @@ class Encoder(BaseEncoder):
         rgb3d_feats = self.vl_attention(seq1=rgb3d_feats, seq2=instr_exp)[-1]
 
         # Point cloud: interpolate to DINOv2 spatial resolution
-        num_cameras_pcd = pcd.shape[1]
-        _c_pcd = pcd.shape[2]
-        pcd = F.interpolate(
-            pcd.reshape(-1, *pcd.shape[2:]),
-            (feat_h, feat_w),
-            mode='bilinear'
-        )
-        pcd = pcd.reshape(_bt, num_cameras_pcd, _c_pcd, feat_h, feat_w).permute(0, 1, 3, 4, 2).reshape(_bt, num_cameras_pcd * feat_h * feat_w, _c_pcd)
+        pcd = pcd_to_tokens(pcd, feat_h, feat_w)
 
         if has_hist:
             rgb3d_feats = rgb3d_feats.view(B, nhist, *rgb3d_feats.shape[1:])

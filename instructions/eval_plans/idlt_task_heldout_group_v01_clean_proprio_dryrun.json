@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "campaign_id": "idlt_task_heldout_group_fixed_v03_video_k5",
+  "description": "In-Distribution Lab Transfer: external-camera-only calibration robustness. The selected camera group was seen in training for other tasks, but not this target task.",
+  "calibration_registry": "instructions/eval_calibrations_idlt_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_dryrun",
+  "methods": [
+    {
+      "id": "exp1b_adaln_pooled_s200k_ema_clean_proprio",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_vid_pooled_randhist_adaln_pooled_scratch/interm_step_200000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_clean_proprio": true,
+        "eval_weights": "ema",
+        "num_demos": 2
+      }
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_push_box": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_push_box": [
+      "calibrated"
+    ]
+  },
+  "calibrations": [
+    "calibrated"
+  ],
+  "tasks": [
+    "bimanual_push_box"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 100
+  }
+}
