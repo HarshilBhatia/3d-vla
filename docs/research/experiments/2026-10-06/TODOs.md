@@ -1411,7 +1411,7 @@ Robustness ladder (13 × 20, EMA): 100k 71.9 / 58.5 and 120k 73.5 / 59.6 (calibr
 
 ### TODO 14a: attention and C-token behaviour
 
-**Status:** claimed (attention agent)
+**Status:** in progress (attention agent)
 
 TODO 3 and TODO 10 metrics:
 - external vs wrist share per layer, clean vs heavy;
