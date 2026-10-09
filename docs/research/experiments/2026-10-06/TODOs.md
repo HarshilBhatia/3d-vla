@@ -1446,7 +1446,7 @@ TODO 5 / TODO 11 probes on 4a: true camera pose (including leave-one-group-out) 
 
 ### TODO 14c: following and activation patching
 
-**Status:** claimed (intervention agent)
+**Status:** in progress (intervention agent)
 
 TODO 6 and TODO 7 on 4a:
 - following coefficients, with single-camera and rigid controls and the magnitude sweep;
