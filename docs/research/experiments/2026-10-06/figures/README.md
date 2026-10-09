@@ -144,3 +144,11 @@ The data comes from `scripts/analysis/follow_miscal.py --eval-loader` and `scrip
 | `todo14c_follow_beta_rot.{png,svg}` | Orientation following β, same panels | same |
 | `todo14c_follow_closest_share.{png,svg}` | Share of 60/60 predictions nearest the true p, N₀p or N₁p | same |
 | `todo14c_patch_fraction_recovered.{png,svg}` | Activation patching: share of the clean → heavy60 degradation recovered or caused per component, including the per-call delta_M replay | `scripts/analysis/plot_activation_patching.py` |
+
+## Probes on exp 4a's pre-LN extractor vs exp 3 ([TODOs.md](../TODOs.md), TODO 14b)
+
+The data comes from `scripts/analysis/probe_features.py --fp32 --extractor_blocks --out_dir results/analysis/probes_exp4a` (GPU, via `scripts/analysis/probe_features.slurm`). Probes come from `scripts/analysis/fit_probes.slurm <model> results/analysis/probes_exp4a`, and the figures and `summary_table_<step>.md` from `scripts/analysis/plot_probes_exp4a.py --step <step>` (CPU). Models: exp 4a and exp 3 at 120k and 200k, EMA, K=5. Data and protocol are TODO 5's.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `probe_exp4a_{120k,200k}.{png,svg}` | Group accuracy, LOGO position error, rotation/translation error-vector R² and clean-vs-sweep accuracy along enc → extractor blocks (ST/TP, grey band) → extractor output → head SA1–SA4; hollow squares are delta_M at its input depth | `scripts/analysis/plot_probes_exp4a.py` |
