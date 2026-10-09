@@ -73,7 +73,7 @@ footer{color:var(--muted);font-size:.78rem;border-top:1px solid var(--line);padd
 
 <div class="wrap">
 <header>
-  <span class="eyebrow">3DFA · week of 6 Oct 2026 · exp/sept22-ablations</span>
+  <span class="eyebrow">3DFA · week ending 6 Oct 2026 · exp/sept22-ablations</span>
   <h1>Run board</h1>
   <p class="muted">Every run this week and its references. Click a run row, or a checkpoint chip, to include or exclude it from all charts. IDLT is task-held-out, 13 tasks × 100 rollouts (about ±1.3 points); robustness ladders are 13 × 20 (about ±3); G7 and SBRS are 6 tasks × 20 (about ±4).</p>
   <p class="note mono" id="gen"></p>
@@ -83,13 +83,13 @@ footer{color:var(--muted);font-size:.78rem;border-top:1px solid var(--line);padd
   <div class="toolbar">
     <span class="eyebrow">Runs</span>
     <button type="button" data-preset="default">Default selection</button>
-    <button type="button" data-preset="week">This week only</button>
+    <span id="week-presets" class="toolbar"></span>
     <button type="button" data-preset="all">All</button>
     <button type="button" data-preset="none">None</button>
     <button type="button" id="reset-colors">Reset colours</button>
   </div>
   <div class="tbl"><table id="runs">
-    <thead><tr><th>Run</th><th>Mechanism</th><th>Init / steps</th><th>EMA</th><th>Status</th><th class="n">IDLT cal</th><th class="n">IDLT 60/60</th><th>Checkpoints in charts</th></tr></thead>
+    <thead><tr><th>Run</th><th>Week</th><th>Mechanism</th><th>Init / steps</th><th>EMA</th><th>Status</th><th class="n">IDLT cal</th><th class="n">IDLT 60/60</th><th>Checkpoints in charts</th></tr></thead>
     <tbody></tbody>
   </table></div>
   <p class="note">IDLT columns show the run's latest evaluated checkpoint. A dimmed chip has no results yet (4a and 4b at 200k fill in when their evals finish).</p>
@@ -186,7 +186,7 @@ function renderRuns() {
   const tb = document.querySelector("#runs tbody"); tb.innerHTML = "";
   let fam = null;
   DATA.runs.forEach(r => {
-    if (r.family !== fam) { fam = r.family; tb.insertAdjacentHTML("beforeend", `<tr class="fam"><td colspan="8">${fam}</td></tr>`); }
+    if (r.family !== fam) { fam = r.family; tb.insertAdjacentHTML("beforeend", `<tr class="fam"><td colspan="9">${fam}</td></tr>`); }
     const ss = seriesByRun[r.id] || [];
     const anyOn = ss.some(s => sel.has(s.key));
     const lt = latest(r.id);
@@ -197,7 +197,7 @@ function renderRuns() {
     const chips = ss.map(s => `<button type="button" class="chip ${sel.has(s.key) ? "on" : ""} ${hasData(s) ? "" : "empty"}" data-key="${s.key}" style="${sel.has(s.key) ? "color:" + colorOf(s.key) : ""}" title="${s.label}">${s.key.replace(r.id, "").replace(/^@/, "") || s.key}</button>`).join("");
     tb.insertAdjacentHTML("beforeend", `<tr class="run-row ${anyOn ? "" : "off"}" data-run="${r.id}">
       <td><span class="sw" style="background:${runColor(r.id)}"></span><b>${r.name}</b><div class="note mono">${r.config}</div></td>
-      <td>${r.mech}</td><td>${r.init} · ${r.steps}</td><td>${r.ema}</td><td><span class="pill ${pc}">${r.status}</span></td>
+      <td class="note">${r.week}</td><td>${r.mech}</td><td>${r.init} · ${r.steps}</td><td>${r.ema}</td><td><span class="pill ${pc}">${r.status}</span></td>
       <td class="n">${cal}</td><td class="n">${e60}${at}</td><td><div class="chips">${chips}</div></td></tr>`);
   });
 }
@@ -211,9 +211,10 @@ document.querySelector("#runs tbody").addEventListener("click", e => {
   ss.forEach(s => anyOn ? sel.delete(s.key) : sel.add(s.key));
   refresh();
 });
+document.getElementById("week-presets").innerHTML = [...new Set(DATA.runs.map(r => r.week))].map(w => `<button type="button" data-preset="week" data-week="${w}">${w}</button>`).join("");
 document.querySelectorAll("[data-preset]").forEach(b => b.addEventListener("click", () => {
   const p = b.dataset.preset;
-  sel = new Set(p === "default" ? DEFAULT : p === "none" ? [] : DATA.series.filter(s => p === "all" || runById[s.run].week === "this").map(s => s.key));
+  sel = new Set(p === "default" ? DEFAULT : p === "none" ? [] : DATA.series.filter(s => p === "all" || runById[s.run].week === b.dataset.week).map(s => s.key));
   refresh();
 }));
 
