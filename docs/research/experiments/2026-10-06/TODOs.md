@@ -1680,7 +1680,7 @@ Pending: the 4a checkpoint `interm_step_200000.pth` doesn't exist yet. A backgro
 
 ## TODO 15: does exp 4b's input skip carry the task / camera-group fingerprint too?
 
-**Status:** claimed (probing agent)
+**Status:** in progress (probing agent)
 
 **Why:** TODO 14b found that 4a's live extractor output identifies the task (100%) and partly the camera group (0.44–0.57). At 200k, 4a is about 6 points below exp 3 at IDLT 60/60 and about 4 below calibrated. Hypothesis: the head uses this "task × camera setup" fingerprint as a shortcut that doesn't transfer to IDLT's unseen task × group pairings.
 
