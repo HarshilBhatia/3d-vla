@@ -1807,4 +1807,32 @@ Keep `/home/harshilb/miniconda3/envs/3dfa/bin/python -m pytest -q tests` green.
 
 **Results:**
 
-**Reading:**
+**Implementation** (commit `447df4b`). The switch is `eval_clean_proprio`: off by default, added to `EVALUATION_RUNTIME_KEYS` and to `config/eval/default.yaml`.
+- **Backend.** The IDLT plans resolve to `evaluation/online/rlbench/backends/orbital_bimanual.py`, whose rollout loop is inherited from `bimanual.py` (`peract.py` is not on this path). With the switch on, `get_rgb_pcd_gripper_from_obs` unprojects the same depth twice: once with the miscalibrated extrinsics, as before, and once with the true ones. The blackout and model-camera selection are applied to both. The rollout loop keeps a parallel history of the true-extrinsics cloud, with the same random indices or causal window, and `Actioner.predict` passes it to the policy as `proprio_pcd`.
+  - The first step logs `[eval_clean_proprio] max |true - used| pcd per camera`.
+  - It refuses to run together with `eval_history_probe`.
+- **Model.** `DenoiseActor.forward → compute_trajectory → encode_inputs → Encoder.forward` accepts `proprio_pcd`. Only `encode_proprio` reads it, through `proprio_context_pos`: the current frame, on the same token grid.
+  - The point-cloud tokenisation is factored into `pcd_to_tokens`, so the normal and the true cloud go through one code path.
+  - `forward` raises if `proprio_pcd` is given without the switch, if it is missing with the switch on, or if it is combined with classifier-free guidance.
+  - `load_model_for_evaluation` sets `model.eval_clean_proprio` and refuses encoders without a scene-reading proprio head.
+- **Tests.** `tests/test_clean_proprio.py` (6 tests) checks that the same cloud gives bit-identical positions, that only the current frame is used, and the guards, the runtime key and the environment kwargs. The full suite passes (579 passed, 3 skipped).
+
+**Verification before the campaign:**
+- **Offline:** `scripts/analysis/check_clean_proprio.py` (job 4002998) runs 5 val batches per model on 1b, A and exp 3 at 200k. It checks:
+  - with calibrated cameras, predictions with the switch on and off are bit-identical;
+  - under heavy60, `proprio_feats` with the oracle is bit-identical to the clean run's;
+  - every other fixed input is unchanged.
+- **Online dry runs:** two single-cell runs on 1b, push_box, 2 demos (calibrated: 4003000; 60/60: 4003001), using `instructions/eval_plans/*_clean_proprio_dryrun.json`.
+- **Gate:** `scripts/eval/clean_proprio_gate.slurm` (job 4003355, which depends on all three jobs above) submits the campaign only if:
+  - all three offline checks pass;
+  - the calibrated dry run logs a zero true-vs-used difference on all cameras;
+  - the 60/60 run differs on cameras 0 and 1 only;
+  - both result files exist.
+
+**Campaign:** `instructions/eval_plans/idlt_task_heldout_group_v01_clean_proprio.json` (campaign `idlt_task_heldout_group_fixed_v03_video_k5`, calibrated) and `instructions/eval_plans/idlt_scaled_extreme_task_heldout_group_v01_clean_proprio.json` (campaign `idlt_scaled_extreme_task_heldout_group_v02_5060`, `e60deg-t60cm`). That is 13 tasks × 100 rollouts × 3 methods × 2 conditions = 78 cells.
+- New method ids: `exp1b_adaln_pooled_s200k_ema_clean_proprio`, `regtest_a_register_s200k_clean_proprio` (raw) and `exp3_randhist_deltam_s200k_ema_clean_proprio`.
+- Generator: `scripts/eval/create_clean_proprio_plans.py`.
+
+Online results: pending (the cluster queue was full on 9 Oct).
+
+**Reading:** pending.
