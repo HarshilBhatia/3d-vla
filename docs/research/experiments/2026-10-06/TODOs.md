@@ -1713,7 +1713,7 @@ Orientation β: |β| ≤ 0.006 for external-only errors in both models; 0.04–0
 
 ## TODO 15: does exp 4b's input skip carry the task / camera-group fingerprint too?
 
-**Status:** in progress (probing agent)
+**Status:** done
 
 **Why:** TODO 14b found that 4a's live extractor output identifies the task (100%) and partly the camera group (0.44–0.57). At 200k, 4a is about 6 points below exp 3 at IDLT 60/60 and about 4 below calibrated. Hypothesis: the head uses this "task × camera setup" fingerprint as a shortcut that doesn't transfer to IDLT's unseen task × group pairings.
 
@@ -1781,7 +1781,38 @@ Each cell is task acc / camera-group acc / LOGO position error (cm) / rotation-v
 - **Miscalibration conclusions are unchanged.** It appears only in head SA via attention to displaced scene tokens. It is somewhat weaker in 4b (SA4 rotation-vector R² 0.13 vs 0.26 / 0.17), consistent with the C-tokens being dominated by the appearance skip.
 - **Caveats.** These are probes, not interventions: they show the code is present, not that the head uses it. TODO 14a/14c-style reliance tests (mean-replacing the skip term, or patching it across groups) would test use directly.
 
-**200k:** pending (4b `interm_step_200000.pth` not yet written).
+**Results (200k, all EMA).**
+- **Inputs.** 4b at `interm_step_200000.pth`: `[load]` shows `visual_num_history=5`, `[arch]` shows `input_skip=True`. 4a and exp 3 at 200k are TODO 14b's fp32 features, refit with `--task`.
+- **Cells** are task acc / camera-group acc / LOGO position error (cm) / rotation-vector R² / clean-vs-sweep accuracy, averaged over cameras 0 and 1.
+
+| Stage | exp 4b (input skip) | exp 4a (pre-LN) | exp 3 |
+|---|---|---|---|
+| enc | 1.00 / 0.94 / 20 / 0.00 / 0.50 | 1.00 / 0.92 / 21 / 0.00 / 0.50 | 1.00 / 0.93 / 25 / 0.00 / 0.50 |
+| stack out (TP4) | 0.21 / 0.20 / 50 / 0.00 / 0.50 | 1.00 / 0.47 / 49 / 0.00 / 0.50 | 0.16 / 0.20 / 50 / 0.00 / 0.50 |
+| skip term | **1.00 / 0.94 / 20** / 0.00 / 0.50 | – | – |
+| extractor out | **1.00 / 0.94 / 20** / 0.00 / 0.50 | 1.00 / 0.45 / 49 / 0.00 / 0.50 | 0.16 / 0.20 / 50 / 0.00 / 0.50 |
+| SA1 | 1.00 / 0.93 / 22 / 0.10 / 0.57 | 1.00 / 0.49 / 49 / 0.04 / 0.51 | 1.00 / 0.69 / 44 / 0.06 / 0.54 |
+| SA2 | 1.00 / 0.91 / 22 / 0.12 / 0.57 | 1.00 / 0.49 / 48 / 0.06 / 0.53 | 1.00 / 0.69 / 44 / 0.16 / 0.59 |
+| SA3 | 1.00 / 0.88 / 24 / 0.09 / 0.59 | 1.00 / 0.75 / 34 / 0.23 / 0.61 | 1.00 / 0.69 / 41 / 0.17 / 0.59 |
+| SA4 | 1.00 / 0.84 / 25 / 0.14 / 0.59 | 1.00 / 0.79 / 31 / 0.26 / 0.63 | 1.00 / 0.68 / 41 / 0.16 / 0.60 |
+| delta_M (from ext out) | 0.62 / 0.36 / 48 / 0.00 / 0.50 | 0.59 / 0.27 / 50 / 0.00 / 0.50 | 0.16 / 0.20 / 50 / 0.00 / 0.50 |
+| delta_M (from SA1) | 0.50 / 0.34 / 47 / 0.00 / 0.51 | 0.75 / 0.33 / 50 / 0.00 / 0.51 | 0.47 / 0.24 / 50 / 0.00 / 0.50 |
+| delta_M (from SA2) | 0.41 / 0.29 / 48 / 0.00 / 0.51 | 0.31 / 0.24 / 50 / 0.00 / 0.50 | 0.20 / 0.20 / 50 / 0.00 / 0.50 |
+| delta_M (from SA3) | 0.16 / 0.20 / 50 / 0.00 / 0.50 | 0.28 / 0.22 / 49 / 0.00 / 0.51 | 0.16 / 0.20 / 50 / 0.00 / 0.50 |
+
+- **Files.** Table: `results/analysis/probes_exp4b/summary_table_200k.md`. Figure: [`figures/probe_exp4b_200k.png`](figures/probe_exp4b_200k.png).
+
+**Reading (200k).**
+- **Everything holds at 200k; the 160k numbers move by ≤ 0.05.**
+  - 4b's skip term, and so its extractor output, carries the encoder's full task × camera code: task 1.00, group 0.94, LOGO 20 cm.
+  - 4b's head C-tokens keep the most camera-group information of the three (0.84–0.93), and its delta_M the most group information (0.29–0.36).
+  - 4a's output keeps task 1.00 but only group 0.45; exp 3's output keeps nothing.
+- **Answer.** Yes, 4b carries the fingerprint at its extractor output and into delta_M, as strongly as or more strongly than 4a. Since 4b is the more robust model, **the shortcut hypothesis, as stated, is not supported.** The presence of a task × camera-setup code in the C-tokens or delta_M does not predict the IDLT deficit.
+- **What separates 4a from 4b is not the code itself:**
+  - 4a re-encodes appearance through a live pre-LN stack. Its group code is degraded and mixed (0.45), and its delta_M is more task-dominated (task 0.59–0.75 vs group ≤ 0.33).
+  - 4b passes a near-linear copy of the encoder's appearance code.
+  - A reliance test (mean-replace or cross-group patch of 4a's extractor output vs 4b's skip term) is the natural next step, if the shortcut idea is worth pursuing in a different form.
+- **Miscalibration is unchanged:** never in the extractor or delta_M of any model, weakly decodable only in head SA.
 
 ---
 

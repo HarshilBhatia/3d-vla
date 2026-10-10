@@ -152,3 +152,11 @@ The data comes from `scripts/analysis/probe_features.py --fp32 --extractor_block
 | Figure | Shows | Script |
 |---|---|---|
 | `probe_exp4a_{120k,200k}.{png,svg}` | Group accuracy, LOGO position error, rotation/translation error-vector R² and clean-vs-sweep accuracy along enc → extractor blocks (ST/TP, grey band) → extractor output → head SA1–SA4; hollow squares are delta_M at its input depth | `scripts/analysis/plot_probes_exp4a.py` |
+
+## Task / camera-group fingerprint on exp 4b vs 4a and exp 3 ([TODOs.md](../TODOs.md), TODO 15)
+
+The data comes from `scripts/analysis/probe_features.py --fp32 --extractor_blocks --out_dir results/analysis/probes_exp4b` (GPU, via `scripts/analysis/probe_features.slurm`; it also records 4b's skip term). Probes come from `scripts/analysis/fit_probes.slurm <model> results/analysis/probes_exp4b --task`, and the figures and `summary_table_<step>.md` from `scripts/analysis/plot_probes_exp4b.py --step <step>` (CPU). Models: exp 4b, 4a and exp 3 at 160k and 200k, EMA, K=5. The 200k 4a/exp 3 features are TODO 14b's.
+
+| Figure | Shows | Script |
+|---|---|---|
+| `probe_exp4b_{160k,200k}.{png,svg}` | Task (13-way) and camera-group accuracy, LOGO position error, rotation-error R² and clean-vs-sweep accuracy along enc → extractor blocks → stack out → skip term → extractor out → head SA1–SA4; hollow squares are delta_M at its input depth | `scripts/analysis/plot_probes_exp4b.py` |
