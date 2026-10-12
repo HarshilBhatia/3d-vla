@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "campaign_id": "exp8_seen_g1_calibrated_videos_v01",
+  "description": "Exp 8 handover: seen_g1_calibrated_videos, 5 rollouts; 8a planner, 8b IK chunk controller.",
+  "calibration_registry": "instructions/eval_calibrations_idlt_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {
+      "id": "exp8a_keypose_path_s50k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_base_keypose_path/interm_step_50000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "save_video": true
+      }
+    },
+    {
+      "id": "exp8b_chunk8_s50k_ema_ik",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_base_chunk8/interm_step_50000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "eval_controller": "ik",
+        "max_steps": 60,
+        "save_video": true
+      }
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_handover_item": {
+      "id": "g1_task_seen_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_handover_item": [
+      "calibrated"
+    ]
+  },
+  "calibrations": [
+    "calibrated"
+  ],
+  "tasks": [
+    "bimanual_handover_item"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 5
+  }
+}
