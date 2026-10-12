@@ -14,7 +14,7 @@ from rlbench.observation_config import ObservationConfig, CameraConfig
 from rlbench.environment import Environment
 from rlbench.action_modes.action_mode import BimanualMoveArmThenGripper
 from rlbench.action_modes.gripper_action_modes import BimanualDiscrete, assert_action_shape
-from rlbench.action_modes.arm_action_modes import BimanualEndEffectorPoseViaPlanning
+from rlbench.action_modes.arm_action_modes import ArmActionMode, BimanualEndEffectorPoseViaPlanning
 from rlbench.backend.exceptions import InvalidActionError
 from pyrep.errors import IKError, ConfigurationPathError
 from pyrep.const import RenderMode
@@ -227,7 +227,11 @@ class RLBenchEnv:
         apply_cameras=("over_shoulder_left", "over_shoulder_right", "wrist_left", "wrist_right", "front"),
         collision_checking=False,
         use_depth2cloud=False,
+        controller="planner",
     ):
+        if controller not in ("planner", "ik"):
+            raise ValueError(f"eval_controller must be planner or ik, got {controller!r}")
+        self._controller = controller
         self._use_depth2cloud = use_depth2cloud
         if self._use_depth2cloud:
             apply_depth = True
@@ -243,7 +247,8 @@ class RLBenchEnv:
         )
 
         self.action_mode = BimanualMoveArmThenGripper(
-            arm_action_mode=BimanualEndEffectorPoseViaPlanning(collision_checking=collision_checking),
+            arm_action_mode=(BimanualEndEffectorPoseViaIK() if controller == "ik"
+                             else BimanualEndEffectorPoseViaPlanning(collision_checking=collision_checking)),
             gripper_action_mode=HandoverDiscrete() if 'handover' in task_str else BimanualDiscrete()
         )
         self.env = self._make_env(data_path, headless)
@@ -505,7 +510,7 @@ class RLBenchEnv:
             history_rng = random.Random(f"{history_seed}-{task_str}-{variation}-{demo_id}")
             episode_rgb, episode_pcd = [], []
 
-            move = Mover(task, max_tries=max_tries)
+            move = IKMover(task) if self._controller == "ik" else Mover(task, max_tries=max_tries)
             max_reward = 0.0
             video_frames = [] if save_video else None
 
@@ -599,6 +604,8 @@ class RLBenchEnv:
                     # execute
                     for action in actions:
                         obs, reward, _ = move(action, collision_checking=False)
+                        if reward == 1:
+                            break
 
                     max_reward = max(max_reward, reward)
 
@@ -699,6 +706,61 @@ class RLBenchEnv:
         )
 
         return obs_config
+
+
+class BimanualEndEffectorPoseViaIK(ArmActionMode):
+    """Both arms to a nearby pose via Jacobian IK, stepping physics until reached; for fixed-time action chunks."""
+
+    def __init__(self, max_substeps=10, stop_when_still=True, planner_fallback=True):
+        self._max_substeps = max_substeps
+        self._stop_when_still = stop_when_still
+        # CoppeliaSim's Jacobian IK can fail on cm-scale steps near grasps; the planner then moves to that one pose.
+        self._fallback = BimanualEndEffectorPoseViaPlanning() if planner_fallback else None
+        self.fallbacks = 0
+
+    def action(self, scene, action, ignore_collisions=None):
+        arms = (scene.robot.right_arm, scene.robot.left_arm)
+        targets = []
+        for arm, pose in zip(arms, (action[:7], action[7:])):
+            try:
+                targets.append(arm.solve_ik_via_jacobian(pose[:3], quaternion=pose[3:]))
+            except IKError as e:
+                if self._fallback is None:
+                    raise InvalidActionError("Jacobian IK failed; target too far from the current pose") from e
+                self.fallbacks += 1
+                self._fallback.set_callable_each_step(self._callable_each_step)
+                return self._fallback.action(scene, action, [True, True] if ignore_collisions is None else ignore_collisions)
+        for arm, joints in zip(arms, targets):
+            arm.set_joint_target_positions(joints)
+        prev = None
+        for _ in range(self._max_substeps):
+            scene.step()
+            if self._callable_each_step is not None:
+                self._callable_each_step(scene.get_observation())
+            cur = np.concatenate([arm.get_joint_positions() for arm in arms])
+            if np.allclose(cur, np.concatenate(targets), atol=0.01) or (
+                    self._stop_when_still and prev is not None and np.allclose(cur, prev, atol=0.001)):
+                break
+            prev = cur
+
+    def action_shape(self, scene):
+        return 14,
+
+    def unimanual_action_shape(self, scene):
+        return 7,
+
+
+class IKMover:
+    """Mover for the IK controller: one environment step per chunk pose, no planner retries."""
+
+    def __init__(self, task):
+        self._task = task
+
+    def __call__(self, action, collision_checking=False):
+        step = np.ones((action.shape[0], action.shape[1] + 1))
+        step[:, :-1] = action
+        # Peract2 takes (right, left); we predict (left, right).
+        return self._task.step(step[::-1].ravel())
 
 
 class HandoverDiscrete(BimanualDiscrete):

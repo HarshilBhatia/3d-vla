@@ -54,6 +54,7 @@ def build_environment_kwargs(args: Any) -> dict[str, Any]:
             "scene_frame": getattr(args, "scene_frame", "world"),
             "blackout_cameras": list(getattr(args, "eval_blackout_cameras", None) or []),
             **({"clean_proprio": True} if getattr(args, "eval_clean_proprio", False) else {}),
+            **({"controller": args.eval_controller} if getattr(args, "eval_controller", "planner") != "planner" else {}),
         }
     if "orbital" in dataset:
         return {

@@ -110,6 +110,7 @@ class RLBenchEnv(BimanualRLBenchEnv):
         model_camera_indices=None,
         blackout_cameras=None,
         clean_proprio=False,
+        controller="planner",
     ):
         # eval_clean_proprio: also build a true-extrinsics point cloud that only the proprio encoder reads.
         self._clean_proprio = bool(clean_proprio)
@@ -169,6 +170,7 @@ class RLBenchEnv(BimanualRLBenchEnv):
             apply_cameras=apply_cameras,
             collision_checking=collision_checking,
             use_depth2cloud=False,
+            controller=controller,
         )
 
         # Orbital sensors are raw PyRep VisionSensors, so their depth never passes
