@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""IDLT task-heldout and G7 protocols on the 100k EMA checkpoints of exp 7a-7d, restricted to their 4 training tasks."""
+"""IDLT task-heldout and G7 protocols on the 100k EMA checkpoints of exp 7a-7f, restricted to their 4 training tasks."""
 import json
 from pathlib import Path
 
@@ -11,7 +11,9 @@ OVR = lambda k: {"visual_num_history": k, "eval_proprio_history_order": "past_to
 GROUPS = {"exp7a": ("exp7a_4task_vel_s100k_ema", "peract2_orbital_4task_fullpatch_direct_vel", 5),
           "exp7b": ("exp7b_4task_x0_s100k_ema", "peract2_orbital_4task_fullpatch_direct_x0", 5),
           "exp7c": ("exp7c_4task_rel_s100k_ema", "peract2_orbital_4task_fullpatch_direct_rel", 5),
-          "exp7d": ("exp7d_4task_base_rel_s100k_ema", "peract2_orbital_4task_base_rel", 1)}
+          "exp7d": ("exp7d_4task_base_rel_s100k_ema", "peract2_orbital_4task_base_rel", 1),
+          "exp7e": ("exp7e_4task_base_abs_s100k_ema", "peract2_orbital_4task_base_abs", 1),
+          "exp7f": ("exp7f_4task_pooled_direct_s100k_ema", "peract2_orbital_4task_pooled_direct", 5)}
 SOURCES = ["idlt_task_heldout_group_v01", "idlt_extreme_task_heldout_group_v01", "idlt_scaled_extreme_task_heldout_group_v01",
            "g7_extreme_opposite_v01", "g7_rotation_only_v01", "g7_opposite_camera_sbrs_v01"]
 

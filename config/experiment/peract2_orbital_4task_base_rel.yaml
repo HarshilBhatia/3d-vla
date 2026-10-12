@@ -1,8 +1,8 @@
-# Exp 7d: Base (no history extractor, no delta_M) on 4 tasks for 100k with relative actions.
+# Exp 7d: Base (no history extractor, no delta_M) on 4 tasks (dense per-timestep data) for 100k with relative actions; 8-step targets.
 dataset: OrbitalPeract2
 model_type: denoise3d
 bimanual: true
-train_tasks: [bimanual_handover_item, bimanual_take_tray_out_of_oven, bimanual_dual_push_buttons, bimanual_pick_laptop]
+# No train_tasks: the dense zarr holds only these 4 tasks, and the filter would copy every row into RAM.
 backbone: siglip2
 text_backbone: null
 visual_num_history: 1
@@ -13,7 +13,7 @@ num_vis_instr_attn_layers: 3
 num_shared_attn_layers: 4
 fps_subsampling_factor: 5
 scene_sampling: fps
-keypose_only: true
+keypose_only: false
 denoise_timesteps: 5
 denoise_model: rectified_flow
 batch_size: 128

@@ -126,6 +126,18 @@ class BaseDataset(Dataset):
             for indices in hist_indices
         ])
 
+    def _get_dense_proprio_hist(self, zarr_idx):
+        """Dense zarr: earlier keyframe states then s_t, matching eval, which records proprio once per keypose."""
+        if self._demo_ids is None:
+            self._demo_ids = np.asarray(self.annos['demo_id'][:])
+        if getattr(self, '_keyframe_rows', None) is None:
+            self._keyframe_rows = np.flatnonzero(np.asarray(self.annos['is_keyframe'][:]))
+        k = self.visual_num_history
+        start = np.searchsorted(self._keyframe_rows, zarr_idx)
+        past = [j for j in self._keyframe_rows[max(0, start - (k - 1)):start] if self._demo_ids[j] == self._demo_ids[zarr_idx]]
+        rows = [past[0]] * (k - 1 - len(past)) + past + [zarr_idx] if past else [zarr_idx] * k
+        return torch.stack([to_tensor(self.annos['proprioception'][j:j + 1])[0, -1] for j in rows])
+
     def _get_single_proprio_hist(self, zarr_idx):
         """Return causal proprio history as ``(visual_num_history, nhand, state)``.
 
@@ -152,8 +164,9 @@ class BaseDataset(Dataset):
         return torch.stack([state if state is not None else fallback for state in states])
 
     def _get_proprioception_hist(self, idx):
+        single = self._get_dense_proprio_hist if 'is_keyframe' in self.annos else self._get_single_proprio_hist
         return torch.stack([
-            self._get_single_proprio_hist(idx + i)
+            single(idx + i)
             for i in range(self.chunk_size)
         ])
 

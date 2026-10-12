@@ -1,6 +1,6 @@
 # 4-task subset: x0 vs velocity, relative vs absolute actions (exp 7a–7d)
 
-**Status:** cancelled 12 Oct (7d ran a few minutes; 7a–c never started). The x0 and relative-action code stays.
+**Status:** relaunched 12 Oct on the dense 4-task data with 8-step targets (7a–7f); the first keypose-data launch was cancelled
 **Week introduced:** [7–13 Oct](../../weekly_logs/2026-10-13.md)
 
 ## Why
@@ -62,3 +62,25 @@ Smokes: 7b, 7c (batch 32) and 7d (batch 64) passed; 7a–7c at 64 per GPU ran ou
 - Does x0 prediction change accuracy or robustness at 5 sampling steps?
 - Do relative actions make the policy less sensitive to miscalibrated geometry (the action no longer has to be placed in world coordinates read from the miscalibrated cloud)?
 - Is exp 6's architecture worth it on this subset: 7c vs 7d.
+
+## Relaunch on dense data (12 Oct)
+
+The keypose data has 7.2 keyframes per demo, so history was mostly padding. All runs now train on the [dense 4-task data](dense-4task-dataset.md) (67,782 rows) and learn the **8-step** path to the next keypose (`keypose_only: false`).
+
+| | Model | Visual history | Action | Flow target | GPUs | Training chain | 100k suite |
+|---|---|---|---|---|---|---|---|
+| **7a** | exp 6 (full-patch 3D RoPE, pre-LN + skip, Direct δM) | K = 5, random earlier timesteps | absolute | velocity | 2× A6000 | 4027209 → 10 | 4027211–17 |
+| **7b** | exp 6 | K = 5 | absolute | x0 | 2× A6000 | 4027218 → 19 | 4027220–26 |
+| **7c** | exp 6 | K = 5 | relative | velocity | 2× A6000 | 4027227 → 28 | 4027229–35 |
+| **7d** | Base | K = 1 | relative | velocity | 2 GPUs | 4027236 → 37 | 4027238–44 |
+| **7e** | Base | K = 1 | absolute | velocity | 2 GPUs | 4027245 → 46 | 4027247–53 |
+| **7f** | exp 2 (pooled Direct δM) | K = 5, random earlier timesteps | absolute | velocity | 2× A6000 | 4027254 → 55 | 4027256–62 |
+
+Changes for the dense data:
+
+- `visual_history_dense: true` (saved in the checkpoint): online eval keeps every motion-planner frame between keyposes in the random-history pool, through RLBench's per-step hook, so eval samples from the same kind of pool as training.
+- Proprio history on dense rows comes from the earlier keyframe rows plus the current state, matching eval's once-per-keypose proprio (equal to the zarr's `proprioception_keypose` on 300/300 rows).
+- Relative actions anchor every step at the current state (not chained), so any slice of the 8 steps stays valid.
+- The diverse-chunk cache sampler is off (`CACHE_BATCHES=0`); its 8-record window would be 8 near-identical frames.
+- No `train_tasks`: the dense zarr holds only these 4 tasks, and the filter copies every kept row into RAM (52 GB), which hung the first smokes.
+- Eval is not adapted to 8-step outputs yet: the rollout loop sends each of the 8 poses to the motion planner in turn. Fix before reading the ladders.

@@ -1,0 +1,31 @@
+# Exp 7e: Base (no history extractor, no delta_M) on 4 tasks (dense per-timestep data) for 100k, absolute actions, 8-step targets.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+# No train_tasks: the dense zarr holds only these 4 tasks, and the filter would copy every row into RAM.
+backbone: siglip2
+text_backbone: null
+visual_num_history: 1
+proprio_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: false
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 128
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 100000
+head_positional_encoding: rope3d
+view_align_mode: none
+miscal_cameras: [0, 1]
+checkpoint_evals:
+  - recipe: instructions/eval_plans/robustness_ladder_ema_4task_k1_v01.json
+    method_id: exp7e-4task-base-abs
+    min_step: 40000

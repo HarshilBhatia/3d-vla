@@ -197,7 +197,9 @@ class DenoiseActor(nn.Module):
 
         # But use positions from unnormalized absolute trajectory
         traj_xyz = self.unnormalize_pos(trajectory)[..., :3]
-        if self._relative:  # relative to absolute
+        if self._relative and self._rotation_format != 'euler':  # every step is a delta from the current state
+            traj_xyz = query_trajectory[..., :3] + traj_xyz
+        elif self._relative:  # relative to absolute
             traj_xyz = (
                 query_trajectory[..., :3]
                 + torch.cumsum(traj_xyz, dim=1)

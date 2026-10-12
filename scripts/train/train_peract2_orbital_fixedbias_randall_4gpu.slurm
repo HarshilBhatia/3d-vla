@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -207,24 +207,60 @@ case "$ARM" in
     EXPERIMENT=peract2_orbital_4task_fullpatch_direct_vel
     DEFAULT_RUN_LOG_DIR=peract2_orbital_4task_fullpatch_direct_vel
     # Exp 6's architecture on 4 tasks, 100k, velocity prediction.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/val.zarr}"
+    # Dense rows: the 8-record cache window would be 8 near-identical frames.
+    CACHE_BATCHES=0
     FROM_SCRATCH=1
     ;;
   exp7b_4task_x0)
     EXPERIMENT=peract2_orbital_4task_fullpatch_direct_x0
     DEFAULT_RUN_LOG_DIR=peract2_orbital_4task_fullpatch_direct_x0
     # Exp 7a with x0 prediction, loss on the implied velocity.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/val.zarr}"
+    # Dense rows: the 8-record cache window would be 8 near-identical frames.
+    CACHE_BATCHES=0
     FROM_SCRATCH=1
     ;;
   exp7c_4task_rel)
     EXPERIMENT=peract2_orbital_4task_fullpatch_direct_rel
     DEFAULT_RUN_LOG_DIR=peract2_orbital_4task_fullpatch_direct_rel
     # Exp 7a with relative actions.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/val.zarr}"
+    # Dense rows: the 8-record cache window would be 8 near-identical frames.
+    CACHE_BATCHES=0
     FROM_SCRATCH=1
     ;;
   exp7d_4task_base_rel)
     EXPERIMENT=peract2_orbital_4task_base_rel
     DEFAULT_RUN_LOG_DIR=peract2_orbital_4task_base_rel
     # Base on 4 tasks, 100k, relative actions.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/val.zarr}"
+    # Dense rows: the 8-record cache window would be 8 near-identical frames.
+    CACHE_BATCHES=0
+    FROM_SCRATCH=1
+    ;;
+  exp7e_4task_base_abs)
+    EXPERIMENT=peract2_orbital_4task_base_abs
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_4task_base_abs
+    # Base on 4 tasks, dense data, absolute actions.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/val.zarr}"
+    # Dense rows: the 8-record cache window would be 8 near-identical frames.
+    CACHE_BATCHES=0
+    FROM_SCRATCH=1
+    ;;
+  exp7f_4task_pooled_direct)
+    EXPERIMENT=peract2_orbital_4task_pooled_direct
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_4task_pooled_direct
+    # Exp 2 (pooled Direct delta_M) on 4 tasks, dense data.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/orbital_peract2_4task/val.zarr}"
+    # Dense rows: the 8-record cache window would be 8 near-identical frames.
+    CACHE_BATCHES=0
     FROM_SCRATCH=1
     ;;
   camframe_rope6d)
@@ -235,7 +271,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct" >&2
     exit 2
     ;;
 esac
@@ -301,7 +337,7 @@ torchrun --nproc_per_node="$NGPUS" --master_port="$MASTER_PORT" main.py \
     run_log_dir="$RUN_LOG_DIR" \
     "${TRAIN_ITERS_ARGS[@]}" "${BATCH_SIZE_ARGS[@]}" \
     "${MISCAL_OVERRIDES[@]}" \
-    video_deltam_cache_batches=4 \
+    video_deltam_cache_batches="${CACHE_BATCHES:-4}" \
     video_deltam_cache_span=8 \
     num_workers="${NUM_WORKERS:-8}" \
     prefetch_factor="${PREFETCH_FACTOR:-2}" \

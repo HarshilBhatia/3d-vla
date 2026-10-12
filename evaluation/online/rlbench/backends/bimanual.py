@@ -351,6 +351,7 @@ class RLBenchEnv:
         visual_history_sampling="consecutive",
         history_seed=0,
         history_probe="none",
+        history_every_step=False,
     ):
         progress = {}
         if progress_file is not None and os.path.exists(progress_file):
@@ -421,6 +422,7 @@ class RLBenchEnv:
                     visual_history_sampling=visual_history_sampling,
                     history_seed=history_seed,
                     history_probe=history_probe,
+                    history_every_step=history_every_step,
                 )
             )
             if valid:
@@ -457,6 +459,7 @@ class RLBenchEnv:
         visual_history_sampling="consecutive",
         history_seed=0,
         history_probe="none",
+        history_every_step=False,
     ):
         success_rate = 0
         total_reward = 0
@@ -492,6 +495,11 @@ class RLBenchEnv:
             clean_proprio = getattr(self, "_clean_proprio", False)
             if clean_proprio and history_probe != "none":
                 raise ValueError("eval_clean_proprio cannot be combined with eval_history_probe")
+            if history_every_step and (visual_history_sampling != "random" or clean_proprio or history_probe != "none"):
+                raise ValueError("dense visual history needs random sampling and no clean-proprio or history probe")
+            # Dense-history models saw every timestep in training, so keep the planner's in-between frames too.
+            between = []
+            self.action_mode.arm_action_mode.set_callable_each_step(between.append if history_every_step else None)
             descriptions, obs = task.reset_to_demo(demo)
             actioner.load_episode(descriptions)
             history_rng = random.Random(f"{history_seed}-{task_str}-{variation}-{demo_id}")
@@ -516,6 +524,12 @@ class RLBenchEnv:
                 # Keep visual history at the policy replan cadence.  The
                 # returned windows are oldest→current, exactly matching the
                 # training loader's `_get_single_frame_hist` convention.
+                if history_every_step and between and rgb_history is not None:
+                    rgb_between, pcd_between = zip(*[self.get_rgb_pcd_gripper_from_obs(o)[:2] for o in between[:-1]]) if len(between) > 1 else ((), ())
+                    between.clear()
+                    if rgb_between:
+                        rgb_history = torch.cat([rgb_history, torch.stack(rgb_between, 1).cuda(non_blocking=True)], dim=1)
+                        pcd_history = torch.cat([pcd_history, torch.stack(pcd_between, 1).cuda(non_blocking=True)], dim=1)
                 if visual_history_sampling == "random":
                     # Keep every episode frame and draw an unordered history set, as in training.
                     rgb_history = rgb_current.unsqueeze(1) if rgb_history is None else torch.cat(

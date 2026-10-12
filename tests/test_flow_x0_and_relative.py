@@ -13,7 +13,7 @@ def _poses(*shape):
 @pytest.mark.parametrize("qform", ["xyzw", "wxyz"])
 def test_relative_keypose_round_trip_is_per_arm(qform):
     torch.manual_seed(0)
-    action, proprio = _poses(2, 1, 2), _poses(2, 3, 2)
+    action, proprio = _poses(2, 8, 2), _poses(2, 3, 2)
     rel = to_relative_keypose(action, proprio, qform)
     back = from_relative_keypose(rel, proprio, qform)
     assert torch.allclose(back[..., :3], action[..., :3], atol=1e-5)
@@ -22,6 +22,9 @@ def test_relative_keypose_round_trip_is_per_arm(qform):
     assert torch.allclose(dot, torch.ones_like(dot), atol=1e-5)
     # Each arm's delta is taken from its own current state, never from the other arm.
     assert torch.allclose(rel[:, 0, 1, :3], action[:, 0, 1, :3] - proprio[:, -1, 1, :3], atol=1e-6)
+    # Every step is anchored at the current state, so keypose_only's last-step slice is still a valid delta.
+    last = from_relative_keypose(rel[:, -1:], proprio, qform)
+    assert torch.allclose(last[..., :3], action[:, -1:, :, :3], atol=1e-5)
 
 
 def test_x0_prediction_maps_to_velocity_and_euler_step_lands_on_x0():

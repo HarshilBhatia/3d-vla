@@ -122,6 +122,7 @@ visual_num_history: 1
 proprio_num_history: 3
 # consecutive (last K keyframes, in order) | random (current last + K-1 random distinct past keyframes of the demo)
 visual_history_sampling: consecutive
+visual_history_dense: false   # true: the model trained on per-timestep (dense) rows, so eval keeps the planner frames between keyposes in the history pool
 num_shared_attn_layers: 4
 # Sparse causal temporal frontend.  When enabled, Video-DeltaM repeats
 # same-time cross-camera and causal per-camera attention.
