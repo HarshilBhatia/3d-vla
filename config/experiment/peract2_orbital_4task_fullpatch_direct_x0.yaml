@@ -1,0 +1,44 @@
+# Exp 7b: exp 7a with the head predicting the clean keypose x0; the loss stays on the implied velocity.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+train_tasks: [bimanual_handover_item, bimanual_take_tray_out_of_oven, bimanual_dual_push_buttons, bimanual_pick_laptop]
+backbone: siglip2
+text_backbone: null
+visual_num_history: 5
+proprio_num_history: 3
+visual_history_sampling: random
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: true
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 128
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 100000
+head_positional_encoding: rope3d
+view_align_mode: rope_6d
+view_align_cameras: [0, 1]
+layerwise_view_align: false
+miscal_cameras: [0, 1]
+video_deltam: true
+video_deltam_depth: 4
+video_deltam_max_cameras: 4
+video_deltam_full_image: true
+video_deltam_patch_rope3d: true
+video_deltam_time_embedding: false
+video_deltam_role: predict_delta_m
+video_deltam_prenorm: true
+video_deltam_input_skip: true
+flow_prediction: x0
+checkpoint_evals:
+  - recipe: instructions/eval_plans/robustness_ladder_ema_4task_v01.json
+    method_id: exp7b-4task-x0
+    min_step: 40000

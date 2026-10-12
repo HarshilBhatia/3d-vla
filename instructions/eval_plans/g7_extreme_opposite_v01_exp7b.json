@@ -1,0 +1,55 @@
+{
+  "schema_version": 1,
+  "campaign_id": "g7_extreme_opposite_v01",
+  "description": "G7 unseen camera group; six SBRS tasks; 100/200/500cm opposing translations.",
+  "calibration_registry": "instructions/eval_calibrations_g7_extreme_opposite_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
+  "methods": [
+    {
+      "id": "exp7b_4task_x0_s100k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_4task_fullpatch_direct_x0/interm_step_100000.pth",
+      "overrides": {
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current",
+        "eval_weights": "ema"
+      }
+    }
+  ],
+  "calibrations": [
+    "opposite-100cm",
+    "opposite-200cm",
+    "opposite-500cm"
+  ],
+  "tasks": [
+    "bimanual_pick_laptop"
+  ],
+  "task_viewpoints": {
+    "bimanual_pick_laptop": {
+      "id": "g7_extreme_unknown",
+      "spawn_camera_group": "G7",
+      "regime": "fully_unknown_lab",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_pick_laptop": [
+      "g7-opposite-100cm-v01",
+      "g7-opposite-200cm-v01",
+      "g7-opposite-500cm-v01"
+    ]
+  },
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 20,
+    "overrides": {
+      "scene_sampling": "fps",
+      "eval_proprio_history_order": "past_to_current"
+    }
+  }
+}

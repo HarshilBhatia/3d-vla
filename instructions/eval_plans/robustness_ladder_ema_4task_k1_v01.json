@@ -1,0 +1,45 @@
+{
+  "schema_version": 1,
+  "protocol_id": "robustness_ladder_4task_k1_v01",
+  "description": "EMA weights: 4-task robustness ladder (handover_item, take_tray_out_of_oven, dual_push_buttons, pick_laptop), IDLT task-heldout calibrated and unknown-e60deg-t60cm, 100 rollouts per task, K=1 visual history.",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "min_step": 40000,
+  "step_interval": 20000,
+  "source_plans": [
+    {
+      "name": "idlt_calibrated",
+      "plan": "instructions/eval_plans/idlt_task_heldout_group_v01.json",
+      "calibrations": [
+        "calibrated"
+      ]
+    },
+    {
+      "name": "idlt_e60t60",
+      "plan": "instructions/eval_plans/idlt_scaled_extreme_task_heldout_group_v01.json",
+      "calibrations": [
+        "unknown-e60deg-t60cm"
+      ]
+    }
+  ],
+  "tasks": [
+    "bimanual_handover_item",
+    "bimanual_take_tray_out_of_oven",
+    "bimanual_dual_push_buttons",
+    "bimanual_pick_laptop"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 100,
+    "overrides": {
+      "eval_proprio_history_order": "past_to_current",
+      "visual_num_history": 1,
+      "eval_weights": "ema"
+    }
+  }
+}
