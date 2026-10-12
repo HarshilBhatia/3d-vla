@@ -1,6 +1,6 @@
 # 4-task subset: x0 vs velocity, relative vs absolute actions (exp 7a–7d)
 
-**Status:** training since 12 Oct
+**Status:** cancelled 12 Oct (7d ran a few minutes; 7a–c never started). The x0 and relative-action code stays.
 **Week introduced:** [7–13 Oct](../../weekly_logs/2026-10-13.md)
 
 ## Why
