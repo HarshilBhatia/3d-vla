@@ -195,6 +195,36 @@ def test_input_skip_keeps_per_sample_content_when_the_stack_is_constant():
     assert torch.allclose(out[:, 0], out[0:1, 0].expand(4, -1, -1))
 
 
-def test_prenorm_and_input_skip_reject_full_image():
+def test_prenorm_and_input_skip_reject_full_image_without_rope3d():
     with pytest.raises(ValueError):
         HistoryFeatureExtractor(12, 3, depth=2, full_image=True, prenorm=True)
+
+
+def _fullpatch_randhist(**kw):
+    torch.manual_seed(0)
+    return HistoryFeatureExtractor(12, 3, depth=2, dropout=0.0, full_image=True, patch_rope3d=True,
+                                   predict_delta_m=True, use_time_embedding=False, use_register=False, **kw).eval()
+
+
+def test_fullpatch_randhist_is_order_free_over_past_frames():
+    model = _fullpatch_randhist(prenorm=True, input_skip=True)
+    torch.nn.init.normal_(model.delta_m_head[-1].weight, std=0.05)
+    images, pcd = torch.randn(2, 5, 3, 7, 12), torch.randn(2, 5, 3, 7, 3)
+    _, _, dm = model(images, None, frame_pcd=pcd)
+    perm = torch.tensor([2, 0, 3, 1, 4])
+    _, _, dm_perm = model(images[:, perm], None, frame_pcd=pcd[:, perm])
+    assert torch.allclose(dm, dm_perm, atol=1e-5)
+    changed = images.clone()
+    changed[:, 0] += 5.0
+    _, _, dm_changed = model(changed, None, frame_pcd=pcd)
+    assert not torch.allclose(dm, dm_changed)
+
+
+def test_fullpatch_input_skip_keeps_per_sample_content_when_the_stack_is_constant():
+    model = _fullpatch_randhist(prenorm=True, input_skip=True)
+    for block in list(model.same_time) + list(model.temporal):
+        for p in block.parameters():
+            torch.nn.init.zeros_(p)
+    out, _, _ = model(torch.randn(4, 5, 3, 7, 12), None, frame_pcd=torch.randn(4, 5, 3, 7, 3))
+    assert out[:, -1].std(0).mean() > 1e-3
+    assert model.same_time[0].prenorm and hasattr(model, "out_norm")

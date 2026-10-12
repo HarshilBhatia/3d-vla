@@ -79,15 +79,10 @@ class HistoryFeatureExtractor(nn.Module):
                  patch_rope3d=False, use_time_embedding=True, use_register=True,
                  prenorm=False, input_skip=False):
         super().__init__()
-        if (prenorm or input_skip) and full_image:
-            raise ValueError("video_deltam_prenorm / video_deltam_input_skip are only supported on the pooled path")
+        if (prenorm or input_skip or not use_time_embedding) and full_image and not patch_rope3d:
+            raise ValueError("video_deltam_prenorm / input_skip / time_embedding=False need the pooled or patch_rope3d path")
         if depth < 1:
             raise ValueError("video_deltam_depth must be at least one")
-        if not use_time_embedding and full_image:
-            raise ValueError(
-                "video_deltam_time_embedding=False is only supported on the pooled path "
-                "(video_deltam_full_image=False)"
-            )
         if patch_rope3d and not full_image:
             raise ValueError(
                 "video_deltam_patch_rope3d requires video_deltam_full_image=True: "
@@ -249,8 +244,13 @@ class HistoryFeatureExtractor(nn.Module):
         frames = torch.cat(
             [frame_tokens, self.image_token.expand(bsz, history, ncam, 1, channels)], dim=3
         )
-        frames = frames + self.time_embedding(time_ids)[None, :, None, None] \
-            + self.camera_embedding(cam_ids)[None, None, :, None]
+        if self.use_time_embedding:
+            frames = frames + self.time_embedding(time_ids)[None, :, None, None]
+        else:
+            current = torch.zeros(history, 1, 1, 1, device=frames.device, dtype=frames.dtype)
+            current[-1] = 1
+            frames = frames + current * self.current_frame_embedding
+        frames = frames + self.camera_embedding(cam_ids)[None, None, :, None]
         tokens_per_image = frames.shape[3]
 
         # Image token has no xyz; place it at the centroid of its own patches.
@@ -266,9 +266,10 @@ class HistoryFeatureExtractor(nn.Module):
         time_mask = torch.triu(
             torch.ones(history, history, dtype=torch.bool, device=frames.device), diagonal=1
         )
+        # Order-free (random) history attends over every frame, so there is no causal mask.
         causal_mask = time_mask.repeat_interleave(
             tokens_per_image, dim=0
-        ).repeat_interleave(tokens_per_image, dim=1)
+        ).repeat_interleave(tokens_per_image, dim=1) if self.use_time_embedding else None
 
         for same_time, temporal in zip(self.same_time, self.temporal):
             patches, image_tokens = frames[..., :-1, :], frames[..., -1:, :]
@@ -283,7 +284,14 @@ class HistoryFeatureExtractor(nn.Module):
             frames = temporal(
                 temporal_frames, attn_mask=causal_mask, query_pos=temporal_pos,
             ).reshape(bsz, ncam, history, tokens_per_image, -1).transpose(1, 2)
-        return frames[..., -1, :]
+        image_tokens = frames[..., -1, :]
+        if self.prenorm:
+            image_tokens = self.out_norm(image_tokens)
+        if self.input_skip:
+            # Patch mean of the raw current frame bypasses the stack, as on the pooled path.
+            skip = self.input_skip_proj(frame_tokens[:, -1:].mean(dim=3))
+            image_tokens = torch.cat([image_tokens[:, :-1], image_tokens[:, -1:] + skip], dim=1)
+        return image_tokens
 
     def _delta_m_from(self, camera_summaries):
         """(B, ncam, C) -> (B, ncam, 6, 6) orthogonal, same parameterisation as

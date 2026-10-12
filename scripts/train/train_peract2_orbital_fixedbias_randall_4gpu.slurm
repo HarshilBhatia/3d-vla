@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -197,6 +197,12 @@ case "$ARM" in
     # Exp 1b with an MLP proprio encoder and no scene context.
     FROM_SCRATCH=1
     ;;
+  exp6_fullpatch_direct)
+    EXPERIMENT=peract2_orbital_vid_fullpatch_rope3d_randhist_direct_prenorm_inputskip_scratch
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_vid_fullpatch_rope3d_randhist_direct_prenorm_inputskip_scratch
+    # Full-patch 3D-RoPE history, random frames, pre-LN + input skip, Direct delta_M.
+    FROM_SCRATCH=1
+    ;;
   camframe_rope6d)
     EXPERIMENT=peract2_orbital_camframe_rope6d
     DEFAULT_RUN_LOG_DIR=peract2_orbital_camframe_rope6d
@@ -205,7 +211,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct" >&2
     exit 2
     ;;
 esac
