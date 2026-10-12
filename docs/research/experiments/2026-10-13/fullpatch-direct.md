@@ -1,6 +1,6 @@
 # Full-patch 3D-RoPE history with Direct δM (exp 6)
 
-**Status:** smoke submitted 12 Oct
+**Status:** training since 12 Oct
 **Week introduced:** [7–13 Oct](../../weekly_logs/2026-10-13.md)
 
 ## Why
@@ -22,6 +22,12 @@ Code: `video_deltam_prenorm`, `video_deltam_input_skip` and `video_deltam_time_e
 | `peract2_orbital_vid_fullpatch_rope3d_randhist_direct_prenorm_inputskip_scratch` | `exp6_fullpatch_direct` | `scripts/multinode/config/exp6_fullpatch_direct.yaml` |
 
 From scratch, EMA, 200k, batch 128. Robustness ladder (IDLT calibrated and 60/60, 13 × 20, EMA) every 20k from 100k; SBRS sanity check every 50k.
+
+## Jobs
+
+| Training chain | 4×1 twin | Full robustness suite at 200k (on training dependency) |
+|---|---|---|
+| 4027033 → 34 → 35 (shubhamlong, grogu-2-25) | 4027036, cancelled while pending (chain started first) | 4027037–4027043 (215 cells), from `scripts/eval/create_exp6_robustness_plans.py` |
 
 ## What we're checking
 
