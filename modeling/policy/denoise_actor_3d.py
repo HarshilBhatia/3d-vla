@@ -37,6 +37,7 @@ class DenoiseActor(BaseDenoiseActor):
                  lv2_batch_size=1,
                  head_positional_encoding='rope3d',
                  view_align_mode='none',
+                 flow_prediction='velocity',
                  view_align_cameras=None,
                  # RoPE type
                  layerwise_view_align=False,
@@ -70,6 +71,7 @@ class DenoiseActor(BaseDenoiseActor):
             lv2_batch_size=lv2_batch_size,
             head_positional_encoding=head_positional_encoding,
             view_align_mode=view_align_mode,
+            flow_prediction=flow_prediction,
         )
 
 

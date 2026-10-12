@@ -62,3 +62,20 @@ def to_relative_action(actions, anchor_action, qform='xyzw'):
     gripper = actions[..., -1:]
 
     return torch.cat([rel_pos, rel_orn, gripper], -1)  # (..., N, 8)
+
+
+def to_relative_keypose(action, proprio, qform='xyzw'):
+    """(C, T, nhand, 8) absolute actions -> deltas from each arm's current state proprio[:, -1]."""
+    return to_relative_action(action.transpose(1, 2), proprio[:, -1:].transpose(1, 2), qform).transpose(1, 2)
+
+
+def from_relative_keypose(rel, proprio, qform='xyzw'):
+    """Inverse of to_relative_keypose: (B, T, nhand, 8+) deltas -> absolute, chained over T from proprio[:, -1]."""
+    w = [3, 0, 1, 2] if qform == 'xyzw' else [0, 1, 2, 3]
+    back = [1, 2, 3, 0] if qform == 'xyzw' else [0, 1, 2, 3]
+    pos, quat, out = proprio[:, -1, :, :3], proprio[:, -1, :, 3:7][..., w], []
+    for t in range(rel.shape[1]):
+        pos = pos + rel[:, t, :, :3]
+        quat = pytorch3d_transforms.quaternion_multiply(rel[:, t, :, 3:7][..., w], quat)
+        out.append(torch.cat([pos, quat[..., back], rel[:, t, :, 7:]], -1))
+    return torch.stack(out, 1)

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from torch.utils.data import Dataset
 
-from .utils import to_tensor, read_zarr_with_cache, load_zarr_to_ram, to_relative_action
+from .utils import to_tensor, read_zarr_with_cache, load_zarr_to_ram, to_relative_keypose
 
 
 class BaseDataset(Dataset):
@@ -169,8 +169,7 @@ class BaseDataset(Dataset):
                 return self._get_attr_by_idx(idx, 'rel_action', False)
             else:
                 action = self._get_attr_by_idx(idx, 'action', False)
-                prop = self._get_proprioception(idx)[[-1]]
-                action = to_relative_action(action, prop, self.quat_format)
+                action = to_relative_keypose(action, self._get_proprioception(idx), self.quat_format)
         else:
             action = self._get_attr_by_idx(idx, 'action', False)
         return action

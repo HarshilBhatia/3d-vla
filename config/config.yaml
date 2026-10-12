@@ -156,6 +156,7 @@ relative_action: false
 rotation_format: quat_xyzw
 denoise_timesteps: 5
 denoise_model: rectified_flow
+flow_prediction: velocity   # velocity | x0 (head outputs the clean sample; the loss is still on the implied velocity)
 
 
 # Head positional encoding (encoder RoPE is separate and always on):

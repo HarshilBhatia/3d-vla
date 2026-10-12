@@ -2,6 +2,8 @@ import torch
 from torch import nn
 from torch.nn import functional as F
 
+from datasets.utils import from_relative_keypose
+
 from ..noise_scheduler import fetch_schedulers
 from ..utils.layers import AttentionModule
 from ..utils.position_encodings import SinusoidalPosEmb
@@ -37,6 +39,11 @@ HEAD_POSITIONAL_ENCODINGS = {
 }
 
 
+FLOW_PREDICTIONS = ('velocity', 'x0')
+# Floor on t when turning an x0 prediction into a velocity, so 1/t stays bounded near clean data.
+FLOW_X0_MIN_T = 0.05
+
+
 class DenoiseActor(nn.Module):
 
     def __init__(self,
@@ -55,8 +62,14 @@ class DenoiseActor(nn.Module):
                  # Training arguments
                  lv2_batch_size=1,
                  head_positional_encoding='rope3d',
-                 view_align_mode='none'):
+                 view_align_mode='none',
+                 flow_prediction='velocity'):
         super().__init__()
+        if flow_prediction not in FLOW_PREDICTIONS:
+            raise ValueError(f"flow_prediction must be one of {FLOW_PREDICTIONS}, got {flow_prediction!r}")
+        if flow_prediction == 'x0' and denoise_model == 'ddpm':
+            raise ValueError("flow_prediction='x0' needs a rectified-flow denoise_model")
+        self.flow_prediction = flow_prediction
         if view_align_mode not in VIEW_ALIGN_MODES:
             raise ValueError(f"view_align_mode must be one of {sorted(VIEW_ALIGN_MODES)}, got {view_align_mode!r}")
         predict_extrinsics, extrinsics_prediction_mode = VIEW_ALIGN_MODES[view_align_mode]
@@ -214,6 +227,19 @@ class DenoiseActor(nn.Module):
             history_register=history_register,
         )
 
+    def _to_absolute(self, trajectory, proprio):
+        """Relative-action models predict deltas from the current state; callers always get absolute keyposes."""
+        if not self._relative or self._rotation_format == 'euler':
+            return trajectory
+        return from_relative_keypose(trajectory, proprio, self._rotation_format[-4:])
+
+    def _as_velocity(self, out, noisy, t):
+        """Head output (..., 9 + 1) -> velocity on the 9 pose dims; x0 mode reads it as the clean sample."""
+        if self.flow_prediction == 'velocity':
+            return out
+        t = t.reshape(-1, *([1] * (noisy.ndim - 1))).to(noisy.dtype).clamp(min=FLOW_X0_MIN_T)
+        return torch.cat(((noisy - out[..., :-1]) / t, out[..., -1:]), -1)
+
     def conditional_sample(self, trajectory, device, fixed_inputs):
         # Set schedulers
         self.position_scheduler.set_timesteps(self.n_steps, device=device)
@@ -227,7 +253,7 @@ class DenoiseActor(nn.Module):
                 t * torch.ones(len(trajectory), device=device, dtype=torch.long),
                 fixed_inputs,
             )
-            out = traj_preds[-1]  # keep only last layer's output
+            out = self._as_velocity(traj_preds[-1], trajectory, t * torch.ones(len(trajectory), device=device))
             pos = self.position_scheduler.step(
                 out[..., :3],
                 t_ind, trajectory[..., :3]
@@ -249,12 +275,12 @@ class DenoiseActor(nn.Module):
         for t_ind, t in enumerate(timesteps):
             t_batch = t * torch.ones(len(trajectory), device=device, dtype=torch.long)
 
-            out_uncond = self.policy_forward_pass(trajectory, t_batch, uncond_fixed_inputs)[0][-1]
+            out_uncond = self._as_velocity(self.policy_forward_pass(trajectory, t_batch, uncond_fixed_inputs)[0][-1], trajectory, t_batch)
 
             if cfg_scale == 0:
                 out = out_uncond
             else:
-                out_cond = self.policy_forward_pass(trajectory, t_batch, cond_fixed_inputs)[0][-1]
+                out_cond = self._as_velocity(self.policy_forward_pass(trajectory, t_batch, cond_fixed_inputs)[0][-1], trajectory, t_batch)
 
                 diff = (out_cond - out_uncond).norm(dim=-1).mean().item()
                 print(f"[CFG t={t_ind}] cfg_scale={cfg_scale}  |out_cond - out_uncond|={diff:.4f}", flush=True)
@@ -304,7 +330,7 @@ class DenoiseActor(nn.Module):
         trajectory = self.unnormalize_pos(trajectory)
         trajectory[..., -1] = trajectory[..., -1].sigmoid()
 
-        return trajectory
+        return self._to_absolute(trajectory, proprio)
 
     def compute_trajectory(self, trajectory_mask,
                            rgb3d, rgb2d, pcd, instruction, proprio, proprio_pcd=None):
@@ -335,7 +361,7 @@ class DenoiseActor(nn.Module):
         # Convert gripper status to probaility
         trajectory[..., -1] = trajectory[..., -1].sigmoid()
 
-        return trajectory
+        return self._to_absolute(trajectory, proprio)
 
     def compute_loss(self, gt_trajectory,
                      rgb3d, rgb2d, pcd, instruction, proprio):
@@ -396,6 +422,7 @@ class DenoiseActor(nn.Module):
 
             # Compute flow-matching loss
             for layer_pred in pred:
+                layer_pred = self._as_velocity(layer_pred, noisy_trajectory, timesteps)
                 pos = layer_pred[..., :3]
                 rot = layer_pred[..., 3:-1]
                 openess = layer_pred[..., -1:]

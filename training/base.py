@@ -130,6 +130,7 @@ from scripts.multinode.resilience import (
     seed_everything,
 )
 from data.batch import actions_collate_fn, base_collate_fn, relative_to_absolute
+from datasets.utils import from_relative_keypose
 from common.metrics import compute_metrics
 from .utils import BenchmarkLogger
 from datasets.samplers import DiverseChunkBatchSampler
@@ -1010,7 +1011,11 @@ class BaseTrainTester:
 
             pred_action = self._model_forward(model, sample, training=False)
             gt_action = sample["action"].to(device='cuda', non_blocking=True)
-            if self.args.relative_action:
+            if self.args.relative_action and self.args.rotation_format != 'euler':
+                # The model already returns absolute keyposes; only the dataset's target is relative.
+                prop = sample["proprioception"].to(device='cuda', non_blocking=True)
+                gt_action = from_relative_keypose(gt_action, prop, self.args.rotation_format[-4:])
+            elif self.args.relative_action:
                 prop = sample["proprioception"].to(device='cuda', non_blocking=True)[:, :, 0]
                 pred_action = relative_to_absolute(pred_action[:, :, 0], prop)
                 gt_action = relative_to_absolute(gt_action[:, :, 0], prop)
