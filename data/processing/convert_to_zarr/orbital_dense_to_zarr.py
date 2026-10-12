@@ -71,7 +71,7 @@ def resample_segment(states, t, t_end, horizon):
 
 
 def process_episode(job):
-    ep_path, task_id, group_str, im, horizon, stride = job
+    ep_path, task_id, group_str, im, horizon, stride, (target, chunk_stride, proprio, pstride) = job
     with open(os.path.join(ep_path, "low_dim_obs.pkl"), "rb") as f:
         demo = CustomUnpickler(f).load()
     with open(os.path.join(ep_path, "variation.txt")) as f:
@@ -96,13 +96,18 @@ def process_episode(job):
                 [E_ol, E_or] + [load_extrinsics_from_misc(obs, c) for c in PROFILE.wrist_cameras]).astype(np.float16))
             rows["intrinsics"].append(np.stack(
                 [K_ol, K_or] + [load_intrinsics_from_misc(obs, c) for c in PROFILE.wrist_cameras]).astype(np.float16))
-            rows["proprioception"].append(states[[max(0, t - 2 * stride), max(0, t - stride), t]])
             # Keypose-style history: the two latest keyframes strictly before t, then the current state.
             prev = [k for k in kfs if k < t]
             p1 = prev[-1] if prev else t
             p2 = prev[-2] if len(prev) > 1 else p1
             rows["proprioception_keypose"].append(states[[p2, p1, t]])
-            rows["action"].append(resample_segment(states, t, k1, horizon))
+            rows["proprioception"].append(states[[p2, p1, t]] if proprio == "keypose"
+                                          else states[[max(0, t - 2 * pstride), max(0, t - pstride), t]])
+            if target == "chunk":
+                # Fixed-time chunk: the next horizon recorded states at chunk_stride, held at the last frame past the end.
+                rows["action"].append(states[np.minimum(t + chunk_stride * np.arange(1, horizon + 1), len(demo) - 1)])
+            else:
+                rows["action"].append(resample_segment(states, t, k1, horizon))
             rows["next_keypose"].append(states[[k1]])
             rows["proprioception_joints"].append(joints[[t]])
             rows["action_joints"].append(joints[[k1]])
@@ -146,7 +151,8 @@ def list_jobs(args, task_list):
         for i, ep in enumerate(eps):
             split = "train" if i < args.train_episodes else "val"
             jobs[split].append((os.path.join(group_root, ep), task_list.index(task), group,
-                                args.image_size, args.horizon, args.frame_stride))
+                                args.image_size, args.horizon, args.frame_stride,
+                                (args.target, args.chunk_stride, args.proprio, args.proprio_stride or args.frame_stride)))
     return jobs
 
 
@@ -161,6 +167,12 @@ def parse_args():
     p.add_argument("--horizon", type=int, default=8)
     p.add_argument("--frame-stride", type=int, default=1)
     p.add_argument("--image-size", type=int, default=256)
+    p.add_argument("--target", choices=["keypose_path", "chunk"], default="keypose_path",
+                   help="keypose_path: horizon points resampled to the next keypose; chunk: the next horizon states at --chunk-stride")
+    p.add_argument("--chunk-stride", type=int, default=1)
+    p.add_argument("--proprio", choices=["timestep", "keypose"], default="timestep",
+                   help="what the 'proprioception' field holds: states at --proprio-stride, or the keypose history")
+    p.add_argument("--proprio-stride", type=int, default=None, help="defaults to --frame-stride")
     p.add_argument("--workers", type=int, default=6)
     p.add_argument("--overwrite", action="store_true")
     p.add_argument("--allow-missing", action="store_true", help="Build even if a shard is incomplete (tests only)")
@@ -180,7 +192,8 @@ def main():
         if os.path.exists(path) and not args.overwrite:
             sys.exit("[ERROR] {} exists; pass --overwrite".format(path))
         zf = init_zarr(path, schema, compressor)
-        zf.attrs.update({"horizon": args.horizon, "frame_stride": args.frame_stride, "tasks": args.tasks})
+        zf.attrs.update({"horizon": args.horizon, "frame_stride": args.frame_stride, "tasks": args.tasks, "target": args.target,
+                         "chunk_stride": args.chunk_stride, "proprio": args.proprio, "proprio_stride": args.proprio_stride or args.frame_stride})
         n_rows, episodes = 0, []
         with Pool(args.workers) as pool:
             # One batch of episodes in memory at a time; imap let finished episodes pile up behind the writer.

@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct, exp8a_handover_keypose_path, exp8b_handover_chunk8}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -263,6 +263,26 @@ case "$ARM" in
     CACHE_BATCHES=0
     FROM_SCRATCH=1
     ;;
+  exp8a_handover_keypose_path)
+    EXPERIMENT=peract2_orbital_handover_dense_base_keypose_path
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_handover_dense_base_keypose_path
+    # Base on handover, dense rows, 8 points to the next keypose.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/handover_keypose_path/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/handover_keypose_path/val.zarr}"
+    # Dense rows: the 8-record cache window would be 8 near-identical frames.
+    CACHE_BATCHES=0
+    FROM_SCRATCH=1
+    ;;
+  exp8b_handover_chunk8)
+    EXPERIMENT=peract2_orbital_handover_dense_base_chunk8
+    DEFAULT_RUN_LOG_DIR=peract2_orbital_handover_dense_base_chunk8
+    # Base on handover, dense rows, next-8-step chunk.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/handover_chunk8/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/handover_chunk8/val.zarr}"
+    # Dense rows: the 8-record cache window would be 8 near-identical frames.
+    CACHE_BATCHES=0
+    FROM_SCRATCH=1
+    ;;
   camframe_rope6d)
     EXPERIMENT=peract2_orbital_camframe_rope6d
     DEFAULT_RUN_LOG_DIR=peract2_orbital_camframe_rope6d
@@ -271,7 +291,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct, exp8a_handover_keypose_path, exp8b_handover_chunk8" >&2
     exit 2
     ;;
 esac

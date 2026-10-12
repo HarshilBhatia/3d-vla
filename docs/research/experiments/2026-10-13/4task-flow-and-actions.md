@@ -1,6 +1,6 @@
 # 4-task subset: x0 vs velocity, relative vs absolute actions (exp 7a–7d)
 
-**Status:** relaunched 12 Oct on the dense 4-task data with 8-step targets (7a–7f); the first keypose-data launch was cancelled
+**Status:** cancelled 12 Oct (all of 7a–7f); superseded by [exp 8](handover-dense-targets.md)
 **Week introduced:** [7–13 Oct](../../weekly_logs/2026-10-13.md)
 
 ## Why
