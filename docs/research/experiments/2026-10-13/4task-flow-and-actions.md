@@ -69,12 +69,12 @@ The keypose data has 7.2 keyframes per demo, so history was mostly padding. All 
 
 | | Model | Visual history | Action | Flow target | GPUs | Training chain | 100k suite |
 |---|---|---|---|---|---|---|---|
-| **7a** | exp 6 (full-patch 3D RoPE, pre-LN + skip, Direct δM) | K = 5, random earlier timesteps | absolute | velocity | 2× A6000 | 4027209 → 10 | 4027211–17 |
-| **7b** | exp 6 | K = 5 | absolute | x0 | 2× A6000 | 4027218 → 19 | 4027220–26 |
-| **7c** | exp 6 | K = 5 | relative | velocity | 2× A6000 | 4027227 → 28 | 4027229–35 |
+| **7a** | exp 6 (full-patch 3D RoPE, pre-LN + skip, Direct δM) | K = 5, random earlier timesteps | absolute | velocity | 2× 24 GB+, batch 64, 120k | 4027372 → 73 | 4027374–80 |
+| **7b** | exp 6 | K = 5 | absolute | x0 | 2× 24 GB+, batch 64, 120k | 4027381 → 82 | 4027383–89 |
+| **7c** | exp 6 | K = 5 | relative | velocity | 2× 24 GB+, batch 64, 120k | 4027390 → 91 | 4027392–98 |
 | **7d** | Base | K = 1 | relative | velocity | 2 GPUs | 4027236 → 37 | 4027238–44 |
 | **7e** | Base | K = 1 | absolute | velocity | 2 GPUs | 4027245 → 46 | 4027247–53 |
-| **7f** | exp 2 (pooled Direct δM) | K = 5, random earlier timesteps | absolute | velocity | 2× A6000 | 4027254 → 55 | 4027256–62 |
+| **7f** | exp 2 (pooled Direct δM) | K = 5, random earlier timesteps | absolute | velocity | 2× 24 GB+, batch 64, 120k | 4027399 → 4027400 | 4027401–07 |
 
 Changes for the dense data:
 
@@ -82,5 +82,6 @@ Changes for the dense data:
 - Proprio history on dense rows comes from the earlier keyframe rows plus the current state, matching eval's once-per-keypose proprio (equal to the zarr's `proprioception_keypose` on 300/300 rows).
 - Relative actions anchor every step at the current state (not chained), so any slice of the 8 steps stays valid.
 - The diverse-chunk cache sampler is off (`CACHE_BATCHES=0`); its 8-record window would be 8 near-identical frames.
+- The history runs (7a–7c, 7f) use global batch 64 (32 per GPU) for 120k so they fit any 24 GB pair; no A6000 pair was free and the only A6000Ada node is drained. 7d/7e were already running at batch 128 for 100k, so history vs Base also differs in batch.
 - No `train_tasks`: the dense zarr holds only these 4 tasks, and the filter copies every kept row into RAM (52 GB), which hung the first smokes.
 - Eval is not adapted to 8-step outputs yet: the rollout loop sends each of the 8 poses to the motion planner in turn. Fix before reading the ladders.

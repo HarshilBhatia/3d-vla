@@ -6,8 +6,8 @@
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_20rollouts",
   "methods": [
     {
-      "id": "exp7c_4task_rel_s100k_ema",
-      "checkpoint": "train_logs/PerAct2/peract2_orbital_4task_fullpatch_direct_rel/interm_step_100000.pth",
+      "id": "exp7c_4task_rel_s120k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_4task_fullpatch_direct_rel/interm_step_120000.pth",
       "overrides": {
         "visual_num_history": 5,
         "eval_proprio_history_order": "past_to_current",
