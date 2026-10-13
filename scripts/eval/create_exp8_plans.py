@@ -21,9 +21,9 @@ EXEC4 = [{"id": "exp8b_chunk8_s50k_ema_ik_exec4", "checkpoint": METHODS[1]["chec
                         "eval_execute_steps": 4, "eval_proprio_stride": 8}}]
 
 
-def plan(src, name, calibration, viewpoint=None, demos=100, video=False, methods=METHODS):
+def plan(src, name, calibration, viewpoint=None, demos=100, video=False, methods=METHODS, version="v01"):
     d = json.loads((PLANS / f"{src}.json").read_text())
-    d["campaign_id"] = f"exp8_{name}_v01"
+    d["campaign_id"] = f"exp8_{name}_{version}"
     d["description"] = f"Exp 8 handover: {name}, {demos} rollouts; 8a planner, 8b IK chunk controller."
     d["tasks"] = [T]
     d["task_viewpoints"] = {T: viewpoint or d["task_viewpoints"][T]}
@@ -31,7 +31,7 @@ def plan(src, name, calibration, viewpoint=None, demos=100, video=False, methods
     d["calibrations"] = [calibration.split("medium-")[-1].replace("-v01", "") if calibration != "calibrated" else "calibrated"]
     d["methods"] = [dict(m, overrides=dict(m["overrides"], save_video=True)) for m in methods] if video else methods
     d["runtime"]["num_demos_total"] = demos
-    out = PLANS / f"exp8_{name}_v01.json"
+    out = PLANS / f"exp8_{name}_{version}.json"
     out.write_text(json.dumps(d, indent=2) + "\n")
     print(out.name, len(methods), "cells")
 
@@ -57,3 +57,12 @@ plan("idlt_task_heldout_group_v01", "stepfix_heldout_g4_calibrated", "calibrated
 plan("idlt_scaled_extreme_task_heldout_group_v01", "stepfix_heldout_g4_e60t60", "seen-g4-medium-unknown-e60deg-t60cm-v01", methods=FIX)
 plan("idlt_task_heldout_group_v01", "stepfix_seen_g1_calibrated", "calibrated", viewpoint=SEEN_G1, methods=FIX)
 plan("idlt_task_heldout_group_v01", "stepfix_seen_g1_calibrated_videos", "calibrated", viewpoint=SEEN_G1, demos=5, video=True, methods=FIX)
+
+# Exp 8c/8d re-evaluated with prediction_len=8: the v01 evals sampled 1-step trajectories (prediction_len defaulted to 1).
+FIX8 = [dict(m, id=m["id"] + "_plen8", overrides=dict(m["overrides"], prediction_len=8)) for m in FIX]
+
+
+plan("idlt_task_heldout_group_v01", "stepfix_heldout_g4_calibrated", "calibrated", methods=FIX8, version="v02")
+plan("idlt_scaled_extreme_task_heldout_group_v01", "stepfix_heldout_g4_e60t60", "seen-g4-medium-unknown-e60deg-t60cm-v01", methods=FIX8, version="v02")
+plan("idlt_task_heldout_group_v01", "stepfix_seen_g1_calibrated", "calibrated", viewpoint=SEEN_G1, methods=FIX8, version="v02")
+plan("idlt_task_heldout_group_v01", "stepfix_seen_g1_calibrated_videos", "calibrated", viewpoint=SEEN_G1, demos=5, video=True, methods=FIX8, version="v02")
