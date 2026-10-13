@@ -76,3 +76,26 @@ plan("idlt_task_heldout_group_v01", "8e_heldout_g4_calibrated", "calibrated", me
 plan("idlt_scaled_extreme_task_heldout_group_v01", "8e_heldout_g4_e60t60", "seen-g4-medium-unknown-e60deg-t60cm-v01", methods=E8)
 plan("idlt_task_heldout_group_v01", "8e_seen_g1_calibrated", "calibrated", viewpoint=SEEN_G1, methods=E8)
 plan("idlt_task_heldout_group_v01", "8e_seen_g1_calibrated_videos", "calibrated", viewpoint=SEEN_G1, demos=5, video=True, methods=E8)
+
+
+# Held-out G4 miscalibration sweep 10/10 -> 50/50 for 8c (planner) and 8d (IK, execute 8), prediction_len 8.
+SWEEP_METHODS = [m for m in FIX8 if not m["id"].endswith("exec4_plen8")]
+
+
+def plan_levels(src, name, levels):
+    d = json.loads((PLANS / f"{src}.json").read_text())
+    d["campaign_id"] = f"exp8_{name}_v01"
+    d["description"] = f"Exp 8c/8d handover held-out G4 miscalibration sweep ({', '.join(levels)}), 100 rollouts."
+    d["tasks"] = [T]
+    d["task_viewpoints"] = {T: d["task_viewpoints"][T]}
+    d["task_calibrations"] = {T: [f"seen-g4-medium-unknown-{l}-v01" for l in levels]}
+    d["calibrations"] = [f"unknown-{l}" for l in levels]
+    d["methods"] = SWEEP_METHODS
+    d["runtime"]["num_demos_total"] = 100
+    (PLANS / f"exp8_{name}_v01.json").write_text(json.dumps(d, indent=2) + "\n")
+    print(f"exp8_{name}_v01.json", len(levels) * len(SWEEP_METHODS), "cells")
+
+
+plan_levels("idlt_task_heldout_group_v01", "sweep_g4_10", ["e10deg-t10cm"])
+plan_levels("idlt_extreme_task_heldout_group_v01", "sweep_g4_15_20", ["e15deg-t15cm", "e20deg-t20cm"])
+plan_levels("idlt_scaled_extreme_task_heldout_group_v01", "sweep_g4_30_40_50", ["e30deg-t30cm", "e40deg-t40cm", "e50deg-t50cm"])

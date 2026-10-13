@@ -1,0 +1,60 @@
+{
+  "schema_version": 1,
+  "campaign_id": "exp8_sweep_g4_30_40_50_v01",
+  "description": "Exp 8c/8d handover held-out G4 miscalibration sweep (e30deg-t30cm, e40deg-t40cm, e50deg-t50cm), 100 rollouts.",
+  "calibration_registry": "instructions/eval_calibrations_idlt_scaled_extreme_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {
+      "id": "exp8c_keypose_path_stepfix_s50k_ema_plen8",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_base_keypose_path_stepfix/interm_step_50000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "prediction_len": 8
+      }
+    },
+    {
+      "id": "exp8d_chunk8_stepfix_s50k_ema_ik_plen8",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_base_chunk8_stepfix/interm_step_50000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "eval_controller": "ik",
+        "max_steps": 60,
+        "prediction_len": 8
+      }
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_handover_item": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_handover_item": [
+      "seen-g4-medium-unknown-e30deg-t30cm-v01",
+      "seen-g4-medium-unknown-e40deg-t40cm-v01",
+      "seen-g4-medium-unknown-e50deg-t50cm-v01"
+    ]
+  },
+  "calibrations": [
+    "unknown-e30deg-t30cm",
+    "unknown-e40deg-t40cm",
+    "unknown-e50deg-t50cm"
+  ],
+  "tasks": [
+    "bimanual_handover_item"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 100
+  }
+}
