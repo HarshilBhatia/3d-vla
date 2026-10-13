@@ -1,4 +1,4 @@
-# Exp 9c: Base on standard-PerAct2 bimanual_lift_ball keyframe rows, reference 50-point keypose-horizon trajectory, no extrinsics noise; 100k.
+# Exp 9c: Base on standard-PerAct2 bimanual_lift_ball keyframe rows, reference 50-point keypose-horizon trajectory (Euler unwrapped), no extrinsics noise; 100k.
 dataset: Peract2_3dfront_3dwrist
 model_type: denoise3d
 bimanual: true

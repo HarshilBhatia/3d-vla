@@ -335,8 +335,8 @@ case "$ARM" in
     EXPERIMENT=peract2_lift_ball_keypose_segment50_base
     DEFAULT_RUN_LOG_DIR=peract2_lift_ball_keypose_segment50_base
     # Standard PerAct2 rig: the orbital group-bias table does not apply; any noise is in the experiment config.
-    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/train.zarr}"
-    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/val.zarr}"
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50_unwrap/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50_unwrap/val.zarr}"
     NO_MISCAL=1
     FROM_SCRATCH=1
     ;;
@@ -344,8 +344,8 @@ case "$ARM" in
     EXPERIMENT=peract2_lift_ball_keypose_segment50_base_noise
     DEFAULT_RUN_LOG_DIR=peract2_lift_ball_keypose_segment50_base_noise
     # Standard PerAct2 rig: the orbital group-bias table does not apply; any noise is in the experiment config.
-    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/train.zarr}"
-    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/val.zarr}"
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50_unwrap/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50_unwrap/val.zarr}"
     NO_MISCAL=1
     FROM_SCRATCH=1
     ;;

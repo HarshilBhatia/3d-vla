@@ -1,0 +1,6 @@
+# Standard PerAct2 bimanual_lift_ball keyframe rows, action = reference 50-point spline to the next keypose; see docs/research/experiments/2026-10-13/peract2-lift-ball-dense.md
+# Use: data=peract2_lift_ball_keypose_segment50 dataset=Peract2_3dfront_3dwrist keypose_only=false
+train_data_dir: /grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/train.zarr
+eval_data_dir: /grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/val.zarr
+train_instructions: instructions/peract2/instructions_full.json
+val_instructions: instructions/peract2/instructions_full.json
