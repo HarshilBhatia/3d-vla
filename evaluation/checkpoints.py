@@ -22,6 +22,7 @@ EVALUATION_RUNTIME_KEYS = frozenset({
     "collision_checking", "cfg_scale", "prediction_len", "max_steps",
     "eval_proprio_history_order", "eval_history_probe", "eval_blackout_cameras", "eval_weights",
     "eval_ablation", "eval_clean_proprio", "eval_controller",
+    "eval_execute_steps", "eval_proprio_stride",
     # Dataset/rollout input shape controls; these do not change model
     # architecture (proprio_num_history remains checkpoint-owned because it
     # determines decoder dimensions).

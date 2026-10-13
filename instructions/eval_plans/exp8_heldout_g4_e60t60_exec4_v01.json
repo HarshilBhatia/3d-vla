@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "campaign_id": "exp8_heldout_g4_e60t60_exec4_v01",
+  "description": "Exp 8 handover: heldout_g4_e60t60_exec4, 100 rollouts; 8a planner, 8b IK chunk controller.",
+  "calibration_registry": "instructions/eval_calibrations_idlt_scaled_extreme_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {
+      "id": "exp8b_chunk8_s50k_ema_ik_exec4",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_base_chunk8/interm_step_50000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "eval_controller": "ik",
+        "max_steps": 120,
+        "eval_execute_steps": 4,
+        "eval_proprio_stride": 8
+      }
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_handover_item": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_handover_item": [
+      "seen-g4-medium-unknown-e60deg-t60cm-v01"
+    ]
+  },
+  "calibrations": [
+    "unknown-e60deg-t60cm"
+  ],
+  "tasks": [
+    "bimanual_handover_item"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 100
+  }
+}

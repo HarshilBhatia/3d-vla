@@ -119,6 +119,10 @@ def run_online_evaluation(args: Any, *, model_loader: Callable[[Any], Any]) -> b
         evaluation_extra["num_demos_total"] = int(args.num_demos_total)
     if getattr(args, "eval_history_probe", "none") != "none":
         evaluation_extra["history_probe"] = args.eval_history_probe
+    if getattr(args, "eval_execute_steps", None) is not None:
+        evaluation_extra["execute_steps"] = int(args.eval_execute_steps)
+    if getattr(args, "eval_proprio_stride", None) is not None:
+        evaluation_extra["proprio_stride"] = int(args.eval_proprio_stride)
     if getattr(args, "visual_history_dense", False):
         evaluation_extra["history_every_step"] = True
     if getattr(args, "visual_history_sampling", "consecutive") != "consecutive":

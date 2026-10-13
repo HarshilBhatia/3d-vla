@@ -286,6 +286,14 @@ class RLBenchEnv:
             depth_accessor=lambda o, name: o.perception_data[name],
         )
 
+    @staticmethod
+    def gripper_from_obs(obs):
+        """(1, 16) left then right gripper pose and open state, as get_rgb_pcd_gripper_from_obs returns it."""
+        return torch.from_numpy(np.concatenate([
+            obs.left.gripper_pose, [obs.left.gripper_open],
+            obs.right.gripper_pose, [obs.right.gripper_open]
+        ])).float().unsqueeze(0)
+
     def get_rgb_pcd_gripper_from_obs(self, obs):
         """
         Return rgb, pcd, and gripper from a given observation
@@ -357,6 +365,8 @@ class RLBenchEnv:
         history_seed=0,
         history_probe="none",
         history_every_step=False,
+        execute_steps=None,
+        proprio_stride=None,
     ):
         progress = {}
         if progress_file is not None and os.path.exists(progress_file):
@@ -428,6 +438,8 @@ class RLBenchEnv:
                     history_seed=history_seed,
                     history_probe=history_probe,
                     history_every_step=history_every_step,
+                    execute_steps=execute_steps,
+                    proprio_stride=proprio_stride,
                 )
             )
             if valid:
@@ -465,6 +477,8 @@ class RLBenchEnv:
         history_seed=0,
         history_probe="none",
         history_every_step=False,
+        execute_steps=None,
+        proprio_stride=None,
     ):
         success_rate = 0
         total_reward = 0
@@ -511,6 +525,7 @@ class RLBenchEnv:
             episode_rgb, episode_pcd = [], []
 
             move = IKMover(task) if self._controller == "ik" else Mover(task, max_tries=max_tries)
+            step_grippers = []
             max_reward = 0.0
             video_frames = [] if save_video else None
 
@@ -577,6 +592,12 @@ class RLBenchEnv:
                     clean_input = None if clean_input is None else clean_input[:, 0]
                 gripper = gripper.cuda(non_blocking=True)
                 grippers = torch.cat([grippers, gripper.unsqueeze(1)], 1)
+                if proprio_stride is not None:
+                    # Proprio at a fixed step stride from per-step states, independent of how often we re-query.
+                    step_grippers = step_grippers if step_grippers else [gripper]
+                    n = visual_num_history if proprio_num_history is None else proprio_num_history
+                    idx = [max(0, len(step_grippers) - 1 - k * proprio_stride) for k in range(n - 1, -1, -1)]
+                    grippers = torch.stack([step_grippers[i] for i in idx], 1)
 
                 # Proprio's length and temporal order are independent of the
                 # visual K.  Do not silently expand a K=3 proprio input to K=5
@@ -602,8 +623,10 @@ class RLBenchEnv:
                     actions[..., -1] = actions[..., -1].round()
 
                     # execute
-                    for action in actions:
+                    for action in (actions if execute_steps is None else actions[:execute_steps]):
                         obs, reward, _ = move(action, collision_checking=False)
+                        if proprio_stride is not None:
+                            step_grippers.append(self.gripper_from_obs(obs).cuda(non_blocking=True))
                         if reward == 1:
                             break
 
