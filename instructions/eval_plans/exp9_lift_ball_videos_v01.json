@@ -1,0 +1,92 @@
+{
+  "schema_version": 1,
+  "campaign_id": "exp9_lift_ball_videos_v01",
+  "description": "Exp 9: standard-PerAct2 lift_ball, front-camera miscalibration sweep, 5 rollouts.",
+  "calibration_registry": "instructions/eval_calibrations_peract2_standard_front_miscal_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {
+      "id": "exp9a_chunk8_s50k_ema_ik",
+      "checkpoint": "train_logs/PerAct2/peract2_lift_ball_dense_base_chunk8/interm_step_50000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "eval_controller": "ik",
+        "max_steps": 60,
+        "prediction_len": 8,
+        "save_video": true
+      }
+    },
+    {
+      "id": "exp9b_chunk8_noise_s50k_ema_ik",
+      "checkpoint": "train_logs/PerAct2/peract2_lift_ball_dense_base_chunk8_noise/interm_step_50000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "eval_controller": "ik",
+        "max_steps": 60,
+        "prediction_len": 8,
+        "save_video": true
+      }
+    },
+    {
+      "id": "exp9c_segment50_s100k_ema_all50",
+      "checkpoint": "train_logs/PerAct2/peract2_lift_ball_keypose_segment50_base/interm_step_100000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "prediction_len": 50,
+        "save_video": true
+      }
+    },
+    {
+      "id": "exp9c_segment50_s100k_ema_last",
+      "checkpoint": "train_logs/PerAct2/peract2_lift_ball_keypose_segment50_base/interm_step_100000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "prediction_len": 50,
+        "eval_execute_steps": -1,
+        "save_video": true
+      }
+    },
+    {
+      "id": "exp9d_segment50_noise_s100k_ema_all50",
+      "checkpoint": "train_logs/PerAct2/peract2_lift_ball_keypose_segment50_base_noise/interm_step_100000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "prediction_len": 50,
+        "save_video": true
+      }
+    },
+    {
+      "id": "exp9d_segment50_noise_s100k_ema_last",
+      "checkpoint": "train_logs/PerAct2/peract2_lift_ball_keypose_segment50_base_noise/interm_step_100000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "prediction_len": 50,
+        "eval_execute_steps": -1,
+        "save_video": true
+      }
+    }
+  ],
+  "viewpoints": [
+    {
+      "id": "standard_front_wrist",
+      "regime": "standard_front_wrist"
+    }
+  ],
+  "calibrations": [
+    "calibrated"
+  ],
+  "tasks": [
+    "bimanual_lift_ball"
+  ],
+  "runtime": {
+    "data": "full",
+    "dataset": "Peract2_3dfront_3dwrist",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 5,
+    "overrides": {}
+  }
+}

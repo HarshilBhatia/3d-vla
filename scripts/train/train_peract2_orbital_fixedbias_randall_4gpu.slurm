@@ -19,7 +19,7 @@ load_cluster grogu
 cd "$REPO_ROOT"
 export PYTHONPATH="$REPO_ROOT:${PYTHONPATH:-}"
 
-ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct, exp8a_handover_keypose_path, exp8b_handover_chunk8, exp8c_handover_keypose_path_stepfix, exp8d_handover_chunk8_stepfix, exp8e_handover_keypose_segment50}"
+ARM="${ARM:?Set ARM=base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct, exp8a_handover_keypose_path, exp8b_handover_chunk8, exp8c_handover_keypose_path_stepfix, exp8d_handover_chunk8_stepfix, exp8e_handover_keypose_segment50, exp9a_lift_ball_chunk8, exp9b_lift_ball_chunk8_noise, exp9c_lift_ball_segment50, exp9d_lift_ball_segment50_noise}"
 EXTRA_MODEL_OVERRIDES=()
 FROM_SCRATCH=0
 NO_PERTURBATION=0
@@ -311,6 +311,44 @@ case "$ARM" in
     EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/handover_keypose_segment50/val.zarr}"
     FROM_SCRATCH=1
     ;;
+  exp9a_lift_ball_chunk8)
+    EXPERIMENT=peract2_lift_ball_dense_base_chunk8
+    DEFAULT_RUN_LOG_DIR=peract2_lift_ball_dense_base_chunk8
+    # Standard PerAct2 rig: the orbital group-bias table does not apply; any noise is in the experiment config.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/chunk8/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/chunk8/val.zarr}"
+    NO_MISCAL=1
+    CACHE_BATCHES=0
+    FROM_SCRATCH=1
+    ;;
+  exp9b_lift_ball_chunk8_noise)
+    EXPERIMENT=peract2_lift_ball_dense_base_chunk8_noise
+    DEFAULT_RUN_LOG_DIR=peract2_lift_ball_dense_base_chunk8_noise
+    # Standard PerAct2 rig: the orbital group-bias table does not apply; any noise is in the experiment config.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/chunk8/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/chunk8/val.zarr}"
+    NO_MISCAL=1
+    CACHE_BATCHES=0
+    FROM_SCRATCH=1
+    ;;
+  exp9c_lift_ball_segment50)
+    EXPERIMENT=peract2_lift_ball_keypose_segment50_base
+    DEFAULT_RUN_LOG_DIR=peract2_lift_ball_keypose_segment50_base
+    # Standard PerAct2 rig: the orbital group-bias table does not apply; any noise is in the experiment config.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/val.zarr}"
+    NO_MISCAL=1
+    FROM_SCRATCH=1
+    ;;
+  exp9d_lift_ball_segment50_noise)
+    EXPERIMENT=peract2_lift_ball_keypose_segment50_base_noise
+    DEFAULT_RUN_LOG_DIR=peract2_lift_ball_keypose_segment50_base_noise
+    # Standard PerAct2 rig: the orbital group-bias table does not apply; any noise is in the experiment config.
+    TRAIN_DATA_DIR="${TRAIN_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/train.zarr}"
+    EVAL_DATA_DIR="${EVAL_DATA_DIR:-/grogu/datasets/hbhatia/3dfa_dense/peract2_lift_ball/keypose_segment50/val.zarr}"
+    NO_MISCAL=1
+    FROM_SCRATCH=1
+    ;;
   camframe_rope6d)
     EXPERIMENT=peract2_orbital_camframe_rope6d
     DEFAULT_RUN_LOG_DIR=peract2_orbital_camframe_rope6d
@@ -319,7 +357,7 @@ case "$ARM" in
     FROM_SCRATCH=1
     ;;
   *)
-    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct, exp8a_handover_keypose_path, exp8b_handover_chunk8, exp8c_handover_keypose_path_stepfix, exp8d_handover_chunk8_stepfix, exp8e_handover_keypose_segment50" >&2
+    echo "Unknown ARM='$ARM'; expected base, deltam_external, miscal_only_base, video_deltam_external, video_deltam_direct, video_deltam_direct_rope3d, video_deltam_refine_rope3d, video_deltam_fullpatch, video_deltam_fullpatch_d8, video_deltam_pooled_no_view_align, video_deltam_pooled_randhist_notime, camframe_rope6d, nowrist4_base, nowrist4_video_pooled, vid_pooled_noalign_randhist_scratch, vid_pooled_noalign_randhist_noreg_from_a50k, or ema20k_vidpooled, ema20k_randhist, ema20k_noviewalign, ema20k_regtest_a, ema20k_regtest_c, ema20k_base, exp1a_adaln_percam, exp1b_adaln_pooled, exp1c_adaln_static, exp2_direct_randhist, exp3_randhist_deltam, exp4a_prenorm, exp4b_inputskip, exp5a_proprio_wrist, exp5b_proprio_none, exp6_fullpatch_direct, exp7a_4task_vel, exp7b_4task_x0, exp7c_4task_rel, exp7d_4task_base_rel, exp7e_4task_base_abs, exp7f_4task_pooled_direct, exp8a_handover_keypose_path, exp8b_handover_chunk8, exp8c_handover_keypose_path_stepfix, exp8d_handover_chunk8_stepfix, exp8e_handover_keypose_segment50, exp9a_lift_ball_chunk8, exp9b_lift_ball_chunk8_noise, exp9c_lift_ball_segment50, exp9d_lift_ball_segment50_noise" >&2
     exit 2
     ;;
 esac

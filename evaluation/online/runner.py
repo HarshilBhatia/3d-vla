@@ -69,7 +69,11 @@ def build_environment_kwargs(args: Any) -> dict[str, Any]:
             "scene_frame": getattr(args, "scene_frame", "world"),
         }
     if "peract" in dataset:
-        return {"use_depth2cloud": args.eval_use_depth2cloud}
+        registry = getattr(args, "eval_calibration_registry", None) or None
+        calibration_id = getattr(args, "eval_calibration_id", None) or None
+        # The standard rig only takes a materialized delta, and only when it is not the identity "calibrated" one.
+        extra = {"calibration_registry": registry, "calibration_id": calibration_id} if args.bimanual and registry and calibration_id != "calibrated" else {}
+        return {"use_depth2cloud": args.eval_use_depth2cloud, **extra}
     return {}
 
 

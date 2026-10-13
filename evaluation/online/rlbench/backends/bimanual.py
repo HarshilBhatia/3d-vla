@@ -228,6 +228,8 @@ class RLBenchEnv:
         collision_checking=False,
         use_depth2cloud=False,
         controller="planner",
+        calibration_registry=None,
+        calibration_id=None,
     ):
         if controller not in ("planner", "ik"):
             raise ValueError(f"eval_controller must be planner or ik, got {controller!r}")
@@ -262,6 +264,13 @@ class RLBenchEnv:
         )
         self._depth2cloud = ctx.depth2cloud
         self._miscal_T = None
+        if (calibration_registry is None) != (calibration_id is None):
+            raise ValueError("calibration_registry and calibration_id must be supplied together")
+        if calibration_registry is not None:
+            # Standard rig: a named per-camera delta from the registry, applied when depth is unprojected.
+            from evaluation.calibration import calibration_transform_table
+            self._miscal_T = calibration_transform_table(calibration_registry, calibration_id, tuple(apply_cameras))
+            print(f"[bimanual eval] calibration realization: id={calibration_id!r}, registry={calibration_registry}", flush=True)
 
     def _make_env(self, data_path, headless):
         """Build the RLBench Environment. Subclasses may return a different class."""
