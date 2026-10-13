@@ -1,6 +1,6 @@
 # Handover sanity: dense keypose path vs fixed-time chunk (exp 8a, 8b)
 
-**Status:** data building and training queued 12 Oct
+**Status:** done 13 Oct. Every dense variant is at about 0% online; the keypose recipe gets 20/20 on the same cell. Not usable as set up.
 **Week introduced:** [7–13 Oct](../../weekly_logs/2026-10-13.md)
 
 ## Why
@@ -28,3 +28,28 @@ Both zarrs are rebuilt from the raw episodes of the [dense 4-task collection](de
 ## Evaluation
 
 Not set up yet. 8a can run with the planner loop, which sends each of the 8 poses to the motion planner in turn. 8b needs a low-level controller that tracks the 8 poses step by step and re-queries every 8 steps; the planner is the wrong tool for 1-step moves. Until then compare the offline validation metrics (position and rotation error on the val split).
+
+## Results (50k, EMA, handover, 100 rollouts; videos 5)
+
+| | Held-out G4 calibrated | Held-out G4 60/60 | Seen G1 calibrated | Val pos error (do-nothing baseline) |
+|---|---|---|---|---|
+| 8a keypose path, planner | 10% | 1% | 13% | 4.8 cm (8.9) |
+| 8b chunk, IK, execute 8 | 0% | 0% | 0% | 2.0 cm (2.3) |
+| 8b chunk, IK, execute 4 | ~0% | 0% | 0% | — |
+| **8c** = 8a + step-embedding fix, planner | 0% | 0% | 0% | 2.2 cm |
+| **8d** = 8b + fix, IK, execute 8 | 0% | 0% | 0% | 1.7 cm |
+| **8d**, IK, execute 4 | 0% | 0% | 0% | — |
+| *Pipeline check: exp 1b 200k (keypose, 13 tasks), same eval code* | | | *20/20* | |
+
+## What went wrong
+
+1. **Step-embedding bug** (fixed in `f371522`). The 1D sinusoidal position embedding of the trajectory tokens was tiled arm-major while the tokens are step-major, so token *i* got step *i mod T*: steps t and t+4 shared an embedding and the right arm's steps were mislabelled. Harmless for 1-step (keypose) targets, where the layouts coincide; fatal for 8-step bimanual targets. 8a could not fit its own training data (3.9 cm train error); 8c fits to 0.7 cm.
+2. **Keypose-path targets on dense rows stall at keyposes (8c).** About 20 rows before each keypose say "barely move"; the one row at the keypose says "go to the next one". Their inputs are nearly identical (keypose-cadence proprio has no velocity), and eval queries exactly at keyposes, so the policy hovers after the first move.
+3. **Fixed-time chunks learn the copycat shortcut (8d).** Proprio at t−16, t−8, t carries velocity, and "continue at the current velocity" predicts the next 8 steps well (val 1.7 cm vs 2.3 cm for holding still). From rest the policy barely moves: in the videos the arms leave the start pose only after about 320 steps, longer than a demo.
+
+Also built along the way: an IK chunk controller with planner fallback (`eval_controller: ik`), `eval_execute_steps`, `eval_proprio_stride`, and a ground-truth replay check (`scripts/eval/replay_chunks_ik.py`; 2/3 replays succeed, 0.1–0.2 cm tracking).
+
+## Next (proposed)
+
+- 8d with only the current proprio state (no history), to remove the velocity shortcut.
+- Offline: 8d's validation error with the scene blanked, to see whether the policy uses vision at all.
