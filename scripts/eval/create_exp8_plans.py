@@ -45,3 +45,15 @@ plan("idlt_task_heldout_group_v01", "heldout_g4_calibrated_exec4", "calibrated",
 plan("idlt_scaled_extreme_task_heldout_group_v01", "heldout_g4_e60t60_exec4", "seen-g4-medium-unknown-e60deg-t60cm-v01", methods=EXEC4)
 plan("idlt_task_heldout_group_v01", "seen_g1_calibrated_exec4", "calibrated", viewpoint=SEEN_G1, methods=EXEC4)
 plan("idlt_task_heldout_group_v01", "seen_g1_calibrated_videos_exec4", "calibrated", viewpoint=SEEN_G1, demos=5, video=True, methods=EXEC4)
+
+# Exp 8c/8d: 8a/8b retrained with the trajectory step-embedding fix.
+FIX = [{"id": "exp8c_keypose_path_stepfix_s50k_ema", "checkpoint": f"{TL}/peract2_orbital_handover_dense_base_keypose_path_stepfix/interm_step_50000.pth",
+        "overrides": {"eval_weights": "ema"}},
+       {"id": "exp8d_chunk8_stepfix_s50k_ema_ik", "checkpoint": f"{TL}/peract2_orbital_handover_dense_base_chunk8_stepfix/interm_step_50000.pth",
+        "overrides": {"eval_weights": "ema", "eval_controller": "ik", "max_steps": 60}},
+       {"id": "exp8d_chunk8_stepfix_s50k_ema_ik_exec4", "checkpoint": f"{TL}/peract2_orbital_handover_dense_base_chunk8_stepfix/interm_step_50000.pth",
+        "overrides": {"eval_weights": "ema", "eval_controller": "ik", "max_steps": 120, "eval_execute_steps": 4, "eval_proprio_stride": 8}}]
+plan("idlt_task_heldout_group_v01", "stepfix_heldout_g4_calibrated", "calibrated", methods=FIX)
+plan("idlt_scaled_extreme_task_heldout_group_v01", "stepfix_heldout_g4_e60t60", "seen-g4-medium-unknown-e60deg-t60cm-v01", methods=FIX)
+plan("idlt_task_heldout_group_v01", "stepfix_seen_g1_calibrated", "calibrated", viewpoint=SEEN_G1, methods=FIX)
+plan("idlt_task_heldout_group_v01", "stepfix_seen_g1_calibrated_videos", "calibrated", viewpoint=SEEN_G1, demos=5, video=True, methods=FIX)
