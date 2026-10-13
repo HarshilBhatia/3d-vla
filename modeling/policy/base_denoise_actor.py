@@ -1050,9 +1050,10 @@ class TransformerHead(nn.Module):
         trajectory = trajectory.reshape(trajectory.shape[0], -1, trajectory.shape[-1])
 
         # Trajectory features cross-attend to context features
+        # Step-major like traj_feats (t0h0, t0h1, t1h0, ...); identical to the old arm-major layout when traj_len == 1.
         traj_time_pos = self.traj_time_emb(
             torch.arange(0, traj_len, device=traj_feats.device)
-        )[None, None].repeat(len(traj_feats), 1, nhand, 1)
+        )[None, :, None].expand(len(traj_feats), -1, nhand, -1)
         traj_time_pos = traj_time_pos.reshape(traj_time_pos.shape[0], -1, traj_time_pos.shape[-1])
         traj_feats = self.traj_lang_attention(
             seq1=traj_feats,
