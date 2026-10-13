@@ -66,3 +66,13 @@ plan("idlt_task_heldout_group_v01", "stepfix_heldout_g4_calibrated", "calibrated
 plan("idlt_scaled_extreme_task_heldout_group_v01", "stepfix_heldout_g4_e60t60", "seen-g4-medium-unknown-e60deg-t60cm-v01", methods=FIX8, version="v02")
 plan("idlt_task_heldout_group_v01", "stepfix_seen_g1_calibrated", "calibrated", viewpoint=SEEN_G1, methods=FIX8, version="v02")
 plan("idlt_task_heldout_group_v01", "stepfix_seen_g1_calibrated_videos", "calibrated", viewpoint=SEEN_G1, demos=5, video=True, methods=FIX8, version="v02")
+
+# Exp 8e: reference keypose-horizon trajectory (50 points); planner on every point as the reference, and on the last point only.
+E8 = [{"id": "exp8e_keypose_segment50_s100k_ema_all50", "checkpoint": f"{TL}/peract2_orbital_handover_keypose_segment50_base/interm_step_100000.pth",
+       "overrides": {"eval_weights": "ema", "prediction_len": 50}},
+      {"id": "exp8e_keypose_segment50_s100k_ema_last", "checkpoint": f"{TL}/peract2_orbital_handover_keypose_segment50_base/interm_step_100000.pth",
+       "overrides": {"eval_weights": "ema", "prediction_len": 50, "eval_execute_steps": -1}}]
+plan("idlt_task_heldout_group_v01", "8e_heldout_g4_calibrated", "calibrated", methods=E8)
+plan("idlt_scaled_extreme_task_heldout_group_v01", "8e_heldout_g4_e60t60", "seen-g4-medium-unknown-e60deg-t60cm-v01", methods=E8)
+plan("idlt_task_heldout_group_v01", "8e_seen_g1_calibrated", "calibrated", viewpoint=SEEN_G1, methods=E8)
+plan("idlt_task_heldout_group_v01", "8e_seen_g1_calibrated_videos", "calibrated", viewpoint=SEEN_G1, demos=5, video=True, methods=E8)

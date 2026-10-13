@@ -1,6 +1,6 @@
 # Handover sanity: dense keypose path vs fixed-time chunk (exp 8a, 8b)
 
-**Status:** done 13 Oct. Every dense variant is at about 0% online; the keypose recipe gets 20/20 on the same cell. Not usable as set up.
+**Status:** the v01 rollouts below are INVALID (eval sampled 1-step trajectories, `prediction_len` defaulted to 1); 8c/8d re-evaluated with `prediction_len: 8` (v02, running 13 Oct). The step-embedding bug is real and fixed.
 **Week introduced:** [7–13 Oct](../../weekly_logs/2026-10-13.md)
 
 ## Why
@@ -41,11 +41,11 @@ Not set up yet. 8a can run with the planner loop, which sends each of the 8 pose
 | **8d**, IK, execute 4 | 0% | 0% | 0% | — |
 | *Pipeline check: exp 1b 200k (keypose, 13 tasks), same eval code* | | | *20/20* | |
 
-## What went wrong
+## What went wrong (v01; points 2 and 3 retracted)
 
 1. **Step-embedding bug** (fixed in `f371522`). The 1D sinusoidal position embedding of the trajectory tokens was tiled arm-major while the tokens are step-major, so token *i* got step *i mod T*: steps t and t+4 shared an embedding and the right arm's steps were mislabelled. Harmless for 1-step (keypose) targets, where the layouts coincide; fatal for 8-step bimanual targets. 8a could not fit its own training data (3.9 cm train error); 8c fits to 0.7 cm.
-2. **Keypose-path targets on dense rows stall at keyposes (8c).** About 20 rows before each keypose say "barely move"; the one row at the keypose says "go to the next one". Their inputs are nearly identical (keypose-cadence proprio has no velocity), and eval queries exactly at keyposes, so the policy hovers after the first move.
-3. **Fixed-time chunks learn the copycat shortcut (8d).** Proprio at t−16, t−8, t carries velocity, and "continue at the current velocity" predicts the next 8 steps well (val 1.7 cm vs 2.3 cm for holding still). From rest the policy barely moves: in the videos the arms leave the start pose only after about 320 steps, longer than a demo.
+2. *Retracted (based on invalid 1-step rollouts):* **Keypose-path targets on dense rows stall at keyposes (8c).** About 20 rows before each keypose say "barely move"; the one row at the keypose says "go to the next one". Their inputs are nearly identical (keypose-cadence proprio has no velocity), and eval queries exactly at keyposes, so the policy hovers after the first move.
+3. *Retracted (based on invalid 1-step rollouts):* **Fixed-time chunks learn the copycat shortcut (8d).** Proprio at t−16, t−8, t carries velocity, and "continue at the current velocity" predicts the next 8 steps well (val 1.7 cm vs 2.3 cm for holding still). From rest the policy barely moves: in the videos the arms leave the start pose only after about 320 steps, longer than a demo.
 
 Also built along the way: an IK chunk controller with planner fallback (`eval_controller: ik`), `eval_execute_steps`, `eval_proprio_stride`, and a ground-truth replay check (`scripts/eval/replay_chunks_ik.py`; 2/3 replays succeed, 0.1–0.2 cm tracking).
 
@@ -53,3 +53,13 @@ Also built along the way: an IK chunk controller with planner fallback (`eval_co
 
 - 8d with only the current proprio state (no history), to remove the velocity shortcut.
 - Offline: 8d's validation error with the scene blanked, to see whether the policy uses vision at all.
+
+## Eval correction (13 Oct)
+
+The eval Actioner builds the trajectory mask from `prediction_len`, which defaulted to 1, so every v01 rollout of an 8-step model sampled and executed a 1-step trajectory: 8b/8d moved one sim step per query, 8a/8c moved 1/8 of the way to the keypose per query. The stall (8c) and copycat (8d) explanations were drawn from those rollouts and are withdrawn. v02 plans (`exp8_stepfix_*_v02`, jobs 4028431–34) re-evaluate 8c/8d with `prediction_len: 8`.
+
+## Exp 8e: the reference keypose-horizon setup
+
+The upstream 3DFA repo trains PerAct2 keypose-only (`keypose_only=true`, 1-step actions); its keypose-horizon trajectory (paper) is only used for single-arm HiveFormer: keyframe rows only, the path from this keypose to the next as a 50-point cubic spline over xyz + Euler with nearest-neighbour gripper, last-3-keyframe proprio, `lv2_batch_size=4`, lr 1e-4, 100k, and every point sent to the motion planner at eval. The upstream step-embedding code has the same latent bimanual bug.
+
+8e replicates that on handover keyframe rows (`3dfa_dense/handover_keypose_segment50`, 879 train / 96 val, built by `data/processing/convert_to_zarr/keypose_segment_from_dense.py`) with one deviation: Euler angles are unwrapped before the spline. Raw Euler splines sweep the long way round when an angle crosses ±π, which corrupted the middle of the path in 36% of rows (left arm, gripper pointing down); `--exact` rebuilds without the unwrap. Config `peract2_orbital_handover_keypose_segment50_base`, ARM `exp8e_handover_keypose_segment50`, training 4028444; 100k evals 4028445–48 with `prediction_len: 50`, every point (reference) and the last point only (`eval_execute_steps: -1`). Multi-step chunks now skip a pose the planner cannot reach instead of abandoning the chunk, as the reference does.

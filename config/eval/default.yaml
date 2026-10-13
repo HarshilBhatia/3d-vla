@@ -60,5 +60,5 @@ eval_miscal_trans_level: null              # null | 1cm..10cm | 15cm | 20cm
 orbital_miscal_noise_level: null   # fixed per-camera-group base, by level name
 orbital_miscal_noise_file: null    # which same-schema JSON that base is read from
 eval_controller: planner      # planner: motion planner to each predicted pose | ik: Jacobian IK per pose, for fixed-time action chunks
-eval_execute_steps: null    # null: run every predicted step; N: run the first N of each chunk, then re-query
+eval_execute_steps: null    # null: run every predicted step; N > 0: the first N of each chunk; -1: only the last (the keypose)
 eval_proprio_stride: null   # null: one proprio entry per query; N: proprio window from per-step states N steps apart

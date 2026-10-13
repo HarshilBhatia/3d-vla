@@ -623,8 +623,18 @@ class RLBenchEnv:
                     actions[..., -1] = actions[..., -1].round()
 
                     # execute
-                    for action in (actions if execute_steps is None else actions[:execute_steps]):
-                        obs, reward, _ = move(action, collision_checking=False)
+                    if execute_steps is not None:
+                        # N > 0: the first N poses of the chunk; N < 0: the last |N| (-1 executes only the final keypose).
+                        actions = actions[:execute_steps] if execute_steps > 0 else actions[execute_steps:]
+                    for action in actions:
+                        if len(actions) > 1:
+                            # As the reference trajectory eval: a pose the planner cannot reach is skipped, not the whole chunk.
+                            try:
+                                obs, reward, _ = move(action, collision_checking=False)
+                            except (IKError, ConfigurationPathError, InvalidActionError):
+                                continue
+                        else:
+                            obs, reward, _ = move(action, collision_checking=False)
                         if proprio_stride is not None:
                             step_grippers.append(self.gripper_from_obs(obs).cuda(non_blocking=True))
                         if reward == 1:
