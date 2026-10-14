@@ -7,9 +7,7 @@ mem_per_cpu: 12G
 walltime: "1-00:00:00"
 
 # Tried in order; one GPU type per allocation, so every rank steps at the same speed.
-constraints:
-  - A6000
-  - A5000
+constraints: []
 
 pend_timeout_seconds: 3600
 max_requeues_per_constraint: 3
@@ -22,7 +20,7 @@ signal_lead_seconds: 120
 max_node_load: 0.9
 min_busbw: 1.0
 min_free_gb: 20.0
-allow_heterogeneous: false
+allow_heterogeneous: true
 
 train_cmd: >-
   bash -lc 'source /home/harshilb/miniconda3/etc/profile.d/conda.sh
@@ -39,7 +37,7 @@ train_cmd: >-
   miscal_group_file=instructions/orbital_miscalibration_noise_bimanual_external_only.json
   miscal_cameras=[0,1] perturbation_noise_rot_deg=3.0 perturbation_noise_trans_m=0.01
   video_deltam_cache_batches=0
-  num_workers=6 prefetch_factor=2
+  num_workers=4 prefetch_factor=2 memory_limit=2
   checkpoint=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_handover_dense_chunk8_deltam/last.pth'
 
 log_dir: logs/multinode

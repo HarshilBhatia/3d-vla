@@ -35,4 +35,4 @@ video_deltam_full_image: true
 video_deltam_patch_rope3d: true
 video_deltam_time_embedding: false
 relative_action: true
-interm_ckpt_interval_steps: 10000
+interm_ckpt_interval_steps: 5000

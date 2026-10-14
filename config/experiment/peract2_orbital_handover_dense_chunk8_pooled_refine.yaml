@@ -33,4 +33,4 @@ video_deltam_depth: 4
 video_deltam_max_cameras: 4
 video_deltam_full_image: false
 video_deltam_time_embedding: false
-interm_ckpt_interval_steps: 10000
+interm_ckpt_interval_steps: 5000
