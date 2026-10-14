@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Push dense datasets from grogu to NCSA Delta. Usage: DELTA_USER=<you> scripts/data/push_to_delta.sh [dataset ...]
+# Push dense datasets from grogu to NCSA Delta. Usage: DELTA_USER=<you> [CKPTS=1] scripts/data/push_to_delta.sh [dataset ...]
 # Datasets are names under /grogu/datasets/hbhatia/3dfa_dense; default is handover_chunk8 (the exp 8d / exp 10 data).
 set -euo pipefail
 
@@ -27,3 +27,15 @@ for name in "${DATASETS[@]}"; do
     there=$("${SSH[@]}" "$DELTA_USER@$DELTA_HOST" "find '$DEST/$name' -type f | wc -l")
     echo "   files: grogu $here, delta $there $([[ $here == "$there" ]] && echo OK || echo MISMATCH)"
 done
+
+# CKPTS=1 also copies each exp 10 run's last.pth so a Delta launch resumes instead of restarting.
+if [[ "${CKPTS:-0}" == 1 ]]; then
+    REPO="${REPO:-/home/harshilb/3dfa_unified}"
+    CKPT_DEST="${CKPT_DEST:-/projects/bgkz/3dfa_train_logs/PerAct2}"
+    for c in deltam rel fullpatch_refine fullpatch_refine_x0 fullpatch_refine_rel pooled_refine; do
+        run=peract2_orbital_handover_dense_chunk8_$c
+        "${SSH[@]}" "$DELTA_USER@$DELTA_HOST" "mkdir -p '$CKPT_DEST/$run'"
+        rsync -a --partial -e "${SSH[*]}" "$REPO/train_logs/PerAct2/$run/last.pth" "$DELTA_USER@$DELTA_HOST:$CKPT_DEST/$run/"
+        echo "== $run/last.pth -> $CKPT_DEST/$run/"
+    done
+fi
