@@ -63,3 +63,13 @@ The eval Actioner builds the trajectory mask from `prediction_len`, which defaul
 The upstream 3DFA repo trains PerAct2 keypose-only (`keypose_only=true`, 1-step actions); its keypose-horizon trajectory (paper) is only used for single-arm HiveFormer: keyframe rows only, the path from this keypose to the next as a 50-point cubic spline over xyz + Euler with nearest-neighbour gripper, last-3-keyframe proprio, `lv2_batch_size=4`, lr 1e-4, 100k, and every point sent to the motion planner at eval. The upstream step-embedding code has the same latent bimanual bug.
 
 8e replicates that on handover keyframe rows (`3dfa_dense/handover_keypose_segment50`, 879 train / 96 val, built by `data/processing/convert_to_zarr/keypose_segment_from_dense.py`) with one deviation: Euler angles are unwrapped before the spline. Raw Euler splines sweep the long way round when an angle crosses ±π, which corrupted the middle of the path in 36% of rows (left arm, gripper pointing down); `--exact` rebuilds without the unwrap. Config `peract2_orbital_handover_keypose_segment50_base`, ARM `exp8e_handover_keypose_segment50`, training 4028444; 100k evals 4028445–48 with `prediction_len: 50`, every point (reference) and the last point only (`eval_execute_steps: -1`). Multi-step chunks now skip a pose the planner cannot reach instead of abandoning the chunk, as the reference does.
+
+## Valid results: 8c/8d with `prediction_len: 8` (v02, 100 rollouts)
+
+| | Seen G1 calibrated | Held-out G4 calibrated | Held-out G4 60/60 |
+|---|---|---|---|
+| 8c keypose path, planner on all 8 points | 80% | 77% | 1% |
+| **8d chunk, IK, execute 8** | **96%** | **91%** | 1% |
+| 8d chunk, IK, execute 4 | 87% | 87% | 0% |
+
+Dense single-task Base policies work once the 8 steps are actually sampled: the fixed-time chunk executed in full is best, on par with the 13-task keypose models on this task (87–99%). Every variant collapses at 60/60, where keypose control A keeps 66%. A held-out G4 sweep from 10/10 to 50/50 (`exp8_sweep_*`, jobs 4028530–32) will show where the drop happens.
