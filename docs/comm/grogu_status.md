@@ -1,10 +1,10 @@
 # grogu status
 
-Updated 2026-10-14 13:04 EDT at ff5a835.
+Updated 2026-10-14 13:05 EDT at 2cc98fa.
 
 ```
 4030169 exp10a_chunk8_deltam PENDING  0:00 (Dependency)
-4030168 exp10a_chunk8_deltam RUNNING grogu-2-30 50:31 grogu-2-30
+4030168 exp10a_chunk8_deltam RUNNING grogu-2-30 50:52 grogu-2-30
 4030173 exp10b_chunk8_fullpatch_refine PENDING  0:00 (Dependency)
 4030172 exp10b_chunk8_fullpatch_refine PENDING  0:00 (Priority)
 4030175 exp10c_chunk8_fullpatch_refine_x0 PENDING  0:00 (Dependency)
@@ -12,7 +12,7 @@ Updated 2026-10-14 13:04 EDT at ff5a835.
 4030177 exp10d_chunk8_fullpatch_refine_rel PENDING  0:00 (Dependency)
 4030176 exp10d_chunk8_fullpatch_refine_rel PENDING  0:00 (Priority)
 4030171 exp10e_chunk8_rel PENDING  0:00 (Dependency)
-4030170 exp10e_chunk8_rel RUNNING grogu-2-30 50:31 grogu-2-30
+4030170 exp10e_chunk8_rel RUNNING grogu-2-30 50:52 grogu-2-30
 4030179 exp10f_chunk8_pooled_refine PENDING  0:00 (Dependency)
 4030178 exp10f_chunk8_pooled_refine PENDING  0:00 (Priority)
 4030035_[0-1] exp10_heldout_g4_15_20_v02 PENDING  0:00 (JobHeldUser)
