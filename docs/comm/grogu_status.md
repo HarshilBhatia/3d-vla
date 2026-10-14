@@ -1,77 +1,29 @@
 # grogu status
 
-Updated 2026-10-14 14:27 EDT at 4c4942f.
+Updated 2026-10-14 14:32 EDT at 3bd8850.
 
-```
-4030169 exp10a_chunk8_deltam PENDING  0:00 (Dependency)
-4030168 exp10a_chunk8_deltam RUNNING grogu-2-30 2:12:45 grogu-2-30
-4030173 exp10b_chunk8_fullpatch_refine PENDING  0:00 (Dependency)
-4030172 exp10b_chunk8_fullpatch_refine RUNNING grogu-2-30 1:04:13 grogu-2-30
-4030175 exp10c_chunk8_fullpatch_refine_x0 PENDING  0:00 (Dependency)
-4030174 exp10c_chunk8_fullpatch_refine_x0 RUNNING grogu-2-30 1:04:13 grogu-2-30
-4030177 exp10d_chunk8_fullpatch_refine_rel PENDING  0:00 (Dependency)
-4030176 exp10d_chunk8_fullpatch_refine_rel RUNNING grogu-4-8 1:02:43 grogu-4-8
-4030171 exp10e_chunk8_rel PENDING  0:00 (Dependency)
-4030170 exp10e_chunk8_rel RUNNING grogu-2-30 2:12:45 grogu-2-30
-4030179 exp10f_chunk8_pooled_refine PENDING  0:00 (Dependency)
-4030178 exp10f_chunk8_pooled_refine RUNNING grogu-4-8 9:55 grogu-4-8
-4030035_[0-1] exp10_heldout_g4_15_20_v02 PENDING  0:00 (JobHeldUser)
-4030036_[2-3] exp10_heldout_g4_15_20_v02 PENDING  0:00 (JobHeldUser)
-4030037_[4-5] exp10_heldout_g4_15_20_v02 PENDING  0:00 (JobHeldUser)
-4030038_[6-7] exp10_heldout_g4_15_20_v02 PENDING  0:00 (JobHeldUser)
-4030039_[8-9] exp10_heldout_g4_15_20_v02 PENDING  0:00 (JobHeldUser)
-4030040_[10-11] exp10_heldout_g4_15_20_v02 PENDING  0:00 (JobHeldUser)
-4030061_[0-1] exp10_heldout_g4_15_20_v03 PENDING  0:00 (JobHeldUser)
-4030062_[2-3] exp10_heldout_g4_15_20_v03 PENDING  0:00 (JobHeldUser)
-4030063_[4-5] exp10_heldout_g4_15_20_v03 PENDING  0:00 (JobHeldUser)
-4030064_[6-7] exp10_heldout_g4_15_20_v03 PENDING  0:00 (JobHeldUser)
-4030041_[0-3] exp10_heldout_g4_30_60_v02 PENDING  0:00 (JobHeldUser)
-4030042_[4-7] exp10_heldout_g4_30_60_v02 PENDING  0:00 (JobHeldUser)
-4030043_[8-11] exp10_heldout_g4_30_60_v02 PENDING  0:00 (JobHeldUser)
-4030044_[12-15] exp10_heldout_g4_30_60_v02 PENDING  0:00 (JobHeldUser)
-4030045_[16-19] exp10_heldout_g4_30_60_v02 PENDING  0:00 (JobHeldUser)
-4030046_[20-23] exp10_heldout_g4_30_60_v02 PENDING  0:00 (JobHeldUser)
-4030065_[0-3] exp10_heldout_g4_30_60_v03 PENDING  0:00 (JobHeldUser)
-4030066_[4-7] exp10_heldout_g4_30_60_v03 PENDING  0:00 (JobHeldUser)
-4030067_[8-11] exp10_heldout_g4_30_60_v03 PENDING  0:00 (JobHeldUser)
-4030068_[12-15] exp10_heldout_g4_30_60_v03 PENDING  0:00 (JobHeldUser)
-4030029_[0-1] exp10_heldout_g4_cal_10_v02 PENDING  0:00 (JobHeldUser)
-4030030_[2-3] exp10_heldout_g4_cal_10_v02 PENDING  0:00 (JobHeldUser)
-4030031_[4-5] exp10_heldout_g4_cal_10_v02 PENDING  0:00 (JobHeldUser)
-4030032_[6-7] exp10_heldout_g4_cal_10_v02 PENDING  0:00 (JobHeldUser)
-4030033_[8-9] exp10_heldout_g4_cal_10_v02 PENDING  0:00 (JobHeldUser)
-4030034_[10-11] exp10_heldout_g4_cal_10_v02 PENDING  0:00 (JobHeldUser)
-4030057_[0-1] exp10_heldout_g4_cal_10_v03 PENDING  0:00 (JobHeldUser)
-4030058_[2-3] exp10_heldout_g4_cal_10_v03 PENDING  0:00 (JobHeldUser)
-4030059_[4-5] exp10_heldout_g4_cal_10_v03 PENDING  0:00 (JobHeldUser)
-4030060_[6-7] exp10_heldout_g4_cal_10_v03 PENDING  0:00 (JobHeldUser)
-4030023_[0] exp10_seen_g1_calibrated_v02 PENDING  0:00 (JobHeldUser)
-4030024_[1] exp10_seen_g1_calibrated_v02 PENDING  0:00 (JobHeldUser)
-4030025_[2] exp10_seen_g1_calibrated_v02 PENDING  0:00 (JobHeldUser)
-4030026_[3] exp10_seen_g1_calibrated_v02 PENDING  0:00 (JobHeldUser)
-4030027_[4] exp10_seen_g1_calibrated_v02 PENDING  0:00 (JobHeldUser)
-4030028_[5] exp10_seen_g1_calibrated_v02 PENDING  0:00 (JobHeldUser)
-4030053_[0] exp10_seen_g1_calibrated_v03 PENDING  0:00 (JobHeldUser)
-4030054_[1] exp10_seen_g1_calibrated_v03 PENDING  0:00 (JobHeldUser)
-4030055_[2] exp10_seen_g1_calibrated_v03 PENDING  0:00 (JobHeldUser)
-4030056_[3] exp10_seen_g1_calibrated_v03 PENDING  0:00 (JobHeldUser)
-4030047_[0] exp10_seen_g1_videos_v02 PENDING  0:00 (JobHeldUser)
-4030048_[1] exp10_seen_g1_videos_v02 PENDING  0:00 (JobHeldUser)
-4030049_[2] exp10_seen_g1_videos_v02 PENDING  0:00 (JobHeldUser)
-4030050_[3] exp10_seen_g1_videos_v02 PENDING  0:00 (JobHeldUser)
-4030051_[4] exp10_seen_g1_videos_v02 PENDING  0:00 (JobHeldUser)
-4030052_[5] exp10_seen_g1_videos_v02 PENDING  0:00 (JobHeldUser)
-4030069_[0] exp10_seen_g1_videos_v03 PENDING  0:00 (JobHeldUser)
-4030070_[1] exp10_seen_g1_videos_v03 PENDING  0:00 (JobHeldUser)
-4030071_[2] exp10_seen_g1_videos_v03 PENDING  0:00 (JobHeldUser)
-4030072_[3] exp10_seen_g1_videos_v03 PENDING  0:00 (JobHeldUser)
-```
+| job | run | state | node | GPU | progress (this launch) | speed |
+|---|---|---|---|---|---|---|
+| 4030169 | exp10a_chunk8_deltam | PENDING | - | - |  | - |
+| 4030168 | exp10a_chunk8_deltam | RUNNING | grogu-2-30 | A5000 | 23870/30100 | 2.99it/s |
+| 4030173 | exp10b_chunk8_fullpatch_refine | PENDING | - | - |  | - |
+| 4030172 | exp10b_chunk8_fullpatch_refine | RUNNING | grogu-2-30 | A5000 | 4507/83700 | 1.15it/s |
+| 4030175 | exp10c_chunk8_fullpatch_refine_x0 | PENDING | - | - |  | - |
+| 4030174 | exp10c_chunk8_fullpatch_refine_x0 | RUNNING | grogu-2-30 | A5000 | 4478/83700 | 1.18it/s |
+| 4030177 | exp10d_chunk8_fullpatch_refine_rel | PENDING | - | - |  | - |
+| 4030176 | exp10d_chunk8_fullpatch_refine_rel | RUNNING | grogu-4-8 | rtx3090 | 3947/83700 | 1.15it/s |
+| 4030171 | exp10e_chunk8_rel | PENDING | - | - |  | - |
+| 4030170 | exp10e_chunk8_rel | RUNNING | grogu-2-30 | A5000 | 25904/29600 | 3.24it/s |
+| 4030179 | exp10f_chunk8_pooled_refine | PENDING | - | - |  | - |
+| 4030178 | exp10f_chunk8_pooled_refine | RUNNING | grogu-4-8 | rtx3090 | 996/83300 | 1.36it/s |
+
+GPU speed: A5000, A6000 and RTX 3090 train at about the same rate (full-patch history ~1.15-1.2 it/s at 32/GPU); Turing nodes (rtx6000, rtx2080ti) are ~4x slower and are excluded.
 
 | run | newest interm_step | last.pth iter |
 |---|---|---|
-| peract2_orbital_handover_dense_chunk8_deltam | interm_step_40000.pth | 42800 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_20000.pth | 20400 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine_rel | interm_step_20000.pth | 20000 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_20000.pth | 20400 |
-| peract2_orbital_handover_dense_chunk8_pooled_refine | interm_step_15000.pth | 17200 |
-| peract2_orbital_handover_dense_chunk8_rel | interm_step_40000.pth | 45300 |
+| peract2_orbital_handover_dense_chunk8_deltam | interm_step_40000.pth | 43800 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_20000.pth | 20800 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine_rel | interm_step_20000.pth | 20200 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_20000.pth | 20800 |
+| peract2_orbital_handover_dense_chunk8_pooled_refine | interm_step_15000.pth | 17700 |
+| peract2_orbital_handover_dense_chunk8_rel | interm_step_40000.pth | 46400 |
