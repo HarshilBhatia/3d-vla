@@ -1,13 +1,13 @@
 # grogu status
 
-Updated 2026-10-14 17:10 EDT at 1bc1eab.
+Updated 2026-10-14 17:21 EDT at 7e09f81.
 
 | job | run | state | node | GPU | progress (this launch) | speed |
 |---|---|---|---|---|---|---|
 | 4030292 | exp10b_chunk8_fullpatch_refine | PENDING | - | - |  | - |
-| 4030291 | exp10b_chunk8_fullpatch_refine | RUNNING | grogu-2-30 | A5000 | 6367/38200 | 1.11it/s |
+| 4030291 | exp10b_chunk8_fullpatch_refine | RUNNING | grogu-2-30 | A5000 | 7051/38200 | 1.10it/s |
 | 4030294 | exp10c_chunk8_fullpatch_refine_x0 | PENDING | - | - |  | - |
-| 4030293 | exp10c_chunk8_fullpatch_refine_x0 | RUNNING | grogu-2-30 | A5000 | 6549/38200 | 1.15it/s |
+| 4030293 | exp10c_chunk8_fullpatch_refine_x0 | RUNNING | grogu-2-30 | A5000 | 7263/38200 | 1.14it/s |
 | 4030176 | exp10d_chunk8_fullpatch_refine_rel | PENDING | - | - | 9832/83700 | 1.14it/s |
 | 4030177 | exp10d_chunk8_fullpatch_refine_rel | PENDING | - | - |  | - |
 | 4030178 | exp10f_chunk8_pooled_refine | PENDING | - | - | 7820/83300 | 1.39it/s |
@@ -18,8 +18,8 @@ GPU speed: A5000, A6000 and RTX 3090 train at about the same rate (full-patch hi
 | run | newest interm_step | last.pth iter |
 |---|---|---|
 | peract2_orbital_handover_dense_chunk8_deltam | interm_step_50000.pth | 50000 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_30000.pth | 30600 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_30000.pth | 31300 |
 | peract2_orbital_handover_dense_chunk8_fullpatch_refine_rel | interm_step_25000.pth | 26100 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_30000.pth | 30800 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_30000.pth | 31500 |
 | peract2_orbital_handover_dense_chunk8_pooled_refine | interm_step_20000.pth | 24500 |
 | peract2_orbital_handover_dense_chunk8_rel | interm_step_50000.pth | 50000 |
