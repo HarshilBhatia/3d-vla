@@ -1,7 +1,7 @@
 {
   "schema_version": 1,
   "campaign_id": "exp10_heldout_g4_30_60_v01",
-  "description": "Exp 10 (8d setting variants) handover: heldout_g4_30_60, 50 rollouts, IK chunk controller.",
+  "description": "Exp 10 (8d setting variants) handover: heldout_g4_30_60, 25 rollouts, IK chunk controller.",
   "calibration_registry": "instructions/eval_calibrations_idlt_scaled_extreme_v01.json",
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
   "methods": [
@@ -111,6 +111,6 @@
     "headless": true,
     "max_tries": 1,
     "eval_use_depth2cloud": true,
-    "num_demos_total": 50
+    "num_demos_total": 25
   }
 }

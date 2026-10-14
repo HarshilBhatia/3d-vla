@@ -14,15 +14,15 @@ scene_sampling: fps
 keypose_only: false
 denoise_timesteps: 5
 denoise_model: rectified_flow
-batch_size: 64
+batch_size: 128
 batch_size_val: 64
 lr: 0.0003
 backbone_lr: 0.0003
 wd: 0.005
-train_iters: 15000
+train_iters: 50000
 head_positional_encoding: rope3d
 miscal_cameras: [0, 1]
 visual_num_history: 1
 view_align_mode: none
 relative_action: true
-interm_ckpt_interval_steps: 5000
+interm_ckpt_interval_steps: 10000

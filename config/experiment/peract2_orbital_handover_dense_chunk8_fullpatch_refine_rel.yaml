@@ -19,7 +19,7 @@ batch_size_val: 64
 lr: 0.0003
 backbone_lr: 0.0003
 wd: 0.005
-train_iters: 15000
+train_iters: 100000
 head_positional_encoding: rope3d
 miscal_cameras: [0, 1]
 view_align_mode: rope_6d
@@ -35,4 +35,4 @@ video_deltam_full_image: true
 video_deltam_patch_rope3d: true
 video_deltam_time_embedding: false
 relative_action: true
-interm_ckpt_interval_steps: 5000
+interm_ckpt_interval_steps: 10000
