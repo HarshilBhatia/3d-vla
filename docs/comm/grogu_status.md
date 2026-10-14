@@ -1,18 +1,18 @@
 # grogu status
 
-Updated 2026-10-14 13:15 EDT at 6d8a285.
+Updated 2026-10-14 13:25 EDT at 7f75ac2.
 
 ```
 4030169 exp10a_chunk8_deltam PENDING  0:00 (Dependency)
-4030168 exp10a_chunk8_deltam RUNNING grogu-2-30 1:01:07 grogu-2-30
+4030168 exp10a_chunk8_deltam RUNNING grogu-2-30 1:11:21 grogu-2-30
 4030173 exp10b_chunk8_fullpatch_refine PENDING  0:00 (Dependency)
-4030172 exp10b_chunk8_fullpatch_refine PENDING  0:00 (Priority)
+4030172 exp10b_chunk8_fullpatch_refine RUNNING grogu-2-30 2:49 grogu-2-30
 4030175 exp10c_chunk8_fullpatch_refine_x0 PENDING  0:00 (Dependency)
-4030174 exp10c_chunk8_fullpatch_refine_x0 PENDING  0:00 (Priority)
+4030174 exp10c_chunk8_fullpatch_refine_x0 RUNNING grogu-2-30 2:49 grogu-2-30
 4030177 exp10d_chunk8_fullpatch_refine_rel PENDING  0:00 (Dependency)
-4030176 exp10d_chunk8_fullpatch_refine_rel PENDING  0:00 (Priority)
+4030176 exp10d_chunk8_fullpatch_refine_rel RUNNING grogu-4-8 1:19 grogu-4-8
 4030171 exp10e_chunk8_rel PENDING  0:00 (Dependency)
-4030170 exp10e_chunk8_rel RUNNING grogu-2-30 1:01:07 grogu-2-30
+4030170 exp10e_chunk8_rel RUNNING grogu-2-30 1:11:21 grogu-2-30
 4030179 exp10f_chunk8_pooled_refine PENDING  0:00 (Dependency)
 4030178 exp10f_chunk8_pooled_refine PENDING  0:00 (Priority)
 4030035_[0-1] exp10_heldout_g4_15_20_v02 PENDING  0:00 (JobHeldUser)
@@ -69,9 +69,9 @@ Updated 2026-10-14 13:15 EDT at 6d8a285.
 
 | run | newest interm_step | last.pth iter |
 |---|---|---|
-| peract2_orbital_handover_dense_chunk8_deltam | interm_step_30000.pth | 30400 |
+| peract2_orbital_handover_dense_chunk8_deltam | interm_step_30000.pth | 32200 |
 | peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_15000.pth | 16300 |
 | peract2_orbital_handover_dense_chunk8_fullpatch_refine_rel | interm_step_15000.pth | 16300 |
 | peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_15000.pth | 16300 |
 | peract2_orbital_handover_dense_chunk8_pooled_refine | interm_step_15000.pth | 16700 |
-| peract2_orbital_handover_dense_chunk8_rel | interm_step_30000.pth | 32000 |
+| peract2_orbital_handover_dense_chunk8_rel | interm_step_30000.pth | 33900 |
