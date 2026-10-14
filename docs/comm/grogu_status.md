@@ -1,25 +1,25 @@
 # grogu status
 
-Updated 2026-10-14 19:13 EDT at 9739092.
+Updated 2026-10-14 19:24 EDT at a9b10ee.
 
 | job | run | state | node | GPU | progress (this launch) | speed |
 |---|---|---|---|---|---|---|
 | 4030292 | exp10b_chunk8_fullpatch_refine | PENDING | - | - |  | - |
-| 4030291 | exp10b_chunk8_fullpatch_refine | RUNNING | grogu-2-30 | A5000 | 14161/38200 | 1.10it/s |
+| 4030291 | exp10b_chunk8_fullpatch_refine | RUNNING | grogu-2-30 | A5000 | 14831/38200 | 1.09it/s |
 | 4030294 | exp10c_chunk8_fullpatch_refine_x0 | PENDING | - | - |  | - |
-| 4030293 | exp10c_chunk8_fullpatch_refine_x0 | RUNNING | grogu-2-30 | A5000 | 14688/38200 | 1.18it/s |
+| 4030293 | exp10c_chunk8_fullpatch_refine_x0 | RUNNING | grogu-2-30 | A5000 | 15386/38200 | 1.15it/s |
 | 4030177 | exp10d_chunk8_fullpatch_refine_rel | PENDING | - | - |  | - |
-| 4030176 | exp10d_chunk8_fullpatch_refine_rel | RUNNING | grogu-2-25 | A5000 | 7188/73900 | 1.16it/s |
+| 4030176 | exp10d_chunk8_fullpatch_refine_rel | RUNNING | grogu-2-25 | A5000 | 7896/73900 | 1.19it/s |
 | 4030179 | exp10f_chunk8_pooled_refine | PENDING | - | - |  | - |
-| 4030178 | exp10f_chunk8_pooled_refine | RUNNING | grogu-2-25 | A5000 | 9131/75500 | 1.50it/s |
+| 4030178 | exp10f_chunk8_pooled_refine | RUNNING | grogu-2-25 | A5000 | 10032/75500 | 1.51it/s |
 
 GPU speed: A5000, A6000 and RTX 3090 train at about the same rate (full-patch history ~1.15-1.2 it/s at 32/GPU); Turing nodes (rtx6000, rtx2080ti) are ~4x slower and are excluded.
 
 | run | newest interm_step | last.pth iter |
 |---|---|---|
 | peract2_orbital_handover_dense_chunk8_deltam | interm_step_50000.pth | 50000 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_37500.pth | 38400 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine_rel | interm_step_30000.pth | 33200 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_37500.pth | 39000 |
-| peract2_orbital_handover_dense_chunk8_pooled_refine | interm_step_30000.pth | 33600 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_37500.pth | 39100 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine_rel | interm_step_30000.pth | 34000 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_37500.pth | 39700 |
+| peract2_orbital_handover_dense_chunk8_pooled_refine | interm_step_30000.pth | 34500 |
 | peract2_orbital_handover_dense_chunk8_rel | interm_step_50000.pth | 50000 |
