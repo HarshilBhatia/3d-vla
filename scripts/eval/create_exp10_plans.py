@@ -8,7 +8,8 @@ PLANS = ROOT / "instructions/eval_plans"
 TL = "train_logs/PerAct2"
 T = "bimanual_handover_item"
 RUNS = {"10a": ("deltam", 1), "10b": ("fullpatch_refine", 5), "10c": ("fullpatch_refine_x0", 5),
-        "10d": ("fullpatch_refine_rel", 5), "10e": ("rel", 1), "10f": ("pooled_refine", 5)}
+        "10d": ("fullpatch_refine_rel", 5), "10e": ("rel", 1), "10f": ("pooled_refine", 5), "8d_seed1": ("seed1", 1)}
+RUN_DIR = lambda cfg: "peract2_orbital_handover_dense_base_chunk8_stepfix_seed1" if cfg == "seed1" else f"peract2_orbital_handover_dense_chunk8_{cfg}"
 SEEN_G1 = {"id": "g1_task_seen_group", "spawn_camera_group": "G1", "regime": "task_seen_group", "cameras_file": "instructions/orbital_cameras_grouped.json"}
 
 
@@ -21,7 +22,7 @@ def methods(video=False, step=15000, runs=None):
              "visual_num_history": k, "eval_proprio_history_order": "past_to_current"}
         if video:
             o["save_video"] = True
-        out.append({"id": f"exp{key}_{cfg}_s{step // 1000}k_ema", "checkpoint": f"{TL}/peract2_orbital_handover_dense_chunk8_{cfg}/interm_step_{step}.pth", "overrides": o})
+        out.append({"id": f"exp{key}_{cfg}_s{step // 1000}k_ema", "checkpoint": f"{TL}/{RUN_DIR(cfg)}/interm_step_{step}.pth", "overrides": o})
     return out
 
 
@@ -41,10 +42,16 @@ def plan(src, name, cal_ids, viewpoint=None, demos=25, video=False, step=15000, 
 
 g4 = lambda *ls: [f"seen-g4-medium-unknown-e{l}deg-t{l}cm-v01" for l in ls]
 # v01 at 15k (undertrained); v02 at 50k for all six (final for 10a/10e); v03 at 100k for the history runs.
-for version, step, runs in [("v01", 15000, None), ("v02", 50000, None), ("v03", 100000, ["10b", "10c", "10d", "10f"])]:
+EXP10 = ["10a", "10b", "10c", "10d", "10e", "10f"]
+for version, step, runs in [("v01", 15000, EXP10), ("v02", 50000, EXP10), ("v03", 100000, ["10b", "10c", "10d", "10f"])]:
     kw = dict(step=step, runs=runs, version=version)
     plan("idlt_task_heldout_group_v01", "seen_g1_calibrated", ["calibrated"], viewpoint=SEEN_G1, **kw)
     plan("idlt_task_heldout_group_v01", "heldout_g4_cal_10", ["calibrated"] + g4(10), **kw)
     plan("idlt_extreme_task_heldout_group_v01", "heldout_g4_15_20", g4(15, 20), **kw)
     plan("idlt_scaled_extreme_task_heldout_group_v01", "heldout_g4_30_60", g4(30, 40, 50, 60), **kw)
     plan("idlt_task_heldout_group_v01", "seen_g1_videos", ["calibrated"], viewpoint=SEEN_G1, demos=5, video=True, **kw)
+
+# 8d seed 1 control at 50k: seen G1 calibrated and held-out G4 calibrated + 10/10.
+kw = dict(step=50000, runs=["8d_seed1"], version="v04")
+plan("idlt_task_heldout_group_v01", "seen_g1_calibrated", ["calibrated"], viewpoint=SEEN_G1, **kw)
+plan("idlt_task_heldout_group_v01", "heldout_g4_cal_10", ["calibrated"] + g4(10), **kw)
