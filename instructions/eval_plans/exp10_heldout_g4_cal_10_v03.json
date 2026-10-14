@@ -6,8 +6,8 @@
   "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
   "methods": [
     {
-      "id": "exp10b_fullpatch_refine_s100k_ema",
-      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_chunk8_fullpatch_refine/interm_step_100000.pth",
+      "id": "exp10b_fullpatch_refine_s62k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_chunk8_fullpatch_refine/interm_step_62500.pth",
       "overrides": {
         "eval_weights": "ema",
         "eval_controller": "ik",
@@ -18,8 +18,8 @@
       }
     },
     {
-      "id": "exp10c_fullpatch_refine_x0_s100k_ema",
-      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0/interm_step_100000.pth",
+      "id": "exp10c_fullpatch_refine_x0_s62k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0/interm_step_62500.pth",
       "overrides": {
         "eval_weights": "ema",
         "eval_controller": "ik",

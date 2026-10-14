@@ -14,12 +14,12 @@ scene_sampling: fps
 keypose_only: false
 denoise_timesteps: 5
 denoise_model: rectified_flow
-batch_size: 64
+batch_size: 128
 batch_size_val: 64
 lr: 0.0003
 backbone_lr: 0.0003
 wd: 0.005
-train_iters: 100000
+train_iters: 62500
 head_positional_encoding: rope3d
 miscal_cameras: [0, 1]
 view_align_mode: rope_6d
@@ -35,4 +35,4 @@ video_deltam_full_image: true
 video_deltam_patch_rope3d: true
 video_deltam_time_embedding: false
 flow_prediction: x0
-interm_ckpt_interval_steps: 5000
+interm_ckpt_interval_steps: 2500
