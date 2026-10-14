@@ -1,18 +1,18 @@
 # grogu status
 
-Updated 2026-10-14 14:06 EDT at 5ea22cc.
+Updated 2026-10-14 14:16 EDT at d39a52a.
 
 ```
 4030169 exp10a_chunk8_deltam PENDING  0:00 (Dependency)
-4030168 exp10a_chunk8_deltam RUNNING grogu-2-30 1:52:17 grogu-2-30
+4030168 exp10a_chunk8_deltam RUNNING grogu-2-30 2:02:31 grogu-2-30
 4030173 exp10b_chunk8_fullpatch_refine PENDING  0:00 (Dependency)
-4030172 exp10b_chunk8_fullpatch_refine RUNNING grogu-2-30 43:45 grogu-2-30
+4030172 exp10b_chunk8_fullpatch_refine RUNNING grogu-2-30 53:59 grogu-2-30
 4030175 exp10c_chunk8_fullpatch_refine_x0 PENDING  0:00 (Dependency)
-4030174 exp10c_chunk8_fullpatch_refine_x0 RUNNING grogu-2-30 43:45 grogu-2-30
+4030174 exp10c_chunk8_fullpatch_refine_x0 RUNNING grogu-2-30 53:59 grogu-2-30
 4030177 exp10d_chunk8_fullpatch_refine_rel PENDING  0:00 (Dependency)
-4030176 exp10d_chunk8_fullpatch_refine_rel RUNNING grogu-4-8 42:15 grogu-4-8
+4030176 exp10d_chunk8_fullpatch_refine_rel RUNNING grogu-4-8 52:29 grogu-4-8
 4030171 exp10e_chunk8_rel PENDING  0:00 (Dependency)
-4030170 exp10e_chunk8_rel RUNNING grogu-2-30 1:52:17 grogu-2-30
+4030170 exp10e_chunk8_rel RUNNING grogu-2-30 2:02:31 grogu-2-30
 4030179 exp10f_chunk8_pooled_refine PENDING  0:00 (Dependency)
 4030178 exp10f_chunk8_pooled_refine PENDING  0:00 (Priority)
 4030035_[0-1] exp10_heldout_g4_15_20_v02 PENDING  0:00 (JobHeldUser)
@@ -69,9 +69,9 @@ Updated 2026-10-14 14:06 EDT at 5ea22cc.
 
 | run | newest interm_step | last.pth iter |
 |---|---|---|
-| peract2_orbital_handover_dense_chunk8_deltam | interm_step_30000.pth | 39300 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_15000.pth | 19200 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine_rel | interm_step_15000.pth | 18900 |
-| peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_15000.pth | 19200 |
+| peract2_orbital_handover_dense_chunk8_deltam | interm_step_40000.pth | 41000 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_15000.pth | 19900 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine_rel | interm_step_15000.pth | 19600 |
+| peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_15000.pth | 19900 |
 | peract2_orbital_handover_dense_chunk8_pooled_refine | interm_step_15000.pth | 16700 |
-| peract2_orbital_handover_dense_chunk8_rel | interm_step_40000.pth | 41500 |
+| peract2_orbital_handover_dense_chunk8_rel | interm_step_40000.pth | 43400 |
