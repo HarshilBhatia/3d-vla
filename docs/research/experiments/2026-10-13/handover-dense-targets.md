@@ -73,3 +73,12 @@ The upstream 3DFA repo trains PerAct2 keypose-only (`keypose_only=true`, 1-step 
 | 8d chunk, IK, execute 4 | 87% | 87% | 0% |
 
 Dense single-task Base policies work once the 8 steps are actually sampled: the fixed-time chunk executed in full is best, on par with the 13-task keypose models on this task (87–99%). Every variant collapses at 60/60, where keypose control A keeps 66%. A held-out G4 sweep from 10/10 to 50/50 (`exp8_sweep_*`, jobs 4028530–32) will show where the drop happens.
+
+### Held-out G4 miscalibration sweep (100 rollouts each)
+
+| | cal | 10/10 | 15/15 | 20/20 | 30/30 | 40/40 | 50/50 | 60/60 |
+|---|---|---|---|---|---|---|---|---|
+| 8d chunk, IK | 91 | 94 | 85 | 84 | 72 | 48 | 7 | 1 |
+| 8c keypose path, planner | 77 | 76 | 74 | 69 | 63 | 56 | 22 | 1 |
+
+Graceful to 30/30, a cliff between 40 and 60.
