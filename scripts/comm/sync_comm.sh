@@ -25,7 +25,7 @@ mkdir -p docs/comm
     echo "|---|---|---|---|---|---|---|"
     squeue -h -u "$USER" -o "%i %j %T %N" 2>/dev/null | grep -E " exp10[a-f]_" | sort -k2 | while read j n st node; do
         gpu=$( [[ -n $node && $node != "(null)" ]] && sinfo -h -N -n "${node%%,*}" -o %f 2>/dev/null | head -1 )
-        p=$(tr '\r' '\n' < "logs/train/slurm-fixedbias-randall-$j.err" 2>/dev/null | grep -oE '[0-9]+/[0-9]+ \[[^]]*\]' | tail -1)
+        p=$({ tr '\r' '\n' < "logs/train/slurm-fixedbias-randall-$j.err"; } 2>/dev/null | grep -oE '[0-9]+/[0-9]+ \[[^]]*\]' | tail -1)
         echo "| $j | $n | $st | ${node:--} | ${gpu:--} | ${p%% \[*} | $(echo "$p" | grep -oE '[0-9.]+it/s' || echo -) |"
     done
     echo
