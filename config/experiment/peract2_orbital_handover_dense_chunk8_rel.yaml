@@ -1,0 +1,28 @@
+# Exp 10e: 8d (Base, no history, no delta_M) with relative actions.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+proprio_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: false
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 64
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 15000
+head_positional_encoding: rope3d
+miscal_cameras: [0, 1]
+visual_num_history: 1
+view_align_mode: none
+relative_action: true
+interm_ckpt_interval_steps: 5000

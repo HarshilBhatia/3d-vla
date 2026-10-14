@@ -164,6 +164,10 @@ class BaseDataset(Dataset):
         return torch.stack([state if state is not None else fallback for state in states])
 
     def _get_proprioception_hist(self, idx):
+        proprio = dict(self.annos.attrs).get('proprio') if hasattr(self.annos, 'attrs') else None
+        if proprio == 'timestep':
+            # Dense chunk zarrs store the stride-matched window (t-2s, t-s, t); a row-by-row window would be 1 step apart.
+            return self._get_proprioception(idx)
         single = self._get_dense_proprio_hist if 'is_keyframe' in self.annos else self._get_single_proprio_hist
         return torch.stack([
             single(idx + i)

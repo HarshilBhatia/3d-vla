@@ -1,0 +1,49 @@
+# exp10f_chunk8_pooled_refine from scratch, 2 nodes x 1 GPU on all; twin of the single-node 2-GPU job, first to start wins; resumes from last.pth.
+partition: all
+nodes: 2
+gpus_per_node: 1
+cpus_per_task: 8
+mem_per_cpu: 12G
+walltime: "1-00:00:00"
+
+# Tried in order; one GPU type per allocation, so every rank steps at the same speed.
+constraints:
+  - A6000
+  - A5000
+
+pend_timeout_seconds: 3600
+max_requeues_per_constraint: 3
+
+ckpt_dir: /home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_handover_dense_chunk8_pooled_refine
+ckpt_interval_seconds: 600
+signal_lead_seconds: 120
+
+# One GPU per node lands on nodes other jobs mostly fill; ~5M trainable params make cross-rack bandwidth enough.
+max_node_load: 0.9
+min_busbw: 1.0
+min_free_gb: 20.0
+allow_heterogeneous: false
+
+train_cmd: >-
+  bash -lc 'source /home/harshilb/miniconda3/etc/profile.d/conda.sh
+  && conda activate 3dfa
+  && cd /home/harshilb/3dfa_unified
+  && export PYTHONPATH=/home/harshilb/3dfa_unified:$PYTHONPATH BLOSC_NTHREADS=1
+  && scripts/train/claim_run.sh /home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_handover_dense_chunk8_pooled_refine
+  && exec python main.py
+  data=orbital_peract2_nfs experiment=peract2_orbital_handover_dense_chunk8_pooled_refine
+  train_data_dir=/grogu/datasets/hbhatia/3dfa_dense/handover_chunk8/train.zarr
+  eval_data_dir=/grogu/datasets/hbhatia/3dfa_dense/handover_chunk8/val.zarr
+  exp_log_dir=PerAct2 run_log_dir=peract2_orbital_handover_dense_chunk8_pooled_refine
+  miscal_mode=group miscal_group_level=medium
+  miscal_group_file=instructions/orbital_miscalibration_noise_bimanual_external_only.json
+  miscal_cameras=[0,1] perturbation_noise_rot_deg=3.0 perturbation_noise_trans_m=0.01
+  video_deltam_cache_batches=0
+  num_workers=6 prefetch_factor=2
+  checkpoint=/home/harshilb/3dfa_unified/train_logs/PerAct2/peract2_orbital_handover_dense_chunk8_pooled_refine/last.pth'
+
+log_dir: logs/multinode
+runlog: logs/multinode/runs.jsonl
+env:
+  PYTHONUNBUFFERED: "1"
+  PATH: "/home/harshilb/miniconda3/envs/3dfa/bin:/usr/local/bin:/usr/bin:/bin:/usr/local/sbin:/usr/sbin:/sbin"
