@@ -21,9 +21,15 @@ mkdir -p docs/comm
     echo
     echo "Updated $(date '+%Y-%m-%d %H:%M %Z') at $(git rev-parse --short HEAD)."
     echo
-    echo '```'
-    squeue -h -u "$USER" -o "%i %j %T %N %M %R" 2>/dev/null | grep -E " exp10" | sort -k2 || true
-    echo '```'
+    echo "| job | run | state | node | GPU | progress (this launch) | speed |"
+    echo "|---|---|---|---|---|---|---|"
+    squeue -h -u "$USER" -o "%i %j %T %N" 2>/dev/null | grep -E " exp10[a-f]_" | sort -k2 | while read j n st node; do
+        gpu=$( [[ -n $node && $node != "(null)" ]] && sinfo -h -N -n "${node%%,*}" -o %f 2>/dev/null | head -1 )
+        p=$({ tr '\r' '\n' < "logs/train/slurm-fixedbias-randall-$j.err"; } 2>/dev/null | grep -oE '[0-9]+/[0-9]+ \[[^]]*\]' | tail -1)
+        echo "| $j | $n | $st | ${node:--} | ${gpu:--} | ${p%% \[*} | $(echo "$p" | grep -oE '[0-9.]+it/s' || echo -) |"
+    done
+    echo
+    echo "GPU speed: A5000, A6000 and RTX 3090 train at about the same rate (full-patch history ~1.15-1.2 it/s at 32/GPU); Turing nodes (rtx6000, rtx2080ti) are ~4x slower and are excluded."
     echo
     echo "| run | newest interm_step | last.pth iter |"
     echo "|---|---|---|"
