@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "campaign_id": "exp10_heldout_g4_30_60_v08s3",
+  "description": "8d seed 1 at 50k, heldout_g4_30_60: sharded (EVAL_DEMO_SHARD) to finish sooner; aggregate shards by demo.",
+  "calibration_registry": "instructions/eval_calibrations_idlt_scaled_extreme_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {
+      "id": "exp8d_seed1_seed1_s50k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_base_chunk8_stepfix_seed1/interm_step_50000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "eval_controller": "ik",
+        "max_steps": 60,
+        "prediction_len": 8,
+        "visual_num_history": 1,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_handover_item": {
+      "id": "g4_task_heldout_group",
+      "spawn_camera_group": "G4",
+      "regime": "task_heldout_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_handover_item": [
+      "seen-g4-medium-unknown-e30deg-t30cm-v01",
+      "seen-g4-medium-unknown-e40deg-t40cm-v01",
+      "seen-g4-medium-unknown-e50deg-t50cm-v01",
+      "seen-g4-medium-unknown-e60deg-t60cm-v01"
+    ]
+  },
+  "calibrations": [
+    "unknown-e30deg-t30cm",
+    "unknown-e40deg-t40cm",
+    "unknown-e50deg-t50cm",
+    "unknown-e60deg-t60cm"
+  ],
+  "tasks": [
+    "bimanual_handover_item"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 25
+  }
+}
