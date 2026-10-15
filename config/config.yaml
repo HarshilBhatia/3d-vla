@@ -154,6 +154,8 @@ proprio_context: all
 # C-token adaLN in place of delta_M: none | per_camera | pooled | static_pooled (needs view_align_mode=none)
 camera_adaln: none
 relative_action: false
+# Training-time std (m) of a per-arm xyz offset added to every proprio slot; targets stay at the true absolute pose (0 = off).
+proprio_offset_std: 0.0
 rotation_format: quat_xyzw
 denoise_timesteps: 5
 denoise_model: rectified_flow

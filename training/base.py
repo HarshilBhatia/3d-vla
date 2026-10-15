@@ -831,6 +831,8 @@ class BaseTrainTester:
             action, action_mask, rgbs, rgb2d, pcds, instr, prop = self.prepare_batch(
                 sample, augment=augment
             )
+        if augment and getattr(self.args, "proprio_offset_std", 0.0) > 0:
+            prop, action = offset_proprio(prop, action, self.args.proprio_offset_std, self.args.relative_action)
         if self.args.pre_tokenize:
             with torch.profiler.record_function("step/tokenize"):
                 instr = self.tokenizer(instr).cuda(non_blocking=True)
@@ -1333,3 +1335,14 @@ class BaseTrainTester:
 
 # Compatibility imports for old checkpoints, scripts, and external launchers.
 # New code must import these helpers from data.batch.
+
+
+def offset_proprio(prop, action, std, relative):
+    """Shift each arm's whole proprio history by one random xyz offset; relative targets are re-anchored so the absolute target is unchanged."""
+    off = torch.randn(prop.shape[0], 1, prop.shape[2], 3, device=prop.device, dtype=prop.dtype) * std
+    prop = prop.clone()
+    prop[..., :3] = prop[..., :3] + off
+    if relative:
+        action = action.clone()
+        action[..., :3] = action[..., :3] - off.to(action.dtype)
+    return prop, action

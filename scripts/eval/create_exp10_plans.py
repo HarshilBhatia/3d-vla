@@ -8,7 +8,7 @@ PLANS = ROOT / "instructions/eval_plans"
 TL = "train_logs/PerAct2"
 T = "bimanual_handover_item"
 RUNS = {"10a": ("deltam", 1), "10b": ("fullpatch_refine", 5), "10c": ("fullpatch_refine_x0", 5),
-        "10d": ("fullpatch_refine_rel", 5), "10e": ("rel", 1), "10f": ("pooled_refine", 5), "8d_seed1": ("seed1", 1)}
+        "10d": ("fullpatch_refine_rel", 5), "10e": ("rel", 1), "10f": ("pooled_refine", 5), "8d_seed1": ("seed1", 1), "10g": ("rel_propoffset", 1)}
 RUN_DIR = lambda cfg: "peract2_orbital_handover_dense_base_chunk8_stepfix_seed1" if cfg == "seed1" else f"peract2_orbital_handover_dense_chunk8_{cfg}"
 SEEN_G1 = {"id": "g1_task_seen_group", "spawn_camera_group": "G1", "regime": "task_seen_group", "cameras_file": "instructions/orbital_cameras_grouped.json"}
 
@@ -53,5 +53,10 @@ for version, step, runs in [("v01", 15000, EXP10), ("v02", 50000, EXP10), ("v03"
 
 # 8d seed 1 control at 50k: seen G1 calibrated and held-out G4 calibrated + 10/10.
 kw = dict(step=50000, runs=["8d_seed1"], version="v04")
+plan("idlt_task_heldout_group_v01", "seen_g1_calibrated", ["calibrated"], viewpoint=SEEN_G1, **kw)
+plan("idlt_task_heldout_group_v01", "heldout_g4_cal_10", ["calibrated"] + g4(10), **kw)
+
+# 10g (10e + 2 cm proprio offset) at 50k: seen G1 calibrated and held-out G4 calibrated + 10/10.
+kw = dict(step=50000, runs=["10g"], version="v05")
 plan("idlt_task_heldout_group_v01", "seen_g1_calibrated", ["calibrated"], viewpoint=SEEN_G1, **kw)
 plan("idlt_task_heldout_group_v01", "heldout_g4_cal_10", ["calibrated"] + g4(10), **kw)
