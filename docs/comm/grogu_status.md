@@ -1,11 +1,11 @@
 # grogu status
 
-Updated 2026-10-15 03:19 EDT at c6a1f7a.
+Updated 2026-10-15 03:29 EDT at f594e3b.
 
 | job | run | state | node | GPU | progress (this launch) | speed |
 |---|---|---|---|---|---|---|
 | 4030179 | exp10f_chunk8_pooled_refine | PENDING | - | - |  | - |
-| 4030178 | exp10f_chunk8_pooled_refine | RUNNING | grogu-2-25 | A5000 | 48303/75500 | 1.48it/s |
+| 4030178 | exp10f_chunk8_pooled_refine | RUNNING | grogu-2-25 | A5000 | 49231/75500 | 1.51it/s |
 
 GPU speed: A5000, A6000 and RTX 3090 train at about the same rate (full-patch history ~1.15-1.2 it/s at 32/GPU); Turing nodes (rtx6000, rtx2080ti) are ~4x slower and are excluded.
 
@@ -15,6 +15,6 @@ GPU speed: A5000, A6000 and RTX 3090 train at about the same rate (full-patch hi
 | peract2_orbital_handover_dense_chunk8_fullpatch_refine | interm_step_62500.pth | 62500 |
 | peract2_orbital_handover_dense_chunk8_fullpatch_refine_rel | interm_step_60000.pth | 64600 |
 | peract2_orbital_handover_dense_chunk8_fullpatch_refine_x0 | interm_step_62500.pth | 62500 |
-| peract2_orbital_handover_dense_chunk8_pooled_refine | interm_step_70000.pth | 72800 |
+| peract2_orbital_handover_dense_chunk8_pooled_refine | interm_step_70000.pth | 73700 |
 | peract2_orbital_handover_dense_chunk8_rel | interm_step_50000.pth | 50000 |
-| peract2_orbital_handover_dense_chunk8_rel_propoffset | interm_step_10000.pth | 12700 |
+| peract2_orbital_handover_dense_chunk8_rel_propoffset | interm_step_10000.pth | 14700 |
