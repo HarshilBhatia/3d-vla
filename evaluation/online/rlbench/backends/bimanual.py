@@ -506,7 +506,10 @@ class RLBenchEnv:
                 flush=True,
             )
 
+        shard = os.environ.get("EVAL_DEMO_SHARD")
         for demo_id, demo in enumerate(var_demos):
+            if shard and demo_id % int(shard.split("/")[1]) != int(shard.split("/")[0]):
+                continue  # EVAL_DEMO_SHARD=k/n: run only demos with demo_id % n == k, so one cell can be split across jobs
 
             key = f"var{variation}_demo{demo_id}"
             if progress is not None and key in progress:

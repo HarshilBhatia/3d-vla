@@ -151,6 +151,6 @@ def run_online_evaluation(args: Any, *, model_loader: Callable[[Any], Any]) -> b
     print(f"{task} variation success rates:", round_floats(success_rates))
     print(f"{task} mean success rate:", round_floats(success_rates["mean"]))
     write_json_atomic(output_file, {task: round_floats(success_rates)})
-    if os.path.exists(progress_file):
+    if os.path.exists(progress_file) and not os.environ.get("EVAL_DEMO_SHARD"):  # shards keep per-demo results for aggregation
         os.remove(progress_file)
     return True
