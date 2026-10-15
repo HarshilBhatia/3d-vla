@@ -554,28 +554,22 @@ class RLBenchEnv:
                 # returned windows are oldest→current, exactly matching the
                 # training loader's `_get_single_frame_hist` convention.
                 if history_every_step and between and rgb_history is not None:
-                    rgb_between, pcd_between = zip(*[self.get_rgb_pcd_gripper_from_obs(o)[:2] for o in between[:-1]]) if len(between) > 1 else ((), ())
+                    for o in between[:-1]:
+                        rgb_b, pcd_b = self.get_rgb_pcd_gripper_from_obs(o)[:2]
+                        rgb_history.append(rgb_b.cpu())
+                        pcd_history.append(pcd_b.cpu())
                     between.clear()
-                    if rgb_between:
-                        rgb_history = torch.cat([rgb_history, torch.stack(rgb_between, 1).cuda(non_blocking=True)], dim=1)
-                        pcd_history = torch.cat([pcd_history, torch.stack(pcd_between, 1).cuda(non_blocking=True)], dim=1)
                 if visual_history_sampling == "random":
-                    # Keep every episode frame and draw an unordered history set, as in training.
-                    rgb_history = rgb_current.unsqueeze(1) if rgb_history is None else torch.cat(
-                        (rgb_history, rgb_current.unsqueeze(1)), dim=1
-                    )
-                    pcd_history = pcd_current.unsqueeze(1) if pcd_history is None else torch.cat(
-                        (pcd_history, pcd_current.unsqueeze(1)), dim=1
-                    )
-                    hist_idx = _random_visual_history_indices(rgb_history.shape[1], visual_num_history, history_rng)
-                    rgbs_input = rgb_history[:, hist_idx]
-                    pcds_input = pcd_history[:, hist_idx]
+                    # Keep every episode frame on the CPU and move only the sampled history set to the GPU, as in training.
+                    rgb_history = (rgb_history or []) + [rgb.cpu()]
+                    pcd_history = (pcd_history or []) + [pcd.cpu()]
+                    hist_idx = _random_visual_history_indices(len(rgb_history), visual_num_history, history_rng)
+                    rgbs_input = torch.stack([rgb_history[i] for i in hist_idx], 1).cuda(non_blocking=True)
+                    pcds_input = torch.stack([pcd_history[i] for i in hist_idx], 1).cuda(non_blocking=True)
                     if clean_proprio:
                         # The true-extrinsics cloud follows exactly the same history and indices as the normal one.
-                        clean_history = clean_current.unsqueeze(1) if clean_history is None else torch.cat(
-                            (clean_history, clean_current.unsqueeze(1)), dim=1
-                        )
-                        clean_input = clean_history[:, hist_idx]
+                        clean_history = (clean_history or []) + [clean_current.cpu()]
+                        clean_input = torch.stack([clean_history[i] for i in hist_idx], 1).cuda(non_blocking=True)
                 else:
                     rgbs_input = _append_causal_visual_history(
                         rgb_history, rgb_current, visual_num_history
@@ -630,6 +624,19 @@ class RLBenchEnv:
                     # Execute entire predicted trajectory step by step
                     actions = output[-1].cpu().numpy()
                     actions[..., -1] = actions[..., -1].round()
+                    replay = bool(os.environ.get("EVAL_REPLAY_DEMO")) and step_id < int(os.environ.get("EVAL_REPLAY_UNTIL", 10 ** 9))
+                    if os.environ.get("EVAL_DUMP_OBS") and (step_id == 0 or replay):
+                        # Model inputs and prediction (first query, or every query when replaying the demo) for offline comparison.
+                        os.makedirs(os.environ["EVAL_DUMP_OBS"], exist_ok=True)
+                        torch.save({"rgb": rgbs_input.cpu(), "pcd": pcds_input.cpu(), "proprio": gripper_input.cpu(), "pred": output[-1].cpu()},
+                                   os.path.join(os.environ["EVAL_DUMP_OBS"], f"v{variation}_q{step_id}.pt" if replay else f"v{variation}_ep{len(os.listdir(os.environ['EVAL_DUMP_OBS']))}.pt"))
+                    if replay:
+                        # Execute the stored demo's next poses instead of the prediction, so inputs follow the demo path.
+                        frames = [min(step_id * len(actions) + k, len(demo) - 1) for k in range(1, len(actions) + 1)]
+                        actions = np.stack([np.stack([np.append(demo[f].left.gripper_pose, demo[f].left.gripper_open), np.append(demo[f].right.gripper_pose, demo[f].right.gripper_open)]) for f in frames]).astype(actions.dtype)
+                    if os.environ.get("EVAL_DEBUG_PRED"):
+                        cur = gripper_input[0, -1].reshape(2, 8).cpu().numpy()
+                        print(f"[pred] q{step_id} cur L{cur[0, :3].round(3)} R{cur[1, :3].round(3)} | first L{actions[0, 0, :3].round(3)} R{actions[0, 1, :3].round(3)} | last L{actions[-1, 0, :3].round(3)} R{actions[-1, 1, :3].round(3)} | grip {actions[:, :, -1].T.tolist()}", flush=True)
 
                     # execute
                     if execute_steps is not None:

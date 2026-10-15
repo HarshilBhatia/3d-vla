@@ -1,0 +1,50 @@
+{
+  "schema_version": 1,
+  "campaign_id": "debug_histcpu_smoke_v01",
+  "description": "Debug: smoke test of CPU-side random visual history in the eval loop (10b 55k, 1 rollout, 12 queries).",
+  "calibration_registry": "instructions/eval_calibrations_idlt_v01.json",
+  "output_root": "/grogu/datasets/hbhatia/3dfa_online_eval_100rollouts",
+  "methods": [
+    {
+      "id": "exp10b_fullpatch_refine_s55k_ema",
+      "checkpoint": "train_logs/PerAct2/peract2_orbital_handover_dense_chunk8_fullpatch_refine/interm_step_55000.pth",
+      "overrides": {
+        "eval_weights": "ema",
+        "eval_controller": "ik",
+        "max_steps": 12,
+        "prediction_len": 8,
+        "visual_num_history": 5,
+        "eval_proprio_history_order": "past_to_current"
+      }
+    }
+  ],
+  "task_viewpoints": {
+    "bimanual_handover_item": {
+      "id": "g1_task_seen_group",
+      "spawn_camera_group": "G1",
+      "regime": "task_seen_group",
+      "cameras_file": "instructions/orbital_cameras_grouped.json"
+    }
+  },
+  "task_calibrations": {
+    "bimanual_handover_item": [
+      "calibrated"
+    ]
+  },
+  "calibrations": [
+    "calibrated"
+  ],
+  "tasks": [
+    "bimanual_handover_item"
+  ],
+  "runtime": {
+    "data": "orbital_peract2_nfs",
+    "dataset": "OrbitalPeract2",
+    "bimanual": true,
+    "data_dir": "/grogu/datasets/hbhatia/peract2_test/peract2_test",
+    "headless": true,
+    "max_tries": 1,
+    "eval_use_depth2cloud": true,
+    "num_demos_total": 1
+  }
+}
