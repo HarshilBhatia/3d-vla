@@ -54,6 +54,7 @@ class DenoiseActor(BaseDenoiseActor):
                  video_deltam_prenorm=False,
                  video_deltam_input_skip=False,
                  camera_adaln='none',
+                 proprio_adaln=True,
                  # EE aux head
                  ee_aux=False,
                  ee_aux_weight=1.0,
@@ -115,10 +116,17 @@ class DenoiseActor(BaseDenoiseActor):
             video_deltam_prenorm=video_deltam_prenorm,
             video_deltam_input_skip=video_deltam_input_skip,
             camera_adaln=camera_adaln,
+            proprio_adaln=proprio_adaln,
             ee_aux=ee_aux,
             ee_aux_weight=ee_aux_weight,
             ee_aux_cameras=ee_aux_cameras,
         )
+        if not proprio_adaln:
+            # Proprio reaches the head only through adaLN; with that cut, freeze its now-unused encoders so DDP sees no unused parameters.
+            for mod in (getattr(self.encoder, "curr_gripper_embed", None), getattr(self.encoder, "gripper_context_head", None),
+                        getattr(self.encoder, "proprio_value_mlp", None), self.prediction_head.curr_gripper_emb):
+                if mod is not None:
+                    mod.requires_grad_(False)
         
 
 
@@ -174,6 +182,7 @@ class TransformerHead(BaseTransformerHead):
             video_deltam_prenorm=kwargs.get("video_deltam_prenorm", False),
             video_deltam_input_skip=kwargs.get("video_deltam_input_skip", False),
             camera_adaln=kwargs.get("camera_adaln", "none"),
+            proprio_adaln=kwargs.get("proprio_adaln", True),
             ee_aux=kwargs.get("ee_aux", False),
             ee_aux_weight=kwargs.get("ee_aux_weight", 1.0),
             ee_aux_cameras=kwargs.get("ee_aux_cameras", (0, 1)),

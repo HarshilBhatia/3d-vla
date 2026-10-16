@@ -1,0 +1,37 @@
+# Exp 10h: 10f (8d + mean-pooled random history feeding layer-wise delta_M refine) with proprio removed from the head's adaLN, so the policy sees no arm state.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+proprio_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: false
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 64
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 100000
+head_positional_encoding: rope3d
+miscal_cameras: [0, 1]
+view_align_mode: rope_6d
+view_align_cameras: [0, 1]
+layerwise_view_align: true
+visual_num_history: 5
+visual_history_sampling: random
+visual_history_dense: true
+video_deltam: true
+video_deltam_depth: 4
+video_deltam_max_cameras: 4
+video_deltam_full_image: false
+video_deltam_time_embedding: false
+interm_ckpt_interval_steps: 5000
+proprio_adaln: false

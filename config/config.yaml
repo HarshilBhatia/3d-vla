@@ -151,6 +151,8 @@ video_deltam_prenorm: false
 video_deltam_input_skip: false
 # Proprio encoder scene context: all cameras (all), wrist cameras only (wrist), or none (an MLP on the gripper state). 3D models only.
 proprio_context: all
+# false drops proprio from the head's adaLN signal, so the policy sees no arm state (absolute actions only).
+proprio_adaln: true
 # C-token adaLN in place of delta_M: none | per_camera | pooled | static_pooled (needs view_align_mode=none)
 camera_adaln: none
 relative_action: false

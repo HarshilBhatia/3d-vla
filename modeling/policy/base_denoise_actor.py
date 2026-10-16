@@ -630,6 +630,7 @@ class TransformerHead(nn.Module):
                  video_deltam_prenorm=False,
                  video_deltam_input_skip=False,
                  camera_adaln='none',
+                 proprio_adaln=True,
                  ee_aux=False,
                  ee_aux_weight=1.0,
                  ee_aux_cameras=(0, 1)):
@@ -641,6 +642,8 @@ class TransformerHead(nn.Module):
                                        or head_positional_encoding not in ('rope3d', 'rope3d_proprio')):
             raise ValueError("camera_adaln replaces view alignment: needs view_align_mode=none and a rope3d* head")
         self.camera_adaln = camera_adaln
+        # False drops proprio from the adaLN signal (its only route into the head for absolute actions).
+        self.proprio_adaln = proprio_adaln
         # Eval-only switch set by the eval loader (none | delta_m_identity | camera_adaln_zero); never trained with.
         self.eval_ablation = 'none'
 
@@ -1285,6 +1288,8 @@ class TransformerHead(nn.Module):
             - time_feats: (B, F)
         """
         time_feats = self.time_emb(timestep)
+        if not self.proprio_adaln:
+            return time_feats
         proprio_feats = proprio_feats.flatten(1)
         curr_gripper_feats = self.curr_gripper_emb(proprio_feats)
         return time_feats + curr_gripper_feats
