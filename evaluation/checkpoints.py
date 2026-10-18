@@ -38,8 +38,10 @@ def _non_frozen_checkpoint_incompatibilities(model, incompatible):
     must never be hidden by ``strict=False``.
     """
     frozen_prefixes = ("encoder.backbone.", "encoder.text_encoder.", "encoder.normalize.")
+    # Parameters the architecture freezes (e.g. the proprio path under proprio_adaln=false) are never saved, so their absence is expected.
+    frozen = {name for name, p in model.named_parameters() if not p.requires_grad}
     return (
-        [key for key in incompatible.missing_keys if not key.startswith(frozen_prefixes)],
+        [key for key in incompatible.missing_keys if not key.startswith(frozen_prefixes) and key not in frozen],
         [key for key in incompatible.unexpected_keys if not key.startswith(frozen_prefixes)],
     )
 
