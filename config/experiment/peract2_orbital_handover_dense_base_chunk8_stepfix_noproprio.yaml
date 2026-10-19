@@ -1,0 +1,27 @@
+# Exp 10i: 8d (dense handover, next-8-step chunk, Base, absolute) with proprio removed from the head's adaLN, so the policy sees no arm state.
+dataset: OrbitalPeract2
+model_type: denoise3d
+bimanual: true
+backbone: siglip2
+text_backbone: null
+visual_num_history: 1
+proprio_num_history: 3
+embedding_dim: 120
+num_attn_heads: 6
+num_vis_instr_attn_layers: 3
+num_shared_attn_layers: 4
+fps_subsampling_factor: 5
+scene_sampling: fps
+keypose_only: false
+denoise_timesteps: 5
+denoise_model: rectified_flow
+batch_size: 128
+batch_size_val: 64
+lr: 0.0003
+backbone_lr: 0.0003
+wd: 0.005
+train_iters: 50000
+head_positional_encoding: rope3d
+view_align_mode: none
+miscal_cameras: [0, 1]
+proprio_adaln: false
